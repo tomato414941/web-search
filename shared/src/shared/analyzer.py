@@ -1,4 +1,9 @@
-"""Japanese Text Analyzer using SudachiPy."""
+"""
+Japanese Text Analyzer (Shared Kernel)
+
+Tokenizes Japanese text using SudachiPy for FTS5 indexing.
+Used by both Frontend (Search) and Indexer services.
+"""
 
 from sudachipy import Dictionary, SplitMode
 

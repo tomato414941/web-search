@@ -6,7 +6,7 @@ import sqlite3
 from app.core.config import settings
 from shared.db.search import open_db, upsert_page
 from app.services.embedding import embedding_service
-from app.services.analyzer import analyzer
+from shared.analyzer import analyzer
 
 logger = logging.getLogger(__name__)
 

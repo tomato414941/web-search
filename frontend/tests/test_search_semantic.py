@@ -5,7 +5,7 @@ from unittest.mock import patch
 from frontend.core.db import open_db, upsert_page
 from frontend.services.search import SearchService
 from frontend.services.embedding import embedding_service
-from frontend.indexer.analyzer import analyzer
+from shared.analyzer import analyzer
 
 
 @pytest.fixture

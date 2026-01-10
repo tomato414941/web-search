@@ -4,7 +4,7 @@ from typing import Generator
 
 from frontend.core.db import open_db, upsert_page
 from frontend.services.search import SearchService
-from frontend.indexer.analyzer import analyzer
+from shared.analyzer import analyzer
 
 
 # Fixture to create a temporary database for testing

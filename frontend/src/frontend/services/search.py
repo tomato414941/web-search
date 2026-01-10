@@ -58,7 +58,7 @@ class SearchService:
 
         # Tokenize query for FTS5 (unicode61)
         # If we didn't tokenize, "今日は" would be one token and fail to match "今日 は".
-        from frontend.indexer.analyzer import analyzer
+        from shared.analyzer import analyzer
 
         analyzed_q = analyzer.tokenize(q)
 
@@ -174,7 +174,7 @@ class SearchService:
 
                     # For vector search, we should highlight the original query terms?
                     # Or analyze them? Let's analyze them to match what likely matched.
-                    from frontend.indexer.analyzer import analyzer
+                    from shared.analyzer import analyzer
 
                     analyzed_q_vec = analyzer.tokenize(q)
                     search_terms_vec = analyzed_q_vec.split()
