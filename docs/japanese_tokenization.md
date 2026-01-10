@@ -9,7 +9,7 @@ The search engine supports identifying and tokenizing Japanese text to provide a
 ### 1. Tokenizer: SudachiPy
 Unlike English, Japanese text does not use spaces to separate words. We use **SudachiPy** with the `sudachidict_core` dictionary to split Japanese sentences into tokens.
 
-**Code Location**: `src/web_search/indexer/analyzer.py`
+**Code Location**: `frontend/src/frontend/indexer/analyzer.py`
 
 When a Japanese sentence like `東京都へ行く` is indexed, it is converted to space-separated tokens: `東京都 へ 行く`.
 

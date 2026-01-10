@@ -4,45 +4,41 @@ The `web-search` project follows a **Modular Monolith** architecture designed fo
 
 ## High-Level Design
 
-The system consists of three main subsystems:
+The system is a **Distributed System** managed in a Monorepo, consisting of improved isolation:
 
-1.  **Web API (FastAPI)**: Handles user requests, search queries, and serves the UI.
-2.  **Crawler (Async Worker)**: Background process that discovers, fetches, and parses web pages.
-3.  **Indexer & Search Core**: Business logic for processing content (tokenization, embedding) and retrieving it (FTS5, Vector Search).
+1.  **Frontend Service (Web Node)**: 
+    - Pure FastAPI + SQLite (FTS5). 
+    - **No Redis Dependency**: Authentication is stateless (HMAC).
+    - Serves UI and JSON API.
+2.  **Crawler Service (Worker Node)**: 
+    - Independent FastAPI Microservice.
+    - Manages its own sidecar **Redis** for the crawl frontier.
+    - Sends data to Frontend via HTTP (Indexer API).
+3.  **Shared Library (`shared`)**:
+    - Common Core (Config, Logging, Utils).
+    - Shared Database Schemas (SQLite models).
 
 ```mermaid
 graph TD
-    Client[User / Browser] --> API[Web API (FastAPI)]
-    API --> SearchSvc[Search Service]
-    API --> StatsSvc[Stats Service]
-
-    subgraph Core Logic
-        SearchSvc --> DB[(SQLite FTS5)]
-        SearchSvc --> Embed[Embedding Service]
-        Indexer[Indexer Service] --> DB
-        Indexer --> Embed
-    end
-
-    subgraph Crawler System
-        Scheduler[Crawl Scheduler] --> Redis[(Redis Frontier)]
-        Worker[Async Worker] --> Redis
-        Worker --> Parser[HTML Parser]
-        Parser --> Indexer
+    Client[User / Browser] --> Frontend[Frontend Service (8080)]
+    Frontend --> SQLite[(SQLite FTS5)]
+    
+    subgraph Crawler Node
+        Crawler[Crawler Service] --> Redis[(Redis Frontier)]
+        Crawler -- HTTP POST --> Frontend
     end
 ```
 
 ## Directory Structure
 
-The source code is located in `src/web_search` and organized by **Domain/Layer**:
+The project uses a **Folder-Separated Monorepo** pattern:
 
-| Directory | Purpose | Key Components |
-| :--- | :--- | :--- |
-| `api/` | **Presentation Layer**. Handles HTTP requests. | `main.py`, `routers/` |
-| `services/` | **Business Logic Layer**. Orchestrates operations. | `search.py`, `ranking.py`, `embedding.py` |
-| `crawler/` | **Crawling Subsystem**. Fetches content. | `scheduler.py`, `worker.py`, `parser.py` |
-| `indexer/` | **Indexing Subsystem**. Processes raw data. | `service.py`, `analyzer.py` |
-| `db/` | **Infrastructure Layer**. Data access details. | `sqlite.py`, `redis.py` |
-| `core/` | **Cross-cutting Concerns**. Config & Utils. | `config.py`, `utils.py` |
+| Directory | Package Name | Purpose | Key Components |
+| :--- | :--- | :--- | :--- |
+| `frontend/` | `frontend` | **Web Node**. UI & Search API. | `api/main.py`, `templates/`, `static/` |
+| `crawler/` | `app` | **Worker Node**. Fetching & Parsing. | `api/routes/`, `workers/`, `main.py` |
+| `shared/` | `shared` | **Kernel**. Shared logic. | `core/config.py`, `db/sqlite.py` |
+| `deployment/` | - | **IaC**. Docker & Configs. | `docker-compose.yml`, `.env.example` |
 
 ## Key Design Patterns
 
