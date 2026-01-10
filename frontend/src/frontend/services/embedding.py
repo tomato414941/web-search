@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from openai import OpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
-from shared.core.config import settings
+from frontend.core.config import settings
 
 logger = logging.getLogger(__name__)
 

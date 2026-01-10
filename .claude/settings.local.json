@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /s /b C:projectsweb-search)",
+      "Bash(python:*)",
+      "Bash(set PYTHONPATH=shared/src)",
+      "Bash(frontend/src)",
+      "Bash(crawler/src)",
+      "Bash(PYTHONPATH=\"shared/src:frontend/src:crawler/src\" python:*)",
+      "Bash(\".venv/Scripts/python\" -c \"import sys; print\\(''\\\\n''.join\\(sys.path\\)\\)\")",
+      "Bash(\".venv/Scripts/pip\" list)",
+      "Bash(\".venv/Scripts/pip\" show shared frontend)",
+      "Bash(\".venv/Scripts/pip\" install -e shared/)",
+      "Bash(PYTHONPATH=src \".venv/../.venv/Scripts/python\" -m pytest:*)",
+      "Bash(PYTHONPATH=src \"C:\\\\projects\\\\web-search\\\\.venv\\\\Scripts\\\\python\" -m pytest:*)",
+      "Bash(\"C:\\\\projects\\\\web-search\\\\.venv\\\\Scripts\\\\pip\" list)",
+      "Bash(PYTHONPATH=\"shared/src:frontend/src:crawler/src\" python3:*)",
+      "Bash(where:*)",
+      "Bash(export PYTHONPATH=\"shared/src:frontend/src:crawler/src\")"
+    ]
+  }
+}

@@ -1,4 +1,3 @@
-import math
 from typing import Iterable, Optional, cast
 from urllib.parse import urlparse
 
@@ -42,57 +41,6 @@ def get_domain(url: str) -> str:
         return urlparse(url).netloc
     except Exception:
         return ""
-
-
-def calculate_score(url: str, parent_score: float, domain_visits: int) -> float:
-    """
-    DEPRECATED: This function has been moved to crawler.domain.scoring.
-
-    Please use app.domain.scoring.calculate_url_score() instead.
-    This function will be removed in a future version.
-
-    Calculate URL priority score based on:
-    1. Parent Score (Inheritance)
-    2. Domain Freshness (Log decay)
-    3. URL Depth (Hierarchy)
-    4. Path Keywords (Utility)
-    """
-    import warnings
-
-    warnings.warn(
-        "calculate_score() is deprecated. Use app.domain.scoring.calculate_url_score() instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    # Keep implementation for backward compatibility
-    # 1. Inheritance
-    base = parent_score * 0.9
-
-    # 2. Domain Freshness
-    # 1st visit: 1.0, 10th: ~0.5, 100th: ~0.33
-    domain_factor = 1.0 / (1.0 + math.log10(domain_visits + 1))
-
-    # 3. URL Depth
-    # Penalize deep hierarchy
-    path = urlparse(url).path
-    depth = max(0, path.count("/") - 1)
-    depth_factor = 0.9**depth
-
-    # 4. Path Keywords
-    path_lower = path.lower()
-    path_factor = 1.0
-    if "list" in path_lower or "index" in path_lower or "category" in path_lower:
-        path_factor = 1.2
-    if (
-        "login" in path_lower
-        or "signup" in path_lower
-        or "archive" in path_lower
-        or "tag" in path_lower
-    ):
-        path_factor = 0.5
-
-    return base * domain_factor * depth_factor * path_factor
 
 
 def enqueue_batch(

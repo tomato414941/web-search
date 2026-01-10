@@ -2,7 +2,7 @@ import sqlite3
 import os
 import numpy as np
 from typing import Any
-from shared.core.config import settings
+from frontend.core.config import settings
 from frontend.services.embedding import embedding_service
 
 SEARCH_SQL = """

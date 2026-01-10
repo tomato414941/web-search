@@ -10,7 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi.errors import RateLimitExceeded
 
-from shared.core.config import settings
+from frontend.core.config import settings
 from shared.db.sqlite import ensure_db
 from frontend.api.routers import search, stats, crawler, system, admin, indexer
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
@@ -136,7 +136,7 @@ app.include_router(admin.router)
 
 if __name__ == "__main__":
     uvicorn.run(
-        "web_search.api.main:app",
+        "frontend.api.main:app",
         host=settings.HOST,
         port=settings.PORT,
         reload=settings.DEBUG,

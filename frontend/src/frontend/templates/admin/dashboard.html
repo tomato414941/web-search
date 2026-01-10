@@ -1,0 +1,52 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Pale Blue Search Admin</h1>
+        <div class="nav">
+            <a href="/admin/" class="active">Dashboard</a>
+            <a href="/admin/seeds">Seed URLs</a>
+            <a href="/admin/history">History</a>
+            <a href="/admin/logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Statistics</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(stats.indexed_pages) }}</div>
+                <div class="label">Indexed Pages</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(stats.queue_size) }}</div>
+                <div class="label">Queue Size</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(stats.visited_count) }}</div>
+                <div class="label">Visited URLs</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>System Status</h2>
+        <table>
+            <tr><th>Last Crawl</th><td>{{ stats.last_crawl or "Never" }}</td></tr>
+            <tr><th>Crawler API</th><td>{{ crawler_url }}</td></tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Quick Actions</h2>
+        <div class="form-row">
+            <a href="/admin/seeds"><button>Manage Seed URLs</button></a>
+            <a href="/"><button>View Search</button></a>
+            <a href="/api/stats"><button>API Stats</button></a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -2,7 +2,7 @@ import sqlite3
 from typing import Dict, Set
 
 from shared.db.sqlite import open_db
-from shared.core.config import settings
+from frontend.core.config import settings
 
 
 class RankingService:

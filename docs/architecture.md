@@ -15,8 +15,8 @@ The system is a **Distributed System** managed in a Monorepo, consisting of impr
     - Manages its own sidecar **Redis** for the crawl frontier.
     - Sends data to Frontend via HTTP (Indexer API).
 3.  **Shared Library (`shared`)**:
-    - Common Core (Config, Logging, Utils).
-    - Shared Database Schemas (SQLite models).
+    - **Lean Kernel**: Only common infrastructure primitives (DB, Logging).
+    - **No Business Logic**: Domain logic (like Scoring) lives in services.
 
 ```mermaid
 graph TD
@@ -27,6 +27,8 @@ graph TD
         Crawler[Crawler Service] --> Redis[(Redis Frontier)]
         Crawler -- HTTP POST --> Frontend
     end
+    
+    Frontend -- HTTP POST --> Crawler[Crawler API (Scoring)]
 ```
 
 ## Directory Structure
@@ -35,9 +37,9 @@ The project uses a **Folder-Separated Monorepo** pattern:
 
 | Directory | Package Name | Purpose | Key Components |
 | :--- | :--- | :--- | :--- |
-| `frontend/` | `frontend` | **Web Node**. UI & Search API. | `api/main.py`, `templates/`, `static/` |
-| `crawler/` | `app` | **Worker Node**. Fetching & Parsing. | `api/routes/`, `workers/`, `main.py` |
-| `shared/` | `shared` | **Kernel**. Shared logic. | `core/config.py`, `db/sqlite.py` |
+| `frontend/` | `frontend` | **Web Node**. UI & Search API. | `core/config.py`, `templates/admin/` |
+| `crawler/` | `app` | **Worker Node**. Fetching & Parsing. | `api/routes/scoring.py`, `main.py` |
+| `shared/` | `shared` | **Lean Kernel**. Infrastructure. | `core/infrastructure_config.py`, `db/` |
 | `deployment/` | - | **IaC**. Docker & Configs. | `docker-compose.yml`, `.env.example` |
 
 ## Key Design Patterns

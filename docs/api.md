@@ -47,6 +47,27 @@ Submit a URL to the crawler frontier.
 }
 ```
 
+### `POST /score/predict`
+Predict the crawler priority score for a URL (Internal API).
+
+**Body:**
+```json
+{
+  "url": "http://example.com/login",
+  "parent_score": 100.0,
+  "visits": 5
+}
+```
+
+**Response:**
+```json
+{
+  "url": "http://example.com/login",
+  "inputs": { ... },
+  "predicted_score": 45.0
+}
+```
+
 ## Stats API
 
 ### `GET /api/stats`

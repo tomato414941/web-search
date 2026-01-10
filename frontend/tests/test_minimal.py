@@ -6,9 +6,9 @@ def test_simple():
     assert 1 + 1 == 2
 
 
-def test_import_shared():
-    """Test importing shared package."""
-    from shared.core.config import settings
+def test_import_frontend_config():
+    """Test importing frontend config."""
+    from frontend.core.config import settings
 
     assert settings is not None
 

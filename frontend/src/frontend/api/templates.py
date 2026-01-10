@@ -1,6 +1,6 @@
 import os
 from fastapi.templating import Jinja2Templates
-from shared.core.config import settings
+from frontend.core.config import settings
 
 # Templates are at src/web_search/templates
 # This file is at src/web_search/api/templates.py -> parent.parent / templates

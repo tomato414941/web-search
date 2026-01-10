@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch
 
 from frontend.api.main import app
-from shared.core.config import settings
+from frontend.core.config import settings
 
 
 client = TestClient(app)

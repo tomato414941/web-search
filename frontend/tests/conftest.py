@@ -32,7 +32,7 @@ def setup_test_env():
     ensure_db(TEST_DB_PATH)
 
     # Patch settings.DB_PATH
-    with patch("shared.core.config.settings.DB_PATH", TEST_DB_PATH):
+    with patch("frontend.core.config.settings.DB_PATH", TEST_DB_PATH):
         # Also patch the instantiated search_service's db_path because it was initialized at import time
         from frontend.services.search import search_service
         from frontend.indexer.service import indexer_service

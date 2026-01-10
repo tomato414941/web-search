@@ -1,0 +1,60 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Crawl History{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Pale Blue Search Admin</h1>
+        <div class="nav">
+            <a href="/admin/">Dashboard</a>
+            <a href="/admin/seeds">Seed URLs</a>
+            <a href="/admin/history" class="active">History</a>
+            <a href="/admin/logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Crawl History</h2>
+        <form method="get" action="/admin/history" class="form-row">
+            <input type="text" name="url" placeholder="Filter by URL..." value="{{ url_filter }}">
+            <button type="submit">Filter</button>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th>Code</th>
+                    <th>URL</th>
+                    <th>Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if history_logs %}
+                    {% for log in history_logs %}
+                    <tr>
+                        <td>{{ log.created_at }}</td>
+                        <td>
+                            {% if log.status == "indexed" %}
+                            <span style="color: #66bb6a">{{ log.status }}</span>
+                            {% elif log.status == "blocked" %}
+                            <span style="color: #ffa726">{{ log.status }}</span>
+                            {% else %}
+                            <span style="color: #ef5350">{{ log.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.http_code or "-" }}</td>
+                        <td>{{ log.url }}</td>
+                        <td>{{ log.error_message or "" }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="5">No logs found</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

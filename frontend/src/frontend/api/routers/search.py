@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Response, Cookie
 from fastapi.responses import JSONResponse, HTMLResponse
 
-from shared.core.config import settings
+from frontend.core.config import settings
 from frontend.i18n.messages import MESSAGES
 from frontend.services.search import search_service
 from frontend.api.templates import templates
@@ -116,24 +116,35 @@ async def api_predict(
 ):
     """
     Predict Crawler Score for a URL.
+
+    Proxies the request to the Crawler Service's scoring endpoint.
+
     Args:
         url: The URL to evaluate
         parent_score: Score of the parent page (default 100.0)
         visits: Number of times this domain has been visited (default 0)
     """
-    # Note: Using deprecated calculate_score for now
-    # Frontend should eventually implement its own scoring if needed
-    import warnings
+    import httpx
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        from shared.db.redis import calculate_score
-
-    score = calculate_score(url, parent_score, visits)
-    return JSONResponse(
-        {
-            "url": url,
-            "inputs": {"parent_score": parent_score, "domain_visits": visits},
-            "predicted_score": round(score, 4),
-        }
-    )
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{settings.CRAWLER_SERVICE_URL}/score/predict",
+                json={
+                    "url": url,
+                    "parent_score": parent_score,
+                    "visits": visits,
+                },
+            )
+            if resp.status_code == 200:
+                return JSONResponse(resp.json())
+            else:
+                return JSONResponse(
+                    {"error": "Crawler service error", "detail": resp.text},
+                    status_code=502,
+                )
+    except httpx.RequestError as e:
+        return JSONResponse(
+            {"error": "Crawler service unavailable", "detail": str(e)},
+            status_code=503,
+        )

@@ -64,6 +64,10 @@ cp deployment/crawler/.env.example crawler/.env
 
 Ensure `REDIS_URL` in `crawler/.env` points to your local Redis (e.g., `redis://localhost:6379/0`).
 
+> [!NOTE]
+> When running services manually with `python -m`, variables in `.env` files are **not automatically loaded**. You must export them in your shell or use a tool like `python-dotenv`.
+
+
 ### 3. Running Services (Manually)
 
 You need 3 terminals.

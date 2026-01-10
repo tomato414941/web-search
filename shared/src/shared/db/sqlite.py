@@ -1,5 +1,5 @@
 import sqlite3
-from shared.core.config import settings
+from shared.core.infrastructure_config import settings
 
 SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;

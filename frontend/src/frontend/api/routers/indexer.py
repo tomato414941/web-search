@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, HttpUrl
 from typing import Optional
 
-from shared.core.config import settings
+from frontend.core.config import settings
 from frontend.indexer.service import IndexerService
 
 router = APIRouter(prefix="/api/indexer")

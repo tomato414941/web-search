@@ -3,7 +3,7 @@
 from fastapi.testclient import TestClient
 
 from frontend.api.main import app
-from shared.core.config import settings
+from frontend.core.config import settings
 
 
 client = TestClient(app)

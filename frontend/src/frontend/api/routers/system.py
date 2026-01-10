@@ -4,7 +4,7 @@ import httpx
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from shared.core.config import settings
+from frontend.core.config import settings
 
 router = APIRouter()
 

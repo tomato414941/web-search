@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from shared.db.redis import get_redis
-from shared.core.config import settings
+from frontend.core.config import settings
 from frontend.services.search import search_service
 
 router = APIRouter()

@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from frontend.core.config import settings
 from shared.db.redis import get_redis, enqueue_if_new
 
 router = APIRouter()
@@ -19,7 +20,13 @@ async def api_crawl(req: CrawlRequest):
 
     r = get_redis()
     # Force high priority (score=1000.0)
-    added = enqueue_if_new(r, url, score=1000.0)
+    added = enqueue_if_new(
+        r,
+        url,
+        score=1000.0,
+        queue_key=settings.CRAWL_QUEUE_KEY,
+        seen_key=settings.CRAWL_SEEN_KEY,
+    )
 
     msg = "Queued" if added else "Already seen (skipped)"
     return {"ok": True, "url": url, "message": msg, "added": added}
