@@ -11,7 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi.errors import RateLimitExceeded
 
 from frontend.core.config import settings
-from shared.db.sqlite import ensure_db
+from frontend.core.db import ensure_db
 from frontend.api.routers import search, search_api, stats, crawler, system, admin, indexer
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware

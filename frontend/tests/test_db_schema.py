@@ -1,6 +1,6 @@
 import sqlite3
 import pytest
-from shared.db.sqlite import open_db, upsert_page
+from frontend.core.db import open_db, upsert_page
 
 
 def test_db_creation():

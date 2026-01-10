@@ -1,7 +1,7 @@
 """Test SQLite database operations."""
 
 import sqlite3
-from shared.db.sqlite import ensure_db, open_db, upsert_page
+from frontend.core.db import ensure_db, open_db, upsert_page
 
 
 class TestDatabaseInitialization:

@@ -2,7 +2,7 @@ import pytest
 import os
 from typing import Generator
 
-from shared.db.sqlite import open_db, upsert_page
+from frontend.core.db import open_db, upsert_page
 from frontend.services.search import SearchService
 from frontend.indexer.analyzer import analyzer
 

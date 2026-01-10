@@ -3,7 +3,7 @@ import time
 import pytest
 import numpy as np
 from unittest.mock import patch
-from shared.db.sqlite import open_db, upsert_page
+from frontend.core.db import open_db, upsert_page
 from frontend.services.search import SearchService
 from frontend.services.embedding import embedding_service
 

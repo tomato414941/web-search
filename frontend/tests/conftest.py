@@ -4,7 +4,7 @@ import os
 import pytest
 import fakeredis
 from unittest.mock import patch
-from shared.db.sqlite import ensure_db
+from frontend.core.db import ensure_db
 
 # Patch DB_PATH to use a test database
 TEST_DB_PATH = "test_search.db"

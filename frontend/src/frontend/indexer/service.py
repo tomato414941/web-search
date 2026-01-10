@@ -2,7 +2,7 @@ import logging
 import sqlite3
 
 from frontend.core.config import settings
-from shared.db.sqlite import open_db, upsert_page
+from frontend.core.db import open_db, upsert_page
 from frontend.services.embedding import embedding_service
 from frontend.indexer.analyzer import analyzer
 

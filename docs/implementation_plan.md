@@ -1,45 +1,24 @@
-# Global API Versioning (v1) Implementation
+# Fix: Configuration Drift & Unused Dependencies
 
 ## Goal
-Standardize all API endpoints in both Frontend and Crawler services to use the `/api/v1` prefix. This improves API design consistency and allows for future versioning.
+Fix critical configuration mismatches between Crawler and Frontend services that prevent local development stability, and remove unused dependencies.
 
 ## User Review Required
-> [!IMPORTANT]
-> **Breaking Change**: All external API calls and environment variables referencing API URLs must be updated to include `/v1`.
-> - `INDEXER_API_URL` -> `.../api/v1/indexer/page`
-> - `CRAWLER_SERVICE_URL` -> Base URL only, code appends `/api/v1/...` or update base? *Decision: Base URL remains host root, code appends `/api/v1`.*
+> [!NOTE]
+> This creates a consistent "out-of-the-box" experience where services can talk to each other locally without complex `.env` setup.
 
 ## Proposed Changes
 
-### 1. Crawler Service (`crawler/src/app/main.py`)
-- Prefix all routers with `/api/v1`.
-    - `crawl` -> `/api/v1` (merges to `/api/v1/urls`)
-    - `worker` -> `/api/v1/worker`
-    - `queue` -> `/api/v1` (merges to `/api/v1/status` etc)
-    - `history` -> `/api/v1/history`
-    - `health` -> `/api/v1/health` (or leave health at root? Usually root or `/health` is standard for probes, but `/api/v1/health` is fine too. Let's keep health global or check user pref. Standard practice: `/health` often global, but app routes under `/api`. Let's put everything under `/api/v1` for consistency as requested "ALL endpoints").
+### 1. Fix Configuration Drift (`crawler/src/app/core/config.py`)
+- **INDEXER_API_URL**: Update default from `http://frontend:5000/api/index` to `http://localhost:8080/api/v1/indexer/page`.
+    - *Rationale*: Matches Frontend's actual default port (8080) and new API versioning.
+- **INDEXER_API_KEY**: Update default from `dev-indexer-key...` to `dev-key`.
+    - *Rationale*: Matches Frontend's default key.
 
-### 2. Frontend Service (`frontend/src/frontend/api/main.py`)
-- Prefix all routers with `/api/v1`.
-    - `search` -> `/api/v1/search`
-    - `crawler` (proxy) -> `/api/v1/crawler/urls`
-    - `stats` -> `/api/v1/stats`
-    - `indexer` -> `/api/v1/indexer`
-    - `admin` -> `/admin` (Keep standard UI routes at root/admin, only API routes get `/api/v1`? likely yes. User said "ALL endpoints", but usually means API endpoints. I will assume UI routes stay as is, API routes move).
+### 2. Remove Unused Dependency (`frontend/requirements.txt`)
+- Remove `redis` line.
+    - *Rationale*: Frontend now uses HTTP API to talk to Crawler; direct Redis access was removed in previous refactoring.
 
-### 3. Internal Clients (Update references)
-- **Frontend** calling **Crawler**:
-    - `frontend/api/routers/admin.py`: Update calls to `/api/v1/...`
-    - `frontend/api/routers/stats.py`: Update calls to `/api/v1/status`
-    - `frontend/api/routers/crawler.py`: Update calls to `/api/v1/urls`
-- **Crawler** calling **Frontend (Indexer)**:
-    - `crawler/services/indexer.py`: No hardcoded path, uses `INDEXER_API_URL`.
-    - **Action**: Update `docker-compose.yml` `INDEXER_API_URL`.
-
-### 4. Configuration Updates
-- `deployment/crawler/docker-compose.yml`: Update `INDEXER_API_URL` to `http://${FRONTEND_IP}:8080/api/v1/indexer/page`
-- `deployment/frontend/docker-compose.yml`: (If it has env vars for crawler, update them).
-
-## Verification Plan
-1. **Local Test**: Run services, curl endpoints with `/api/v1` prefix.
-2. **Integration Test**: Check Admin Dashboard "Seeds" page (calls Frontend API -> Crawler API) and "Stats" page.
+## Verification
+1. **Static Check**: Verify file content.
+2. **Local Run**: `python -m app.main` in crawler should start without crashing on config validation (if any).

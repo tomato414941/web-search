@@ -1,7 +1,7 @@
 import sqlite3
 from typing import Dict, Set
 
-from shared.db.sqlite import open_db
+from frontend.core.db import open_db
 from frontend.core.config import settings
 
 
