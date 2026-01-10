@@ -138,3 +138,23 @@ jobs:
           labels: ${{ steps.meta-crawler.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Extract metadata (Indexer)
+        id: meta-indexer
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-indexer
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=
+
+      - name: Build and push Indexer Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./indexer/Dockerfile
+          push: true
+          tags: ${{ steps.meta-indexer.outputs.tags }}
+          labels: ${{ steps.meta-indexer.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

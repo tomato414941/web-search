@@ -8,9 +8,9 @@ This directory contains the files needed for production deployment.
 deployment/
 ├── README.md               # This file
 ├── .gitignore             # Git ignore patterns
-├── frontend/              # Frontend Server
+├── frontend/              # Search Cluster (Frontend + Indexer)
 │   ├── .env.example       # Environment variables template
-│   └── docker-compose.yml # Docker Compose configuration
+│   └── docker-compose.yml # Docker Compose (Frontend, Indexer, Redis)
 └── crawler/               # Crawler Server
     ├── .env.example       # Environment variables template
     └── docker-compose.yml # Docker Compose configuration
@@ -18,7 +18,7 @@ deployment/
 
 ## Deployment Steps
 
-### 1. Frontend Server
+### 1. Search Cluster (Frontend + Indexer)
 
 ```bash
 # Clone the repository
