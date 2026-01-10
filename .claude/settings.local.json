@@ -16,7 +16,8 @@
       "Bash(\"C:\\\\projects\\\\web-search\\\\.venv\\\\Scripts\\\\pip\" list)",
       "Bash(PYTHONPATH=\"shared/src:frontend/src:crawler/src\" python3:*)",
       "Bash(where:*)",
-      "Bash(export PYTHONPATH=\"shared/src:frontend/src:crawler/src\")"
+      "Bash(export PYTHONPATH=\"shared/src:frontend/src:crawler/src\")",
+      "Bash(cd:*)"
     ]
   }
 }

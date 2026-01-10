@@ -32,10 +32,8 @@ class CrawlerSettings(InfrastructureSettings):
     ]
     
     # Indexer API (for submitting crawled pages)
-    INDEXER_API_URL: str = os.getenv("INDEXER_API_URL", "http://frontend:5000/api/index")
-    INDEXER_API_KEY: str = os.getenv(
-        "INDEXER_API_KEY", "dev-indexer-key-change-in-prod"
-    )
+    INDEXER_API_URL: str = os.getenv("INDEXER_API_URL", "http://localhost:8080/api/v1/indexer/page")
+    INDEXER_API_KEY: str = os.getenv("INDEXER_API_KEY", "dev-key")
 
 
 settings = CrawlerSettings()

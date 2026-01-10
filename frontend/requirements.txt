@@ -28,6 +28,3 @@ sudachidict_core
 # Test dependencies
 pytest
 pytest-asyncio
-
-# Redis
-redis
