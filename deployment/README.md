@@ -8,17 +8,19 @@ This directory contains the files needed for production deployment.
 deployment/
 ├── README.md               # This file
 ├── .gitignore             # Git ignore patterns
-├── frontend/              # Search Cluster (Frontend + Indexer)
-│   ├── .env.example       # Environment variables template
-│   └── docker-compose.yml # Docker Compose (Frontend, Indexer, Redis)
+├── frontend/              # Search Cluster (Front + Indexer)
+│   ├── .env.example       # Shared environment variables
+│   └── docker-compose.yml # Orchestrator (Frontend, Indexer, Redis)
 └── crawler/               # Crawler Server
-    ├── .env.example       # Environment variables template
-    └── docker-compose.yml # Docker Compose configuration
+    ├── .env.example       # Crawler Config
+    └── docker-compose.yml # Crawler only
 ```
 
 ## Deployment Steps
 
 ### 1. Search Cluster (Frontend + Indexer)
+
+This composes the "Core" of the search engine.
 
 ```bash
 # Clone the repository
@@ -30,9 +32,14 @@ cp .env.example .env
 
 # Edit environment variables (required)
 nano .env
+# ADMIN_PASSWORD=...
+# ADMIN_SESSION_SECRET=...
+# INDEXER_API_KEY=...
+# OPENAI_API_KEY=...
 
-# Pull Docker image
+# Pull Docker images
 docker pull ghcr.io/tomato414941/web-search:latest
+docker pull ghcr.io/tomato414941/web-search-indexer:latest
 
 # Start containers
 docker compose up -d
@@ -41,51 +48,39 @@ docker compose up -d
 docker compose logs -f
 ```
 
-### 2. Crawler Server
+### 2. Crawler Server (Worker)
+
+Only needed if deploying distributed workers on separate machines.
 
 ```bash
 # Clone the repository
-git clone https://github.com/tomato414941/web-search.git
 cd web-search/deployment/crawler
 
 # Create environment file
 cp .env.example .env
 
-# Configure Frontend IP address and API Key
+# Configure Connection to Search Cluster
 nano .env
-# FRONTEND_IP=<Frontend Server IP>
-# CRAWLER_SERVICE_URL=http://<Crawler Server IP>:8000
-# INDEXER_API_KEY=<Secure Random Key>
+# FRONTEND_IP=<Search Cluster IP>
+# CRAWLER_SERVICE_URL=http://<Crawler IP>:8000
+# INDEXER_API_KEY=<Same key as Search Cluster>
 
 # Pull Docker image
 docker pull ghcr.io/tomato414941/web-search-crawler:latest
 
 # Start containers
 docker compose up -d
-
-# View logs
-docker compose logs -f
 ```
 
 ## Environment Variables
 
-See `.env.example` in each directory for detailed configuration options.
+See `.env.example` in each directory.
 
-### Frontend Server
+### Key Variables
 
-Required variables:
-- `ADMIN_PASSWORD` - Admin dashboard password
-- `INDEXER_API_KEY` - API key for crawler authentication
-- `SESSION_SECRET` - Session encryption key
-- `ALLOWED_HOSTS` - Comma-separated list of allowed hostnames
-
-### Crawler Server
-
-### Crawler Server
-
-Required variables:
-- `FRONTEND_IP` - Frontend Server IP address (used to construct `INDEXER_API_URL` and `REDIS_URL`)
-- `INDEXER_API_KEY` - Same value as Frontend Server
+*   `ADMIN_SESSION_SECRET`: Must match between `.env` and `frontend`.
+*   `INDEXER_API_KEY`: Must match between `frontend/.env` (Search Cluster) and `crawler/.env`.
+*   `OPENAI_API_KEY`: Required for semantic search (used by Indexer and Frontend).
 
 ## Update Procedure
 
@@ -93,49 +88,10 @@ Required variables:
 # Pull latest code
 git pull
 
-# Pull latest Docker image
+# Pull latest Docker images
 docker pull ghcr.io/tomato414941/web-search:latest
+docker pull ghcr.io/tomato414941/web-search-indexer:latest
 
 # Recreate containers
 docker compose up -d --force-recreate
 ```
-
-## Troubleshooting
-
-### View Logs
-```bash
-docker compose logs -f
-```
-
-### Restart Containers
-```bash
-docker compose restart
-```
-
-### Complete Reset
-```bash
-docker compose down
-docker compose up -d
-```
-
-### Check Container Status
-```bash
-docker compose ps
-```
-
-### Verify Environment Variables
-```bash
-docker compose exec frontend env | grep -E "ADMIN|API_KEY|ALLOWED"
-```
-
-## Security Considerations
-
-- Store `.env` files securely (they are git-ignored)
-- Generate strong random values for `ADMIN_PASSWORD`, `INDEXER_API_KEY`, and `SESSION_SECRET`
-- Use `openssl rand -base64 32` to generate secure values
-- Ensure `ALLOWED_HOSTS` includes only your production domain
-
-## Support
-
-For issues or questions, please open an issue on GitHub:
-https://github.com/tomato414941/web-search/issues
