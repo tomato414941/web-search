@@ -16,7 +16,7 @@ class TestIndexerAPIAuth:
     def test_index_page_requires_api_key(self):
         """Indexer endpoint should require API key."""
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             json={
                 "url": "https://example.com",
                 "title": "Test",
@@ -29,7 +29,7 @@ class TestIndexerAPIAuth:
     def test_index_page_with_invalid_api_key(self):
         """Invalid API key should be rejected."""
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": "wrong-key"},
             json={
                 "url": "https://example.com",
@@ -44,7 +44,7 @@ class TestIndexerAPIAuth:
     def test_index_page_with_valid_api_key(self):
         """Valid API key should allow indexing."""
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
                 "url": "https://example.com",
@@ -62,7 +62,7 @@ class TestIndexerAPIAuth:
     def test_index_page_with_empty_url(self):
         """Empty URL should be rejected."""
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "", "title": "Test", "content": "Test content"},
         )
@@ -71,7 +71,7 @@ class TestIndexerAPIAuth:
     def test_index_page_with_invalid_url(self):
         """Invalid URL format should be rejected."""
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "not-a-url", "title": "Test", "content": "Test content"},
         )
@@ -81,7 +81,7 @@ class TestIndexerAPIAuth:
         """Missing required fields should be rejected."""
         # Missing title
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "content": "Test content"},
         )
@@ -89,7 +89,7 @@ class TestIndexerAPIAuth:
 
         # Missing content
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "title": "Test"},
         )
@@ -98,7 +98,7 @@ class TestIndexerAPIAuth:
     def test_index_page_with_empty_content(self):
         """Empty content should be accepted but might skip indexing."""
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "title": "Test", "content": ""},
         )
@@ -112,7 +112,7 @@ class TestIndexerAPIAuth:
             mock_index.side_effect = Exception("Database connection failed")
 
             response = client.post(
-                "/api/indexer/page",
+                "/api/v1/indexer/page",
                 headers={"X-API-Key": settings.INDEXER_API_KEY},
                 json={"url": "https://example.com", "title": "Test", "content": "Test"},
             )
@@ -124,7 +124,7 @@ class TestIndexerAPIAuth:
         """Very long content should be handled."""
         long_content = "x" * 100000  # 100KB of content
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
                 "url": "https://example.com",
@@ -141,7 +141,7 @@ class TestIndexerAPIAuth:
             "Test with émojis 🎉 and 特殊文字 <script>alert('xss')</script>"
         )
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
                 "url": "https://example.com",
@@ -159,7 +159,7 @@ class TestIndexerAPIValidation:
     def test_rejects_javascript_protocol(self):
         """JavaScript protocol URLs should be rejected."""
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
                 "url": "javascript:alert('xss')",
@@ -173,7 +173,7 @@ class TestIndexerAPIValidation:
         """Only HTTP and HTTPS protocols should be accepted."""
         # HTTP should work
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "http://example.com", "title": "Test", "content": "Test"},
         )
@@ -181,7 +181,7 @@ class TestIndexerAPIValidation:
 
         # HTTPS should work
         response = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "title": "Test", "content": "Test"},
         )
@@ -193,7 +193,7 @@ class TestIndexerAPIValidation:
 
         # Index first time
         response1 = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": url, "title": "First Title", "content": "First content"},
         )
@@ -201,14 +201,14 @@ class TestIndexerAPIValidation:
 
         # Index second time with different content
         response2 = client.post(
-            "/api/indexer/page",
+            "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": url, "title": "Updated Title", "content": "Updated content"},
         )
         assert response2.status_code == 200
 
         # Search should return updated version
-        search_response = client.get("/api/search?q=unique-test")
+        search_response = client.get("/api/v1/search?q=unique-test")
         if search_response.json()["total"] > 0:
             # If found, should be only one result with updated title
             results = search_response.json()["hits"]
