@@ -30,11 +30,10 @@ services:
       - SEARCH_DB=/data/search.db
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - INDEXER_API_KEY=${INDEXER_API_KEY}
       - SESSION_SECRET=${SESSION_SECRET}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
     volumes:
-      - /data:/data
+      - search-data:/data
     depends_on:
       redis:
         condition: service_healthy
@@ -45,5 +44,27 @@ services:
       retries: 3
       start_period: 40s
 
+  indexer:
+    image: ghcr.io/tomato414941/web-search-indexer:latest
+    container_name: web-search-indexer
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - HOST=0.0.0.0
+      - SEARCH_DB=/data/search.db
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - search-data:/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/api/v1/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
 volumes:
   redis-data:
+  search-data:

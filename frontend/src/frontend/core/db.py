@@ -1,69 +1,16 @@
 """
-SQLite Database Module
+SQLite Database Module (Frontend)
 
-Schema definitions and database operations for the search index.
+Re-exports shared database module for backward compatibility.
+Frontend uses read operations only (CQRS pattern).
 """
 
-import sqlite3
-from frontend.core.config import settings
+# Re-export from shared kernel for backward compatibility
+from shared.db.search import (
+    SCHEMA_SQL,
+    open_db,
+    ensure_db,
+    upsert_page,
+)
 
-SCHEMA_SQL = """
-PRAGMA journal_mode=WAL;
-PRAGMA synchronous=NORMAL;
-
-CREATE VIRTUAL TABLE IF NOT EXISTS pages USING fts5(
-  url UNINDEXED,
-  title,
-  content,
-  raw_title UNINDEXED,
-  raw_content UNINDEXED,
-  tokenize='unicode61'
-);
-
-CREATE TABLE IF NOT EXISTS links (
-  src TEXT,
-  dst TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_links_src ON links(src);
-CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
-
-CREATE TABLE IF NOT EXISTS page_ranks (
-  url TEXT PRIMARY KEY,
-  score REAL
-);
-
-CREATE TABLE IF NOT EXISTS page_embeddings (
-  url TEXT PRIMARY KEY,
-  embedding BLOB
-);
-"""
-
-
-def open_db(path: str = settings.DB_PATH) -> sqlite3.Connection:
-    """Open database connection and ensure schema exists."""
-    con = sqlite3.connect(path)
-    con.executescript(SCHEMA_SQL)
-    return con
-
-
-def ensure_db(path: str = settings.DB_PATH) -> None:
-    """Ensure database file exists with correct schema."""
-    con = open_db(path)
-    con.close()
-
-
-def upsert_page(
-    con: sqlite3.Connection,
-    url: str,
-    title: str,
-    content: str,
-    raw_title: str | None = None,
-    raw_content: str | None = None,
-) -> None:
-    """Insert or update a page in the index."""
-    # For simplicity, delete -> insert for same URL
-    con.execute("DELETE FROM pages WHERE url = ?", (url,))
-    con.execute(
-        "INSERT INTO pages(url,title,content,raw_title,raw_content) VALUES(?,?,?,?,?)",
-        (url, title, content, raw_title or title, raw_content or content),
-    )
+__all__ = ["SCHEMA_SQL", "open_db", "ensure_db", "upsert_page"]

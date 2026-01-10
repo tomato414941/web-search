@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from frontend.core.config import settings
 from frontend.core.db import ensure_db
-from frontend.api.routers import search, search_api, stats, crawler, system, admin, indexer
+from frontend.api.routers import search, search_api, stats, crawler, system, admin
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from frontend.api.metrics import router as metrics_router, MetricsMiddleware
@@ -59,6 +59,7 @@ app = FastAPI(
         {"name": "system", "description": "Health checks and system info"},
         {"name": "crawler", "description": "URL submission and crawl control"},
         {"name": "metrics", "description": "Prometheus metrics"},
+        {"name": "ui", "description": "Web UI endpoints"},
     ],
     license_info={"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
 )
@@ -134,7 +135,6 @@ app.include_router(system.router, prefix="/api/v1", tags=["system"])
 app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
 app.include_router(stats.router, prefix="/api/v1", tags=["system"])
 app.include_router(crawler.router, prefix="/api/v1", tags=["crawler"])
-app.include_router(indexer.router, prefix="/api/v1", tags=["indexer"])
 app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
 
 

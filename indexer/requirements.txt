@@ -1,0 +1,19 @@
+# Indexer Service Requirements
+-e ../shared
+
+# Web Framework
+fastapi
+uvicorn[standard]
+
+# OpenAI Embeddings
+openai
+tenacity
+numpy
+
+# Japanese Tokenization
+sudachipy
+sudachidict_core
+
+# Test dependencies
+pytest
+pytest-asyncio
