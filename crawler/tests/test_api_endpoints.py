@@ -8,8 +8,8 @@ from unittest.mock import patch
 
 
 def test_health_endpoint(test_client):
-    """Test GET /health endpoint"""
-    response = test_client.get("/health")
+    """Test GET /api/v1/health endpoint"""
+    response = test_client.get("/api/v1/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"

@@ -1,3 +1,4 @@
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from frontend.api.main import app
 
@@ -22,13 +23,25 @@ def test_api_crawl_success():
     # Attempt to queue a valid URL
     # We use a unique URL to hopefully trigger "Queued" logic,
     # but even if "Already seen", it returns 200.
-    payload = {"url": "http://test-api.local/new-page"}
-    response = client.post("/api/v1/crawl", json=payload)
-    assert response.status_code == 200
-    data = response.json()
-    assert data["ok"] is True
-    assert data["url"] == "http://test-api.local/new-page"
-    assert "message" in data
+    # Mock the httpx.AsyncClient to simulate successful Crawler response
+    from unittest.mock import MagicMock
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "queued", "added_count": 1, "added": 1}
+
+    with patch("frontend.api.routers.crawler.httpx.AsyncClient") as mock_client:
+        mock_instance = AsyncMock()
+        mock_instance.post.return_value = mock_response
+        mock_client.return_value.__aenter__.return_value = mock_instance
+
+        payload = {"url": "http://test-api.local/new-page"}
+        response = client.post("/api/v1/crawl", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data["url"] == "http://test-api.local/new-page"
+        assert "message" in data
 
 
 def test_api_crawl_empty_url():

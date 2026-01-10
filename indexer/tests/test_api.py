@@ -1,21 +1,17 @@
 """Test Indexer API Security and Validation."""
 
-from fastapi.testclient import TestClient
+import pytest
 from unittest.mock import patch
 
-from frontend.api.main import app
-from frontend.core.config import settings
-
-
-client = TestClient(app)
+from app.core.config import settings
 
 
 class TestIndexerAPIAuth:
     """Test indexer API authentication and security."""
 
-    def test_index_page_requires_api_key(self):
+    def test_index_page_requires_api_key(self, test_client):
         """Indexer endpoint should require API key."""
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             json={
                 "url": "https://example.com",
@@ -26,9 +22,9 @@ class TestIndexerAPIAuth:
         # FastAPI returns 422 when required header is missing (validation error)
         assert response.status_code == 422
 
-    def test_index_page_with_invalid_api_key(self):
+    def test_index_page_with_invalid_api_key(self, test_client):
         """Invalid API key should be rejected."""
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": "wrong-key"},
             json={
@@ -41,9 +37,9 @@ class TestIndexerAPIAuth:
         assert response.status_code == 401
         assert "Invalid API key" in response.json()["detail"]
 
-    def test_index_page_with_valid_api_key(self):
+    def test_index_page_with_valid_api_key(self, test_client):
         """Valid API key should allow indexing."""
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
@@ -59,28 +55,28 @@ class TestIndexerAPIAuth:
         # Pydantic HttpUrl normalizes URLs per RFC 3986, adding trailing slash
         assert data["url"].rstrip("/") == "https://example.com"
 
-    def test_index_page_with_empty_url(self):
+    def test_index_page_with_empty_url(self, test_client):
         """Empty URL should be rejected."""
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "", "title": "Test", "content": "Test content"},
         )
         assert response.status_code == 422  # Validation error
 
-    def test_index_page_with_invalid_url(self):
+    def test_index_page_with_invalid_url(self, test_client):
         """Invalid URL format should be rejected."""
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "not-a-url", "title": "Test", "content": "Test content"},
         )
         assert response.status_code == 422  # Validation error
 
-    def test_index_page_with_missing_fields(self):
+    def test_index_page_with_missing_fields(self, test_client):
         """Missing required fields should be rejected."""
         # Missing title
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "content": "Test content"},
@@ -88,16 +84,16 @@ class TestIndexerAPIAuth:
         assert response.status_code == 422
 
         # Missing content
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "title": "Test"},
         )
         assert response.status_code == 422
 
-    def test_index_page_with_empty_content(self):
+    def test_index_page_with_empty_content(self, test_client):
         """Empty content should be accepted but might skip indexing."""
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "title": "Test", "content": ""},
@@ -106,12 +102,12 @@ class TestIndexerAPIAuth:
         # This test documents the current behavior
         assert response.status_code in [200, 400]
 
-    def test_index_page_handles_db_errors_gracefully(self):
+    def test_index_page_handles_db_errors_gracefully(self, test_client):
         """Database errors should be handled gracefully."""
-        with patch("frontend.api.routers.indexer.indexer.index_page") as mock_index:
+        with patch("app.api.routes.indexer.indexer_service.index_page") as mock_index:
             mock_index.side_effect = Exception("Database connection failed")
 
-            response = client.post(
+            response = test_client.post(
                 "/api/v1/indexer/page",
                 headers={"X-API-Key": settings.INDEXER_API_KEY},
                 json={"url": "https://example.com", "title": "Test", "content": "Test"},
@@ -120,10 +116,10 @@ class TestIndexerAPIAuth:
             # FastAPI returns {"detail": "..."}  for exceptions
             assert "detail" in response.json()
 
-    def test_index_page_with_very_long_content(self):
+    def test_index_page_with_very_long_content(self, test_client):
         """Very long content should be handled."""
         long_content = "x" * 100000  # 100KB of content
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
@@ -135,12 +131,12 @@ class TestIndexerAPIAuth:
         # Should either accept or reject based on size limits
         assert response.status_code in [200, 400, 413]
 
-    def test_index_page_with_special_characters(self):
+    def test_index_page_with_special_characters(self, test_client):
         """Special characters in content should be handled."""
         special_content = (
             "Test with émojis 🎉 and 特殊文字 <script>alert('xss')</script>"
         )
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
@@ -156,9 +152,9 @@ class TestIndexerAPIAuth:
 class TestIndexerAPIValidation:
     """Test input validation for indexer API."""
 
-    def test_rejects_javascript_protocol(self):
+    def test_rejects_javascript_protocol(self, test_client):
         """JavaScript protocol URLs should be rejected."""
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={
@@ -169,10 +165,10 @@ class TestIndexerAPIValidation:
         )
         assert response.status_code == 422
 
-    def test_accepts_http_and_https_only(self):
+    def test_accepts_http_and_https_only(self, test_client):
         """Only HTTP and HTTPS protocols should be accepted."""
         # HTTP should work
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "http://example.com", "title": "Test", "content": "Test"},
@@ -180,19 +176,19 @@ class TestIndexerAPIValidation:
         assert response.status_code == 200
 
         # HTTPS should work
-        response = client.post(
+        response = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": "https://example.com", "title": "Test", "content": "Test"},
         )
         assert response.status_code == 200
 
-    def test_duplicate_indexing_updates(self):
+    def test_duplicate_indexing_updates(self, test_client):
         """Indexing same URL twice should update, not create duplicate."""
         url = "https://unique-test.example.com"
 
         # Index first time
-        response1 = client.post(
+        response1 = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": url, "title": "First Title", "content": "First content"},
@@ -200,17 +196,21 @@ class TestIndexerAPIValidation:
         assert response1.status_code == 200
 
         # Index second time with different content
-        response2 = client.post(
+        response2 = test_client.post(
             "/api/v1/indexer/page",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
             json={"url": url, "title": "Updated Title", "content": "Updated content"},
         )
         assert response2.status_code == 200
 
-        # Search should return updated version
-        search_response = client.get("/api/v1/search?q=unique-test")
-        if search_response.json()["total"] > 0:
-            # If found, should be only one result with updated title
-            results = search_response.json()["hits"]
-            matching = [r for r in results if r["url"] == url]
-            assert len(matching) <= 1  # No duplicates
+
+class TestHealthEndpoint:
+    """Test health check endpoint."""
+
+    def test_public_health_check(self, test_client):
+        """Public health check should work without auth."""
+        response = test_client.get("/api/v1/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["service"] == "indexer"

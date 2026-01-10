@@ -12,7 +12,7 @@ def test_health():
         mock_instance = MockClient.return_value
         mock_instance.__enter__.return_value.get.return_value.status_code = 200
 
-        response = client.get("/health")
+        response = client.get("/api/v1/health")
         assert response.status_code == 200
         data = response.json()
         assert data["ok"] is True
@@ -44,7 +44,7 @@ def test_search_page_lang_ja():
 
 
 def test_search_api_empty_query():
-    response = client.get("/api/search")
+    response = client.get("/api/v1/search")
     assert response.status_code == 200
     data = response.json()
     assert data["hits"] == []
@@ -55,7 +55,7 @@ def test_search_api_with_query():
     # Note: This test relies on the DB state.
     # For a unit test, we might want to mock the search service,
     # but for a simple integration test, we can check the structure.
-    response = client.get("/api/search?q=test")
+    response = client.get("/api/v1/search?q=test")
     assert response.status_code == 200
     data = response.json()
     assert "hits" in data

@@ -35,22 +35,13 @@ def setup_test_env():
     with patch("frontend.core.config.settings.DB_PATH", TEST_DB_PATH):
         # Also patch the instantiated search_service's db_path because it was initialized at import time
         from frontend.services.search import search_service
-        from frontend.indexer.service import indexer_service
-        from frontend.api.routers.indexer import indexer  # Module-level instance
 
         original_search_path = search_service.db_path
-        original_indexer_path = indexer_service.db_path
-        original_router_indexer_path = indexer.db_path
-
         search_service.db_path = TEST_DB_PATH
-        indexer_service.db_path = TEST_DB_PATH
-        indexer.db_path = TEST_DB_PATH
 
         yield
 
         search_service.db_path = original_search_path
-        indexer_service.db_path = original_indexer_path
-        indexer.db_path = original_router_indexer_path
 
     # Cleanup with retry
     if os.path.exists(TEST_DB_PATH):
@@ -70,3 +61,11 @@ def mock_redis_server():
     # Patch redis.Redis.from_url so any call to it returns our fake client
     with patch("redis.Redis.from_url", return_value=r):
         yield r
+
+
+@pytest.fixture
+def test_db_path(tmp_path):
+    """Provide a temporary database path for tests."""
+    db_path = tmp_path / "test.db"
+    yield str(db_path)
+    # Cleanup handled by tmp_path fixture

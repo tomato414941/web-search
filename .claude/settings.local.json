@@ -17,7 +17,14 @@
       "Bash(PYTHONPATH=\"shared/src:frontend/src:crawler/src\" python3:*)",
       "Bash(where:*)",
       "Bash(export PYTHONPATH=\"shared/src:frontend/src:crawler/src\")",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(.venv/Scripts/pytest frontend/tests/ -v --tb=short)",
+      "Bash(pip install:*)",
+      "Bash(PYTHONPATH=\"shared/src:frontend/src:indexer/src\" pytest:*)",
+      "Bash(PYTHONPATH=\"shared/src:indexer/src\" pytest:*)",
+      "Bash(PYTHONPATH=\"../shared/src:src\" pytest:*)",
+      "Bash(pytest:*)"
     ]
   }
 }

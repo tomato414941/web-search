@@ -11,25 +11,25 @@ client = TestClient(app)
 
 def test_search_api_pagination_params():
     # Valid page
-    response = client.get("/api/search?q=test&page=2")
+    response = client.get("/api/v1/search?q=test&page=2")
     assert response.status_code == 200
     data = response.json()
     assert data["page"] == 2
 
     # Invalid page (0 or negative) -> should default to 1 or be handled safely
-    response = client.get("/api/search?q=test&page=0")
+    response = client.get("/api/v1/search?q=test&page=0")
     assert response.status_code == 200
     data = response.json()
     assert data["page"] == 1
 
-    response = client.get("/api/search?q=test&page=-5")
+    response = client.get("/api/v1/search?q=test&page=-5")
     assert response.status_code == 200
     assert response.json()["page"] == 1
 
 
 def test_search_api_page_limit():
     # Requesting a page beyond MAX_PAGE
-    response = client.get(f"/api/search?q=test&page={MAX_PAGE + 10}")
+    response = client.get(f"/api/v1/search?q=test&page={MAX_PAGE + 10}")
     assert response.status_code == 200
     data = response.json()
     assert data["page"] == MAX_PAGE
@@ -37,14 +37,14 @@ def test_search_api_page_limit():
 
 def test_search_api_invalid_page_type():
     # Non-integer page -> should default to 1
-    response = client.get("/api/search?q=test&page=invalid")
+    response = client.get("/api/v1/search?q=test&page=invalid")
     assert response.status_code == 200
     assert response.json()["page"] == 1
 
 
 def test_search_api_limit_param():
     # Valid limit
-    response = client.get("/api/search?q=test&limit=5")
+    response = client.get("/api/v1/search?q=test&limit=5")
     assert response.status_code == 200
     data = response.json()
     assert (
@@ -53,7 +53,7 @@ def test_search_api_limit_param():
     # Actually results might be empty so we check the metadata 'per_page'
 
     # Exceeding MAX_PER_PAGE
-    response = client.get(f"/api/search?q=test&limit={MAX_PER_PAGE + 100}")
+    response = client.get(f"/api/v1/search?q=test&limit={MAX_PER_PAGE + 100}")
     assert response.status_code == 200
     assert response.json()["per_page"] == MAX_PER_PAGE
 
@@ -61,7 +61,7 @@ def test_search_api_limit_param():
 def test_search_api_query_length_truncation():
     # Construct a query longer than MAX_QUERY_LEN
     long_query = "a" * (MAX_QUERY_LEN + 50)
-    response = client.get(f"/api/search?q={long_query}")
+    response = client.get(f"/api/v1/search?q={long_query}")
     assert response.status_code == 200
     # The actual query performed should be truncated
     # Based on app.py logic, it truncates but doesn't necessarily return the truncated query string in the JSON "query" field?
@@ -80,5 +80,5 @@ def test_search_api_query_length_truncation():
 
 def test_search_special_characters():
     # Just ensure it doesn't crash 500
-    response = client.get("/api/search?q=%22%27%3Cscript%3E")
+    response = client.get("/api/v1/search?q=%22%27%3Cscript%3E")
     assert response.status_code == 200
