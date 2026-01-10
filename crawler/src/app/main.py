@@ -23,13 +23,13 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Register routers
-    app.include_router(health.router, tags=["health"])
-    app.include_router(crawl.router, tags=["crawl"])
-    app.include_router(worker.router, prefix="/worker", tags=["worker"])
-    app.include_router(queue.router, tags=["queue"])
-    app.include_router(history.router, tags=["history"])
-    app.include_router(scoring.router, tags=["scoring"])
+    # Register routers with /api/v1 prefix
+    app.include_router(health.router, prefix="/api/v1", tags=["health"])
+    app.include_router(crawl.router, prefix="/api/v1", tags=["crawl"])
+    app.include_router(worker.router, prefix="/api/v1/worker", tags=["worker"])
+    app.include_router(queue.router, prefix="/api/v1", tags=["queue"])
+    app.include_router(history.router, prefix="/api/v1", tags=["history"])
+    app.include_router(scoring.router, prefix="/api/v1", tags=["scoring"])
 
     return app
 

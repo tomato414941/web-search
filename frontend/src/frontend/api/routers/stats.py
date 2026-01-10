@@ -1,20 +1,25 @@
 from fastapi import APIRouter
-from shared.db.redis import get_redis
+import httpx
 from frontend.core.config import settings
 from frontend.services.search import search_service
 
 router = APIRouter()
 
 
-@router.get("/api/stats")
+@router.get("/stats")
 async def api_stats():
     """Return System Stats (Queue, Index, etc.)"""
-    # Redis stats (Frontend's own implementation)
-    r = get_redis()
-    redis_stats = {
-        "queued": r.zcard(settings.CRAWL_QUEUE_KEY),
-        "visited": r.scard(settings.CRAWL_SEEN_KEY),
-    }
+    # Crawler stats (via API)
+    redis_stats = {"queued": 0, "visited": 0}
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/status")
+            if resp.status_code == 200:
+                data = resp.json()
+                redis_stats["queued"] = data.get("queued", 0)
+                redis_stats["visited"] = data.get("visited", 0)
+    except Exception:
+        pass
 
     # DB stats (delegated to search service)
     db_stats = search_service.get_index_stats()

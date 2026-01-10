@@ -54,7 +54,8 @@ cp .env.example .env
 # Configure Frontend IP address and API Key
 nano .env
 # FRONTEND_IP=<Frontend Server IP>
-# INDEXER_API_KEY=<Same value as Frontend>
+# CRAWLER_SERVICE_URL=http://<Crawler Server IP>:8000
+# INDEXER_API_KEY=<Secure Random Key>
 
 # Pull Docker image
 docker pull ghcr.io/tomato414941/web-search-crawler:latest

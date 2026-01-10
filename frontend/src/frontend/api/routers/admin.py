@@ -81,7 +81,7 @@ def get_stats() -> dict[str, Any]:
     # Crawler Stats (Remote)
     try:
         with httpx.Client(timeout=3.0) as client:
-            resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/status")
+            resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/status")
             if resp.status_code == 200:
                 remote_stats = resp.json()
                 stats["queue_size"] = remote_stats.get("queued", 0)
@@ -163,7 +163,7 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
     queue_urls = []
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/queue?limit=20")
+            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/queue?limit=20")
             if resp.status_code == 200:
                 items = resp.json()
                 queue_urls = [(item["url"], item["score"]) for item in items]
@@ -194,7 +194,7 @@ async def history_page(request: Request, url: str = ""):
         async with httpx.AsyncClient(timeout=3.0) as client:
             params = {"url": url} if url else {}
             resp = await client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/history", params=params
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/history", params=params
             )
             if resp.status_code == 200:
                 history_logs = resp.json()
@@ -222,7 +222,7 @@ async def add_seed(request: Request, url: str = Form(...)):
         async with httpx.AsyncClient(timeout=5.0) as client:
             payload = {"urls": [url], "priority": 100}
             resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/crawl", json=payload
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/urls", json=payload
             )
             if resp.status_code != 200:
                 raise Exception(f"Crawler API Error: {resp.text}")

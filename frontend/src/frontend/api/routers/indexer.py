@@ -7,7 +7,7 @@ from typing import Optional
 from frontend.core.config import settings
 from frontend.indexer.service import IndexerService
 
-router = APIRouter(prefix="/api/indexer")
+router = APIRouter(prefix="/indexer")
 
 # Initialize indexer service
 indexer = IndexerService(settings.DB_PATH)

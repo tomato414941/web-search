@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from frontend.core.config import settings
 from shared.db.sqlite import ensure_db
-from frontend.api.routers import search, stats, crawler, system, admin, indexer
+from frontend.api.routers import search, search_api, stats, crawler, system, admin, indexer
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from frontend.api.metrics import router as metrics_router, MetricsMiddleware
@@ -125,13 +125,17 @@ if not os.path.exists(static_dir):
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Include Routers
-app.include_router(system.router, tags=["system"])
-app.include_router(search.router, tags=["search"])
-app.include_router(stats.router, tags=["system"])
-app.include_router(crawler.router, tags=["crawler"])
-app.include_router(indexer.router, tags=["indexer"])
-app.include_router(metrics_router, tags=["metrics"])
+# UI routes (no /api/v1 prefix)
+app.include_router(search.router, tags=["ui"])
 app.include_router(admin.router)
+
+# API routes with /api/v1 prefix
+app.include_router(system.router, prefix="/api/v1", tags=["system"])
+app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
+app.include_router(stats.router, prefix="/api/v1", tags=["system"])
+app.include_router(crawler.router, prefix="/api/v1", tags=["crawler"])
+app.include_router(indexer.router, prefix="/api/v1", tags=["indexer"])
+app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
 
 
 if __name__ == "__main__":

@@ -1,80 +1,45 @@
-# Global Refactoring & Architectural Alignment Plan (Completed)
-
-> [!IMPORTANT]
-> **Status**: Implemented
-> **Date**: Jan 2026
-> **Result**: All changes below have been applied and verified. This document serves as a historical record.
-
+# Global API Versioning (v1) Implementation
 
 ## Goal
-Transform the codebase to the "Ideal State" defined in the Architecture Guide (Jan 2026). This involves enforcing the "Lean Shared Kernel" pattern, removing deprecated logic, and modernizing the Admin Dashboard.
+Standardize all API endpoints in both Frontend and Crawler services to use the `/api/v1` prefix. This improves API design consistency and allows for future versioning.
 
-## 1. Shared Library Purification
-The `shared` library must contain **zero** business logic or deprecated wrappers.
+## User Review Required
+> [!IMPORTANT]
+> **Breaking Change**: All external API calls and environment variables referencing API URLs must be updated to include `/v1`.
+> - `INDEXER_API_URL` -> `.../api/v1/indexer/page`
+> - `CRAWLER_SERVICE_URL` -> Base URL only, code appends `/api/v1/...` or update base? *Decision: Base URL remains host root, code appends `/api/v1`.*
 
-### Changes
-*   **[DELETE] `shared/src/shared/core/config.py`**: Remove the deprecated wrapper.
-*   **[DELETE] `shared/src/shared/core/constants.py`**: Remove the deprecated wrapper.
-*   **[MODIFY] `shared/src/shared/db/redis.py`**: Remove the deprecated `calculate_score` function.
-    *   *Note: This strictly enforces that scoring is a Crawler domain concern.*
+## Proposed Changes
 
-## 2. Frontend Modernization
-Establish proper boundaries for the Frontend service.
+### 1. Crawler Service (`crawler/src/app/main.py`)
+- Prefix all routers with `/api/v1`.
+    - `crawl` -> `/api/v1` (merges to `/api/v1/urls`)
+    - `worker` -> `/api/v1/worker`
+    - `queue` -> `/api/v1` (merges to `/api/v1/status` etc)
+    - `history` -> `/api/v1/history`
+    - `health` -> `/api/v1/health` (or leave health at root? Usually root or `/health` is standard for probes, but `/api/v1/health` is fine too. Let's keep health global or check user pref. Standard practice: `/health` often global, but app routes under `/api`. Let's put everything under `/api/v1` for consistency as requested "ALL endpoints").
 
-### Changes
-*   **[NEW] `frontend/src/frontend/core/config.py`**:
-    *   Create a clean `Settings` class inheriting from `InfrastructureSettings` (shared).
-    *   This will be the single source of truth for Frontend configuration.
-*   **[Refactor Imports]**:
-    *   Update all `from shared.core.config import settings` to `from frontend.core.config import settings`.
-    *   Update all `from shared.core.constants import MESSAGES` to `from frontend.i18n.messages import MESSAGES`.
+### 2. Frontend Service (`frontend/src/frontend/api/main.py`)
+- Prefix all routers with `/api/v1`.
+    - `search` -> `/api/v1/search`
+    - `crawler` (proxy) -> `/api/v1/crawler/urls`
+    - `stats` -> `/api/v1/stats`
+    - `indexer` -> `/api/v1/indexer`
+    - `admin` -> `/admin` (Keep standard UI routes at root/admin, only API routes get `/api/v1`? likely yes. User said "ALL endpoints", but usually means API endpoints. I will assume UI routes stay as is, API routes move).
 
-## 3. Crawler Service API Expansion
-Replace code sharing with API communication for scoring logic.
+### 3. Internal Clients (Update references)
+- **Frontend** calling **Crawler**:
+    - `frontend/api/routers/admin.py`: Update calls to `/api/v1/...`
+    - `frontend/api/routers/stats.py`: Update calls to `/api/v1/status`
+    - `frontend/api/routers/crawler.py`: Update calls to `/api/v1/urls`
+- **Crawler** calling **Frontend (Indexer)**:
+    - `crawler/services/indexer.py`: No hardcoded path, uses `INDEXER_API_URL`.
+    - **Action**: Update `docker-compose.yml` `INDEXER_API_URL`.
 
-### Changes
-*   **[NEW] `crawler/src/app/api/routes/scoring.py`**:
-    *   Add `POST /score/predict` endpoint.
-    *   Accepts `url`, `parent_score`, `visits`.
-    *   Returns calculated score using `app.domain.scoring`.
-*   **[MODIFY] `crawler/src/app/main.py`**: Register the new router.
-*   **[MODIFY] `frontend/src/frontend/api/routers/search.py`**:
-    *   Update `api_predict` to call the Crawler Service (`POST /score/predict`) instead of importing `calculate_score` locally.
-
-## 4. Admin Dashboard Refactoring (Templating)
-Separate Presentation (HTML) from Logic (Python) in the Admin Dashboard.
-
-### Changes
-*   **[NEW] `frontend/src/frontend/templates/admin/base.html`**: Base layout.
-*   **[NEW] `frontend/src/frontend/templates/admin/dashboard.html`**: Main stats view.
-*   **[NEW] `frontend/src/frontend/templates/admin/seeds.html`**: Seed URL management.
-*   **[NEW] `frontend/src/frontend/templates/admin/history.html`**: Crawl history view.
-*   **[NEW] `frontend/src/frontend/templates/admin/login.html`**: Login page.
-*   **[MODIFY] `frontend/src/frontend/api/routers/admin.py`**:
-    *   Replace inline strings with `templates.TemplateResponse`.
+### 4. Configuration Updates
+- `deployment/crawler/docker-compose.yml`: Update `INDEXER_API_URL` to `http://${FRONTEND_IP}:8080/api/v1/indexer/page`
+- `deployment/frontend/docker-compose.yml`: (If it has env vars for crawler, update them).
 
 ## Verification Plan
-
-### Automated Tests
-Run existing tests to ensure no regressions after import updates.
-```bash
-# Frontend Tests
-cd frontend/src && pytest ../tests
-
-# Crawler Tests
-cd crawler/src && pytest ../tests
-
-# Shared Tests
-cd c:\projects\web-search && pytest shared/tests
-```
-
-### Manual Verification
-1.  **Frontend Config**: Verify app starts with `python -m frontend.api.main`.
-2.  **Scoring Proxy**:
-    *   Run Crawler and Frontend.
-    *   Call `GET http://localhost:8080/api/predict?url=https://example.com`.
-    *   Confirm JSON response.
-3.  **Admin Dashboard**:
-    *   Login to `/admin/login`.
-    *   View Dashboard, Seeds, History pages.
-    *   Confirm styles and data loading.
+1. **Local Test**: Run services, curl endpoints with `/api/v1` prefix.
+2. **Integration Test**: Check Admin Dashboard "Seeds" page (calls Frontend API -> Crawler API) and "Stats" page.
