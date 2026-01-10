@@ -80,8 +80,10 @@ Required variables:
 
 ### Crawler Server
 
+### Crawler Server
+
 Required variables:
-- `FRONTEND_IP` - Frontend Server IP address
+- `FRONTEND_IP` - Frontend Server IP address (used to construct `INDEXER_API_URL` and `REDIS_URL`)
 - `INDEXER_API_KEY` - Same value as Frontend Server
 
 ## Update Procedure

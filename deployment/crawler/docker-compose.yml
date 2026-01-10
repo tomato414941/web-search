@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     environment:
       # Frontend Server の IP アドレスを設定してください
-      - WEB_SERVER_API_URL=http://${FRONTEND_IP}/api/indexer
+      - INDEXER_API_URL=http://${FRONTEND_IP}:8080/api/indexer/page
       - REDIS_URL=redis://${FRONTEND_IP}:6379
       - INDEXER_API_KEY=${INDEXER_API_KEY}
 
