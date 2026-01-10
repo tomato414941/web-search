@@ -1,0 +1,42 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+pytest-cache-files*/
+
+# Virtual environment
+.venv/
+
+# mypy cache
+.mypy_cache/
+
+# Editor settings
+.vscode/
+.idea/
+
+# Environment variables
+.env
+
+# Local database and data (data directory outside container)
+data/
+*.db
+
+# OS / Misc
+.DS_Store
+Thumbs.db
+*.log
+
+# Test output files
+test_output*.txt
+*_failures.txt
+.coverage
+htmlcov/
+
+# Debug files
+debug_*.py
+
+# Build artifacts
+*.egg-info/
+dist/
+build/

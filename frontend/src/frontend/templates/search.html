@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="{{ lang }}">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if q %}{{ q }}{{ msg.title_suffix }}{% else %}{{ msg.title_default }}{% endif %}</title>
+
+    {% if mode == 'simple' %}
+    <link rel="stylesheet" href="/static/css/simple.css">
+    {% else %}
+    <link rel="stylesheet" href="/static/css/modern.css">
+    {% endif %}
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>{{ msg.header_title }}</h1>
+
+        <form method="get" action="/">
+            {% if mode and mode != 'modern' %}
+            <input type="hidden" name="mode" value="{{ mode }}">
+            {% endif %}
+            <!-- Setting lang in form is tricky if we want to support switching.
+             Ideally the cookie handles it, but we can also propagate it. -->
+            <input type="text" name="q" value="{{ q or '' }}" placeholder="{{ msg.placeholder }}" autofocus>
+            <button type="submit">{{ msg.search_button }}</button>
+        </form>
+
+        {% if q is not none %}
+        <div class="meta-info">
+            <span>
+                {% if result and result.hits %}
+                {{ msg.result_count.format(result.total) }}
+                {% else %}
+                {{ msg.no_results }}
+                {% endif %}
+            </span>
+            <span class="settings-switch">
+                <span class="mode-switch">
+                    {% if mode == 'simple' %}
+                    <a href="?q={{ q }}&mode=modern">
+                        {{ msg.design_switch_modern }}
+                    </a>
+                    {% else %}
+                    <a href="?q={{ q }}&mode=simple">
+                        {{ msg.design_switch_simple }}
+                    </a>
+                    {% endif %}
+                </span>
+                |
+                <span class="lang-switch">
+                    {% if lang == 'en' %}
+                    <a href="?q={{ q }}&mode={{ mode }}&lang=ja">{{ msg.lang_switch_ja }}</a>
+                    {% else %}
+                    <a href="?q={{ q }}&mode={{ mode }}&lang=en">{{ msg.lang_switch_en }}</a>
+                    {% endif %}
+                </span>
+            </span>
+        </div>
+
+        {% if result and result.hits %}
+        <div class="results-list">
+            {% for r in result.hits %}
+            <div class="hit">
+                <div class="hit-head">
+                    <img class="hit-favicon" src="https://www.google.com/s2/favicons?sz=32&domain_url={{ r['url'] }}"
+                        alt="" loading="lazy">
+                    <a href="{{ r['url'] }}" class="hit-title" target="_blank" rel="noopener noreferrer">
+                        {{ r['title'] or msg.no_title }}
+                    </a>
+                </div>
+                <div class="url">{{ r['url'] }}</div>
+                <div class="snippet">{{ r['snip']|safe }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="pagination">
+            {% if result.page > 1 %}
+            <a href="?q={{ q }}&page={{ result.page-1 }}{% if mode %}&mode={{ mode }}{% endif %}">{{ msg.prev_page
+                }}</a>
+            {% endif %}
+            <span>{{ msg.page_info.format(page=result.page, last_page=result.last_page) }}</span>
+            {% if result.page < result.last_page %} <a
+                href="?q={{ q }}&page={{ result.page+1 }}{% if mode %}&mode={{ mode }}{% endif %}">{{ msg.next_page
+                }}</a>
+                {% endif %}
+        </div>
+
+        {% endif %}
+        {% else %}
+        <!-- Top page / No query -->
+        <div class="meta-info" style="justify-content: center; gap: 1rem;">
+            <span class="mode-switch">
+                {% if mode == 'simple' %}
+                <a href="?mode=modern">{{ msg.design_switch_modern }}</a>
+                {% else %}
+                <a href="?mode=simple">{{ msg.design_switch_simple }}</a>
+                {% endif %}
+            </span>
+            |
+            <span class="lang-switch">
+                {% if lang == 'en' %}
+                <a href="?mode={{ mode }}&lang=ja">{{ msg.lang_switch_ja }}</a>
+                {% else %}
+                <a href="?mode={{ mode }}&lang=en">{{ msg.lang_switch_en }}</a>
+                {% endif %}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+
+</body>
+
+</html>

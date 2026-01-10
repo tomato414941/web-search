@@ -1,0 +1,25 @@
+# Crawler Service Requirements
+-e ./shared
+
+# Web Framework
+fastapi
+uvicorn[standard]
+pydantic-settings
+
+# Async HTTP
+aiohttp
+
+# Queue & Caching
+redis
+
+# Parsing
+beautifulsoup4
+
+# HTTP Client (for calling Web Server API)
+httpx
+requests
+
+# Test dependencies
+pytest
+pytest-asyncio
+fakeredis

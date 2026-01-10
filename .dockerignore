@@ -1,0 +1,52 @@
+# Docker build context exclusions
+
+# Version control
+.git/
+.gitignore
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.mypy_cache/
+.pytest_cache/
+
+# IDE settings
+.vscode/
+.idea/
+
+# Local data
+data/
+*.db
+
+# Logs
+*.log
+
+# Test files (not needed in production image)
+tests/
+pytest-cache-files*/
+
+# Documentation (not needed in production image)
+docs/
+
+# Scripts (optional, remove if needed)
+scripts/
+
+# Environment files
+.env
+.env.*
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Git hooks
+.git/
+
+# README and other docs
+README.md
+LICENSE

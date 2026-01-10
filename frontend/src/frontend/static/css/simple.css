@@ -1,0 +1,130 @@
+/* Simple Theme */
+body {
+    max-width: 680px;
+    margin: 80px auto;
+    font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    text-align: center;
+    background-color: #fff;
+    color: #000;
+}
+
+h1 {
+    font-size: 2em;
+    margin-block-start: 0.67em;
+    margin-block-end: 0.67em;
+}
+
+.container {
+    padding: 0 10px;
+}
+
+form {
+    display: flex;
+    gap: .5rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+input[type=text] {
+    flex: 1;
+    min-width: 300px;
+    padding: .6rem;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    text-align: left;
+    font-size: 1rem;
+}
+
+button {
+    padding: .6rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    background: #f7f7f7;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+button:hover {
+    background: #eef;
+}
+
+/* Meta & Switch */
+.meta-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: .5rem 0;
+    font-size: .9rem;
+    color: #666;
+}
+
+.mode-switch a {
+    color: #00f;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Results */
+.hit {
+    text-align: left;
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.hit-head {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    margin-bottom: 4px;
+}
+
+.hit-favicon {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.hit-title {
+    font-size: 1.1rem;
+    color: #1a0dab;
+    text-decoration: none;
+}
+
+.hit-title:hover {
+    text-decoration: underline;
+}
+
+.url {
+    color: #006621;
+    font-size: .9rem;
+    word-break: break-all;
+    margin-bottom: 4px;
+}
+
+.snippet {
+    line-height: 1.4;
+    color: #545454;
+}
+
+mark {
+    background: #fffa8b;
+    color: inherit;
+}
+
+/* Pagination */
+.pagination {
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.pagination a {
+    margin: 0 .5rem;
+    text-decoration: none;
+    color: #00f;
+}
+
+.pagination span {
+    margin: 0 .5rem;
+    color: #555;
+}

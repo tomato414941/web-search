@@ -1,0 +1,33 @@
+# Frontend Service Requirements
+-e ./shared
+
+# Web Framework
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+
+# HTTP Client (for calling Crawler API)
+httpx
+requests
+
+# Rate Limiting & Monitoring
+slowapi
+prometheus-client
+
+# OpenAI Embeddings
+openai
+tenacity
+numpy
+
+# Search & Indexing
+beautifulsoup4
+sudachipy
+sudachidict_core
+
+# Test dependencies
+pytest
+pytest-asyncio
+
+# Redis
+redis
