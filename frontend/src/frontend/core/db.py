@@ -10,7 +10,6 @@ from shared.db.search import (
     SCHEMA_SQL,
     open_db,
     ensure_db,
-    upsert_page,
 )
 
-__all__ = ["SCHEMA_SQL", "open_db", "ensure_db", "upsert_page"]
+__all__ = ["SCHEMA_SQL", "open_db", "ensure_db"]
