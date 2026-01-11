@@ -64,6 +64,21 @@ CREATE TABLE IF NOT EXISTS token_stats (
   token TEXT PRIMARY KEY,
   doc_freq INTEGER DEFAULT 0
 );
+
+-- ============================================
+-- Search Analytics Tables
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS search_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  query TEXT NOT NULL,
+  result_count INTEGER DEFAULT 0,
+  search_mode TEXT DEFAULT 'default',
+  user_agent TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_search_logs_created ON search_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_search_logs_query ON search_logs(query);
 """
 
 

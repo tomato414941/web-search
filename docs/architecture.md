@@ -7,7 +7,7 @@ The `web-search` project follows a **Service-Based Architecture** designed for c
 The system consists of three independent services managed in a Monorepo:
 
 1.  **Frontend Service (Search Cluster)**: 
-    -   **Role**: UI, Search API (Read-Only), Admin Dashboard.
+    -   **Role**: UI, Search API (Read-Only), Admin Dashboard (Crawler Control, Analytics).
     -   **Stack**: FastAPI + SQLite (WAL Mode).
     -   **Port**: `8080`.
     -   **Scaling**: Can scale horizontally (Shared DB file).
@@ -65,7 +65,7 @@ We separate the "Write" path (Indexer) from the "Read" path (Frontend).
 *   **Frontend**: Fast reads. Uses SQLite WAL mode to read *while* Indexer is writing.
 
 ### 3. Shared Library (`shared/`)
-*   **Database**: Uses `sqlite3` with a custom schema (`documents`, `inverted_index`, `page_ranks`) for the Search Engine.
+*   **Database**: Uses `sqlite3` with a custom schema (`documents`, `inverted_index`, `page_ranks`, `search_logs`) for the Search Engine.
 *   **Search Engine (`shared.search`)**:
     *   **Custom Inverted Index**: Python-based indexing using `inverted_index` table.
     *   **Hybrid Search**: Combines BM25 (Keyword) and Vector (Semantic) scores using Reciprocal Rank Fusion (RRF).

@@ -1,0 +1,87 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Search Analytics{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Search Analytics</h1>
+        <div class="nav">
+            <a href="/admin/">Dashboard</a>
+            <a href="/admin/seeds">Seed URLs</a>
+            <a href="/admin/history">History</a>
+            <a href="/admin/analytics" class="active">Analytics</a>
+            <a href="/admin/logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Overview (Last 7 Days)</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(analytics.total_searches) }}</div>
+                <div class="label">Total Searches</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ analytics.top_queries | length }}</div>
+                <div class="label">Unique Queries</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ analytics.zero_hit_queries | length }}</div>
+                <div class="label">Content Gaps</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Top Queries</h2>
+        {% if analytics.top_queries %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Query</th>
+                    <th>Count</th>
+                    <th>Avg Results</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in analytics.top_queries %}
+                <tr>
+                    <td>{{ item.query }}</td>
+                    <td>{{ item.count }}</td>
+                    <td>{{ item.avg_results }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #999;">No search data available yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Zero-Hit Queries (Content Gaps)</h2>
+        <p style="color: #999; margin-bottom: 16px;">These queries returned no results. Consider adding content for these topics.</p>
+        {% if analytics.zero_hit_queries %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Query</th>
+                    <th>Times Searched</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in analytics.zero_hit_queries %}
+                <tr>
+                    <td>{{ item.query }}</td>
+                    <td>{{ item.count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #66bb6a;">No zero-hit queries. All searches are finding results!</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

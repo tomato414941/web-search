@@ -59,17 +59,18 @@ def get_stats() -> dict[str, Any]:
         "queue_size": 0,
         "visited_count": 0,
         "last_crawl": None,
+        "worker_status": "unknown",
     }
 
     # Database stats (Local SQLite)
     try:
         if settings.DB_PATH:
             conn = sqlite3.connect(settings.DB_PATH)
-            cursor = conn.execute("SELECT COUNT(*) FROM pages")
+            cursor = conn.execute("SELECT COUNT(*) FROM documents")
             stats["indexed_pages"] = cursor.fetchone()[0]
 
             cursor = conn.execute(
-                "SELECT MAX(indexed_at) FROM pages WHERE indexed_at IS NOT NULL"
+                "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
             )
             result = cursor.fetchone()
             if result and result[0]:
@@ -86,6 +87,12 @@ def get_stats() -> dict[str, Any]:
                 remote_stats = resp.json()
                 stats["queue_size"] = remote_stats.get("queued", 0)
                 stats["visited_count"] = remote_stats.get("visited", 0)
+
+            # Get worker status
+            resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/status")
+            if resp.status_code == 200:
+                worker_data = resp.json()
+                stats["worker_status"] = worker_data.get("state", "unknown")
     except Exception:
         pass
 
@@ -236,3 +243,118 @@ async def add_seed(request: Request, url: str = Form(...)):
             url=f"/admin/seeds?error={str(e)}",
             status_code=303,
         )
+
+
+@router.post("/crawler/start")
+async def crawler_start(request: Request):
+    """Start the crawler worker."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/start"
+            )
+            if resp.status_code != 200:
+                raise Exception(f"Failed to start crawler: {resp.text}")
+    except Exception:
+        pass  # Redirect back to dashboard regardless
+
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
+@router.post("/crawler/stop")
+async def crawler_stop(request: Request):
+    """Stop the crawler worker (graceful)."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/stop"
+            )
+            if resp.status_code != 200:
+                raise Exception(f"Failed to stop crawler: {resp.text}")
+    except Exception:
+        pass  # Redirect back to dashboard regardless
+
+    return RedirectResponse(url="/admin/", status_code=303)
+
+
+def get_analytics_data() -> dict:
+    """Get search analytics data."""
+    data = {
+        "top_queries": [],
+        "zero_hit_queries": [],
+        "total_searches": 0,
+    }
+
+    try:
+        conn = sqlite3.connect(settings.DB_PATH)
+
+        # Total searches in last 7 days
+        cursor = conn.execute(
+            """
+            SELECT COUNT(*) FROM search_logs
+            WHERE created_at >= datetime('now', '-7 days')
+            """
+        )
+        data["total_searches"] = cursor.fetchone()[0]
+
+        # Top queries (last 7 days)
+        cursor = conn.execute(
+            """
+            SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
+            FROM search_logs
+            WHERE created_at >= datetime('now', '-7 days')
+            GROUP BY query
+            ORDER BY count DESC
+            LIMIT 20
+            """
+        )
+        data["top_queries"] = [
+            {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
+            for row in cursor.fetchall()
+        ]
+
+        # Zero-hit queries (content gaps)
+        cursor = conn.execute(
+            """
+            SELECT query, COUNT(*) as count
+            FROM search_logs
+            WHERE result_count = 0 AND created_at >= datetime('now', '-7 days')
+            GROUP BY query
+            ORDER BY count DESC
+            LIMIT 20
+            """
+        )
+        data["zero_hit_queries"] = [
+            {"query": row[0], "count": row[1]} for row in cursor.fetchall()
+        ]
+
+        conn.close()
+    except Exception:
+        pass
+
+    return data
+
+
+@router.get("/analytics")
+async def analytics_page(request: Request):
+    """Search analytics page."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    analytics = get_analytics_data()
+    return templates.TemplateResponse(
+        "admin/analytics.html",
+        {
+            "request": request,
+            "analytics": analytics,
+        },
+    )

@@ -1,7 +1,8 @@
 """Search API Router - JSON endpoints for search and prediction."""
 
+import sqlite3
 import httpx
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from frontend.core.config import settings
@@ -10,6 +11,20 @@ from frontend.api.middleware.rate_limiter import limiter
 
 
 router = APIRouter()
+
+
+def log_search(query: str, result_count: int, mode: str, user_agent: str | None):
+    """Log search query to database (runs in background)."""
+    try:
+        conn = sqlite3.connect(settings.DB_PATH)
+        conn.execute(
+            "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (?, ?, ?, ?)",
+            (query, result_count, mode, user_agent),
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass  # Don't fail search if logging fails
 
 
 def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
@@ -24,9 +39,11 @@ def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
 @limiter.limit("100/minute")
 async def api_search(
     request: Request,
+    background_tasks: BackgroundTasks,
     q: str | None = None,
     limit: str | None = None,
     page: str | None = None,
+    mode: str = "default",
 ):
     """Search API (JSON)"""
     query = (q or "").strip()
@@ -37,10 +54,16 @@ async def api_search(
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
 
     data = (
-        search_service.search(query, per_page, page_number)
+        search_service.search(query, per_page, page_number, mode=mode)
         if query
         else search_service._empty_result(per_page)
     )
+
+    # Log search in background (non-blocking)
+    if query:
+        user_agent = request.headers.get("user-agent")
+        background_tasks.add_task(log_search, query, data["total"], mode, user_agent)
+
     return JSONResponse(data)
 
 

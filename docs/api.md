@@ -52,6 +52,15 @@ Manually submit a URL to the crawler (Proxies to Crawler Service).
 ### `GET /api/v1/stats`
 Get system statistics (Queue size, Indexed count).
 
+### `POST /admin/crawler/start`
+Start the crawler worker (Admin only).
+
+### `POST /admin/crawler/stop`
+Stop the crawler worker (Admin only).
+
+### `GET /admin/analytics`
+View Search Analytics (Admin only).
+
 ---
 
 ## Indexer Service (`:8081`)

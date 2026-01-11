@@ -10,6 +10,7 @@
             <a href="/admin/" class="active">Dashboard</a>
             <a href="/admin/seeds">Seed URLs</a>
             <a href="/admin/history">History</a>
+            <a href="/admin/analytics">Analytics</a>
             <a href="/admin/logout">Logout</a>
         </div>
     </div>
@@ -33,19 +34,42 @@
     </div>
 
     <div class="card">
-        <h2>System Status</h2>
+        <h2>Crawler Control</h2>
         <table>
+            <tr>
+                <th>Worker Status</th>
+                <td>
+                    {% if stats.worker_status == "running" %}
+                        <span style="color: #22c55e; font-weight: bold;">● Running</span>
+                    {% elif stats.worker_status == "stopped" %}
+                        <span style="color: #ef4444; font-weight: bold;">● Stopped</span>
+                    {% else %}
+                        <span style="color: #f59e0b;">● {{ stats.worker_status }}</span>
+                    {% endif %}
+                </td>
+            </tr>
             <tr><th>Last Crawl</th><td>{{ stats.last_crawl or "Never" }}</td></tr>
             <tr><th>Crawler API</th><td>{{ crawler_url }}</td></tr>
         </table>
+        <div class="form-row" style="margin-top: 1rem;">
+            {% if stats.worker_status == "running" %}
+                <form action="/admin/crawler/stop" method="post" style="display: inline;">
+                    <button type="submit" style="background-color: #ef4444;">Stop Crawler</button>
+                </form>
+            {% else %}
+                <form action="/admin/crawler/start" method="post" style="display: inline;">
+                    <button type="submit" style="background-color: #22c55e;">Start Crawler</button>
+                </form>
+            {% endif %}
+        </div>
     </div>
 
     <div class="card">
         <h2>Quick Actions</h2>
         <div class="form-row">
             <a href="/admin/seeds"><button>Manage Seed URLs</button></a>
+            <a href="/admin/analytics"><button>Search Analytics</button></a>
             <a href="/"><button>View Search</button></a>
-            <a href="/api/stats"><button>API Stats</button></a>
         </div>
     </div>
 </div>
