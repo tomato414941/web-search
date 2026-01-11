@@ -1,7 +1,7 @@
 """Test SQLite database operations."""
 
 import sqlite3
-from frontend.core.db import ensure_db, open_db, upsert_page
+from frontend.core.db import ensure_db, open_db
 
 
 class TestDatabaseInitialization:
@@ -22,8 +22,13 @@ class TestDatabaseInitialization:
         tables = {row[0] for row in cursor.fetchall()}
         conn.close()
 
-        # Should have these tables
-        assert "pages" in tables
+        # Custom search tables
+        assert "documents" in tables
+        assert "inverted_index" in tables
+        assert "index_stats" in tables
+        assert "token_stats" in tables
+
+        # Other tables
         assert "links" in tables
         assert "page_ranks" in tables
         assert "page_embeddings" in tables
@@ -35,22 +40,21 @@ class TestDatabaseInitialization:
         conn.close()
 
 
-class TestPageOperations:
-    """Test page insertion and updates."""
+class TestDocumentOperations:
+    """Test document table operations."""
 
-    def test_upsert_page_inserts(self, test_db_path):
-        """upsert_page should insert new pages."""
+    def test_insert_document(self, test_db_path):
+        """Documents can be inserted."""
         conn = open_db(test_db_path)
-        upsert_page(
-            conn,
-            "https://example.com",
-            "Test Page",
-            "This is test content",
+        conn.execute(
+            "INSERT INTO documents (url, title, content, word_count) VALUES (?, ?, ?, ?)",
+            ("https://example.com", "Test Page", "This is test content", 4)
         )
         conn.commit()
 
         cursor = conn.execute(
-            "SELECT url, title FROM pages WHERE url = ?", ("https://example.com",)
+            "SELECT url, title, content, word_count FROM documents WHERE url = ?",
+            ("https://example.com",)
         )
         result = cursor.fetchone()
         conn.close()
@@ -58,28 +62,37 @@ class TestPageOperations:
         assert result is not None
         assert result[0] == "https://example.com"
         assert result[1] == "Test Page"
+        assert result[2] == "This is test content"
+        assert result[3] == 4
 
-    def test_upsert_page_updates_existing(self, test_db_path):
-        """upsert_page should update existing pages."""
+    def test_update_document(self, test_db_path):
+        """Documents can be updated via upsert pattern."""
         conn = open_db(test_db_path)
 
         # Insert first version
-        upsert_page(conn, "https://example.com", "Original", "Original content")
+        conn.execute(
+            "INSERT INTO documents (url, title, content) VALUES (?, ?, ?)",
+            ("https://example.com", "Original", "Original content")
+        )
         conn.commit()
 
-        # Update
-        upsert_page(conn, "https://example.com", "Updated", "Updated content")
+        # Update using upsert pattern
+        conn.execute("DELETE FROM documents WHERE url = ?", ("https://example.com",))
+        conn.execute(
+            "INSERT INTO documents (url, title, content) VALUES (?, ?, ?)",
+            ("https://example.com", "Updated", "Updated content")
+        )
         conn.commit()
 
         # Should only have one row
         cursor = conn.execute(
-            "SELECT COUNT(*) FROM pages WHERE url = ?", ("https://example.com",)
+            "SELECT COUNT(*) FROM documents WHERE url = ?", ("https://example.com",)
         )
         count = cursor.fetchone()[0]
 
         # Get the title
         cursor = conn.execute(
-            "SELECT title FROM pages WHERE url = ?", ("https://example.com",)
+            "SELECT title FROM documents WHERE url = ?", ("https://example.com",)
         )
         title = cursor.fetchone()[0]
         conn.close()
@@ -87,80 +100,55 @@ class TestPageOperations:
         assert count == 1
         assert title == "Updated"
 
-    def test_upsert_with_tokenized_content(self, test_db_path):
-        """upsert_page should store both raw and tokenized content."""
+
+class TestInvertedIndexOperations:
+    """Test inverted index operations."""
+
+    def test_insert_index_entry(self, test_db_path):
+        """Index entries can be inserted."""
         conn = open_db(test_db_path)
-        upsert_page(
-            conn,
-            "https://example.com",
-            "tokenized title",
-            "tokenized content",
-            raw_title="Raw Title",
-            raw_content="Raw Content",
+
+        conn.execute(
+            "INSERT INTO inverted_index (token, url, field, term_freq, positions) VALUES (?, ?, ?, ?, ?)",
+            ("python", "https://example.com/python", "title", 2, "[0, 5]")
         )
         conn.commit()
 
         cursor = conn.execute(
-            "SELECT title, content, raw_title, raw_content FROM pages WHERE url = ?",
-            ("https://example.com",),
+            "SELECT url, term_freq FROM inverted_index WHERE token = ?",
+            ("python",)
         )
         result = cursor.fetchone()
         conn.close()
 
-        assert result[0] == "tokenized title"  # FTS indexed
-        assert result[1] == "tokenized content"  # FTS indexed
-        assert result[2] == "Raw Title"  # Original
-        assert result[3] == "Raw Content"  # Original
+        assert result is not None
+        assert result[0] == "https://example.com/python"
+        assert result[1] == 2
 
-    def test_fts5_search_works(self, test_db_path):
-        """FTS5 search should find matching pages."""
+    def test_multiple_documents_same_token(self, test_db_path):
+        """Multiple documents can share the same token."""
         conn = open_db(test_db_path)
 
-        # Insert multiple pages
-        upsert_page(
-            conn,
-            "https://example.com/python",
-            "Python Guide",
-            "Learn Python programming",
+        # Insert multiple entries for same token
+        conn.execute(
+            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
+            ("programming", "https://example.com/1", "content", 3)
         )
-        upsert_page(
-            conn, "https://example.com/java", "Java Guide", "Learn Java programming"
+        conn.execute(
+            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
+            ("programming", "https://example.com/2", "content", 1)
         )
-        upsert_page(
-            conn,
-            "https://example.com/rust",
-            "Rust Guide",
-            "Learn Rust systems programming",
-        )
-        conn.commit()
-
-        # Search for "Python"
-        cursor = conn.execute("SELECT url FROM pages WHERE pages MATCH ?", ("Python",))
-        results = cursor.fetchall()
-        conn.close()
-
-        assert len(results) == 1
-        assert results[0][0] == "https://example.com/python"
-
-    def test_fts5_search_multiple_results(self, test_db_path):
-        """FTS5 should return multiple matching results."""
-        conn = open_db(test_db_path)
-
-        upsert_page(
-            conn, "https://example.com/1", "Programming in Python", "Python basics"
-        )
-        upsert_page(
-            conn, "https://example.com/2", "Advanced Programming", "Python advanced"
-        )
-        upsert_page(
-            conn, "https://example.com/3", "Web Development", "JavaScript and HTML"
+        conn.execute(
+            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
+            ("programming", "https://example.com/3", "title", 1)
         )
         conn.commit()
 
         cursor = conn.execute(
-            "SELECT url FROM pages WHERE pages MATCH ?", ("Programming",)
+            "SELECT COUNT(*) FROM inverted_index WHERE token = ?",
+            ("programming",)
         )
-        results = cursor.fetchall()
+        count = cursor.fetchone()[0]
         conn.close()
 
-        assert len(results) == 2  # First two pages
+        assert count == 3

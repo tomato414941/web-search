@@ -1,14 +1,24 @@
+"""
+Inject dummy data for testing/development.
+
+Usage:
+    python scripts/inject_dummy_data.py
+"""
+
 import random
 import sys
 import os
 
-# Add project root to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
+# Add shared module to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared", "src"))
 
-from web_search.db.sqlite import open_db, upsert_page
-from web_search.core.config import settings
-from web_search.services.embedding import embedding_service
-from web_search.indexer.analyzer import analyzer
+from shared.db.search import open_db
+from shared.search import SearchIndexer
+
+# Default DB path (can be overridden via environment)
+DEFAULT_DB_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "data", "search_index.db"
+)
 
 SAMPLE_TOPICS = [
     (
@@ -45,19 +55,22 @@ SAMPLE_TOPICS = [
 ]
 
 
-def inject_data(count: int = 50):
-    print(f"Injecting {count} dummy pages into {settings.DB_PATH}...")
+def inject_data(count: int = 50, db_path: str | None = None):
+    db_path = db_path or os.environ.get("DB_PATH", DEFAULT_DB_PATH)
+    print(f"Injecting {count} dummy pages into {db_path}...")
 
     # Ensure directory
-    os.makedirs(os.path.dirname(settings.DB_PATH), exist_ok=True)
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
-    con = open_db(settings.DB_PATH)
+    # Initialize indexer and connection
+    indexer = SearchIndexer(db_path)
+    con = open_db(db_path)
+
     try:
         for i in range(count):
             topic, content_base = random.choice(SAMPLE_TOPICS)
 
             # Randomize title and content to create variety
-            # Case 1: Title matches topic exactly
             title = topic
             content = f"{content_base} (Page {i})"
 
@@ -73,34 +86,12 @@ def inject_data(count: int = 50):
 
             url = f"http://example.com/page/{i}"
 
-            # Analyze (Tokenize) for FTS
-            if title:
-                idx_title = analyzer.analyze(title)
-            else:
-                idx_title = ""
+            # Index using new search engine
+            indexer.index_document(url, title, content, con)
 
-            if content:
-                idx_content = analyzer.analyze(content)
-            else:
-                idx_content = ""
-
-            upsert_page(con, url, idx_title, idx_content, title, content)
-
-            # Embeddings (Title + Content)
-            # Combine them for semantic search
-            text_to_embed = f"{title}. {content}"
-            vector_blob = embedding_service.embed(text_to_embed)
-            con.execute("DELETE FROM page_embeddings WHERE url=?", (url,))
-            con.execute(
-                "INSERT INTO page_embeddings (url, embedding) VALUES (?, ?)",
-                (url, vector_blob),
-            )
-
-            # Generate Links using standard SQL
+            # Generate Links
             # Create a "Hub" page at index 0 (http://example.com/page/0)
-            # Let many pages link to page/0
             if i > 0 and random.random() < 0.5:
-                # 50% chance to link to the Hub (Page 0)
                 con.execute(
                     "INSERT INTO links (src, dst) VALUES (?, ?)",
                     (url, "http://example.com/page/0"),
@@ -116,12 +107,15 @@ def inject_data(count: int = 50):
                     )
 
         # Ensure page 0 is authoritative
-        upsert_page(
-            con,
+        indexer.index_document(
             "http://example.com/page/0",
             "The Popular Hub Page",
             "This page is very popular. Ideally it ranks high.",
+            con,
         )
+
+        # Update global stats for BM25
+        indexer.update_global_stats(con)
 
         con.commit()
         print("Injection complete.")
