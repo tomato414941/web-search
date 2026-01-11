@@ -1,39 +1,34 @@
-# Refactor: Move Tests & Shared Logic
+# Fix: Allow Google Favicons in CSP
 
 ## Goal
-Complete the Indexer separation by migrating tests and moving shared domain logic (Analyzer) to the `shared` library.
+Enable the display of favicons in search results by updating the Content Security Policy (CSP) to allow image loading from `www.google.com`.
 
-## Current Issues
-1.  **Broken Tests**: `frontend/tests/test_indexer_api.py` fail because the endpoint moved to Indexer.
-2.  **Code Duplication**: `analyzer.py` exists in both `frontend` and `indexer`.
-3.  **Dead Code**: `frontend/src/frontend/indexer/service.py` is unused.
+## Problem
+The current CSP configuration in `frontend/src/frontend/api/main.py` restricts `img-src` to `'self'` and `data:`. This blocks the browser from loading favicons served by `https://www.google.com/s2/favicons`.
 
-## Detailed Steps
+## Proposed Changes
 
-### 1. Consolidate Analyzer (Shared Logic)
-- **Move**: `frontend/src/frontend/indexer/analyzer.py` -> `shared/src/shared/analyzer.py`.
-- **Delete Duplicates**:
-    - Delete `frontend/src/frontend/indexer/analyzer.py`
-    - Delete `indexer/src/app/services/analyzer.py`
-- **Refactor Imports**:
-    - Update `frontend/src/frontend/services/search.py` to import from `shared.analyzer`.
-    - Update `indexer` service files to import from `shared.analyzer`.
+### Frontend Service
+#### [MODIFY] [main.py](file:///c:/projects/web-search/frontend/src/frontend/api/main.py)
+- Update the `SecurityHeadersMiddleware` class.
+- Add `https://www.google.com` to the `img-src` directive in the `Content-Security-Policy` header.
 
-### 2. Migrate Tests
-- **Create**: `indexer/tests/conftest.py` (Setup FastAPI TestClient for Indexer).
-- **Move**: `frontend/tests/test_indexer_api.py` -> `indexer/tests/test_api.py`.
-    - Refactor imports to use `app.main` (Indexer App).
-    - Ensure tests use `shared.analyzer` if needed.
-- **Delete**: `frontend/tests/test_indexer_api.py`.
+```python
+response.headers["Content-Security-Policy"] = (
+    "default-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https://www.google.com;"  # Added Google
+)
+```
 
-### 3. Cleanup Frontend
-- **Delete Directory**: `frontend/src/frontend/indexer/` (Should be empty or contain only dead code now).
+## Verification Plan
 
-### 4. Verify
-- Run `pytest shared` -> Check analyzer tests (if any).
-- Run `pytest frontend` -> Should pass (no 404s, search works using shared analyzer).
-- Run `pytest indexer` -> Should pass (API works).
+### Automated Verification
+- None (CSP is a runtime header).
 
-## Instructions for Agent
-- Be careful with circular imports when moving to shared.
-- Analyzer usually depends on `SudachiPy`, ensuring `shared` dependencies are installed.
+### Manual Verification
+1. Restart the frontend service.
+2. Perform a search (e.g., "test").
+3. Inspect the browser console to confirm no CSP violations for `google.com`.
+4. Visually confirm that favicons appear next to search results.
