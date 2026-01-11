@@ -1,12 +1,12 @@
-"""Indexer Service - handles page indexing with FTS5 and embeddings."""
+"""Indexer Service - handles page indexing with custom search engine and embeddings."""
 
 import logging
 import sqlite3
 
 from app.core.config import settings
 from shared.db.search import open_db, upsert_page
+from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
-from shared.analyzer import analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -14,22 +14,26 @@ logger = logging.getLogger(__name__)
 class IndexerService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
+        self.search_indexer = SearchIndexer(db_path)
 
     async def index_page(self, url: str, title: str, content: str):
         """Index a single page into the database (async for embedding)."""
         try:
-            # Tokenize for FTS5
-            idx_title = analyzer.tokenize(title)
-            idx_content = analyzer.tokenize(content)
-
             # Open DB connection
             conn = open_db(self.db_path)
 
-            # Insert into DB (upsert_page expects connection as first arg)
+            # 1. Index using new custom search engine (inverted index)
+            self.search_indexer.index_document(url, title, content, conn)
+
+            # 2. Also index to FTS5 for backward compatibility (during migration)
+            from shared.analyzer import analyzer
+            idx_title = analyzer.tokenize(title)
+            idx_content = analyzer.tokenize(content)
             upsert_page(conn, url, idx_title, idx_content, title, content)
+
             conn.commit()
 
-            # Generate and store embedding (skip if no OpenAI key)
+            # 3. Generate and store embedding (skip if no OpenAI key)
             if settings.OPENAI_API_KEY:
                 try:
                     vector_blob = await embedding_service.embed(content)
@@ -44,6 +48,10 @@ class IndexerService:
                     # Don't fail indexing if embedding fails
                     logger.warning(f"Embedding failed for {url}: {embed_error}")
 
+            # 4. Update global stats periodically (every index for now, optimize later)
+            self.search_indexer.update_global_stats(conn)
+            conn.commit()
+
             conn.close()
 
             logger.info(f"Indexed: {url}")
@@ -55,10 +63,17 @@ class IndexerService:
         """Get indexing statistics."""
         try:
             conn = sqlite3.connect(self.db_path)
+            # Use new documents table for stats
+            cursor = conn.execute("SELECT COUNT(*) FROM documents")
+            total_new = cursor.fetchone()[0]
+            # Also get FTS5 count for comparison
             cursor = conn.execute("SELECT COUNT(*) FROM pages")
-            total = cursor.fetchone()[0]
+            total_fts5 = cursor.fetchone()[0]
             conn.close()
-            return {"total": total}
+            return {
+                "total": total_new,
+                "total_fts5": total_fts5,  # For migration monitoring
+            }
         except Exception as e:
             logger.error(f"Error getting stats: {e}")
             return {"total": 0}

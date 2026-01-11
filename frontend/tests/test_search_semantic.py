@@ -1,11 +1,12 @@
 import pytest
 import os
+import sqlite3
 import numpy as np
 from unittest.mock import patch
-from frontend.core.db import open_db, upsert_page
+from shared.db.search import open_db
+from shared.search import SearchIndexer
 from frontend.services.search import SearchService
 from frontend.services.embedding import embedding_service
-from shared.analyzer import analyzer
 
 
 @pytest.fixture
@@ -38,10 +39,7 @@ def test_vector_search_semantics(temp_db_semantic):
     vec_b[0] = 0.9
     vec_b[1] = 0.1
 
-    # Mock the _get_embedding method instead of the whole client to keep it simple,
-    # or mock the client. The service uses self.client.embeddings.create.
-
-    # Let's mock _get_embedding on the global instance
+    # Mock the _get_embedding method
     with patch.object(embedding_service, "_get_embedding") as mock_embed:
         # Define side effect: return vec_a for content, vec_b for query
         def side_effect(text):
@@ -51,27 +49,25 @@ def test_vector_search_semantics(temp_db_semantic):
 
         mock_embed.side_effect = side_effect
 
-        # 2. Setup Data
-        con = open_db(temp_db_semantic)
+        # 2. Setup Data using new indexer
+        indexer = SearchIndexer(temp_db_semantic)
 
-        # Insert "Cooking Pasta"
         url = "http://example.com/pasta"
         title = "Cooking Pasta"
         content = "Carbonara is a delicious Italian dish."
 
-        # Normal Upsert
-        t_idx = analyzer.tokenize(title)
-        c_idx = analyzer.tokenize(content)
-        upsert_page(con, url, t_idx, c_idx, title, content)
+        # Index using new engine
+        indexer.index_document(url, title, content)
+        indexer.update_global_stats()
 
-        # Embedding Upsert
+        # Add embedding
         text = f"{title}. {content}"
         vec = embedding_service.embed(text)
+        con = sqlite3.connect(temp_db_semantic)
         con.execute("DELETE FROM page_embeddings WHERE url=?", (url,))
         con.execute(
             "INSERT INTO page_embeddings (url, embedding) VALUES (?, ?)", (url, vec)
         )
-
         con.commit()
         con.close()
 

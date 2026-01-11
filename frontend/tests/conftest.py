@@ -4,7 +4,8 @@ import os
 import pytest
 import fakeredis
 from unittest.mock import patch
-from frontend.core.db import ensure_db
+from shared.db.search import ensure_db
+from shared.search import SearchEngine, BM25Config
 
 # Patch DB_PATH to use a test database
 TEST_DB_PATH = "test_search.db"
@@ -35,9 +36,23 @@ def setup_test_env():
     with patch("frontend.core.config.settings.DB_PATH", TEST_DB_PATH):
         # Also patch the instantiated search_service's db_path because it was initialized at import time
         from frontend.services.search import search_service
+        from frontend.services.embedding import embedding_service
 
         original_search_path = search_service.db_path
         search_service.db_path = TEST_DB_PATH
+
+        # Reinitialize the internal SearchEngine with the test DB path
+        search_service._engine = SearchEngine(
+            db_path=TEST_DB_PATH,
+            bm25_config=BM25Config(
+                k1=1.2,
+                b=0.75,
+                title_boost=3.0,
+                pagerank_weight=0.5,
+            ),
+            embed_query_func=search_service._embed_query,
+            deserialize_func=embedding_service.deserialize,
+        )
 
         yield
 

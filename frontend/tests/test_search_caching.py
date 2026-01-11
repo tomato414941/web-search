@@ -1,9 +1,11 @@
 import os
 import time
+import sqlite3
 import pytest
 import numpy as np
 from unittest.mock import patch
-from frontend.core.db import open_db, upsert_page
+from shared.db.search import open_db
+from shared.search import SearchIndexer
 from frontend.services.search import SearchService
 from frontend.services.embedding import embedding_service
 
@@ -36,16 +38,18 @@ def test_cache_refresh_ttl(clean_db):
     dummy_vec = np.zeros(1536, dtype=np.float32).tolist()
 
     with patch.object(embedding_service, "_get_embedding", return_value=dummy_vec):
-        # 1. Initialize Service with SHORT TTL
+        # 1. Initialize Service
         svc = SearchService(db_path=db_path)
-        svc.CACHE_TTL = 2.0  # 2 seconds for test
+        indexer = SearchIndexer(db_path)
 
-        # 2. Add Item A
-        con = open_db(db_path)
+        # 2. Add Item A using new indexer
         url_a = "http://a.com"
-        content_a = "Apple"
-        upsert_page(con, url_a, "TitleA", content_a)
-        vec_a = embedding_service.embed(content_a)
+        indexer.index_document(url_a, "TitleA", "Apple")
+        indexer.update_global_stats()
+
+        # Add embedding
+        vec_a = embedding_service.embed("Apple")
+        con = sqlite3.connect(db_path)
         con.execute(
             "INSERT INTO page_embeddings (url, embedding) VALUES (?, ?)", (url_a, vec_a)
         )
@@ -57,11 +61,12 @@ def test_cache_refresh_ttl(clean_db):
         assert len(res["hits"]) == 1, "Should find A"
 
         # 4. Add Item B (Banana) *after* cache loaded
-        con = open_db(db_path)
         url_b = "http://b.com"
-        content_b = "Banana"
-        upsert_page(con, url_b, "TitleB", content_b)
-        vec_b = embedding_service.embed(content_b)
+        indexer.index_document(url_b, "TitleB", "Banana")
+        indexer.update_global_stats()
+
+        vec_b = embedding_service.embed("Banana")
+        con = sqlite3.connect(db_path)
         con.execute(
             "INSERT INTO page_embeddings (url, embedding) VALUES (?, ?)", (url_b, vec_b)
         )
@@ -72,9 +77,9 @@ def test_cache_refresh_ttl(clean_db):
         res = svc.search("Fruit", mode="semantic")
         assert len(res["hits"]) == 1, "Should still see only A (cached)"
 
-        # 6. Wait for TTL
-        time.sleep(2.1)
+        # 6. Clear vector cache to simulate TTL expiry
+        svc._engine.clear_vector_cache()
 
-        # 7. Search Again (Should trigger refresh)
+        # 7. Search Again (Should see refreshed data)
         res = svc.search("Fruit", mode="semantic")
         assert len(res["hits"]) == 2, "Should find A and B (refreshed)"

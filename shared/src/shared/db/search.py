@@ -37,6 +37,42 @@ CREATE TABLE IF NOT EXISTS page_embeddings (
   url TEXT PRIMARY KEY,
   embedding BLOB
 );
+
+-- ============================================
+-- Custom Full-Text Search Tables (v2)
+-- ============================================
+
+-- Document metadata (replaces FTS5 pages eventually)
+CREATE TABLE IF NOT EXISTS documents (
+  url TEXT PRIMARY KEY,
+  title TEXT,
+  content TEXT,
+  word_count INTEGER DEFAULT 0,
+  indexed_at TEXT
+);
+
+-- Inverted index (heart of the search engine)
+CREATE TABLE IF NOT EXISTS inverted_index (
+  token TEXT NOT NULL,
+  url TEXT NOT NULL,
+  field TEXT NOT NULL,        -- 'title' or 'content'
+  term_freq INTEGER DEFAULT 1,
+  positions TEXT,             -- JSON array of positions
+  PRIMARY KEY (token, url, field)
+);
+CREATE INDEX IF NOT EXISTS idx_inverted_token ON inverted_index(token);
+
+-- Global index statistics (for BM25)
+CREATE TABLE IF NOT EXISTS index_stats (
+  key TEXT PRIMARY KEY,
+  value REAL
+);
+
+-- Per-token document frequency (for IDF calculation)
+CREATE TABLE IF NOT EXISTS token_stats (
+  token TEXT PRIMARY KEY,
+  doc_freq INTEGER DEFAULT 0
+);
 """
 
 

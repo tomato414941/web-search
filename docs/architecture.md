@@ -64,17 +64,16 @@ We separate the "Write" path (Indexer) from the "Read" path (Frontend).
 *   **Indexer**: Heavy processing (Tokenization, Embedding Generation). Locking writes to SQLite.
 *   **Frontend**: Fast reads. Uses SQLite WAL mode to read *while* Indexer is writing.
 
-### 2. Shared Kernel (`shared`)
-Common domain logic and infrastructure code live in `shared`.
-*   **Database**: `shared.db.search` defines the schema and connection logic.
-*   **Analyzer**: `shared.analyzer` defines how Japanese text is tokenized (SudachiPy), ensuring both Indexer (Write) and Frontend (Query) use the exact same logic.
+### 3. Shared Library (`shared/`)
+*   **Database**: Uses `sqlite3` with a custom schema (`documents`, `inverted_index`, `page_ranks`) for the Search Engine.
+*   **Search Engine (`shared.search`)**:
+    *   **Custom Inverted Index**: Python-based indexing using `inverted_index` table.
+    *   **Hybrid Search**: Combines BM25 (Keyword) and Vector (Semantic) scores using Reciprocal Rank Fusion (RRF).
+    *   **Tokenizer**: `SudachiPy` for Japanese morphological analysis.
+    *   **Scoring**: BM25 + PageRank boosting + Title boosting.
 
-### 3. Asynchronous Crawler
-The crawler uses `aiohttp` for high-concurrency fetching. It is entirely decoupled from the storage layer.
-*   It submits crawled data to **Indexer Service** via HTTP (`POST /api/v1/indexer/page`).
-*   It does **not** write to SQLite directly.
+### 4. Data Flow
+1.  **Crawl**: Crawler sends HTML to `Indexer Service` via API.
+2.  **Index**: Indexer tokenizes text, generates embeddings (OpenAI), and updates the Inverted Index & Vector store.
+3.  **Search**: Frontend uses `SearchEngine` class to query the local SQLite database directly (Read-only).
 
-## Tokenization Strategy
-*   **Engine**: SQLite FTS5 with `tokenize='unicode61'` (Whitespace based).
-*   **Pre-processing**: Python-side `JapaneseAnalyzer` (SudachiPy) converts Japanese text into space-separated tokens *before* sending to SQLite.
-*   This hybrid approach allows us to use robust NLP libraries (Sudachi) while leveraging standard FTS5 features.
