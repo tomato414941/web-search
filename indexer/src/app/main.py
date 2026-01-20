@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from shared.db.search import ensure_db
 from app.api.routes import indexer, health
+from app.api.routes.health import root_router as health_root_router
 
 
 @asynccontextmanager
@@ -50,7 +51,10 @@ app.add_middleware(
 )
 
 # --- Routers ---
-# Public health check (no auth, for load balancer)
+# Root-level health endpoints (Kubernetes probes)
+app.include_router(health_root_router, tags=["health"])
+
+# Public health check (no auth, for load balancer) - backward compatibility
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 
 # Indexer API (requires API key)

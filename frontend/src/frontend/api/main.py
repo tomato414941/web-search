@@ -13,6 +13,7 @@ from slowapi.errors import RateLimitExceeded
 from frontend.core.config import settings
 from frontend.core.db import ensure_db
 from frontend.api.routers import search, search_api, stats, crawler, system, admin
+from frontend.api.routers.system import root_router as health_root_router
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from frontend.api.metrics import router as metrics_router, MetricsMiddleware
@@ -126,6 +127,9 @@ if not os.path.exists(static_dir):
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Include Routers
+# Root-level health endpoints (Kubernetes probes)
+app.include_router(health_root_router, tags=["health"])
+
 # UI routes (no /api/v1 prefix)
 app.include_router(search.router, tags=["ui"])
 app.include_router(admin.router)

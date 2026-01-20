@@ -6,6 +6,7 @@ FastAPI application factory and router registration.
 
 from fastapi import FastAPI
 from app.api.routes import health, crawl, worker, queue, history, scoring
+from app.api.routes.health import root_router as health_root_router
 from app.core.events import lifespan
 from app.core.config import settings
 
@@ -22,6 +23,9 @@ def create_app() -> FastAPI:
         description="Distributed web crawler service",
         lifespan=lifespan,
     )
+
+    # Root-level health endpoints (Kubernetes probes)
+    app.include_router(health_root_router, tags=["health"])
 
     # Register routers with /api/v1 prefix
     app.include_router(health.router, prefix="/api/v1", tags=["health"])
