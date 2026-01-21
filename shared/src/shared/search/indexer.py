@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from shared.analyzer import analyzer
+from shared.db.search import get_connection
 
 
 class SearchIndexer:
@@ -37,7 +38,7 @@ class SearchIndexer:
         """
         should_close = conn is None
         if conn is None:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_connection(self.db_path)
 
         try:
             # 1. Tokenize title and content
@@ -80,7 +81,7 @@ class SearchIndexer:
         """
         should_close = conn is None
         if conn is None:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_connection(self.db_path)
 
         try:
             # Total documents
@@ -114,7 +115,7 @@ class SearchIndexer:
         """Remove a document from the index."""
         should_close = conn is None
         if conn is None:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_connection(self.db_path)
 
         try:
             conn.execute("DELETE FROM documents WHERE url = ?", (url,))

@@ -2,7 +2,6 @@
 
 import hashlib
 import hmac
-import sqlite3
 from datetime import timedelta
 from typing import Any
 
@@ -12,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, HttpUrl
 
 from frontend.core.config import settings
+from frontend.core.db import get_connection
 from frontend.api.templates import templates
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -65,7 +65,7 @@ def get_stats() -> dict[str, Any]:
     # Database stats (Local SQLite)
     try:
         if settings.DB_PATH:
-            conn = sqlite3.connect(settings.DB_PATH)
+            conn = get_connection(settings.DB_PATH)
             cursor = conn.execute("SELECT COUNT(*) FROM documents")
             stats["indexed_pages"] = cursor.fetchone()[0]
 
@@ -294,7 +294,7 @@ def get_analytics_data() -> dict:
     }
 
     try:
-        conn = sqlite3.connect(settings.DB_PATH)
+        conn = get_connection(settings.DB_PATH)
 
         # Total searches in last 7 days
         cursor = conn.execute(

@@ -4,7 +4,7 @@ import logging
 import sqlite3
 
 from app.core.config import settings
-from shared.db.search import open_db
+from shared.db.search import open_db, get_connection
 from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
 
@@ -55,7 +55,7 @@ class IndexerService:
     def get_index_stats(self):
         """Get indexing statistics."""
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = get_connection(self.db_path)
             cursor = conn.execute("SELECT COUNT(*) FROM documents")
             total = cursor.fetchone()[0]
             conn.close()

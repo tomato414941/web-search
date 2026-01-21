@@ -7,11 +7,12 @@ Supports BM25, Vector (Semantic), and Hybrid (RRF) search modes.
 
 import sqlite3
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 
 from shared.analyzer import analyzer
+from shared.db.search import get_connection
 from shared.search.scoring import BM25Scorer, BM25Config
 
 
@@ -100,7 +101,7 @@ class SearchEngine:
         if not tokens:
             return self._empty_result(query, limit)
 
-        conn = sqlite3.connect(self.db_path)
+        conn = get_connection(self.db_path)
         try:
             # 2. Find candidate documents (AND logic)
             candidates = self._find_candidates(conn, tokens)
@@ -156,7 +157,7 @@ class SearchEngine:
 
     def _find_candidates(
         self,
-        conn: sqlite3.Connection,
+        conn: Any,
         tokens: list[str],
     ) -> set[str]:
         """
@@ -194,7 +195,7 @@ class SearchEngine:
 
     def _score_candidates(
         self,
-        conn: sqlite3.Connection,
+        conn: Any,
         candidates: set[str],
         tokens: list[str],
     ) -> list[tuple[str, float]]:
@@ -261,7 +262,7 @@ class SearchEngine:
 
         # 6. Fetch document details
         hits = []
-        conn = sqlite3.connect(self.db_path)
+        conn = get_connection(self.db_path)
         try:
             for idx in slice_indices:
                 url = urls[idx]
@@ -388,7 +389,7 @@ class SearchEngine:
             self._vector_cache = []
             return
 
-        conn = sqlite3.connect(self.db_path)
+        conn = get_connection(self.db_path)
         try:
             # Check if table exists
             try:

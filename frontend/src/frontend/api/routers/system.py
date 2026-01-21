@@ -8,12 +8,12 @@ Provides Kubernetes-compatible health check endpoints:
 """
 
 import os
-import sqlite3
 import httpx
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from frontend.core.config import settings
+from frontend.core.db import get_connection
 
 # Router for /api/v1 prefix (backward compatibility)
 router = APIRouter()
@@ -26,7 +26,7 @@ def _check_database() -> bool:
     """Check SQLite database connectivity."""
     try:
         if os.path.exists(settings.DB_PATH):
-            con = sqlite3.connect(settings.DB_PATH, timeout=5)
+            con = get_connection(settings.DB_PATH)
             con.execute("SELECT 1")
             con.close()
             return True

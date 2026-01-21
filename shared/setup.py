@@ -9,5 +9,6 @@ setup(
     install_requires=[
         "pydantic>=2.0.0",
         "pydantic-settings>=2.0.0",
+        "libsql-experimental>=0.0.50",
     ],
 )

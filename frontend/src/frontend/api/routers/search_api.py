@@ -1,11 +1,11 @@
 """Search API Router - JSON endpoints for search and prediction."""
 
-import sqlite3
 import httpx
 from fastapi import APIRouter, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from frontend.core.config import settings
+from frontend.core.db import get_connection
 from frontend.services.search import search_service
 from frontend.api.middleware.rate_limiter import limiter
 
@@ -16,7 +16,7 @@ router = APIRouter()
 def log_search(query: str, result_count: int, mode: str, user_agent: str | None):
     """Log search query to database (runs in background)."""
     try:
-        conn = sqlite3.connect(settings.DB_PATH)
+        conn = get_connection(settings.DB_PATH)
         conn.execute(
             "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (?, ?, ?, ?)",
             (query, result_count, mode, user_agent),

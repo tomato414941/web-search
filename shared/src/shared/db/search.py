@@ -3,8 +3,13 @@ SQLite Database Module (Shared Kernel)
 
 Schema definitions and database operations for the search index.
 Used by both Frontend (Read) and Indexer (Write) services.
+
+Supports both:
+- Turso (production): Set TURSO_URL and TURSO_TOKEN environment variables
+- Local SQLite (development): Uses SEARCH_DB path or default
 """
 
+import os
 import sqlite3
 from shared.core.infrastructure_config import settings
 
@@ -82,10 +87,48 @@ CREATE INDEX IF NOT EXISTS idx_search_logs_query ON search_logs(query);
 """
 
 
-def open_db(path: str = settings.DB_PATH) -> sqlite3.Connection:
-    """Open database connection and ensure schema exists."""
-    con = sqlite3.connect(path)
-    con.executescript(SCHEMA_SQL)
+def get_connection(db_path: str | None = None):
+    """Get database connection (Turso or local SQLite).
+
+    Args:
+        db_path: Optional path to SQLite database. Ignored if TURSO_URL is set.
+
+    Returns a connection object that is compatible with sqlite3.Connection.
+    - If TURSO_URL is set: connects to Turso (production)
+    - Otherwise: connects to local SQLite (development)
+    """
+    turso_url = os.getenv("TURSO_URL")
+
+    if turso_url:
+        # Turso (production)
+        import libsql_experimental as libsql
+        return libsql.connect(
+            turso_url,
+            auth_token=os.getenv("TURSO_TOKEN")
+        )
+    else:
+        # Local SQLite (development)
+        path = db_path or os.getenv("SEARCH_DB", settings.DB_PATH)
+        return sqlite3.connect(path)
+
+
+def open_db(path: str = settings.DB_PATH):
+    """Open database connection and ensure schema exists.
+
+    Note: If TURSO_URL is set, the path parameter is ignored
+    and Turso connection is used instead.
+    """
+    con = get_connection(path)
+    turso_mode = os.getenv("TURSO_URL") is not None
+    if turso_mode:
+        # Skip PRAGMA statements (Turso manages these automatically)
+        schema_without_pragmas = "\n".join(
+            line for line in SCHEMA_SQL.split("\n")
+            if not line.strip().startswith("PRAGMA")
+        )
+        con.executescript(schema_without_pragmas)
+    else:
+        con.executescript(SCHEMA_SQL)
     return con
 
 

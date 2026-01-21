@@ -11,6 +11,7 @@ import os
 from typing import Any
 
 from frontend.core.config import settings
+from frontend.core.db import get_connection
 from frontend.services.embedding import embedding_service
 from shared.search import SearchEngine, BM25Config
 from shared.search.snippet import highlight_snippet
@@ -155,12 +156,10 @@ class SearchService:
 
     def get_index_stats(self) -> dict[str, int]:
         """Return index stats: total pages."""
-        import sqlite3
-
         if not os.path.exists(self.db_path):
             return {"indexed": 0}
 
-        con = sqlite3.connect(self.db_path)
+        con = get_connection(self.db_path)
         try:
             # Use new documents table
             cur = con.execute("SELECT count(*) FROM documents")
