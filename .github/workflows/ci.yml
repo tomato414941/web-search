@@ -11,9 +11,27 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
+  test-shared:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: shared/setup.py
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared/
+          pip install pytest pytest-asyncio
+      - name: Run shared tests
+        env:
+          PYTHONPATH: shared/src
+        run: cd shared && pytest tests/ -v --tb=short
 
+  test-frontend:
+    runs-on: ubuntu-latest
     services:
       redis:
         image: redis:7-alpine
@@ -24,68 +42,104 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-
+          cache-dependency-path: frontend/requirements.txt
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Install shared package first
           pip install -e shared/
-          # Install frontend dependencies
           pip install -r frontend/requirements.txt
-          # Install test dependencies
           pip install pytest pytest-cov pytest-asyncio httpx fakeredis
-
       - name: Run frontend tests
         env:
           PYTHONPATH: frontend/src
           REDIS_URL: redis://localhost:6379
-        run: |
-          cd frontend
-          pytest tests/ -v --tb=short
+        run: cd frontend && pytest tests/ -v --tb=short
 
-      - name: Run shared tests
-        env:
-          PYTHONPATH: shared/src
+  test-crawler:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: crawler/requirements.txt
+      - name: Install dependencies
         run: |
-          cd shared
-          pytest tests/ -v --tb=short
+          python -m pip install --upgrade pip
+          pip install -e shared/
+          pip install -r crawler/requirements.txt
+      - name: Run crawler tests
+        env:
+          PYTHONPATH: crawler/src
+          INDEXER_API_URL: http://test:8080/api/indexer/page
+          INDEXER_API_KEY: test-api-key
+          REDIS_URL: redis://test:6379
+        run: cd crawler && pytest tests/ -v --tb=short
+
+  test-indexer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: indexer/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e shared/
+          cd indexer && sed -i 's|\.\./shared|\./shared|g' requirements.txt
+          pip install -r indexer/requirements.txt
+      - name: Run indexer tests
+        env:
+          PYTHONPATH: indexer/src
+        run: cd indexer && pytest tests/ -v --tb=short
 
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
       - name: Install linters
-        run: pip install ruff mypy
-
+        run: pip install ruff
       - name: Run ruff (linting)
-        run: ruff check frontend/src/ shared/src/ crawler/src/ || true
-
+        run: ruff check frontend/src/ shared/src/ crawler/src/ indexer/src/
       - name: Run ruff (formatting check)
-        run: ruff format --check frontend/src/ shared/src/ crawler/src/ || true
+        run: ruff format --check frontend/src/ shared/src/ crawler/src/ indexer/src/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Audit dependencies
+        run: |
+          pip-audit -r frontend/requirements.txt || true
+          pip-audit -r crawler/requirements.txt || true
+          pip-audit -r indexer/requirements.txt || true
+        continue-on-error: true
 
   build-and-push:
-    needs: [test, lint]
+    needs: [test-shared, test-frontend, test-crawler, test-indexer, lint]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
-
     steps:
       - uses: actions/checkout@v4
 
