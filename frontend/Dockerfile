@@ -36,10 +36,10 @@ ENV PATH=/root/.local/bin:$PATH
 COPY frontend/src/ ./src/
 COPY frontend/gunicorn.conf.py .
 
-ENV PORT=8080 HOST=0.0.0.0 SEARCH_DB=/data/search.db \
+ENV PORT=8000 HOST=0.0.0.0 SEARCH_DB=/data/search.db \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src
 
-EXPOSE 8080
+EXPOSE 8000
 
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "frontend.api.main:app"]

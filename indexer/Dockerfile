@@ -37,11 +37,11 @@ ENV PATH=/root/.local/bin:$PATH
 # Copy application code
 COPY indexer/src/ ./src/
 
-ENV PORT=8081 HOST=0.0.0.0 SEARCH_DB=/data/search.db \
+ENV PORT=8000 HOST=0.0.0.0 SEARCH_DB=/data/search.db \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src
 
-EXPOSE 8081
+EXPOSE 8000
 
 # Use Uvicorn for Indexer (API-based, less static serving needs than Frontend)
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8081"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

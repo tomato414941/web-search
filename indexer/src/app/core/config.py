@@ -16,7 +16,7 @@ class IndexerSettings(InfrastructureSettings):
     APP_NAME: str = "Indexer Service"
     APP_VERSION: str = "1.0.0"
     HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8081"))
+    PORT: int = int(os.getenv("PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
     # Security

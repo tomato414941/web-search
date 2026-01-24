@@ -5,7 +5,7 @@ import multiprocessing
 import os
 
 # Bind to all interfaces on port 8080
-bind = os.getenv("GUNICORN_BIND", "0.0.0.0:8080")
+bind = os.getenv("GUNICORN_BIND", "0.0.0.0:8000")
 
 # Worker configuration
 # Rule of thumb: (2 * CPU cores) + 1

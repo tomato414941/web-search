@@ -6,18 +6,18 @@ The `web-search` project follows a **Service-Based Architecture** designed for c
 
 The system consists of three independent services managed in a Monorepo:
 
-1.  **Frontend Service (Search Cluster)**: 
+1.  **Frontend Service (Search Cluster)**:
     -   **Role**: UI, Search API (Read-Only), Admin Dashboard (Crawler Control, Analytics).
     -   **Stack**: FastAPI + SQLite (WAL Mode).
     -   **Port**: `8080`.
     -   **Scaling**: Can scale horizontally (Shared DB file).
     -   **Dependencies**: Depends on `shared` for DB models/Analyzer.
-2.  **Indexer Service (Write Cluster)**: 
+2.  **Indexer Service (Write Cluster)**:
     -   **Role**: Ingestion, Tokenization (Japanese), Embedding (OpenAI).
     -   **Stack**: FastAPI + SQLite (WAL Mode) + SudachiPy.
     -   **Port**: `8081`.
     -   **Scaling**: Single Writer (SQLite constraint), but decoupled from Read load.
-3.  **Crawler Service (Worker Node)**: 
+3.  **Crawler Service (Worker Node)**:
     -   **Role**: Fetching, Parsing, Queue Management.
     -   **Stack**: FastAPI + Redis (Frontier).
     -   **Port**: `8000`.
@@ -26,7 +26,7 @@ The system consists of three independent services managed in a Monorepo:
 ```mermaid
 graph TD
     Client[User / Browser] --> Frontend[Frontend Service (8080)]
-    
+
     subgraph Data Layer
         SQLite[(Shared SQLite WAL)]
     end
@@ -35,7 +35,7 @@ graph TD
         Crawler[Crawler Service (8000)] --> Redis[(Redis Frontier)]
         Crawler -- POST /page --> Indexer
     end
-    
+
     subgraph Write Cluster
         Indexer[Indexer Service (8081)]
     end
@@ -76,4 +76,3 @@ We separate the "Write" path (Indexer) from the "Read" path (Frontend).
 1.  **Crawl**: Crawler sends HTML to `Indexer Service` via API.
 2.  **Index**: Indexer tokenizes text, generates embeddings (OpenAI), and updates the Inverted Index & Vector store.
 3.  **Search**: Frontend uses `SearchEngine` class to query the local SQLite database directly (Read-only).
-

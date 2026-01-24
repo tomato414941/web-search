@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_env():
     """Set required environment variables for tests"""
-    os.environ["INDEXER_API_URL"] = "http://test:8080/api/indexer/page"
+    os.environ["INDEXER_API_URL"] = "http://test:8000/api/indexer/page"
     os.environ["INDEXER_API_KEY"] = "test-api-key"
     os.environ["REDIS_URL"] = "redis://test:6379"
     os.environ["CRAWLER_HISTORY_DB"] = "/tmp/test_crawler_history.db"

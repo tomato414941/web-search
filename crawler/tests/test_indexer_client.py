@@ -20,7 +20,7 @@ async def test_submit_page_success():
 
     success = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8080/api/indexer/page",
+        "http://indexer:8000/api/indexer/page",
         "test-api-key",
         "http://example.com/test",
         "Test Page",
@@ -50,7 +50,7 @@ async def test_submit_page_indexer_error():
 
     success = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8080/api/indexer/page",
+        "http://indexer:8000/api/indexer/page",
         "test-api-key",
         "http://example.com/test",
         "Test",
@@ -68,7 +68,7 @@ async def test_submit_page_network_error():
 
     success = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8080/api/indexer/page",
+        "http://indexer:8000/api/indexer/page",
         "test-api-key",
         "http://example.com/test",
         "Test",
@@ -88,7 +88,7 @@ async def test_submit_page_timeout():
 
     success = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8080/api/indexer/page",
+        "http://indexer:8000/api/indexer/page",
         "test-api-key",
         "http://example.com/test",
         "Test",
@@ -110,7 +110,7 @@ async def test_submit_page_authentication():
     api_key = "super-secret-key-12345"
     await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8080/api/indexer/page",
+        "http://indexer:8000/api/indexer/page",
         api_key,
         "http://example.com",
         "Title",
