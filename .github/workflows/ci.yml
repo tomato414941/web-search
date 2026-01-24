@@ -96,7 +96,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e shared/
-          cd indexer && sed -i 's|\.\./shared|\./shared|g' requirements.txt
+          cd indexer && sed -i '/^-e/d' requirements.txt
           pip install -r requirements.txt
       - name: Run indexer tests
         env:
