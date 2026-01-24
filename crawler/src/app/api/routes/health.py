@@ -41,6 +41,7 @@ def _check_queue() -> bool:
 
 # --- Root-level endpoints (Kubernetes probes) ---
 
+
 @root_router.get("/health")
 async def health():
     """Simple health check for load balancers."""
@@ -71,6 +72,7 @@ async def readiness():
 
 
 # --- /api/v1 endpoints (backward compatibility) ---
+
 
 @router.get("/health")
 async def health_check():

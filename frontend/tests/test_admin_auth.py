@@ -1,9 +1,11 @@
 """Test Admin Authentication and Security."""
 
+import os
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from frontend.api.main import app
-from frontend.core.config import settings
+from frontend.core.config import settings, Settings
 
 
 client = TestClient(app)
@@ -70,7 +72,7 @@ class TestAdminAuthentication:
     def test_dashboard_with_valid_session(self):
         """Dashboard should be accessible with valid session."""
         # First login to get valid session
-        login_response = client.post(
+        client.post(
             "/admin/login",
             data={
                 "username": settings.ADMIN_USERNAME,
@@ -128,6 +130,48 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
+    def test_crawlers_page_requires_auth(self):
+        """Crawlers page should require authentication."""
+        client.cookies.clear()
+        response = client.get("/admin/crawlers", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/login"
+
+    def test_crawlers_page_with_valid_session(self):
+        """Crawlers page should be accessible with valid session."""
+        client.cookies.clear()
+        client.post(
+            "/admin/login",
+            data={
+                "username": settings.ADMIN_USERNAME,
+                "password": settings.ADMIN_PASSWORD,
+            },
+        )
+        response = client.get("/admin/crawlers")
+        assert response.status_code == 200
+        assert "Crawler Instances" in response.text
+
+    def test_crawler_start_requires_auth(self):
+        """Starting a crawler instance should require authentication."""
+        client.cookies.clear()
+        response = client.post(
+            "/admin/crawlers/default/start",
+            data={"concurrency": 1},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/login"
+
+    def test_crawler_stop_requires_auth(self):
+        """Stopping a crawler instance should require authentication."""
+        client.cookies.clear()
+        response = client.post(
+            "/admin/crawlers/default/stop",
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/login"
+
 
 class TestSessionSecurity:
     """Test session security properties."""
@@ -174,3 +218,49 @@ class TestSessionSecurity:
             client.cookies.set("admin_session", invalid_token)
             response = client.get("/admin/", follow_redirects=False)
             assert response.status_code == 303  # Should still be unauthorized
+
+
+class TestCrawlerInstancesConfig:
+    """Test CRAWLER_INSTANCES configuration property."""
+
+    def test_crawler_instances_default(self):
+        """Should return default instance when env var not set."""
+        with patch.dict(os.environ, {}, clear=False):
+            if "CRAWLER_INSTANCES" in os.environ:
+                del os.environ["CRAWLER_INSTANCES"]
+            s = Settings()
+            instances = s.CRAWLER_INSTANCES
+            assert len(instances) == 1
+            assert instances[0]["name"] == "default"
+            assert instances[0]["url"] == s.CRAWLER_SERVICE_URL
+
+    def test_crawler_instances_single(self):
+        """Should parse single instance correctly."""
+        with patch.dict(os.environ, {"CRAWLER_INSTANCES": "test|http://test:8000"}):
+            s = Settings()
+            instances = s.CRAWLER_INSTANCES
+            assert len(instances) == 1
+            assert instances[0]["name"] == "test"
+            assert instances[0]["url"] == "http://test:8000"
+
+    def test_crawler_instances_multiple(self):
+        """Should parse multiple instances correctly."""
+        env_val = "crawler1|http://host1:8000,crawler2|http://host2:8000"
+        with patch.dict(os.environ, {"CRAWLER_INSTANCES": env_val}):
+            s = Settings()
+            instances = s.CRAWLER_INSTANCES
+            assert len(instances) == 2
+            assert instances[0]["name"] == "crawler1"
+            assert instances[0]["url"] == "http://host1:8000"
+            assert instances[1]["name"] == "crawler2"
+            assert instances[1]["url"] == "http://host2:8000"
+
+    def test_crawler_instances_with_spaces(self):
+        """Should handle spaces in the env var."""
+        env_val = " crawler1 | http://host1:8000 , crawler2|http://host2:8000 "
+        with patch.dict(os.environ, {"CRAWLER_INSTANCES": env_val}):
+            s = Settings()
+            instances = s.CRAWLER_INSTANCES
+            assert len(instances) == 2
+            assert instances[0]["name"] == "crawler1"
+            assert instances[0]["url"] == "http://host1:8000"

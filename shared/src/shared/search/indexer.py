@@ -8,7 +8,6 @@ import json
 import sqlite3
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Any
 
 from shared.analyzer import analyzer
 from shared.db.search import get_connection
@@ -85,14 +84,13 @@ class SearchIndexer:
 
         try:
             # Total documents
-            total_docs = conn.execute(
-                "SELECT COUNT(*) FROM documents"
-            ).fetchone()[0]
+            total_docs = conn.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
 
             # Average document length
-            avg_length = conn.execute(
-                "SELECT AVG(word_count) FROM documents"
-            ).fetchone()[0] or 0.0
+            avg_length = (
+                conn.execute("SELECT AVG(word_count) FROM documents").fetchone()[0]
+                or 0.0
+            )
 
             # Upsert stats
             conn.execute(

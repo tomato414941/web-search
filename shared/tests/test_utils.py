@@ -53,4 +53,3 @@ class TestNormalizeURL:
         """Should reject mailto: URLs."""
         result = normalize_url("http://example.com", "mailto:test@example.com")
         assert result is None
-

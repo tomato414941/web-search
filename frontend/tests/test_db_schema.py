@@ -1,14 +1,10 @@
-import sqlite3
-import pytest
 from frontend.core.db import open_db
 
 
 def test_db_creation():
     """Verify that database creates required tables."""
     con = open_db(":memory:")
-    cur = con.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    )
+    cur = con.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = {row[0] for row in cur.fetchall()}
 
     # Custom search engine tables
@@ -32,13 +28,13 @@ def test_documents_table_schema():
     # Insert a test document
     con.execute(
         "INSERT INTO documents (url, title, content, word_count, indexed_at) VALUES (?, ?, ?, ?, ?)",
-        ("http://example.com", "Test Title", "Test Content", 2, "2024-01-01T00:00:00")
+        ("http://example.com", "Test Title", "Test Content", 2, "2024-01-01T00:00:00"),
     )
     con.commit()
 
     row = con.execute(
         "SELECT url, title, content, word_count, indexed_at FROM documents WHERE url = ?",
-        ("http://example.com",)
+        ("http://example.com",),
     ).fetchone()
 
     assert row is not None
@@ -58,13 +54,13 @@ def test_inverted_index_table_schema():
     # Insert a test entry
     con.execute(
         "INSERT INTO inverted_index (token, url, field, term_freq, positions) VALUES (?, ?, ?, ?, ?)",
-        ("test", "http://example.com", "title", 1, "[0]")
+        ("test", "http://example.com", "title", 1, "[0]"),
     )
     con.commit()
 
     row = con.execute(
         "SELECT token, url, field, term_freq, positions FROM inverted_index WHERE token = ?",
-        ("test",)
+        ("test",),
     ).fetchone()
 
     assert row is not None

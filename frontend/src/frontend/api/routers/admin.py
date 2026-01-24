@@ -85,8 +85,8 @@ def get_stats() -> dict[str, Any]:
             resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/status")
             if resp.status_code == 200:
                 remote_stats = resp.json()
-                stats["queue_size"] = remote_stats.get("queued", 0)
-                stats["visited_count"] = remote_stats.get("visited", 0)
+                stats["queue_size"] = remote_stats.get("queue_size", 0)
+                stats["visited_count"] = remote_stats.get("total_crawled", 0)
 
             # Get worker status
             resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/status")
@@ -166,11 +166,41 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
 
+    # Get seeds from Crawler API
+    seeds = []
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds")
+            if resp.status_code == 200:
+                seeds = resp.json()
+    except Exception:
+        seeds = []
+
+    return templates.TemplateResponse(
+        "admin/seeds.html",
+        {
+            "request": request,
+            "seeds": seeds,
+            "success": success,
+            "error": error,
+        },
+    )
+
+
+@router.get("/queue")
+async def queue_page(request: Request, success: str = "", error: str = ""):
+    """Crawl queue page."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
     # Get current queue contents from Crawler API
     queue_urls = []
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/queue?limit=20")
+            resp = await client.get(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/queue?limit=50"
+            )
             if resp.status_code == 200:
                 items = resp.json()
                 queue_urls = [(item["url"], item["score"]) for item in items]
@@ -178,7 +208,7 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
         queue_urls = []
 
     return templates.TemplateResponse(
-        "admin/seeds.html",
+        "admin/queue.html",
         {
             "request": request,
             "queue_urls": queue_urls,
@@ -219,8 +249,96 @@ async def history_page(request: Request, url: str = ""):
 
 
 @router.post("/seeds")
-async def add_seed(request: Request, url: str = Form(...)):
-    """Add a seed URL to the queue."""
+async def add_seed(
+    request: Request, url: str = Form(...), priority: float = Form(default=100.0)
+):
+    """Add a seed URL (persistent)."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            payload = {"urls": [url], "priority": priority}
+            resp = await client.post(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds", json=payload
+            )
+            if resp.status_code != 200:
+                raise Exception(f"Crawler API Error: {resp.text}")
+
+        return RedirectResponse(
+            url=f"/admin/seeds?success=Added+seed+{url}",
+            status_code=303,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/admin/seeds?error={str(e)}",
+            status_code=303,
+        )
+
+
+@router.post("/seeds/delete")
+async def delete_seed(request: Request, url: str = Form(...)):
+    """Delete a seed URL."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            payload = {"urls": [url]}
+            resp = await client.request(
+                "DELETE",
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds",
+                json=payload,
+            )
+            if resp.status_code != 200:
+                raise Exception(f"Crawler API Error: {resp.text}")
+
+        return RedirectResponse(
+            url="/admin/seeds?success=Seed+deleted",
+            status_code=303,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/admin/seeds?error={str(e)}",
+            status_code=303,
+        )
+
+
+@router.post("/seeds/requeue")
+async def requeue_seeds(request: Request, force: bool = Form(default=False)):
+    """Requeue all seeds."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            payload = {"force": force}
+            resp = await client.post(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds/requeue",
+                json=payload,
+            )
+            if resp.status_code != 200:
+                raise Exception(f"Crawler API Error: {resp.text}")
+            data = resp.json()
+            count = data.get("count", 0)
+
+        return RedirectResponse(
+            url=f"/admin/seeds?success=Requeued+{count}+seeds",
+            status_code=303,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/admin/seeds?error={str(e)}",
+            status_code=303,
+        )
+
+
+@router.post("/queue")
+async def add_to_queue(request: Request, url: str = Form(...)):
+    """Add a URL to the queue (temporary, not a seed)."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
@@ -235,12 +353,12 @@ async def add_seed(request: Request, url: str = Form(...)):
                 raise Exception(f"Crawler API Error: {resp.text}")
 
         return RedirectResponse(
-            url=f"/admin/seeds?success=Added+{url}+to+queue",
+            url=f"/admin/queue?success=Added+{url}+to+queue",
             status_code=303,
         )
     except Exception as e:
         return RedirectResponse(
-            url=f"/admin/seeds?error={str(e)}",
+            url=f"/admin/queue?error={str(e)}",
             status_code=303,
         )
 
@@ -358,3 +476,118 @@ async def analytics_page(request: Request):
             "analytics": analytics,
         },
     )
+
+
+# ==================== Crawler Instances Management ====================
+
+
+async def get_crawler_instance_status(url: str) -> dict[str, Any]:
+    """Get status for a single crawler instance."""
+    status = {
+        "state": "unreachable",
+        "queue_size": 0,
+        "total_crawled": 0,
+        "uptime": None,
+        "concurrency": None,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{url}/api/v1/status")
+            if resp.status_code == 200:
+                data = resp.json()
+                status["queue_size"] = data.get("queue_size", 0)
+                status["total_crawled"] = data.get("total_crawled", 0)
+
+            resp = await client.get(f"{url}/api/v1/worker/status")
+            if resp.status_code == 200:
+                worker = resp.json()
+                status["state"] = worker.get("state", "unknown")
+                status["uptime"] = worker.get("uptime")
+                status["concurrency"] = worker.get("concurrency")
+    except Exception:
+        pass
+    return status
+
+
+async def get_all_crawler_instances() -> list[dict[str, Any]]:
+    """Get status for all configured crawler instances."""
+    instances = []
+    for inst in settings.CRAWLER_INSTANCES:
+        status = await get_crawler_instance_status(inst["url"])
+        instances.append(
+            {
+                "name": inst["name"],
+                "url": inst["url"],
+                **status,
+            }
+        )
+    return instances
+
+
+def find_crawler_url(name: str) -> str | None:
+    """Find crawler URL by name."""
+    for inst in settings.CRAWLER_INSTANCES:
+        if inst["name"] == name:
+            return inst["url"]
+    return None
+
+
+@router.get("/crawlers")
+async def crawlers_page(request: Request):
+    """Crawler instances management page."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    instances = await get_all_crawler_instances()
+    return templates.TemplateResponse(
+        "admin/crawlers.html",
+        {
+            "request": request,
+            "instances": instances,
+        },
+    )
+
+
+@router.post("/crawlers/{name}/start")
+async def crawler_instance_start(
+    request: Request, name: str, concurrency: int = Form(default=1)
+):
+    """Start a specific crawler instance."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    url = find_crawler_url(name)
+    if not url:
+        return RedirectResponse(url="/admin/crawlers", status_code=303)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{url}/api/v1/worker/start", json={"concurrency": concurrency}
+            )
+    except Exception:
+        pass
+
+    return RedirectResponse(url="/admin/crawlers", status_code=303)
+
+
+@router.post("/crawlers/{name}/stop")
+async def crawler_instance_stop(request: Request, name: str):
+    """Stop a specific crawler instance."""
+    token = request.cookies.get(SESSION_COOKIE_NAME)
+    if not validate_session(token):
+        return RedirectResponse(url="/admin/login", status_code=303)
+
+    url = find_crawler_url(name)
+    if not url:
+        return RedirectResponse(url="/admin/crawlers", status_code=303)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(f"{url}/api/v1/worker/stop")
+    except Exception:
+        pass
+
+    return RedirectResponse(url="/admin/crawlers", status_code=303)

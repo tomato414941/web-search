@@ -48,13 +48,13 @@ class TestDocumentOperations:
         conn = open_db(test_db_path)
         conn.execute(
             "INSERT INTO documents (url, title, content, word_count) VALUES (?, ?, ?, ?)",
-            ("https://example.com", "Test Page", "This is test content", 4)
+            ("https://example.com", "Test Page", "This is test content", 4),
         )
         conn.commit()
 
         cursor = conn.execute(
             "SELECT url, title, content, word_count FROM documents WHERE url = ?",
-            ("https://example.com",)
+            ("https://example.com",),
         )
         result = cursor.fetchone()
         conn.close()
@@ -72,7 +72,7 @@ class TestDocumentOperations:
         # Insert first version
         conn.execute(
             "INSERT INTO documents (url, title, content) VALUES (?, ?, ?)",
-            ("https://example.com", "Original", "Original content")
+            ("https://example.com", "Original", "Original content"),
         )
         conn.commit()
 
@@ -80,7 +80,7 @@ class TestDocumentOperations:
         conn.execute("DELETE FROM documents WHERE url = ?", ("https://example.com",))
         conn.execute(
             "INSERT INTO documents (url, title, content) VALUES (?, ?, ?)",
-            ("https://example.com", "Updated", "Updated content")
+            ("https://example.com", "Updated", "Updated content"),
         )
         conn.commit()
 
@@ -110,13 +110,12 @@ class TestInvertedIndexOperations:
 
         conn.execute(
             "INSERT INTO inverted_index (token, url, field, term_freq, positions) VALUES (?, ?, ?, ?, ?)",
-            ("python", "https://example.com/python", "title", 2, "[0, 5]")
+            ("python", "https://example.com/python", "title", 2, "[0, 5]"),
         )
         conn.commit()
 
         cursor = conn.execute(
-            "SELECT url, term_freq FROM inverted_index WHERE token = ?",
-            ("python",)
+            "SELECT url, term_freq FROM inverted_index WHERE token = ?", ("python",)
         )
         result = cursor.fetchone()
         conn.close()
@@ -132,21 +131,20 @@ class TestInvertedIndexOperations:
         # Insert multiple entries for same token
         conn.execute(
             "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
-            ("programming", "https://example.com/1", "content", 3)
+            ("programming", "https://example.com/1", "content", 3),
         )
         conn.execute(
             "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
-            ("programming", "https://example.com/2", "content", 1)
+            ("programming", "https://example.com/2", "content", 1),
         )
         conn.execute(
             "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
-            ("programming", "https://example.com/3", "title", 1)
+            ("programming", "https://example.com/3", "title", 1),
         )
         conn.commit()
 
         cursor = conn.execute(
-            "SELECT COUNT(*) FROM inverted_index WHERE token = ?",
-            ("programming",)
+            "SELECT COUNT(*) FROM inverted_index WHERE token = ?", ("programming",)
         )
         count = cursor.fetchone()[0]
         conn.close()

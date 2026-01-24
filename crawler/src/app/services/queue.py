@@ -29,11 +29,11 @@ class QueueService:
             Number of URLs added (excludes duplicates)
         """
         count = enqueue_batch(
-            self.redis, 
-            urls, 
+            self.redis,
+            urls,
             parent_score=priority,
             queue_key=settings.CRAWL_QUEUE_KEY,
-            seen_key=settings.CRAWL_SEEN_KEY
+            seen_key=settings.CRAWL_SEEN_KEY,
         )
         logger.info(f"Queued {count}/{len(urls)} URLs (priority={priority})")
         return count

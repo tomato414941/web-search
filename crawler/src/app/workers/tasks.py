@@ -91,7 +91,7 @@ async def process_url(
                             parent_score=score,
                             score_calculator=calculate_url_score,  # Use domain logic
                             queue_key=settings.CRAWL_QUEUE_KEY,
-                            seen_key=settings.CRAWL_SEEN_KEY
+                            seen_key=settings.CRAWL_SEEN_KEY,
                         ),
                     )
                     logger.debug(f"📤 Enqueued {len(discovered)} links from {url}")
@@ -167,8 +167,10 @@ async def worker_loop(concurrency: int = 1):
                 # Dequeue next URL
                 loop = asyncio.get_running_loop()
                 item = await loop.run_in_executor(
-                    None, 
-                    lambda: dequeue_top(redis_client, queue_key=settings.CRAWL_QUEUE_KEY)
+                    None,
+                    lambda: dequeue_top(
+                        redis_client, queue_key=settings.CRAWL_QUEUE_KEY
+                    ),
                 )
 
                 if not item:

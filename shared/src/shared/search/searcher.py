@@ -127,12 +127,14 @@ class SearchEngine:
                     (url,),
                 ).fetchone()
                 if doc:
-                    hits.append(SearchHit(
-                        url=url,
-                        title=doc[0],
-                        content=doc[1],
-                        score=score,
-                    ))
+                    hits.append(
+                        SearchHit(
+                            url=url,
+                            title=doc[0],
+                            content=doc[1],
+                            score=score,
+                        )
+                    )
 
             last_page = max((total + limit - 1) // limit, 1)
 
@@ -173,7 +175,7 @@ class SearchEngine:
             for row in conn.execute(
                 "SELECT DISTINCT url FROM inverted_index WHERE token = ?",
                 (first_token,),
-            )
+            ).fetchall()
         )
 
         # Intersect with remaining tokens
@@ -183,7 +185,7 @@ class SearchEngine:
                 for row in conn.execute(
                     "SELECT DISTINCT url FROM inverted_index WHERE token = ?",
                     (token,),
-                )
+                ).fetchall()
             )
             candidates &= token_docs
 
@@ -274,12 +276,14 @@ class SearchEngine:
                 ).fetchone()
 
                 if doc:
-                    hits.append(SearchHit(
-                        url=url,
-                        title=doc[0],
-                        content=doc[1],
-                        score=score,
-                    ))
+                    hits.append(
+                        SearchHit(
+                            url=url,
+                            title=doc[0],
+                            content=doc[1],
+                            score=score,
+                        )
+                    )
         finally:
             conn.close()
 
@@ -362,12 +366,14 @@ class SearchEngine:
         hits = []
         for url in page_urls:
             original = url_data[url]
-            hits.append(SearchHit(
-                url=url,
-                title=original.title,
-                content=original.content,
-                score=rrf_scores[url],
-            ))
+            hits.append(
+                SearchHit(
+                    url=url,
+                    title=original.title,
+                    content=original.content,
+                    score=rrf_scores[url],
+                )
+            )
 
         last_page = max((total + limit - 1) // limit, 1)
 
@@ -398,9 +404,7 @@ class SearchEngine:
                 self._vector_cache = []
                 return
 
-            rows = conn.execute(
-                "SELECT url, embedding FROM page_embeddings"
-            ).fetchall()
+            rows = conn.execute("SELECT url, embedding FROM page_embeddings").fetchall()
 
             cache = []
             for url, blob in rows:

@@ -4,6 +4,7 @@ Indexer Service Configuration
 Configuration specific to the Indexer service, including OpenAI API settings
 and database configuration.
 """
+
 import os
 from shared.core.infrastructure_config import InfrastructureSettings
 

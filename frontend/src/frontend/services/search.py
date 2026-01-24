@@ -8,6 +8,7 @@ Supports three search modes:
 """
 
 import os
+import sqlite3
 from typing import Any
 
 from frontend.core.config import settings
@@ -75,12 +76,14 @@ class SearchService:
 
         hits = []
         for hit in result.hits:
-            hits.append({
-                "url": hit.url,
-                "title": hit.title,
-                "snip": highlight_snippet(hit.content, search_terms),
-                "rank": hit.score,
-            })
+            hits.append(
+                {
+                    "url": hit.url,
+                    "title": hit.title,
+                    "snip": highlight_snippet(hit.content, search_terms),
+                    "rank": hit.score,
+                }
+            )
 
         return {
             "query": q,
@@ -101,12 +104,14 @@ class SearchService:
 
         hits = []
         for hit in result.hits:
-            hits.append({
-                "url": hit.url,
-                "title": hit.title,
-                "snip": highlight_snippet(hit.content, search_terms),
-                "rank": hit.score,
-            })
+            hits.append(
+                {
+                    "url": hit.url,
+                    "title": hit.title,
+                    "snip": highlight_snippet(hit.content, search_terms),
+                    "rank": hit.score,
+                }
+            )
 
         return {
             "query": q,
@@ -127,12 +132,14 @@ class SearchService:
 
         hits = []
         for hit in result.hits:
-            hits.append({
-                "url": hit.url,
-                "title": hit.title,
-                "snip": highlight_snippet(hit.content, search_terms),
-                "rank": hit.score,
-            })
+            hits.append(
+                {
+                    "url": hit.url,
+                    "title": hit.title,
+                    "snip": highlight_snippet(hit.content, search_terms),
+                    "rank": hit.score,
+                }
+            )
 
         return {
             "query": q,

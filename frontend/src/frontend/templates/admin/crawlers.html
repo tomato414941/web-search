@@ -1,0 +1,77 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Crawler Instances{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Pale Blue Search Admin</h1>
+        <div class="nav">
+            <a href="/admin/">Dashboard</a>
+            <a href="/admin/crawlers" class="active">Crawlers</a>
+            <a href="/admin/seeds">Seeds</a>
+            <a href="/admin/queue">Queue</a>
+            <a href="/admin/history">History</a>
+            <a href="/admin/analytics">Analytics</a>
+            <a href="/admin/logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Crawler Instances</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>URL</th>
+                    <th>Status</th>
+                    <th>Queue</th>
+                    <th>Crawled</th>
+                    <th>Uptime</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inst in instances %}
+                <tr>
+                    <td>{{ inst.name }}</td>
+                    <td style="font-size: 0.9em; color: #999;">{{ inst.url }}</td>
+                    <td>
+                        {% if inst.state == "running" %}
+                            <span style="color: #22c55e; font-weight: bold;">● Running</span>
+                        {% elif inst.state == "stopped" %}
+                            <span style="color: #ef4444; font-weight: bold;">● Stopped</span>
+                        {% else %}
+                            <span style="color: #f59e0b;">● {{ inst.state }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ "{:,}".format(inst.queue_size) }}</td>
+                    <td>{{ "{:,}".format(inst.total_crawled) }}</td>
+                    <td>{{ inst.uptime or "-" }}</td>
+                    <td>
+                        {% if inst.state == "running" %}
+                            <form action="/admin/crawlers/{{ inst.name }}/stop" method="post" style="display: inline;">
+                                <button type="submit" class="danger" style="padding: 6px 12px; font-size: 0.9em;">Stop</button>
+                            </form>
+                        {% elif inst.state != "unreachable" %}
+                            <form action="/admin/crawlers/{{ inst.name }}/start" method="post" style="display: inline-flex; gap: 6px; align-items: center;">
+                                <input type="number" name="concurrency" value="1" min="1" max="10" style="width: 50px; padding: 6px; font-size: 0.9em;">
+                                <button type="submit" style="background-color: #22c55e; padding: 6px 12px; font-size: 0.9em;">Start</button>
+                            </form>
+                        {% else %}
+                            <span style="color: #666;">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Configuration</h2>
+        <p style="color: #999; margin-bottom: 12px;">Configure crawler instances via environment variable:</p>
+        <pre style="background: #1a1a2e; padding: 12px; border-radius: 6px; overflow-x: auto; font-size: 0.9em;">CRAWLER_INSTANCES="name1|http://host1:8000,name2|http://host2:8000"</pre>
+    </div>
+</div>
+{% endblock %}

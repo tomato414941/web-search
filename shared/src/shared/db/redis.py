@@ -10,22 +10,18 @@ def get_redis() -> redis.Redis:
 
 
 def enqueue_if_new(
-    r: redis.Redis, 
-    url: str, 
-    score: float,
-    queue_key: str,
-    seen_key: str
+    r: redis.Redis, url: str, score: float, queue_key: str, seen_key: str
 ) -> bool:
     """
     Add URL to queue if not already seen (generic).
-    
+
     Args:
         r: Redis client
         url: URL to enqueue
         score: Priority score
         queue_key: Redis sorted set key for queue
         seen_key: Redis set key for seen URLs
-        
+
     Returns:
         True if URL was new and added, False if already seen
     """
@@ -49,7 +45,7 @@ def enqueue_batch(
     parent_score: float = 100.0,
     score_calculator=None,
     queue_key: str = "crawl:queue",  # Generic default
-    seen_key: str = "crawl:seen"      # Generic default
+    seen_key: str = "crawl:seen",  # Generic default
 ) -> int:
     """
     Add multiple URLs to crawl queue (only new URLs).
@@ -116,14 +112,16 @@ def enqueue_batch(
     return n
 
 
-def dequeue_top(r: redis.Redis, queue_key: str = "crawl:queue") -> Optional[tuple[str, float]]:
+def dequeue_top(
+    r: redis.Redis, queue_key: str = "crawl:queue"
+) -> Optional[tuple[str, float]]:
     """
     Remove and return highest-priority item from queue (generic).
-    
+
     Args:
         r: Redis client
         queue_key: Redis sorted set key for queue
-        
+
     Returns:
         Tuple of (url, score) or None if queue is empty
     """

@@ -87,6 +87,7 @@ def generate_snippet(
 
     # 6. Highlight all terms in the snippet (if requested)
     if highlight:
+
         def replace_fn(match):
             return f"<mark>{match.group(0)}</mark>"
 

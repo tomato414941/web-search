@@ -30,7 +30,9 @@ class EmbeddingService:
         if len(text) > 30000:
             text = text[:30000]
 
-        response = await self.client.embeddings.create(input=[text], model=self.model_name)
+        response = await self.client.embeddings.create(
+            input=[text], model=self.model_name
+        )
         return response.data[0].embedding
 
     async def embed(self, text: str) -> bytes:

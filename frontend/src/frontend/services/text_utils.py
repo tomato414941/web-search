@@ -3,18 +3,19 @@ Text Processing Utilities
 
 Frontend-specific text processing, including HTML snippet generation.
 """
+
 import re
 
 
 def highlight_snippet(text: str, terms: list[str], window_size: int = 150) -> str:
     """
     Generate a snippet with highlighted terms using KWIC (Key Word In Context).
-    
+
     Args:
         text: The original text content.
         terms: List of query terms to highlight.
         window_size: Approximate size of the snippet window.
-        
+
     Returns:
         HTML string with <mark> tags highlighting the terms
     """

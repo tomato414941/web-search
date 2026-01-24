@@ -102,10 +102,8 @@ def get_connection(db_path: str | None = None):
     if turso_url:
         # Turso (production)
         import libsql_experimental as libsql
-        return libsql.connect(
-            turso_url,
-            auth_token=os.getenv("TURSO_TOKEN")
-        )
+
+        return libsql.connect(turso_url, auth_token=os.getenv("TURSO_TOKEN"))
     else:
         # Local SQLite (development)
         path = db_path or os.getenv("SEARCH_DB", settings.DB_PATH)
@@ -123,7 +121,8 @@ def open_db(path: str = settings.DB_PATH):
     if turso_mode:
         # Skip PRAGMA statements (Turso manages these automatically)
         schema_without_pragmas = "\n".join(
-            line for line in SCHEMA_SQL.split("\n")
+            line
+            for line in SCHEMA_SQL.split("\n")
             if not line.strip().startswith("PRAGMA")
         )
         con.executescript(schema_without_pragmas)

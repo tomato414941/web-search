@@ -5,7 +5,7 @@ FastAPI application factory and router registration.
 """
 
 from fastapi import FastAPI
-from app.api.routes import health, crawl, worker, queue, history, scoring
+from app.api.routes import health, crawl, worker, queue, history, scoring, seeds
 from app.api.routes.health import root_router as health_root_router
 from app.core.events import lifespan
 from app.core.config import settings
@@ -34,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(queue.router, prefix="/api/v1", tags=["queue"])
     app.include_router(history.router, prefix="/api/v1", tags=["history"])
     app.include_router(scoring.router, prefix="/api/v1", tags=["scoring"])
+    app.include_router(seeds.router, prefix="/api/v1", tags=["seeds"])
 
     return app
 

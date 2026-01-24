@@ -8,14 +8,14 @@ indexer_root = Path(__file__).parent.parent
 sys.path.insert(0, str(indexer_root / "src"))
 sys.path.insert(0, str(indexer_root.parent / "shared" / "src"))
 
-import gc
-import time
-import os
-import pytest
-from unittest.mock import patch
-from fastapi.testclient import TestClient
+import gc  # noqa: E402
+import time  # noqa: E402
+import os  # noqa: E402
+import pytest  # noqa: E402
+from unittest.mock import patch  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
-from shared.db.search import ensure_db
+from shared.db.search import ensure_db  # noqa: E402
 
 # Test database path
 TEST_DB_PATH = "test_indexer.db"

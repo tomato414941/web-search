@@ -14,6 +14,7 @@ def setup_test_env():
     os.environ["INDEXER_API_URL"] = "http://test:8080/api/indexer/page"
     os.environ["INDEXER_API_KEY"] = "test-api-key"
     os.environ["REDIS_URL"] = "redis://test:6379"
+    os.environ["CRAWLER_HISTORY_DB"] = "/tmp/test_crawler_history.db"
 
 
 @pytest.fixture

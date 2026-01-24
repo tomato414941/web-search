@@ -4,21 +4,23 @@ Crawler Service Configuration
 Configuration specific to the Crawler service, including crawl parameters,
 queue settings, and indexer API configuration.
 """
+
 import os
 from shared.core.infrastructure_config import InfrastructureSettings
 
 
 class CrawlerSettings(InfrastructureSettings):
     """Crawler service configuration (inherits infrastructure settings)"""
-    
+
     # Application
     APP_NAME: str = "Crawler Service"
     APP_VERSION: str = "2.0.0"
-    
+
     # Redis Queue Keys (Crawler-specific)
     CRAWL_QUEUE_KEY: str = os.getenv("CRAWL_QUEUE_KEY", "crawl:queue")
     CRAWL_SEEN_KEY: str = os.getenv("CRAWL_SEEN_KEY", "crawl:seen")
-    
+    CRAWL_SEEDS_KEY: str = os.getenv("CRAWL_SEEDS_KEY", "crawl:seeds")
+
     # Crawler Behavior
     CRAWL_USER_AGENT: str = os.getenv(
         "CRAWL_USER_AGENT", "SearchBot/0.3 (+https://example.local/; async crawler)"
@@ -30,9 +32,11 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_SEEDS: list[str] = [
         s.strip() for s in os.getenv("CRAWL_SEEDS", "").split() if s.strip()
     ]
-    
+
     # Indexer API (for submitting crawled pages)
-    INDEXER_API_URL: str = os.getenv("INDEXER_API_URL", "http://localhost:8081/api/v1/indexer/page")
+    INDEXER_API_URL: str = os.getenv(
+        "INDEXER_API_URL", "http://localhost:8081/api/v1/indexer/page"
+    )
     INDEXER_API_KEY: str = os.getenv("INDEXER_API_KEY", "dev-key")
 
 

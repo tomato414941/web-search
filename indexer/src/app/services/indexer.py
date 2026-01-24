@@ -1,7 +1,6 @@
 """Indexer Service - handles page indexing with custom search engine and embeddings."""
 
 import logging
-import sqlite3
 
 from app.core.config import settings
 from shared.db.search import open_db, get_connection

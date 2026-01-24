@@ -8,7 +8,9 @@
         <h1>Pale Blue Search Admin</h1>
         <div class="nav">
             <a href="/admin/">Dashboard</a>
-            <a href="/admin/seeds" class="active">Seed URLs</a>
+            <a href="/admin/crawlers">Crawlers</a>
+            <a href="/admin/seeds" class="active">Seeds</a>
+            <a href="/admin/queue">Queue</a>
             <a href="/admin/history">History</a>
             <a href="/admin/analytics">Analytics</a>
             <a href="/admin/logout">Logout</a>
@@ -16,7 +18,15 @@
     </div>
 
     <div class="card">
-        <h2>Add Seed URL</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h2>Seed URLs</h2>
+            <form method="post" action="/admin/seeds/requeue" style="display: flex; gap: 8px; align-items: center;">
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9rem;">
+                    <input type="checkbox" name="force" value="true"> Force (bypass seen)
+                </label>
+                <button type="submit">Requeue All</button>
+            </form>
+        </div>
         {% if success %}
         <p class="success">{{ success }}</p>
         {% endif %}
@@ -24,22 +34,42 @@
         <p class="error">{{ error }}</p>
         {% endif %}
         <form method="post" action="/admin/seeds" class="form-row">
-            <input type="url" name="url" placeholder="https://example.com" required>
-            <button type="submit">Add to Queue</button>
+            <input type="url" name="url" placeholder="https://example.com" required style="flex: 2;">
+            <input type="number" name="priority" value="100" min="0" max="1000" step="1" style="width: 100px;" title="Priority">
+            <button type="submit">Add Seed</button>
         </form>
     </div>
 
     <div class="card">
-        <h2>Current Queue (Top 20)</h2>
+        <h2>Registered Seeds</h2>
         <table>
-            <thead><tr><th>URL</th><th>Score</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>URL</th>
+                    <th>Priority</th>
+                    <th>Added</th>
+                    <th>Last Queued</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
             <tbody>
-                {% if queue_urls %}
-                    {% for url, score in queue_urls %}
-                    <tr><td>{{ url }}</td><td>{{ "%.2f"|format(score) }}</td></tr>
+                {% if seeds %}
+                    {% for seed in seeds %}
+                    <tr>
+                        <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ seed.url }}">{{ seed.url }}</td>
+                        <td>{{ seed.priority | int }}</td>
+                        <td>{{ seed.added_at[:10] if seed.added_at else '-' }}</td>
+                        <td>{{ seed.last_queued[:10] if seed.last_queued else '-' }}</td>
+                        <td>
+                            <form method="post" action="/admin/seeds/delete" style="display: inline;">
+                                <input type="hidden" name="url" value="{{ seed.url }}">
+                                <button type="submit" class="danger" style="padding: 4px 8px; font-size: 0.8rem;">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
                     {% endfor %}
                 {% else %}
-                    <tr><td colspan="2">Queue is empty or Crawler unavailable</td></tr>
+                    <tr><td colspan="5">No seeds registered</td></tr>
                 {% endif %}
             </tbody>
         </table>

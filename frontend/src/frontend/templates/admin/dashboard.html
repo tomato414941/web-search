@@ -8,7 +8,9 @@
         <h1>Pale Blue Search Admin</h1>
         <div class="nav">
             <a href="/admin/" class="active">Dashboard</a>
-            <a href="/admin/seeds">Seed URLs</a>
+            <a href="/admin/crawlers">Crawlers</a>
+            <a href="/admin/seeds">Seeds</a>
+            <a href="/admin/queue">Queue</a>
             <a href="/admin/history">History</a>
             <a href="/admin/analytics">Analytics</a>
             <a href="/admin/logout">Logout</a>
@@ -34,10 +36,10 @@
     </div>
 
     <div class="card">
-        <h2>Crawler Control</h2>
+        <h2>Crawler Status</h2>
         <table>
             <tr>
-                <th>Worker Status</th>
+                <th>Default Worker</th>
                 <td>
                     {% if stats.worker_status == "running" %}
                         <span style="color: #22c55e; font-weight: bold;">● Running</span>
@@ -49,18 +51,9 @@
                 </td>
             </tr>
             <tr><th>Last Crawl</th><td>{{ stats.last_crawl or "Never" }}</td></tr>
-            <tr><th>Crawler API</th><td>{{ crawler_url }}</td></tr>
         </table>
         <div class="form-row" style="margin-top: 1rem;">
-            {% if stats.worker_status == "running" %}
-                <form action="/admin/crawler/stop" method="post" style="display: inline;">
-                    <button type="submit" style="background-color: #ef4444;">Stop Crawler</button>
-                </form>
-            {% else %}
-                <form action="/admin/crawler/start" method="post" style="display: inline;">
-                    <button type="submit" style="background-color: #22c55e;">Start Crawler</button>
-                </form>
-            {% endif %}
+            <a href="/admin/crawlers"><button>Manage Crawler Instances</button></a>
         </div>
     </div>
 

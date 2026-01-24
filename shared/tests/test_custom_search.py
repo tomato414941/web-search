@@ -9,7 +9,7 @@ import numpy as np
 from shared.db.search import open_db
 from shared.search.indexer import SearchIndexer
 from shared.search.searcher import SearchEngine
-from shared.search.scoring import BM25Scorer, BM25Config
+from shared.search.scoring import BM25Config
 
 
 @pytest.fixture
@@ -83,15 +83,15 @@ class TestSearchIndexer:
         indexer = SearchIndexer(temp_search_db)
 
         url = "http://example.com/delete-me"
-        indexer.index_document(url=url, title="削除テスト", content="このページは削除されます。")
+        indexer.index_document(
+            url=url, title="削除テスト", content="このページは削除されます。"
+        )
         indexer.delete_document(url)
 
         import sqlite3
 
         conn = sqlite3.connect(temp_search_db)
-        doc = conn.execute(
-            "SELECT * FROM documents WHERE url = ?", (url,)
-        ).fetchone()
+        doc = conn.execute("SELECT * FROM documents WHERE url = ?", (url,)).fetchone()
         index_entries = conn.execute(
             "SELECT * FROM inverted_index WHERE url = ?", (url,)
         ).fetchall()
