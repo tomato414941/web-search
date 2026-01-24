@@ -11,5 +11,7 @@ setup(
         "pydantic-settings>=2.0.0",
         "libsql-experimental>=0.0.50",
         "numpy",
+        "sudachipy",
+        "sudachidict-core",
     ],
 )
