@@ -25,7 +25,17 @@ pytest frontend/tests/test_search.py::test_function_name -v
 # Lint
 ruff check frontend/src/ shared/src/ crawler/src/
 ruff format frontend/src/ shared/src/ crawler/src/
+
+# Full local setup (all services)
+pip install -r frontend/requirements.txt
+pip install -r crawler/requirements.txt
+pip install -r indexer/requirements.txt
 ```
+
+## Pre-commit Verification
+
+- Run `pre-commit run --all-files` before committing to catch issues early
+- When testing a new service, install its dependencies first (e.g., `pip install -r crawler/requirements.txt`)
 
 ## Architecture
 
