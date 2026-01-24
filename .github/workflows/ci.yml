@@ -97,7 +97,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e shared/
           cd indexer && sed -i 's|\.\./shared|\./shared|g' requirements.txt
-          pip install -r indexer/requirements.txt
+          pip install -r requirements.txt
       - name: Run indexer tests
         env:
           PYTHONPATH: indexer/src
