@@ -25,7 +25,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      - INDEXER_API_URL=http://${INDEXER_IP:-${FRONTEND_IP}}:8081/api/v1/indexer/page
+      - INDEXER_API_URL=http://${INDEXER_IP:-${FRONTEND_IP}}:8000/api/v1/indexer/page
       - REDIS_URL=redis://redis:6379/0
       - INDEXER_API_KEY=${INDEXER_API_KEY}
     mem_limit: 512m
