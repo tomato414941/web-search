@@ -28,3 +28,4 @@ sudachidict_core
 # Test dependencies
 pytest
 pytest-asyncio
+fakeredis
