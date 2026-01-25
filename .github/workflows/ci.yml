@@ -190,8 +190,7 @@ jobs:
           push: true
           tags: ${{ steps.meta-crawler.outputs.tags }}
           labels: ${{ steps.meta-crawler.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          no-cache: true
 
       - name: Extract metadata (Indexer)
         id: meta-indexer
