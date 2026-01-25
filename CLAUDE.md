@@ -71,8 +71,8 @@ Microservices architecture with CQRS-lite pattern:
 
 ## Deployment
 
-- **CI/CD**: GitHub Actions (`.github/workflows/ci.yml`) - test/lint only
-- **Coolify**: Builds Docker images directly from source (no container registry)
+- **Server**: 52.199.231.181 (all-in-one)
+- **CI/CD**: GitHub Actions → Coolify (docker-compose)
 - Push to `main` → CI (test/lint) → Coolify (build + deploy)
 - **Environment variables**: Set in Coolify dashboard (not in repo)
 

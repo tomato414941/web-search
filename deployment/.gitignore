@@ -1,6 +1,0 @@
-# Environment files (contains sensitive information)
-.env
-*/.env
-
-# Log files
-*.log
