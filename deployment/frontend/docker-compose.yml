@@ -18,6 +18,7 @@ services:
 
   frontend:
     image: ghcr.io/tomato414941/web-search:latest
+    pull_policy: always
     container_name: web-search-frontend
     restart: unless-stopped
     ports:
@@ -48,6 +49,7 @@ services:
 
   indexer:
     image: ghcr.io/tomato414941/web-search-indexer:latest
+    pull_policy: always
     container_name: web-search-indexer
     restart: unless-stopped
     ports:
