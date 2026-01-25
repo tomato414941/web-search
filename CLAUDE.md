@@ -71,15 +71,10 @@ Microservices architecture with CQRS-lite pattern:
 
 ## Deployment
 
-- **CI/CD**: GitHub Actions (`.github/workflows/ci.yml`)
-- Push to `main` → test/lint → build Docker images → push to ghcr.io
-- **Coolify**: Auto-deploys from ghcr.io container registry
+- **CI/CD**: GitHub Actions (`.github/workflows/ci.yml`) - test/lint only
+- **Coolify**: Builds Docker images directly from source (no container registry)
+- Push to `main` → CI (test/lint) → Coolify (build + deploy)
 - **Environment variables**: Set in Coolify dashboard (not in repo)
-
-Docker images:
-- `ghcr.io/tomato414941/web-search:latest` (frontend)
-- `ghcr.io/tomato414941/web-search-indexer:latest`
-- `ghcr.io/tomato414941/web-search-crawler:latest`
 
 ## API Endpoints
 

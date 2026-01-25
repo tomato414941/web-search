@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [main, master]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   test-shared:
     runs-on: ubuntu-latest
@@ -132,82 +128,3 @@ jobs:
           pip-audit -r crawler/requirements.txt || true
           pip-audit -r indexer/requirements.txt || true
         continue-on-error: true
-
-  build-and-push:
-    needs: [test-shared, test-frontend, test-crawler, test-indexer, lint]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (Frontend)
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=
-
-      - name: Build and push Frontend Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./frontend/Dockerfile
-          push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Extract metadata (Crawler)
-        id: meta-crawler
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-crawler
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=
-
-      - name: Build and push Crawler Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./crawler/Dockerfile
-          push: true
-          tags: ${{ steps.meta-crawler.outputs.tags }}
-          labels: ${{ steps.meta-crawler.outputs.labels }}
-          no-cache: true
-
-      - name: Extract metadata (Indexer)
-        id: meta-indexer
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-indexer
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=
-
-      - name: Build and push Indexer Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./indexer/Dockerfile
-          push: true
-          tags: ${{ steps.meta-indexer.outputs.tags }}
-          labels: ${{ steps.meta-indexer.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max

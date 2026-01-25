@@ -17,8 +17,9 @@ services:
       retries: 3
 
   frontend:
-    image: ghcr.io/tomato414941/web-search:latest
-    pull_policy: always
+    build:
+      context: ../..
+      dockerfile: frontend/Dockerfile
     container_name: web-search-frontend
     restart: unless-stopped
     ports:
@@ -48,8 +49,9 @@ services:
       start_period: 40s
 
   indexer:
-    image: ghcr.io/tomato414941/web-search-indexer:latest
-    pull_policy: always
+    build:
+      context: ../..
+      dockerfile: indexer/Dockerfile
     container_name: web-search-indexer
     restart: unless-stopped
     ports:
