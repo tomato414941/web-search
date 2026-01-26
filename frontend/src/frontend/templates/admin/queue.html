@@ -29,6 +29,7 @@
         <p class="error">{{ error }}</p>
         {% endif %}
         <form method="post" action="/admin/queue" class="form-row">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="url" name="url" placeholder="https://example.com/page" required>
             <button type="submit">Add to Queue</button>
         </form>

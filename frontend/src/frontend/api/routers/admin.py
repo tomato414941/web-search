@@ -1,9 +1,7 @@
 """Admin Dashboard Router with Authentication."""
 
-import hashlib
-import hmac
 import logging
-import time
+import secrets
 from datetime import timedelta
 from typing import Any
 from urllib.parse import quote
@@ -11,6 +9,7 @@ from urllib.parse import quote
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Form
 from fastapi.responses import RedirectResponse
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from pydantic import BaseModel, HttpUrl
 
 from frontend.core.config import settings
@@ -22,8 +21,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 # Session configuration
-SESSION_DURATION = timedelta(hours=24)
+SESSION_MAX_AGE_SECONDS = int(timedelta(hours=24).total_seconds())
 SESSION_COOKIE_NAME = "admin_session"
+CSRF_COOKIE_NAME = "csrf_token"
+CSRF_FORM_FIELD = "csrf_token"
+
+# Serializer for secure session tokens
+_serializer = URLSafeTimedSerializer(settings.SECRET_KEY)
 
 
 class SeedUrlRequest(BaseModel):
@@ -33,11 +37,9 @@ class SeedUrlRequest(BaseModel):
 
 
 def create_session() -> str:
-    """Create a new session token with timestamp."""
-    timestamp = int(time.time())
-    msg = f"{settings.ADMIN_USERNAME}:{settings.ADMIN_PASSWORD}:{timestamp}".encode()
-    signature = hmac.new(settings.SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
-    return f"{timestamp}:{signature}"
+    """Create a new session token using itsdangerous."""
+    data = {"user": settings.ADMIN_USERNAME}
+    return _serializer.dumps(data)
 
 
 def validate_session(token: str | None) -> bool:
@@ -45,21 +47,31 @@ def validate_session(token: str | None) -> bool:
     if not token:
         return False
     try:
-        timestamp_str, signature = token.split(":", 1)
-        timestamp = int(timestamp_str)
-        # Check expiration
-        if time.time() - timestamp > SESSION_DURATION.total_seconds():
-            return False
-        # Verify signature
-        msg = (
-            f"{settings.ADMIN_USERNAME}:{settings.ADMIN_PASSWORD}:{timestamp}".encode()
-        )
-        expected = hmac.new(
-            settings.SECRET_KEY.encode(), msg, hashlib.sha256
-        ).hexdigest()
-        return hmac.compare_digest(signature, expected)
-    except (ValueError, AttributeError):
+        _serializer.loads(token, max_age=SESSION_MAX_AGE_SECONDS)
+        return True
+    except (BadSignature, SignatureExpired):
         return False
+
+
+def generate_csrf_token() -> str:
+    """Generate a new CSRF token."""
+    return secrets.token_urlsafe(32)
+
+
+def get_csrf_token(request: Request) -> str:
+    """Get CSRF token from cookie or generate new one."""
+    token = request.cookies.get(CSRF_COOKIE_NAME)
+    if not token:
+        token = generate_csrf_token()
+    return token
+
+
+def validate_csrf_token(request: Request, form_token: str | None) -> bool:
+    """Validate CSRF token from form against cookie."""
+    cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
+    if not cookie_token or not form_token:
+        return False
+    return secrets.compare_digest(cookie_token, form_token)
 
 
 def require_auth(request: Request) -> None:
@@ -118,31 +130,62 @@ def get_stats() -> dict[str, Any]:
 # ==================== Routes ====================
 
 
+def _add_csrf_cookie(response: RedirectResponse, token: str) -> RedirectResponse:
+    """Add CSRF token cookie to response."""
+    response.set_cookie(
+        CSRF_COOKIE_NAME,
+        token,
+        max_age=SESSION_MAX_AGE_SECONDS,
+        httponly=False,  # JS needs access for AJAX requests
+        samesite="strict",
+    )
+    return response
+
+
 @router.get("/login")
 async def login_page(request: Request, error: str = ""):
     """Login page."""
-    return templates.TemplateResponse(
+    csrf_token = get_csrf_token(request)
+    response = templates.TemplateResponse(
         "admin/login.html",
-        {"request": request, "error": error},
+        {"request": request, "error": error, "csrf_token": csrf_token},
     )
+    response.set_cookie(
+        CSRF_COOKIE_NAME,
+        csrf_token,
+        max_age=SESSION_MAX_AGE_SECONDS,
+        httponly=False,
+        samesite="strict",
+    )
+    return response
 
 
 @router.post("/login")
 async def login(
+    request: Request,
     username: str = Form(...),
     password: str = Form(...),
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
     """Process login."""
+    # Validate CSRF token
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(
+            url="/admin/login?error=Invalid+request", status_code=303
+        )
+
     if username == settings.ADMIN_USERNAME and password == settings.ADMIN_PASSWORD:
         token = create_session()
+        new_csrf = generate_csrf_token()
         response = RedirectResponse(url="/admin/", status_code=303)
         response.set_cookie(
             SESSION_COOKIE_NAME,
             token,
-            max_age=int(SESSION_DURATION.total_seconds()),
+            max_age=SESSION_MAX_AGE_SECONDS,
             httponly=True,
             samesite="strict",
         )
+        _add_csrf_cookie(response, new_csrf)
         return response
     return RedirectResponse(
         url="/admin/login?error=Invalid+credentials", status_code=303
@@ -165,12 +208,14 @@ async def dashboard(request: Request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     stats = get_stats()
+    csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/dashboard.html",
         {
             "request": request,
             "stats": stats,
             "crawler_url": settings.CRAWLER_SERVICE_URL,
+            "csrf_token": csrf_token,
         },
     )
 
@@ -189,9 +234,11 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
             resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds")
             if resp.status_code == 200:
                 seeds = resp.json()
-    except Exception:
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to fetch seeds from crawler: {e}")
         seeds = []
 
+    csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/seeds.html",
         {
@@ -199,6 +246,7 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
             "seeds": seeds,
             "success": success,
             "error": error,
+            "csrf_token": csrf_token,
         },
     )
 
@@ -220,9 +268,11 @@ async def queue_page(request: Request, success: str = "", error: str = ""):
             if resp.status_code == 200:
                 items = resp.json()
                 queue_urls = [(item["url"], item["score"]) for item in items]
-    except Exception:
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to fetch queue from crawler: {e}")
         queue_urls = []
 
+    csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/queue.html",
         {
@@ -230,6 +280,7 @@ async def queue_page(request: Request, success: str = "", error: str = ""):
             "queue_urls": queue_urls,
             "success": success,
             "error": error,
+            "csrf_token": csrf_token,
         },
     )
 
@@ -251,27 +302,37 @@ async def history_page(request: Request, url: str = ""):
             )
             if resp.status_code == 200:
                 history_logs = resp.json()
-    except Exception:
-        pass
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to fetch history from crawler: {e}")
 
+    csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/history.html",
         {
             "request": request,
             "history_logs": history_logs,
             "url_filter": url,
+            "csrf_token": csrf_token,
         },
     )
 
 
 @router.post("/seeds")
 async def add_seed(
-    request: Request, url: str = Form(...), priority: float = Form(default=100.0)
+    request: Request,
+    url: str = Form(...),
+    priority: float = Form(default=100.0),
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
     """Add a seed URL (persistent)."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(
+            url="/admin/seeds?error=Invalid+request", status_code=303
+        )
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -294,11 +355,20 @@ async def add_seed(
 
 
 @router.post("/seeds/delete")
-async def delete_seed(request: Request, url: str = Form(...)):
+async def delete_seed(
+    request: Request,
+    url: str = Form(...),
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+):
     """Delete a seed URL."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(
+            url="/admin/seeds?error=Invalid+request", status_code=303
+        )
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -323,11 +393,20 @@ async def delete_seed(request: Request, url: str = Form(...)):
 
 
 @router.post("/seeds/requeue")
-async def requeue_seeds(request: Request, force: bool = Form(default=False)):
+async def requeue_seeds(
+    request: Request,
+    force: bool = Form(default=False),
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+):
     """Requeue all seeds."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(
+            url="/admin/seeds?error=Invalid+request", status_code=303
+        )
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -353,11 +432,20 @@ async def requeue_seeds(request: Request, force: bool = Form(default=False)):
 
 
 @router.post("/queue")
-async def add_to_queue(request: Request, url: str = Form(...)):
+async def add_to_queue(
+    request: Request,
+    url: str = Form(...),
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+):
     """Add a URL to the queue (temporary, not a seed)."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(
+            url="/admin/queue?error=Invalid+request", status_code=303
+        )
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -380,11 +468,17 @@ async def add_to_queue(request: Request, url: str = Form(...)):
 
 
 @router.post("/crawler/start")
-async def crawler_start(request: Request):
+async def crawler_start(
+    request: Request,
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+):
     """Start the crawler worker."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(url="/admin/", status_code=303)
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -392,19 +486,25 @@ async def crawler_start(request: Request):
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/start"
             )
             if resp.status_code != 200:
-                raise Exception(f"Failed to start crawler: {resp.text}")
-    except Exception:
-        pass  # Redirect back to dashboard regardless
+                logger.warning(f"Failed to start crawler: {resp.text}")
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to start crawler: {e}")
 
     return RedirectResponse(url="/admin/", status_code=303)
 
 
 @router.post("/crawler/stop")
-async def crawler_stop(request: Request):
+async def crawler_stop(
+    request: Request,
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+):
     """Stop the crawler worker (graceful)."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(url="/admin/", status_code=303)
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -412,9 +512,9 @@ async def crawler_stop(request: Request):
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/stop"
             )
             if resp.status_code != 200:
-                raise Exception(f"Failed to stop crawler: {resp.text}")
-    except Exception:
-        pass  # Redirect back to dashboard regardless
+                logger.warning(f"Failed to stop crawler: {resp.text}")
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to stop crawler: {e}")
 
     return RedirectResponse(url="/admin/", status_code=303)
 
@@ -482,11 +582,13 @@ async def analytics_page(request: Request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     analytics = get_analytics_data()
+    csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/analytics.html",
         {
             "request": request,
             "analytics": analytics,
+            "csrf_token": csrf_token,
         },
     )
 
@@ -517,8 +619,8 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
                 status["state"] = worker.get("status", "unknown")
                 status["uptime"] = worker.get("uptime")
                 status["concurrency"] = worker.get("concurrency")
-    except Exception:
-        pass
+    except httpx.RequestError as e:
+        logger.debug(f"Crawler instance {url} unreachable: {e}")
     return status
 
 
@@ -553,23 +655,31 @@ async def crawlers_page(request: Request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     instances = await get_all_crawler_instances()
+    csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/crawlers.html",
         {
             "request": request,
             "instances": instances,
+            "csrf_token": csrf_token,
         },
     )
 
 
 @router.post("/crawlers/{name}/start")
 async def crawler_instance_start(
-    request: Request, name: str, concurrency: int = Form(default=1)
+    request: Request,
+    name: str,
+    concurrency: int = Form(default=1),
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
     """Start a specific crawler instance."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(url="/admin/crawlers", status_code=303)
 
     url = find_crawler_url(name)
     if not url:
@@ -580,18 +690,25 @@ async def crawler_instance_start(
             await client.post(
                 f"{url}/api/v1/worker/start", json={"concurrency": concurrency}
             )
-    except Exception:
-        pass
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to start crawler instance {name}: {e}")
 
     return RedirectResponse(url="/admin/crawlers", status_code=303)
 
 
 @router.post("/crawlers/{name}/stop")
-async def crawler_instance_stop(request: Request, name: str):
+async def crawler_instance_stop(
+    request: Request,
+    name: str,
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+):
     """Stop a specific crawler instance."""
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
+
+    if not validate_csrf_token(request, csrf_token):
+        return RedirectResponse(url="/admin/crawlers", status_code=303)
 
     url = find_crawler_url(name)
     if not url:
@@ -600,7 +717,7 @@ async def crawler_instance_stop(request: Request, name: str):
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             await client.post(f"{url}/api/v1/worker/stop")
-    except Exception:
-        pass
+    except httpx.RequestError as e:
+        logger.warning(f"Failed to stop crawler instance {name}: {e}")
 
     return RedirectResponse(url="/admin/crawlers", status_code=303)

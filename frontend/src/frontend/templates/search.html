@@ -72,7 +72,7 @@
                     </a>
                 </div>
                 <div class="url">{{ r['url'] }}</div>
-                <div class="snippet">{{ r['snip']|safe }}</div>
+                <div class="snippet" data-snippet="{{ r['snip'] }}"></div>
             </div>
             {% endfor %}
         </div>
@@ -112,6 +112,47 @@
         {% endif %}
     </div>
 
+    <script>
+    (function() {
+        // Escape HTML entities for safe display
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Highlight query terms in text
+        function highlightTerms(text, query) {
+            if (!query || !text) return escapeHtml(text);
+
+            // Split query into terms, filter empty
+            const terms = query.trim().split(/\s+/).filter(t => t.length > 0);
+            if (terms.length === 0) return escapeHtml(text);
+
+            // Escape text first
+            let escapedText = escapeHtml(text);
+
+            // Highlight each term (case-insensitive)
+            terms.forEach(term => {
+                const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp('(' + escapedTerm + ')', 'gi');
+                escapedText = escapedText.replace(regex, '<mark>$1</mark>');
+            });
+
+            return escapedText;
+        }
+
+        // Get query from URL or input
+        const queryInput = document.querySelector('input[name="q"]');
+        const query = queryInput ? queryInput.value : '';
+
+        // Apply highlights to all snippets
+        document.querySelectorAll('.snippet[data-snippet]').forEach(el => {
+            const rawText = el.getAttribute('data-snippet');
+            el.innerHTML = highlightTerms(rawText, query);
+        });
+    })();
+    </script>
 </body>
 
 </html>

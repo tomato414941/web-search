@@ -51,10 +51,12 @@
                     <td>
                         {% if inst.state == "running" %}
                             <form action="/admin/crawlers/{{ inst.name }}/stop" method="post" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <button type="submit" class="danger" style="padding: 6px 12px; font-size: 0.9em;">Stop</button>
                             </form>
                         {% elif inst.state != "unreachable" %}
                             <form action="/admin/crawlers/{{ inst.name }}/start" method="post" style="display: inline-flex; gap: 6px; align-items: center;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                 <input type="number" name="concurrency" value="1" min="1" max="10" style="width: 50px; padding: 6px; font-size: 0.9em;">
                                 <button type="submit" style="background-color: #22c55e; padding: 6px 12px; font-size: 0.9em;">Start</button>
                             </form>

@@ -144,13 +144,18 @@ async def test_process_url_network_error():
     mock_session.get.side_effect = aiohttp.ClientError("Connection failed")
 
     with patch("app.workers.tasks.history.log_crawl_attempt") as mock_history:
-        await process_url(
-            mock_session, mock_robots, mock_redis, "http://example.com/error", 100.0
-        )
+        with patch("app.workers.tasks.increment_retry_count", return_value=1):
+            await process_url(
+                mock_session,
+                mock_robots,
+                mock_redis,
+                "http://example.com/error",
+                100.0,
+            )
 
-        # Should log as network_error
-        mock_history.assert_called_once()
-        assert mock_history.call_args[0][1] == "network_error"
+            # Should log as network_error
+            mock_history.assert_called_once()
+            assert mock_history.call_args[0][1] == "network_error"
 
 
 @pytest.mark.asyncio
@@ -207,21 +212,22 @@ async def test_process_url_retryable_error():
     # Mock 503 response with proper headers
     mock_response = AsyncMock()
     mock_response.status = 503
-    mock_response.headers = {"Content-Type": "text/html"}  # Add header
+    mock_response.headers = {"Content-Type": "text/html", "Content-Length": "100"}
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch("app.workers.tasks.history.log_crawl_attempt") as mock_history:
-        await process_url(
-            mock_session,
-            mock_robots,
-            mock_redis,
-            "http://example.com/temp-error",
-            100.0,
-        )
+        with patch("app.workers.tasks.increment_retry_count", return_value=1):
+            await process_url(
+                mock_session,
+                mock_robots,
+                mock_redis,
+                "http://example.com/temp-error",
+                100.0,
+            )
 
-        # Should log as retry_later
-        mock_history.assert_called_once()
-        assert mock_history.call_args[0][1] == "retry_later"
+            # Should log as retry_later
+            mock_history.assert_called_once()
+            assert mock_history.call_args[0][1] == "retry_later"
 
-        # Should re-enqueue with lower priority
-        mock_redis.zadd.assert_called_once()
+            # Should re-enqueue with lower priority
+            mock_redis.zadd.assert_called_once()

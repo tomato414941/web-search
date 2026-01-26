@@ -6,9 +6,16 @@ from fastapi.testclient import TestClient
 
 from frontend.api.main import app
 from frontend.core.config import settings, Settings
+from frontend.api.routers.admin import CSRF_COOKIE_NAME
 
 
 client = TestClient(app)
+
+
+def get_csrf_token_from_login_page() -> str:
+    """Get CSRF token from login page."""
+    client.get("/admin/login")
+    return client.cookies.get(CSRF_COOKIE_NAME, "")
 
 
 class TestAdminAuthentication:
@@ -22,11 +29,13 @@ class TestAdminAuthentication:
 
     def test_login_with_valid_credentials(self):
         """Valid credentials should create session and redirect to dashboard."""
+        csrf_token = get_csrf_token_from_login_page()
         response = client.post(
             "/admin/login",
             data={
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
             },
             follow_redirects=False,
         )
@@ -36,9 +45,14 @@ class TestAdminAuthentication:
 
     def test_login_with_invalid_username(self):
         """Invalid username should redirect to login with error."""
+        csrf_token = get_csrf_token_from_login_page()
         response = client.post(
             "/admin/login",
-            data={"username": "wrong", "password": settings.ADMIN_PASSWORD},
+            data={
+                "username": "wrong",
+                "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
+            },
             follow_redirects=False,
         )
         assert response.status_code == 303
@@ -46,9 +60,14 @@ class TestAdminAuthentication:
 
     def test_login_with_invalid_password(self):
         """Invalid password should redirect to login with error."""
+        csrf_token = get_csrf_token_from_login_page()
         response = client.post(
             "/admin/login",
-            data={"username": settings.ADMIN_USERNAME, "password": "wrongpass"},
+            data={
+                "username": settings.ADMIN_USERNAME,
+                "password": "wrongpass",
+                "csrf_token": csrf_token,
+            },
             follow_redirects=False,
         )
         assert response.status_code == 303
@@ -72,11 +91,13 @@ class TestAdminAuthentication:
     def test_dashboard_with_valid_session(self):
         """Dashboard should be accessible with valid session."""
         # First login to get valid session
+        csrf_token = get_csrf_token_from_login_page()
         client.post(
             "/admin/login",
             data={
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
             },
         )
         # Use the session cookie from login
@@ -88,11 +109,13 @@ class TestAdminAuthentication:
         """Logout should clear session cookie."""
         client.cookies.clear()
         # Login first
+        csrf_token = get_csrf_token_from_login_page()
         client.post(
             "/admin/login",
             data={
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
             },
         )
         # Then logout
@@ -140,11 +163,13 @@ class TestAdminAuthentication:
     def test_crawlers_page_with_valid_session(self):
         """Crawlers page should be accessible with valid session."""
         client.cookies.clear()
+        csrf_token = get_csrf_token_from_login_page()
         client.post(
             "/admin/login",
             data={
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
             },
         )
         response = client.get("/admin/crawlers")
@@ -178,11 +203,13 @@ class TestSessionSecurity:
 
     def test_session_cookie_httponly(self):
         """Session cookie should have httponly flag."""
+        csrf_token = get_csrf_token_from_login_page()
         response = client.post(
             "/admin/login",
             data={
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
             },
             follow_redirects=False,
         )
@@ -192,11 +219,13 @@ class TestSessionSecurity:
 
     def test_session_cookie_samesite(self):
         """Session cookie should have SameSite=Strict."""
+        csrf_token = get_csrf_token_from_login_page()
         response = client.post(
             "/admin/login",
             data={
                 "username": settings.ADMIN_USERNAME,
                 "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
             },
             follow_redirects=False,
         )

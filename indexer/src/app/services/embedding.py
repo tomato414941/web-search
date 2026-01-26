@@ -1,7 +1,6 @@
 """Async Embedding Service using OpenAI API."""
 
 import logging
-import pickle
 import struct
 import numpy as np
 from openai import AsyncOpenAI
@@ -54,15 +53,14 @@ class EmbeddingService:
     def deserialize(self, blob: bytes) -> np.ndarray:
         """Convert bytes back to numpy array."""
         expected_size = len(blob) // 4
-        if expected_size == self.dimensions:
-            try:
-                return np.array(
-                    struct.unpack(f"{expected_size}f", blob), dtype=np.float32
-                )
-            except struct.error:
-                pass
-        # Fallback to pickle (legacy)
-        return pickle.loads(blob)
+        if expected_size != self.dimensions:
+            raise ValueError(
+                f"Invalid embedding size: expected {self.dimensions}, got {expected_size}"
+            )
+        try:
+            return np.array(struct.unpack(f"{expected_size}f", blob), dtype=np.float32)
+        except struct.error as e:
+            raise ValueError(f"Failed to deserialize embedding: {e}") from e
 
     async def embed_query(self, query: str) -> np.ndarray:
         """Embed search query (async)."""

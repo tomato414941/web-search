@@ -5,7 +5,10 @@ Tokenizes Japanese text using SudachiPy for FTS5 indexing.
 Used by both Frontend (Search) and Indexer services.
 """
 
+import logging
 from sudachipy import Dictionary, SplitMode
+
+logger = logging.getLogger(__name__)
 
 
 class JapaneseAnalyzer:
@@ -23,6 +26,9 @@ class JapaneseAnalyzer:
     def tokenize(self, text: str) -> str:
         """
         Tokenize Japanese text into space-separated words.
+
+        Raises:
+            Exception: Re-raises tokenization errors after logging
         """
         if not text or not text.strip():
             return ""
@@ -35,8 +41,12 @@ class JapaneseAnalyzer:
             tokens = self.tokenizer.tokenize(text, self.mode)
             surfaces = [t.surface() for t in tokens if t.surface().strip()]
             return " ".join(surfaces)
-        except Exception:
-            return ""
+        except Exception as e:
+            logger.error(
+                f"Tokenization failed for text (len={len(text)}): {e}",
+                exc_info=True,
+            )
+            raise
 
     def _is_japanese(self, text: str) -> bool:
         # Check for Hiragana, Katakana, or Common CJK Unified Ideographs

@@ -11,6 +11,7 @@ aiohttp
 
 # Queue & Caching
 redis
+cachetools
 
 # Parsing
 beautifulsoup4

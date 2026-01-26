@@ -7,7 +7,15 @@ Main worker loop that dequeues URLs from Redis and crawls them.
 import asyncio
 import logging
 import aiohttp
-from shared.db.redis import get_redis, dequeue_top, enqueue_batch
+from shared.db.redis import (
+    get_redis,
+    dequeue_top,
+    enqueue_batch,
+    increment_retry_count,
+    clear_retry_count,
+    move_to_dead_letter,
+    MAX_RETRIES,
+)
 from app.domain.scoring import calculate_url_score
 from app.core.config import settings
 from app.utils.parser import html_to_doc, extract_links
@@ -16,6 +24,9 @@ from app.services.indexer import submit_page_to_indexer
 from app.utils import history
 
 logger = logging.getLogger(__name__)
+
+# Maximum response size (10 MB)
+MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 
 
 async def process_url(
@@ -48,8 +59,40 @@ async def process_url(
         ) as resp:
             ct = resp.headers.get("Content-Type", "").lower()
 
+            # Check Content-Length if available
+            content_length = resp.headers.get("Content-Length")
+            if content_length:
+                try:
+                    if int(content_length) > MAX_RESPONSE_SIZE:
+                        logger.warning(
+                            f"⚠️ Response too large ({content_length} bytes): {url}"
+                        )
+                        history.log_crawl_attempt(
+                            url,
+                            "skipped",
+                            resp.status,
+                            f"Response too large: {content_length} bytes",
+                        )
+                        return
+                except ValueError:
+                    pass
+
             if resp.status == 200 and ("text/html" in ct or "application/xhtml" in ct):
-                html = await resp.text(errors="replace")
+                # Read with size limit
+                body = await resp.content.read(MAX_RESPONSE_SIZE)
+                if len(body) >= MAX_RESPONSE_SIZE:
+                    logger.warning(
+                        f"⚠️ Response truncated at {MAX_RESPONSE_SIZE} bytes: {url}"
+                    )
+                    history.log_crawl_attempt(
+                        url,
+                        "skipped",
+                        resp.status,
+                        f"Response truncated at {MAX_RESPONSE_SIZE} bytes",
+                    )
+                    return
+
+                html = body.decode("utf-8", errors="replace")
 
                 # 3. Parse HTML (offload to executor)
                 loop = asyncio.get_running_loop()
@@ -67,6 +110,11 @@ async def process_url(
                     )
 
                     if success:
+                        # Clear retry count on success
+                        loop = asyncio.get_running_loop()
+                        await loop.run_in_executor(
+                            None, lambda: clear_retry_count(redis_client, url)
+                        )
                         history.log_crawl_attempt(url, "indexed", 200)
                     else:
                         history.log_crawl_attempt(
@@ -97,19 +145,47 @@ async def process_url(
                     logger.debug(f"📤 Enqueued {len(discovered)} links from {url}")
 
             elif resp.status in (429, 500, 502, 503, 504):
-                # Retryable errors
+                # Retryable errors - check retry count
                 logger.warning(f"⚠️ Retryable error {resp.status} for {url}")
-                history.log_crawl_attempt(
-                    url, "retry_later", resp.status, "Server error"
-                )
-                # Re-enqueue with lower priority
+
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(
-                    None,
-                    lambda: redis_client.zadd(
-                        settings.CRAWL_QUEUE_KEY, {url: max(score - 5.0, -100.0)}
-                    ),
+                retry_count = await loop.run_in_executor(
+                    None, lambda: increment_retry_count(redis_client, url)
                 )
+
+                if retry_count >= MAX_RETRIES:
+                    # Move to dead letter queue
+                    logger.warning(
+                        f"💀 Moving to dead letter after {retry_count} retries: {url}"
+                    )
+                    await loop.run_in_executor(
+                        None,
+                        lambda: move_to_dead_letter(
+                            redis_client,
+                            url,
+                            f"HTTP {resp.status} after {retry_count} retries",
+                        ),
+                    )
+                    history.log_crawl_attempt(
+                        url,
+                        "dead_letter",
+                        resp.status,
+                        f"Max retries ({MAX_RETRIES}) exceeded",
+                    )
+                else:
+                    # Re-enqueue with lower priority
+                    history.log_crawl_attempt(
+                        url,
+                        "retry_later",
+                        resp.status,
+                        f"Server error (retry {retry_count}/{MAX_RETRIES})",
+                    )
+                    await loop.run_in_executor(
+                        None,
+                        lambda: redis_client.zadd(
+                            settings.CRAWL_QUEUE_KEY, {url: max(score - 5.0, -100.0)}
+                        ),
+                    )
             else:
                 # Other HTTP errors (404, etc)
                 logger.warning(f"❌ HTTP error {resp.status} for {url}")
@@ -117,15 +193,42 @@ async def process_url(
 
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.warning(f"🌐 Network error for {url}: {e}")
-        history.log_crawl_attempt(url, "network_error", error_message=str(e))
-        # Re-enqueue with lower priority
+
+        # Check retry count
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(
-            None,
-            lambda: redis_client.zadd(
-                settings.CRAWL_QUEUE_KEY, {url: max(score - 5.0, -100.0)}
-            ),
+        retry_count = await loop.run_in_executor(
+            None, lambda: increment_retry_count(redis_client, url)
         )
+
+        if retry_count >= MAX_RETRIES:
+            # Move to dead letter queue
+            logger.warning(
+                f"💀 Moving to dead letter after {retry_count} network errors: {url}"
+            )
+            await loop.run_in_executor(
+                None,
+                lambda: move_to_dead_letter(
+                    redis_client, url, f"Network error after {retry_count} retries"
+                ),
+            )
+            history.log_crawl_attempt(
+                url,
+                "dead_letter",
+                error_message=f"Max retries ({MAX_RETRIES}) exceeded: {e}",
+            )
+        else:
+            # Re-enqueue with lower priority
+            history.log_crawl_attempt(
+                url,
+                "network_error",
+                error_message=f"{e} (retry {retry_count}/{MAX_RETRIES})",
+            )
+            await loop.run_in_executor(
+                None,
+                lambda: redis_client.zadd(
+                    settings.CRAWL_QUEUE_KEY, {url: max(score - 5.0, -100.0)}
+                ),
+            )
     except Exception as e:
         logger.error(f"💥 Unexpected error processing {url}: {e}", exc_info=True)
         history.log_crawl_attempt(url, "unknown_error", error_message=str(e))
@@ -181,16 +284,23 @@ async def worker_loop(concurrency: int = 1):
                 url, score = item
                 logger.info(f"📥 Processing: {url} (score={score:.1f})")
 
+                # Process URL with semaphore concurrency control
+                async def process_with_semaphore(url: str, score: float):
+                    try:
+                        await process_url(session, robots, redis_client, url, score)
+                    finally:
+                        sem.release()
+
                 # Acquire semaphore for concurrency control
                 await sem.acquire()
 
                 # Create task for concurrent processing
-                task = asyncio.create_task(
-                    process_url(session, robots, redis_client, url, score)
-                )
-
-                # Release semaphore when done
-                task.add_done_callback(lambda t: sem.release())
+                try:
+                    asyncio.create_task(process_with_semaphore(url, score))
+                except Exception as e:
+                    # Release semaphore if task creation fails
+                    sem.release()
+                    logger.error(f"Failed to create task for {url}: {e}")
 
         except asyncio.CancelledError:
             logger.info("🛑 Worker loop cancelled")

@@ -1,22 +1,29 @@
 """Indexer API Router - for remote crawler to submit pages."""
 
+import logging
 import secrets
 from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, Field
 from typing import Optional
 
 from app.core.config import settings
 from app.services.indexer import indexer_service
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/indexer")
+
+# Content limits
+MAX_TITLE_LENGTH = 1000
+MAX_CONTENT_LENGTH = 1_000_000  # 1MB text
 
 
 class PageSubmission(BaseModel):
     """Page data submitted by crawler."""
 
     url: HttpUrl
-    title: str
-    content: str
+    title: str = Field(max_length=MAX_TITLE_LENGTH)
+    content: str = Field(max_length=MAX_CONTENT_LENGTH)
     raw_html: Optional[str] = None
 
 
@@ -51,7 +58,10 @@ async def submit_page(
             "url": str(page.url),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Indexing failed: {str(e)}")
+        # Log full error details internally
+        logger.error(f"Indexing failed for {page.url}: {e}", exc_info=True)
+        # Return generic error to client (no internal details)
+        raise HTTPException(status_code=500, detail="Indexing failed")
 
 
 @router.get("/health")

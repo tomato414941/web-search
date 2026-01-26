@@ -130,3 +130,66 @@ def dequeue_top(
         return None
     url, score = res[0]
     return url, float(score)
+
+
+# --- Retry Management ---
+
+MAX_RETRIES = 3
+RETRY_KEY_PREFIX = "crawl:retry:"
+DEAD_LETTER_KEY = "crawl:dead_letter"
+
+
+def increment_retry_count(r: redis.Redis, url: str) -> int:
+    """
+    Increment retry count for a URL.
+
+    Args:
+        r: Redis client
+        url: URL to track
+
+    Returns:
+        New retry count
+    """
+    key = f"{RETRY_KEY_PREFIX}{url}"
+    count = r.incr(key)
+    # Set TTL of 7 days for retry counter
+    r.expire(key, 604800)
+    return count
+
+
+def get_retry_count(r: redis.Redis, url: str) -> int:
+    """Get current retry count for a URL."""
+    key = f"{RETRY_KEY_PREFIX}{url}"
+    val = r.get(key)
+    return int(val) if val else 0
+
+
+def clear_retry_count(r: redis.Redis, url: str) -> None:
+    """Clear retry count for a URL (after successful processing)."""
+    key = f"{RETRY_KEY_PREFIX}{url}"
+    r.delete(key)
+
+
+def move_to_dead_letter(
+    r: redis.Redis, url: str, reason: str = "", dead_letter_key: str = DEAD_LETTER_KEY
+) -> None:
+    """
+    Move a URL to the dead letter queue.
+
+    Args:
+        r: Redis client
+        url: URL to move
+        reason: Reason for moving to dead letter
+        dead_letter_key: Redis sorted set key for dead letter queue
+    """
+    import time
+
+    # Store with timestamp as score for ordering
+    r.zadd(dead_letter_key, {url: time.time()})
+    # Clear retry counter
+    clear_retry_count(r, url)
+
+
+def should_move_to_dead_letter(r: redis.Redis, url: str) -> bool:
+    """Check if URL should be moved to dead letter queue based on retry count."""
+    return get_retry_count(r, url) >= MAX_RETRIES
