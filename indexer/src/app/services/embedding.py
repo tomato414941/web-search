@@ -2,6 +2,7 @@
 
 import logging
 import pickle
+import struct
 import numpy as np
 from openai import AsyncOpenAI
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -39,19 +40,28 @@ class EmbeddingService:
         """Embed text and return bytes for storage (async)."""
         if not text:
             # Return zero vector
-            return pickle.dumps(np.zeros(self.dimensions, dtype=np.float32))
+            vector = np.zeros(self.dimensions, dtype=np.float32)
+            return struct.pack(f"{len(vector)}f", *vector)
 
         try:
             vector_list = await self._get_embedding(text)
             vector = np.array(vector_list, dtype=np.float32)
-            # Serialize numpy array to bytes
-            return pickle.dumps(vector)
+            return struct.pack(f"{len(vector)}f", *vector)
         except Exception as e:
             logger.error(f"Failed to generate embedding: {e}")
             raise e
 
     def deserialize(self, blob: bytes) -> np.ndarray:
         """Convert bytes back to numpy array."""
+        expected_size = len(blob) // 4
+        if expected_size == self.dimensions:
+            try:
+                return np.array(
+                    struct.unpack(f"{expected_size}f", blob), dtype=np.float32
+                )
+            except struct.error:
+                pass
+        # Fallback to pickle (legacy)
         return pickle.loads(blob)
 
     async def embed_query(self, query: str) -> np.ndarray:

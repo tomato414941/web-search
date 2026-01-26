@@ -1,5 +1,6 @@
 """Indexer API Router - for remote crawler to submit pages."""
 
+import secrets
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, HttpUrl
 from typing import Optional
@@ -21,7 +22,7 @@ class PageSubmission(BaseModel):
 
 def verify_api_key(x_api_key: str) -> None:
     """Verify API key from header."""
-    if x_api_key != settings.INDEXER_API_KEY:
+    if not secrets.compare_digest(x_api_key, settings.INDEXER_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
