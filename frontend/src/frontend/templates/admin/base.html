@@ -68,6 +68,57 @@
         .login-box button { width: 100%; }
         .error { color: #ef5350; margin-bottom: 16px; }
         .success { color: #66bb6a; margin-bottom: 16px; }
+
+        /* Responsive - Mobile First */
+        @media (max-width: 768px) {
+            /* Navigation: wrap to multiple lines */
+            .header {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .nav {
+                flex-wrap: wrap;
+                gap: 8px;
+                justify-content: center;
+            }
+
+            /* Tables: horizontal scroll */
+            table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            /* Form rows: stack vertically */
+            .form-row {
+                flex-direction: column;
+            }
+
+            /* Stats grid: single column */
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            /* Cards: reduce padding */
+            .card {
+                padding: 16px;
+            }
+
+            /* Container: reduce padding */
+            .container {
+                padding: 12px;
+            }
+        }
+
+        /* Login box responsive */
+        @media (max-width: 480px) {
+            .login-box {
+                margin: 20px auto;
+                padding: 20px;
+                max-width: calc(100% - 40px);
+            }
+        }
     </style>
 </head>
 <body>

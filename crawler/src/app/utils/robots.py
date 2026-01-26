@@ -81,5 +81,6 @@ class AsyncRobotsCache:
 
             return self._parsers[domain].can_fetch(user_agent, url)
 
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Robots.txt check failed for {url}: {e}")
             return True

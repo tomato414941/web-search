@@ -63,7 +63,8 @@ def test_queue_status_endpoint(test_client, mock_redis):
         # New domain model: queue_size, total_crawled, total_indexed
         assert data["queue_size"] == 50
         assert data["total_crawled"] == 1000
-        assert data["total_indexed"] == 1000
+        # total_indexed now comes from DB (crawl_history with status='success')
+        assert "total_indexed" in data
 
 
 def test_history_endpoint(test_client):

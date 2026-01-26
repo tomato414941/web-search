@@ -13,10 +13,10 @@ from shared.core.infrastructure_config import InfrastructureSettings
 class Settings(InfrastructureSettings):
     """Frontend service configuration"""
 
-    # Admin Authentication
-    ADMIN_USERNAME: str = os.getenv("ADMIN_USERNAME", "admin")
-    ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "admin")
-    SECRET_KEY: str = os.getenv("ADMIN_SESSION_SECRET", "change-me-in-production")
+    # Admin Authentication (required - no defaults for security)
+    ADMIN_USERNAME: str = os.environ["ADMIN_USERNAME"]
+    ADMIN_PASSWORD: str = os.environ["ADMIN_PASSWORD"]
+    SECRET_KEY: str = os.environ["ADMIN_SESSION_SECRET"]
 
     # Crawler Service Integration
     CRAWLER_SERVICE_URL: str = os.getenv("CRAWLER_SERVICE_URL", "http://localhost:8000")
@@ -56,7 +56,9 @@ class Settings(InfrastructureSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
     # Security
-    ALLOWED_HOSTS: list[str] = os.getenv("ALLOWED_HOSTS", "*").split(",")
+    ALLOWED_HOSTS: list[str] = os.getenv(
+        "ALLOWED_HOSTS", "localhost,127.0.0.1,testclient,testserver"
+    ).split(",")
     CORS_ORIGINS: list[str] = (
         os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
     )

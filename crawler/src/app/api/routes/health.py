@@ -7,10 +7,14 @@ Provides Kubernetes-compatible health check endpoints:
 - /health/ready: Readiness probe (dependencies healthy)
 """
 
+import logging
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from shared.db.redis import get_redis
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Router for /api/v1 prefix (backward compatibility)
 router = APIRouter()
@@ -25,7 +29,8 @@ def _check_redis() -> bool:
         r = get_redis()
         r.ping()
         return True
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Redis health check failed: {e}")
         return False
 
 
@@ -35,7 +40,8 @@ def _check_queue() -> bool:
         r = get_redis()
         r.zcard(settings.CRAWL_QUEUE_KEY)
         return True
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Queue health check failed: {e}")
         return False
 
 

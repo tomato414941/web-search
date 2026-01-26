@@ -76,9 +76,10 @@ app.add_middleware(MetricsMiddleware)
 
 # Trusted Hosts (prevent Host header attacks)
 # 'testclient' and 'testserver' are included for HTTPX/Starlette TestClient compatibility
-allowed_hosts = os.getenv(
-    "ALLOWED_HOSTS", "localhost,127.0.0.1,testclient,testserver"
-).split(",")
+if settings.DEBUG:
+    allowed_hosts = ["*"]
+else:
+    allowed_hosts = settings.ALLOWED_HOSTS
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # --- CORS ---

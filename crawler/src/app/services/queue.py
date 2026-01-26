@@ -4,9 +4,12 @@ Queue Service
 Manages Redis-based crawl queue operations.
 """
 
+import logging
+import sqlite3
+
 from shared.db.redis import enqueue_batch
 from app.core.config import settings
-import logging
+from app.utils.history import get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +48,19 @@ class QueueService:
         Returns:
             Dict with queue_size, total_crawled, total_indexed (Crawler's domain model)
         """
+        indexed_count = 0
+        try:
+            db_path = get_db_path()
+            with sqlite3.connect(db_path) as con:
+                cursor = con.execute(
+                    "SELECT COUNT(*) FROM crawl_history WHERE status = 'success'"
+                )
+                indexed_count = cursor.fetchone()[0]
+        except Exception as e:
+            logger.warning(f"Failed to get indexed count: {e}")
+
         return {
             "queue_size": self.redis.zcard(settings.CRAWL_QUEUE_KEY),
             "total_crawled": self.redis.scard(settings.CRAWL_SEEN_KEY),
-            "total_indexed": self.redis.scard(
-                settings.CRAWL_SEEN_KEY
-            ),  # Currently same as crawled
+            "total_indexed": indexed_count,
         }

@@ -2,8 +2,11 @@
 
 import hashlib
 import hmac
+import logging
+import time
 from datetime import timedelta
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Form
@@ -13,6 +16,8 @@ from pydantic import BaseModel, HttpUrl
 from frontend.core.config import settings
 from frontend.core.db import get_connection
 from frontend.api.templates import templates
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -27,22 +32,34 @@ class SeedUrlRequest(BaseModel):
     url: HttpUrl
 
 
-def get_session_hash() -> str:
-    """Generate expected session hash."""
-    msg = f"{settings.ADMIN_USERNAME}:{settings.ADMIN_PASSWORD}".encode()
-    return hmac.new(settings.SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
-
-
 def create_session() -> str:
-    """Create a new session token (HMAC of creds)."""
-    return get_session_hash()
+    """Create a new session token with timestamp."""
+    timestamp = int(time.time())
+    msg = f"{settings.ADMIN_USERNAME}:{settings.ADMIN_PASSWORD}:{timestamp}".encode()
+    signature = hmac.new(settings.SECRET_KEY.encode(), msg, hashlib.sha256).hexdigest()
+    return f"{timestamp}:{signature}"
 
 
 def validate_session(token: str | None) -> bool:
-    """Validate a session token."""
+    """Validate a session token with expiration check."""
     if not token:
         return False
-    return hmac.compare_digest(token, get_session_hash())
+    try:
+        timestamp_str, signature = token.split(":", 1)
+        timestamp = int(timestamp_str)
+        # Check expiration
+        if time.time() - timestamp > SESSION_DURATION.total_seconds():
+            return False
+        # Verify signature
+        msg = (
+            f"{settings.ADMIN_USERNAME}:{settings.ADMIN_PASSWORD}:{timestamp}".encode()
+        )
+        expected = hmac.new(
+            settings.SECRET_KEY.encode(), msg, hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(signature, expected)
+    except (ValueError, AttributeError):
+        return False
 
 
 def require_auth(request: Request) -> None:
@@ -65,19 +82,18 @@ def get_stats() -> dict[str, Any]:
     # Database stats (Local SQLite)
     try:
         if settings.DB_PATH:
-            conn = get_connection(settings.DB_PATH)
-            cursor = conn.execute("SELECT COUNT(*) FROM documents")
-            stats["indexed_pages"] = cursor.fetchone()[0]
+            with get_connection(settings.DB_PATH) as conn:
+                cursor = conn.execute("SELECT COUNT(*) FROM documents")
+                stats["indexed_pages"] = cursor.fetchone()[0]
 
-            cursor = conn.execute(
-                "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
-            )
-            result = cursor.fetchone()
-            if result and result[0]:
-                stats["last_crawl"] = result[0]
-            conn.close()
-    except Exception:
-        pass
+                cursor = conn.execute(
+                    "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
+                )
+                result = cursor.fetchone()
+                if result and result[0]:
+                    stats["last_crawl"] = result[0]
+    except Exception as e:
+        logger.warning(f"Failed to get DB stats: {e}")
 
     # Crawler Stats (Remote)
     try:
@@ -92,9 +108,9 @@ def get_stats() -> dict[str, Any]:
             resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/status")
             if resp.status_code == 200:
                 worker_data = resp.json()
-                stats["worker_status"] = worker_data.get("state", "unknown")
-    except Exception:
-        pass
+                stats["worker_status"] = worker_data.get("status", "unknown")
+    except Exception as e:
+        logger.warning(f"Failed to get crawler stats: {e}")
 
     return stats
 
@@ -267,12 +283,12 @@ async def add_seed(
                 raise Exception(f"Crawler API Error: {resp.text}")
 
         return RedirectResponse(
-            url=f"/admin/seeds?success=Added+seed+{url}",
+            url=f"/admin/seeds?success={quote(f'Added seed {url}', safe='')}",
             status_code=303,
         )
     except Exception as e:
         return RedirectResponse(
-            url=f"/admin/seeds?error={str(e)}",
+            url=f"/admin/seeds?error={quote(str(e), safe='')}",
             status_code=303,
         )
 
@@ -296,12 +312,12 @@ async def delete_seed(request: Request, url: str = Form(...)):
                 raise Exception(f"Crawler API Error: {resp.text}")
 
         return RedirectResponse(
-            url="/admin/seeds?success=Seed+deleted",
+            url=f"/admin/seeds?success={quote('Seed deleted', safe='')}",
             status_code=303,
         )
     except Exception as e:
         return RedirectResponse(
-            url=f"/admin/seeds?error={str(e)}",
+            url=f"/admin/seeds?error={quote(str(e), safe='')}",
             status_code=303,
         )
 
@@ -326,12 +342,12 @@ async def requeue_seeds(request: Request, force: bool = Form(default=False)):
             count = data.get("count", 0)
 
         return RedirectResponse(
-            url=f"/admin/seeds?success=Requeued+{count}+seeds",
+            url=f"/admin/seeds?success={quote(f'Requeued {count} seeds', safe='')}",
             status_code=303,
         )
     except Exception as e:
         return RedirectResponse(
-            url=f"/admin/seeds?error={str(e)}",
+            url=f"/admin/seeds?error={quote(str(e), safe='')}",
             status_code=303,
         )
 
@@ -353,12 +369,12 @@ async def add_to_queue(request: Request, url: str = Form(...)):
                 raise Exception(f"Crawler API Error: {resp.text}")
 
         return RedirectResponse(
-            url=f"/admin/queue?success=Added+{url}+to+queue",
+            url=f"/admin/queue?success={quote(f'Added {url} to queue', safe='')}",
             status_code=303,
         )
     except Exception as e:
         return RedirectResponse(
-            url=f"/admin/queue?error={str(e)}",
+            url=f"/admin/queue?error={quote(str(e), safe='')}",
             status_code=303,
         )
 
@@ -412,51 +428,48 @@ def get_analytics_data() -> dict:
     }
 
     try:
-        conn = get_connection(settings.DB_PATH)
+        with get_connection(settings.DB_PATH) as conn:
+            # Total searches in last 7 days
+            cursor = conn.execute(
+                """
+                SELECT COUNT(*) FROM search_logs
+                WHERE created_at >= datetime('now', '-7 days')
+                """
+            )
+            data["total_searches"] = cursor.fetchone()[0]
 
-        # Total searches in last 7 days
-        cursor = conn.execute(
-            """
-            SELECT COUNT(*) FROM search_logs
-            WHERE created_at >= datetime('now', '-7 days')
-            """
-        )
-        data["total_searches"] = cursor.fetchone()[0]
+            # Top queries (last 7 days)
+            cursor = conn.execute(
+                """
+                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
+                FROM search_logs
+                WHERE created_at >= datetime('now', '-7 days')
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """
+            )
+            data["top_queries"] = [
+                {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
+                for row in cursor.fetchall()
+            ]
 
-        # Top queries (last 7 days)
-        cursor = conn.execute(
-            """
-            SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-            FROM search_logs
-            WHERE created_at >= datetime('now', '-7 days')
-            GROUP BY query
-            ORDER BY count DESC
-            LIMIT 20
-            """
-        )
-        data["top_queries"] = [
-            {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
-            for row in cursor.fetchall()
-        ]
-
-        # Zero-hit queries (content gaps)
-        cursor = conn.execute(
-            """
-            SELECT query, COUNT(*) as count
-            FROM search_logs
-            WHERE result_count = 0 AND created_at >= datetime('now', '-7 days')
-            GROUP BY query
-            ORDER BY count DESC
-            LIMIT 20
-            """
-        )
-        data["zero_hit_queries"] = [
-            {"query": row[0], "count": row[1]} for row in cursor.fetchall()
-        ]
-
-        conn.close()
-    except Exception:
-        pass
+            # Zero-hit queries (content gaps)
+            cursor = conn.execute(
+                """
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE result_count = 0 AND created_at >= datetime('now', '-7 days')
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """
+            )
+            data["zero_hit_queries"] = [
+                {"query": row[0], "count": row[1]} for row in cursor.fetchall()
+            ]
+    except Exception as e:
+        logger.warning(f"Failed to get analytics data: {e}")
 
     return data
 
@@ -501,7 +514,7 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
             resp = await client.get(f"{url}/api/v1/worker/status")
             if resp.status_code == 200:
                 worker = resp.json()
-                status["state"] = worker.get("state", "unknown")
+                status["state"] = worker.get("status", "unknown")
                 status["uptime"] = worker.get("uptime")
                 status["concurrency"] = worker.get("concurrency")
     except Exception:
