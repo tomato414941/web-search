@@ -120,8 +120,8 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
       - name: Audit frontend dependencies
-        run: pip-audit -r frontend/requirements.txt
+        run: grep -v '^-e' frontend/requirements.txt | pip-audit -r /dev/stdin
       - name: Audit crawler dependencies
-        run: pip-audit -r crawler/requirements.txt
+        run: grep -v '^-e' crawler/requirements.txt | pip-audit -r /dev/stdin
       - name: Audit indexer dependencies
-        run: pip-audit -r indexer/requirements.txt
+        run: grep -v '^-e' indexer/requirements.txt | pip-audit -r /dev/stdin
