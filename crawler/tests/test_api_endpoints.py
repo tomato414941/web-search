@@ -4,7 +4,7 @@ API Endpoint Tests
 Tests for all FastAPI routes in the crawler service.
 """
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 
 def test_health_endpoint(test_client):
@@ -56,15 +56,38 @@ def test_queue_status_endpoint(test_client, mock_redis):
     mock_redis.zcard.return_value = 50
     mock_redis.scard.return_value = 1000
 
-    with patch("app.api.deps.get_redis", return_value=mock_redis):
-        response = test_client.get("/api/v1/status")
-        assert response.status_code == 200
-        data = response.json()
-        # New domain model: queue_size, total_crawled, total_indexed
-        assert data["queue_size"] == 50
-        assert data["total_crawled"] == 1000
-        # total_indexed now comes from DB (crawl_history with status='success')
-        assert "total_indexed" in data
+    # Mock HybridSeenStore
+    mock_seen_store = MagicMock()
+    mock_seen_store.get_stats.return_value = {
+        "total_seen": 5000,
+        "active_seen": 1000,
+        "cache_size": 500,
+    }
+
+    # Reset global _seen_store and mock _get_seen_store
+    import app.services.queue as queue_module
+
+    original_seen_store = queue_module._seen_store
+    queue_module._seen_store = None
+
+    try:
+        with patch("app.api.deps.get_redis", return_value=mock_redis):
+            with patch.object(
+                queue_module, "_get_seen_store", return_value=mock_seen_store
+            ):
+                response = test_client.get("/api/v1/status")
+                assert response.status_code == 200
+                data = response.json()
+                # New domain model with HybridSeenStore stats
+                assert data["queue_size"] == 50
+                assert data["total_seen"] == 5000
+                assert data["active_seen"] == 1000
+                assert data["cache_size"] == 500
+                # total_crawled is now alias for active_seen (backward compat)
+                assert data["total_crawled"] == 1000
+                assert "total_indexed" in data
+    finally:
+        queue_module._seen_store = original_seen_store
 
 
 def test_history_endpoint(test_client):

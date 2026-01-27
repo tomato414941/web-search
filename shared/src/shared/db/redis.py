@@ -83,7 +83,7 @@ def enqueue_batch(
                 # Increment and return new value
                 pipe.zincrby("crawl:domains", 1.0, d)
             else:
-                pipe.do_nothing()  # Dummy to keep index alignment
+                pipe.echo("noop")  # Dummy to keep index alignment
 
         domain_counts = pipe.execute()
 

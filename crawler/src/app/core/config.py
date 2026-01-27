@@ -21,6 +21,11 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_SEEN_KEY: str = os.getenv("CRAWL_SEEN_KEY", "crawl:seen")
     CRAWL_SEEDS_KEY: str = os.getenv("CRAWL_SEEDS_KEY", "crawl:seeds")
 
+    # Seen URL Management (HybridSeenStore)
+    CRAWL_CACHE_TTL_DAYS: int = int(os.getenv("CRAWL_CACHE_TTL_DAYS", "7"))
+    CRAWL_RECRAWL_AFTER_DAYS: int = int(os.getenv("CRAWL_RECRAWL_AFTER_DAYS", "30"))
+    CRAWLER_DB_PATH: str = os.getenv("CRAWLER_DB_PATH", "/data/crawler.db")
+
     # Crawler Behavior
     CRAWL_USER_AGENT: str = os.getenv(
         "CRAWL_USER_AGENT", "SearchBot/0.3 (+https://example.local/; async crawler)"

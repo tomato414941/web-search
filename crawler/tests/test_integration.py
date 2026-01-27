@@ -9,6 +9,14 @@ from unittest.mock import MagicMock, AsyncMock, patch
 from app.workers.tasks import process_url
 
 
+def create_mock_seen_store():
+    """Create a mock HybridSeenStore."""
+    mock = MagicMock()
+    mock.filter_unseen.return_value = []
+    mock.mark_seen_batch.return_value = 0
+    return mock
+
+
 @pytest.mark.asyncio
 async def test_process_url_success_flow():
     """Test complete process_url flow with successful indexing"""
@@ -21,6 +29,10 @@ async def test_process_url_success_flow():
 
     # Mock Redis client
     mock_redis = MagicMock()
+
+    # Mock seen store
+    mock_seen_store = create_mock_seen_store()
+    mock_seen_store.filter_unseen.return_value = ["http://example.com/link1"]
 
     # Mock HTTP response
     mock_response = AsyncMock()
@@ -60,6 +72,7 @@ async def test_process_url_success_flow():
                         mock_session,
                         mock_robots,
                         mock_redis,
+                        mock_seen_store,
                         "http://example.com/test",
                         100.0,
                     )
@@ -91,10 +104,16 @@ async def test_process_url_robots_blocked():
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = False  # Blocked
     mock_redis = MagicMock()
+    mock_seen_store = create_mock_seen_store()
 
     with patch("app.workers.tasks.history.log_crawl_attempt") as mock_history:
         await process_url(
-            mock_session, mock_robots, mock_redis, "http://example.com/blocked", 100.0
+            mock_session,
+            mock_robots,
+            mock_redis,
+            mock_seen_store,
+            "http://example.com/blocked",
+            100.0,
         )
 
         # Should not fetch
@@ -112,6 +131,7 @@ async def test_process_url_http_error():
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
     mock_redis = MagicMock()
+    mock_seen_store = create_mock_seen_store()
 
     # Mock 404 response with proper headers
     mock_response = AsyncMock()
@@ -121,7 +141,12 @@ async def test_process_url_http_error():
 
     with patch("app.workers.tasks.history.log_crawl_attempt") as mock_history:
         await process_url(
-            mock_session, mock_robots, mock_redis, "http://example.com/notfound", 100.0
+            mock_session,
+            mock_robots,
+            mock_redis,
+            mock_seen_store,
+            "http://example.com/notfound",
+            100.0,
         )
 
         # Should log as http_error
@@ -137,6 +162,7 @@ async def test_process_url_network_error():
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
     mock_redis = MagicMock()
+    mock_seen_store = create_mock_seen_store()
 
     # Mock network error
     import aiohttp
@@ -149,6 +175,7 @@ async def test_process_url_network_error():
                 mock_session,
                 mock_robots,
                 mock_redis,
+                mock_seen_store,
                 "http://example.com/error",
                 100.0,
             )
@@ -165,6 +192,7 @@ async def test_process_url_indexer_failure():
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
     mock_redis = MagicMock()
+    mock_seen_store = create_mock_seen_store()
 
     # Mock successful HTTP response
     mock_response = AsyncMock()
@@ -190,6 +218,7 @@ async def test_process_url_indexer_failure():
                         mock_session,
                         mock_robots,
                         mock_redis,
+                        mock_seen_store,
                         "http://example.com/test",
                         100.0,
                     )
@@ -208,6 +237,7 @@ async def test_process_url_retryable_error():
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
     mock_redis = MagicMock()
+    mock_seen_store = create_mock_seen_store()
 
     # Mock 503 response with proper headers
     mock_response = AsyncMock()
@@ -221,6 +251,7 @@ async def test_process_url_retryable_error():
                 mock_session,
                 mock_robots,
                 mock_redis,
+                mock_seen_store,
                 "http://example.com/temp-error",
                 100.0,
             )

@@ -8,10 +8,27 @@ import logging
 import sqlite3
 
 from shared.db.redis import enqueue_batch
+from shared.db.seen_store import HybridSeenStore
 from app.core.config import settings
 from app.utils.history import get_db_path
 
 logger = logging.getLogger(__name__)
+
+# Lazy-initialized seen store
+_seen_store: HybridSeenStore | None = None
+
+
+def _get_seen_store(redis_client) -> HybridSeenStore:
+    """Get or create the HybridSeenStore instance."""
+    global _seen_store
+    if _seen_store is None:
+        _seen_store = HybridSeenStore(
+            redis_client=redis_client,
+            db_path=settings.CRAWLER_DB_PATH,
+            cache_ttl_days=settings.CRAWL_CACHE_TTL_DAYS,
+            recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
+        )
+    return _seen_store
 
 
 class QueueService:
@@ -46,21 +63,29 @@ class QueueService:
         Get queue statistics
 
         Returns:
-            Dict with queue_size, total_crawled, total_indexed (Crawler's domain model)
+            Dict with queue_size, seen stats, and total_indexed
         """
         indexed_count = 0
         try:
             db_path = get_db_path()
             with sqlite3.connect(db_path) as con:
                 cursor = con.execute(
-                    "SELECT COUNT(*) FROM crawl_history WHERE status = 'success'"
+                    "SELECT COUNT(*) FROM crawl_history WHERE status IN ('success', 'indexed')"
                 )
                 indexed_count = cursor.fetchone()[0]
         except Exception as e:
             logger.warning(f"Failed to get indexed count: {e}")
 
+        # Get seen URL stats from HybridSeenStore
+        seen_store = _get_seen_store(self.redis)
+        seen_stats = seen_store.get_stats()
+
         return {
             "queue_size": self.redis.zcard(settings.CRAWL_QUEUE_KEY),
-            "total_crawled": self.redis.scard(settings.CRAWL_SEEN_KEY),
+            "total_seen": seen_stats["total_seen"],
+            "active_seen": seen_stats["active_seen"],
+            "cache_size": seen_stats["cache_size"],
             "total_indexed": indexed_count,
+            # Legacy field for backward compatibility
+            "total_crawled": seen_stats["active_seen"],
         }

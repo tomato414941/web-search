@@ -16,6 +16,7 @@ from shared.db.redis import (
     move_to_dead_letter,
     MAX_RETRIES,
 )
+from shared.db.seen_store import HybridSeenStore
 from app.domain.scoring import calculate_url_score
 from app.core.config import settings
 from app.utils.parser import html_to_doc, extract_links
@@ -25,6 +26,23 @@ from app.utils import history
 
 logger = logging.getLogger(__name__)
 
+# Global seen store instance (initialized in worker_loop)
+_seen_store: HybridSeenStore | None = None
+
+
+def get_seen_store(redis_client) -> HybridSeenStore:
+    """Get or create the HybridSeenStore instance."""
+    global _seen_store
+    if _seen_store is None:
+        _seen_store = HybridSeenStore(
+            redis_client=redis_client,
+            db_path=settings.CRAWLER_DB_PATH,
+            cache_ttl_days=settings.CRAWL_CACHE_TTL_DAYS,
+            recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
+        )
+    return _seen_store
+
+
 # Maximum response size (10 MB)
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 
@@ -33,6 +51,7 @@ async def process_url(
     session: aiohttp.ClientSession,
     robots: AsyncRobotsCache,
     redis_client,
+    seen_store: HybridSeenStore,
     url: str,
     score: float,
 ):
@@ -43,6 +62,7 @@ async def process_url(
         session: aiohttp client session
         robots: Robots.txt cache
         redis_client: Redis client
+        seen_store: HybridSeenStore for URL deduplication
         url: URL to crawl
         score: Priority score
     """
@@ -131,18 +151,31 @@ async def process_url(
                 if discovered:
                     # Limit outlinks
                     discovered = discovered[:50]  # Max 50 links per page
-                    await loop.run_in_executor(
-                        None,
-                        lambda: enqueue_batch(
-                            redis_client,
-                            discovered,
-                            parent_score=score,
-                            score_calculator=calculate_url_score,  # Use domain logic
-                            queue_key=settings.CRAWL_QUEUE_KEY,
-                            seen_key=settings.CRAWL_SEEN_KEY,
-                        ),
+
+                    # Filter using HybridSeenStore (allows recrawl after threshold)
+                    unseen = await loop.run_in_executor(
+                        None, lambda: seen_store.filter_unseen(discovered)
                     )
-                    logger.debug(f"📤 Enqueued {len(discovered)} links from {url}")
+
+                    if unseen:
+                        # Mark as seen and enqueue
+                        await loop.run_in_executor(
+                            None, lambda: seen_store.mark_seen_batch(unseen)
+                        )
+                        await loop.run_in_executor(
+                            None,
+                            lambda: enqueue_batch(
+                                redis_client,
+                                unseen,
+                                parent_score=score,
+                                score_calculator=calculate_url_score,
+                                queue_key=settings.CRAWL_QUEUE_KEY,
+                                seen_key=settings.CRAWL_SEEN_KEY,
+                            ),
+                        )
+                        logger.debug(
+                            f"📤 Enqueued {len(unseen)}/{len(discovered)} links from {url}"
+                        )
 
             elif resp.status in (429, 500, 502, 503, 504):
                 # Retryable errors - check retry count
@@ -249,6 +282,7 @@ async def worker_loop(concurrency: int = 1):
     history.init_db()
 
     redis_client = get_redis()
+    seen_store = get_seen_store(redis_client)
     sem = asyncio.Semaphore(concurrency)  # Use provided concurrency
 
     connector = aiohttp.TCPConnector(
@@ -287,7 +321,9 @@ async def worker_loop(concurrency: int = 1):
                 # Process URL with semaphore concurrency control
                 async def process_with_semaphore(url: str, score: float):
                     try:
-                        await process_url(session, robots, redis_client, url, score)
+                        await process_url(
+                            session, robots, redis_client, seen_store, url, score
+                        )
                     finally:
                         sem.release()
 

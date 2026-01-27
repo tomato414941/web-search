@@ -9,19 +9,31 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 
 # Default DB path (can be overridden by environment variable)
-DEFAULT_DB_PATH = "/data/crawler_history.db"
+# Unified crawler database for all crawler-related tables
+DEFAULT_DB_PATH = "/data/crawler.db"
 
 SCHEMA = """
+-- Crawl history (audit/analysis)
 CREATE TABLE IF NOT EXISTS crawl_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT NOT NULL,
     status TEXT NOT NULL,  -- 'success', 'error', 'blocked', 'skipped'
     http_code INTEGER,
     error_message TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at INTEGER DEFAULT (strftime('%s', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_history_url ON crawl_history(url);
 CREATE INDEX IF NOT EXISTS idx_history_created ON crawl_history(created_at);
+
+-- Seen URLs (fast lookup, managed by HybridSeenStore)
+CREATE TABLE IF NOT EXISTS seen_urls (
+    url_hash TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    first_seen_at INTEGER NOT NULL,
+    last_seen_at INTEGER NOT NULL,
+    crawl_count INTEGER DEFAULT 1
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS idx_seen_last ON seen_urls(last_seen_at);
 """
 
 
@@ -33,13 +45,14 @@ def get_db_path() -> str:
 
 
 def init_db(db_path: str | None = None):
-    """Initialize history database"""
+    """Initialize crawler database with WAL mode"""
     path = db_path or get_db_path()
 
     # Ensure directory exists
     Path(path).parent.mkdir(parents=True, exist_ok=True)
 
     with sqlite3.connect(path) as con:
+        con.execute("PRAGMA journal_mode=WAL")
         con.executescript(SCHEMA)
 
 
