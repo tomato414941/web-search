@@ -19,8 +19,8 @@ class IndexerSettings(InfrastructureSettings):
     PORT: int = int(os.getenv("PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
-    # Security (required in production)
-    INDEXER_API_KEY: str = os.environ["INDEXER_API_KEY"]
+    # Security (required in production, fallback for testing)
+    INDEXER_API_KEY: str = os.getenv("INDEXER_API_KEY", "dev-key")
 
     # OpenAI Embeddings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
