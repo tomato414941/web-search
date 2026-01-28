@@ -56,7 +56,7 @@ def test_cache_refresh_ttl(clean_db):
         con.close()
 
         # 3. Initial Search (loads cache)
-        res = svc.search("Fruit", mode="semantic")
+        res = svc.search("Fruit")
         assert len(res["hits"]) == 1, "Should find A"
 
         # 4. Add Item B (Banana) *after* cache loaded
@@ -73,12 +73,12 @@ def test_cache_refresh_ttl(clean_db):
         con.close()
 
         # 5. Fast Search (Should hit cached stale data)
-        res = svc.search("Fruit", mode="semantic")
+        res = svc.search("Fruit")
         assert len(res["hits"]) == 1, "Should still see only A (cached)"
 
         # 6. Clear vector cache to simulate TTL expiry
         svc._engine.clear_vector_cache()
 
         # 7. Search Again (Should see refreshed data)
-        res = svc.search("Fruit", mode="semantic")
+        res = svc.search("Fruit")
         assert len(res["hits"]) == 2, "Should find A and B (refreshed)"

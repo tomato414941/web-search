@@ -1,4 +1,5 @@
 from unittest.mock import patch
+import numpy as np
 from fastapi.testclient import TestClient
 from frontend.api.main import app
 
@@ -6,18 +7,11 @@ client = TestClient(app)
 
 
 def test_health():
-    # Mock the httpx.Client used in the health check
-    with patch("frontend.api.routers.system.httpx.Client") as MockClient:
-        # Configure the mock to return a success response
-        mock_instance = MockClient.return_value
-        mock_instance.__enter__.return_value.get.return_value.status_code = 200
-
-        response = client.get("/api/v1/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["ok"] is True
-        assert "checks" in data
-        assert data["checks"]["crawler"] is True
+    # Test /healthz endpoint (liveness probe)
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ok"] is True
 
 
 def test_search_page_loads_default():
@@ -52,13 +46,15 @@ def test_search_api_empty_query():
 
 
 def test_search_api_with_query():
-    # Note: This test relies on the DB state.
-    # For a unit test, we might want to mock the search service,
-    # but for a simple integration test, we can check the structure.
-    response = client.get("/api/v1/search?q=test")
-    assert response.status_code == 200
-    data = response.json()
-    assert "hits" in data
-    assert "total" in data
-    assert "query" in data
-    assert data["query"] == "test"
+    # Mock embedding service since hybrid search requires OpenAI API
+    dummy_vec = np.zeros(1536, dtype=np.float32)
+    with patch("frontend.services.search.embedding_service") as mock_embed:
+        mock_embed.embed_query.return_value = dummy_vec
+        mock_embed.deserialize.return_value = dummy_vec
+        response = client.get("/api/v1/search?q=test")
+        assert response.status_code == 200
+        data = response.json()
+        assert "hits" in data
+        assert "total" in data
+        assert "query" in data
+        assert data["query"] == "test"

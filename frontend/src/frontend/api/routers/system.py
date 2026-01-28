@@ -15,9 +15,6 @@ from fastapi.responses import JSONResponse
 from frontend.core.config import settings
 from frontend.core.db import get_connection
 
-# Router for /api/v1 prefix (backward compatibility)
-router = APIRouter()
-
 # Router for root-level health endpoints
 root_router = APIRouter()
 
@@ -84,40 +81,14 @@ async def readiness():
     return _get_readiness_response()
 
 
-# --- /api/v1 endpoints (backward compatibility) ---
-
-
-@router.get("/health")
-async def health_api():
-    """
-    Health Check endpoint (backward compatible).
-    Returns status of all critical dependencies.
-    """
-    checks = {
-        "app": True,
-        "database": _check_database(),
-        "crawler": _check_crawler(),
-    }
-
-    all_healthy = all(checks.values())
-
-    return JSONResponse(
-        status_code=200 if all_healthy else 503,
-        content={
-            "ok": all_healthy,
-            "checks": checks,
-        },
-    )
-
-
-@router.get("/health/live")
-async def liveness_api():
-    """Kubernetes liveness probe - is the process running? (backward compatible)"""
+# Kubernetes-style short aliases
+@root_router.get("/healthz")
+async def healthz():
+    """Liveness probe alias (/healthz)."""
     return {"ok": True}
 
 
-@router.get("/health/ready")
-async def readiness_api():
-    """Kubernetes readiness probe - is the service ready to accept traffic? (backward compatible)"""
-    result = await health_api()
-    return result
+@root_router.get("/readyz")
+async def readyz():
+    """Readiness probe alias (/readyz)."""
+    return _get_readiness_response()

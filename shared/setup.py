@@ -13,5 +13,7 @@ setup(
         "numpy",
         "sudachipy",
         "sudachidict-core",
+        "openai",
+        "tenacity",
     ],
 )

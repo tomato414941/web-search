@@ -13,13 +13,13 @@ from frontend.api.middleware.rate_limiter import limiter
 router = APIRouter()
 
 
-def log_search(query: str, result_count: int, mode: str, user_agent: str | None):
+def log_search(query: str, result_count: int, user_agent: str | None):
     """Log search query to database (runs in background)."""
     try:
         with get_connection(settings.DB_PATH) as conn:
             conn.execute(
                 "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (?, ?, ?, ?)",
-                (query, result_count, mode, user_agent),
+                (query, result_count, "hybrid", user_agent),
             )
             conn.commit()
     except Exception:
@@ -42,9 +42,8 @@ async def api_search(
     q: str | None = None,
     limit: str | None = None,
     page: str | None = None,
-    mode: str = "default",
 ):
-    """Search API (JSON)"""
+    """Search API (JSON) - uses hybrid search (BM25 + Semantic)."""
     query = (q or "").strip()
     if len(query) > settings.MAX_QUERY_LEN:
         query = query[: settings.MAX_QUERY_LEN]
@@ -53,7 +52,7 @@ async def api_search(
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
 
     data = (
-        search_service.search(query, per_page, page_number, mode=mode)
+        search_service.search(query, per_page, page_number)
         if query
         else search_service._empty_result(per_page)
     )
@@ -61,7 +60,7 @@ async def api_search(
     # Log search in background (non-blocking)
     if query:
         user_agent = request.headers.get("user-agent")
-        background_tasks.add_task(log_search, query, data["total"], mode, user_agent)
+        background_tasks.add_task(log_search, query, data["total"], user_agent)
 
     return JSONResponse(data)
 

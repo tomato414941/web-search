@@ -4,7 +4,6 @@
 # Web Framework
 fastapi
 uvicorn[standard]
-pydantic-settings
 
 # Async HTTP
 aiohttp
@@ -18,7 +17,6 @@ beautifulsoup4
 
 # HTTP Client (for calling Web Server API)
 httpx
-requests
 
 # Test dependencies
 pytest

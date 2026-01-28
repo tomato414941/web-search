@@ -9,6 +9,7 @@ import gc
 import time
 import pytest
 import fakeredis
+import numpy as np
 from unittest.mock import patch
 from shared.db.search import ensure_db
 from shared.search import SearchEngine, BM25Config
@@ -82,6 +83,19 @@ def mock_redis_server():
     # Patch redis.Redis.from_url so any call to it returns our fake client
     with patch("redis.Redis.from_url", return_value=r):
         yield r
+
+
+@pytest.fixture(autouse=True)
+def mock_embedding_service():
+    """Mock embedding service to avoid OpenAI API calls in tests."""
+    dummy_vec = np.zeros(1536, dtype=np.float32)
+
+    with patch("frontend.services.search.embedding_service") as mock_embed:
+        mock_embed.embed_query.return_value = dummy_vec
+        mock_embed.embed.return_value = dummy_vec.tobytes()
+        mock_embed.deserialize.return_value = dummy_vec
+        mock_embed.dimensions = 1536
+        yield mock_embed
 
 
 @pytest.fixture

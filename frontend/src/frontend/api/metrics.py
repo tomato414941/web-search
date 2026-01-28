@@ -32,20 +32,6 @@ REQUEST_LATENCY = Histogram(
 # Active requests gauge
 ACTIVE_REQUESTS = Gauge("http_requests_active", "Number of active HTTP requests")
 
-# Search-specific metrics
-SEARCH_COUNT = Counter(
-    "search_requests_total",
-    "Total search requests",
-    ["mode"],  # "default" or "semantic"
-)
-
-SEARCH_LATENCY = Histogram(
-    "search_duration_seconds",
-    "Search request latency",
-    ["mode"],
-    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
-)
-
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to collect request metrics."""
@@ -89,9 +75,3 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 async def metrics():
     """Prometheus metrics endpoint."""
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-
-def record_search(mode: str, duration: float):
-    """Record search-specific metrics."""
-    SEARCH_COUNT.labels(mode=mode).inc()
-    SEARCH_LATENCY.labels(mode=mode).observe(duration)

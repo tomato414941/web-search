@@ -10,16 +10,10 @@ itsdangerous
 
 # HTTP Client (for calling Crawler API)
 httpx
-requests
 
 # Rate Limiting & Monitoring
 slowapi
 prometheus-client
-
-# OpenAI Embeddings
-openai
-tenacity
-numpy
 
 # Search & Indexing
 beautifulsoup4

@@ -1,71 +1,11 @@
-import logging
-import pickle
-import struct
-import numpy as np
-from openai import OpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential
+"""
+Embedding Service - Frontend-specific instance.
+
+Uses the shared EmbeddingService with frontend configuration.
+"""
+
 from frontend.core.config import settings
+from shared.embedding import EmbeddingService
 
-logger = logging.getLogger(__name__)
-
-
-class EmbeddingService:
-    def __init__(self, model_name: str = "text-embedding-3-small"):
-        self.model_name = model_name
-        self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
-        # Dimensions for text-embedding-3-small is 1536 by default
-        self.dimensions = 1536
-
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10)
-    )
-    def _get_embedding(self, text: str) -> list[float]:
-        """Call OpenAI API with retry logic."""
-        text = text.replace("\n", " ")  # Recommended for OpenAI embeddings
-        # Safety Truncation: 1 token ~ 4 chars. Limit to ~8000 tokens (text-embedding-3-small max is 8191).
-        # We use a hard char limit of 30000 chars (approx 7500 tokens) to be safe and save memory.
-        if len(text) > 30000:
-            text = text[:30000]
-
-        response = self.client.embeddings.create(input=[text], model=self.model_name)
-        return response.data[0].embedding
-
-    def embed(self, text: str) -> bytes:
-        """Embed text and return bytes for storage."""
-        if not text:
-            # Return zero vector
-            vector = np.zeros(self.dimensions, dtype=np.float32)
-            return struct.pack(f"{len(vector)}f", *vector)
-
-        try:
-            vector_list = self._get_embedding(text)
-            vector = np.array(vector_list, dtype=np.float32)
-            return struct.pack(f"{len(vector)}f", *vector)
-        except Exception as e:
-            logger.error(f"Failed to generate embedding: {e}")
-            raise e
-
-    def deserialize(self, blob: bytes) -> np.ndarray:
-        """Convert bytes back to numpy array."""
-        expected_size = len(blob) // 4
-        if expected_size == self.dimensions:
-            try:
-                return np.array(
-                    struct.unpack(f"{expected_size}f", blob), dtype=np.float32
-                )
-            except struct.error:
-                pass
-        # Fallback to pickle (legacy)
-        return pickle.loads(blob)
-
-    def embed_query(self, query: str) -> np.ndarray:
-        """Embed search query."""
-        if not query:
-            return np.zeros(self.dimensions, dtype=np.float32)
-
-        vector_list = self._get_embedding(query)
-        return np.array(vector_list, dtype=np.float32)
-
-
-# Global instance
-embedding_service = EmbeddingService()
+# Global instance using frontend config
+embedding_service = EmbeddingService(api_key=settings.OPENAI_API_KEY)
