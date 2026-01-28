@@ -1,6 +1,8 @@
 import pytest
 import os
 from typing import Generator
+from unittest.mock import patch
+import numpy as np
 
 from shared.db.search import open_db
 from shared.search import SearchIndexer
@@ -8,7 +10,6 @@ from frontend.services.search import SearchService
 from shared.analyzer import analyzer
 
 
-# Fixture to create a temporary database for testing
 @pytest.fixture
 def temp_db(tmp_path) -> Generator[str, None, None]:
     db_path = tmp_path / "test_search.db"
@@ -25,7 +26,17 @@ def temp_db(tmp_path) -> Generator[str, None, None]:
         os.remove(str_path)
 
 
-def test_japanese_tokenization(temp_db):
+@pytest.fixture
+def mock_embedding():
+    """Mock embedding service for hybrid search tests."""
+    dummy_vec = np.zeros(1536, dtype=np.float32)
+    with patch("frontend.services.search.embedding_service") as mock_embed:
+        mock_embed.embed_query.return_value = dummy_vec
+        mock_embed.deserialize.return_value = dummy_vec
+        yield mock_embed
+
+
+def test_japanese_tokenization(temp_db, mock_embedding):
     """
     Verify SudachiPy integration and custom search engine behavior.
     """
@@ -59,7 +70,7 @@ def test_japanese_tokenization(temp_db):
     assert "東京都の観光" not in titles  # Crucial check: No partial match on "Tokyo-To"
 
 
-def test_display_text_raw(temp_db):
+def test_display_text_raw(temp_db, mock_embedding):
     """
     Verify that search results return Raw Title, not Tokenized Title.
     """
