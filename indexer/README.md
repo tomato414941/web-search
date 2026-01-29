@@ -38,4 +38,5 @@ uvicorn app.main:app --reload --port 8081
 ## API Endpoints
 
 *   `POST /api/v1/indexer/page`: Submit a page for indexing.
-*   `GET /api/v1/health`: Health check.
+*   `GET /health`: Health check (recommended).
+*   `GET /api/v1/health`: Health check (backward compatible).

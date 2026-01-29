@@ -79,5 +79,6 @@ Microservices architecture with CQRS-lite pattern:
 ## API Endpoints
 
 - Search API: `/api/v1/search?q=<query>`
-- Health: `/api/v1/health`, `/healthz`, `/readyz`
+- Health: `/health`, `/healthz`, `/readyz` (root level, recommended)
+- Health (backward compatible): `/api/v1/health`
 - API docs: `/docs` (Swagger UI)

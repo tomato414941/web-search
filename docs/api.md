@@ -81,8 +81,8 @@ Submit a crawled page for indexing.
 }
 ```
 
-### `GET /api/v1/health`
-Health check and index stats.
+### `GET /health` (recommended) or `GET /api/v1/health`
+Health check. Root-level `/health` is preferred; `/api/v1/health` is for backward compatibility.
 
 ---
 

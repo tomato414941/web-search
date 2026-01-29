@@ -7,8 +7,16 @@ Tests for all FastAPI routes in the crawler service.
 from unittest.mock import patch, MagicMock
 
 
-def test_health_endpoint(test_client):
-    """Test GET /api/v1/health endpoint"""
+def test_root_health_endpoint(test_client):
+    """Test GET /health endpoint (recommended)"""
+    response = test_client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+
+
+def test_api_v1_health_endpoint(test_client):
+    """Test GET /api/v1/health endpoint (backward compatible)"""
     response = test_client.get("/api/v1/health")
     assert response.status_code == 200
     data = response.json()

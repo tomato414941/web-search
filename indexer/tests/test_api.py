@@ -206,8 +206,15 @@ class TestIndexerAPIValidation:
 class TestHealthEndpoint:
     """Test health check endpoint."""
 
-    def test_public_health_check(self, test_client):
-        """Public health check should work without auth."""
+    def test_root_health_check(self, test_client):
+        """Root-level health check should work without auth."""
+        response = test_client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+
+    def test_api_v1_health_check(self, test_client):
+        """API v1 health check (backward compatible) should work without auth."""
         response = test_client.get("/api/v1/health")
         assert response.status_code == 200
         data = response.json()
