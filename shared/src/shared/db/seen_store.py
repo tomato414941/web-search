@@ -1,17 +1,20 @@
 """
 Hybrid Seen URL Store
 
-Redis cache + SQLite persistence for visited URLs management.
+Redis cache + SQLite/Turso persistence for visited URLs management.
 Supports recrawling after configurable threshold.
 """
 
 import hashlib
+import os
 import sqlite3
 import time
 from pathlib import Path
 from typing import Optional
 
 import redis
+
+from shared.db.search import get_connection
 
 SEEN_URLS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS seen_urls (
@@ -50,11 +53,19 @@ class HybridSeenStore:
         self._init_db()
 
     def _init_db(self):
-        """Initialize SQLite database with WAL mode."""
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.db_path) as con:
-            con.execute("PRAGMA journal_mode=WAL")
+        """Initialize database (Turso or local SQLite with WAL mode)."""
+        self._turso_mode = os.getenv("TURSO_URL") is not None
+
+        if not self._turso_mode:
+            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+
+        con = get_connection(self.db_path)
+        try:
+            if not self._turso_mode:
+                con.execute("PRAGMA journal_mode=WAL")
             con.executescript(SEEN_URLS_SCHEMA)
+        finally:
+            con.close()
 
     @staticmethod
     def _hash_url(url: str) -> str:
@@ -75,11 +86,12 @@ class HybridSeenStore:
         if self.redis.sismember(self.CACHE_KEY, url_hash):
             return True
 
-        # 2. SQLite (source of truth)
+        # 2. Database (source of truth)
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
 
-        with sqlite3.connect(self.db_path) as con:
+        con = get_connection(self.db_path)
+        try:
             cur = con.execute(
                 "SELECT last_seen_at FROM seen_urls WHERE url_hash = ? AND last_seen_at > ?",
                 (url_hash, cutoff),
@@ -90,7 +102,9 @@ class HybridSeenStore:
                 self.redis.expire(self.CACHE_KEY, self.cache_ttl)
                 return True
 
-        return False
+            return False
+        finally:
+            con.close()
 
     def mark_seen(self, url: str):
         """Mark URL as seen in both Redis and SQLite."""
@@ -101,8 +115,9 @@ class HybridSeenStore:
         self.redis.sadd(self.CACHE_KEY, url_hash)
         self.redis.expire(self.CACHE_KEY, self.cache_ttl)
 
-        # SQLite persistent
-        with sqlite3.connect(self.db_path) as con:
+        # Database persistent
+        con = get_connection(self.db_path)
+        try:
             con.execute(
                 """
                 INSERT INTO seen_urls (url_hash, url, first_seen_at, last_seen_at, crawl_count)
@@ -113,6 +128,9 @@ class HybridSeenStore:
             """,
                 (url_hash, url, now, now),
             )
+            con.commit()
+        finally:
+            con.close()
 
     def filter_unseen(self, urls: list[str]) -> list[str]:
         """
@@ -128,7 +146,8 @@ class HybridSeenStore:
         cutoff = now - self.recrawl_threshold
         unseen = []
 
-        with sqlite3.connect(self.db_path) as con:
+        con = get_connection(self.db_path)
+        try:
             for url in urls:
                 url_hash = self._hash_url(url)
 
@@ -136,7 +155,7 @@ class HybridSeenStore:
                 if self.redis.sismember(self.CACHE_KEY, url_hash):
                     continue
 
-                # Check SQLite
+                # Check database
                 cur = con.execute(
                     "SELECT 1 FROM seen_urls WHERE url_hash = ? AND last_seen_at > ?",
                     (url_hash, cutoff),
@@ -147,6 +166,8 @@ class HybridSeenStore:
                     continue
 
                 unseen.append(url)
+        finally:
+            con.close()
 
         if unseen:
             self.redis.expire(self.CACHE_KEY, self.cache_ttl)
@@ -167,7 +188,8 @@ class HybridSeenStore:
         cutoff = now - self.recrawl_threshold
         new_count = 0
 
-        with sqlite3.connect(self.db_path) as con:
+        con = get_connection(self.db_path)
+        try:
             for url in urls:
                 url_hash = self._hash_url(url)
 
@@ -194,6 +216,10 @@ class HybridSeenStore:
                 self.redis.sadd(self.CACHE_KEY, url_hash)
                 new_count += 1
 
+            con.commit()
+        finally:
+            con.close()
+
         if new_count > 0:
             self.redis.expire(self.CACHE_KEY, self.cache_ttl)
 
@@ -206,13 +232,16 @@ class HybridSeenStore:
         Returns:
             Dict with total_seen, active_seen, cache_size
         """
-        with sqlite3.connect(self.db_path) as con:
+        con = get_connection(self.db_path)
+        try:
             total = con.execute("SELECT COUNT(*) FROM seen_urls").fetchone()[0]
             now = int(time.time())
             cutoff = now - self.recrawl_threshold
             active = con.execute(
                 "SELECT COUNT(*) FROM seen_urls WHERE last_seen_at > ?", (cutoff,)
             ).fetchone()[0]
+        finally:
+            con.close()
 
         return {
             "total_seen": total,
@@ -229,7 +258,8 @@ class HybridSeenStore:
         """
         url_hash = self._hash_url(url)
 
-        with sqlite3.connect(self.db_path) as con:
+        con = get_connection(self.db_path)
+        try:
             con.row_factory = sqlite3.Row
             cur = con.execute(
                 "SELECT url, first_seen_at, last_seen_at, crawl_count FROM seen_urls WHERE url_hash = ?",
@@ -238,5 +268,6 @@ class HybridSeenStore:
             row = cur.fetchone()
             if row:
                 return dict(row)
-
-        return None
+            return None
+        finally:
+            con.close()

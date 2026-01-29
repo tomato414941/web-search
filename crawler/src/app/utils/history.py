@@ -1,17 +1,21 @@
 """
 Crawl History Database
 
-SQLite-based crawl history tracking.
+SQLite/Turso-based crawl history tracking.
 """
 
+import os
 import sqlite3
 from typing import Optional, List, Dict, Any
 from pathlib import Path
+
+from shared.db.search import get_connection
 
 # Default DB path (can be overridden by environment variable)
 # Unified crawler database for all crawler-related tables
 DEFAULT_DB_PATH = "/data/crawler.db"
 
+# Note: seen_urls table is defined in shared/db/seen_store.py
 SCHEMA = """
 -- Crawl history (audit/analysis)
 CREATE TABLE IF NOT EXISTS crawl_history (
@@ -24,16 +28,6 @@ CREATE TABLE IF NOT EXISTS crawl_history (
 );
 CREATE INDEX IF NOT EXISTS idx_history_url ON crawl_history(url);
 CREATE INDEX IF NOT EXISTS idx_history_created ON crawl_history(created_at);
-
--- Seen URLs (fast lookup, managed by HybridSeenStore)
-CREATE TABLE IF NOT EXISTS seen_urls (
-    url_hash TEXT PRIMARY KEY,
-    url TEXT NOT NULL,
-    first_seen_at INTEGER NOT NULL,
-    last_seen_at INTEGER NOT NULL,
-    crawl_count INTEGER DEFAULT 1
-) WITHOUT ROWID;
-CREATE INDEX IF NOT EXISTS idx_seen_last ON seen_urls(last_seen_at);
 """
 
 
@@ -45,15 +39,21 @@ def get_db_path() -> str:
 
 
 def init_db(db_path: str | None = None):
-    """Initialize crawler database with WAL mode"""
+    """Initialize crawler database (Turso or local SQLite with WAL mode)"""
     path = db_path or get_db_path()
+    turso_mode = os.getenv("TURSO_URL") is not None
 
-    # Ensure directory exists
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    # Ensure directory exists (only for local SQLite)
+    if not turso_mode:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-    with sqlite3.connect(path) as con:
-        con.execute("PRAGMA journal_mode=WAL")
+    con = get_connection(path)
+    try:
+        if not turso_mode:
+            con.execute("PRAGMA journal_mode=WAL")
         con.executescript(SCHEMA)
+    finally:
+        con.close()
 
 
 def log_crawl_attempt(
@@ -66,11 +66,15 @@ def log_crawl_attempt(
     """Log a crawl attempt to history"""
     try:
         path = db_path or get_db_path()
-        with sqlite3.connect(path) as con:
+        con = get_connection(path)
+        try:
             con.execute(
                 "INSERT INTO crawl_history (url, status, http_code, error_message) VALUES (?, ?, ?, ?)",
                 (url, status, http_code, error_message),
             )
+            con.commit()
+        finally:
+            con.close()
     except Exception as e:
         print(f"Failed to log history: {e}")
 
@@ -81,12 +85,15 @@ def get_recent_history(
     """Get recent crawl logs"""
     try:
         path = db_path or get_db_path()
-        with sqlite3.connect(path) as con:
+        con = get_connection(path)
+        try:
             con.row_factory = sqlite3.Row
             cursor = con.execute(
                 "SELECT * FROM crawl_history ORDER BY created_at DESC LIMIT ?", (limit,)
             )
             return [dict(row) for row in cursor.fetchall()]
+        finally:
+            con.close()
     except Exception:
         return []
 
@@ -97,12 +104,15 @@ def get_url_history(
     """Get history for a specific URL"""
     try:
         path = db_path or get_db_path()
-        with sqlite3.connect(path) as con:
+        con = get_connection(path)
+        try:
             con.row_factory = sqlite3.Row
             cursor = con.execute(
                 "SELECT * FROM crawl_history WHERE url = ? ORDER BY created_at DESC LIMIT ?",
                 (url, limit),
             )
             return [dict(row) for row in cursor.fetchall()]
+        finally:
+            con.close()
     except Exception:
         return []

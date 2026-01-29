@@ -80,6 +80,8 @@ services:
       - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
       - REDIS_URL=redis://redis:6379/0
       - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - TURSO_URL=${TURSO_URL}
+      - TURSO_TOKEN=${TURSO_TOKEN}
     depends_on:
       redis:
         condition: service_healthy
