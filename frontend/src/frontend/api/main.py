@@ -13,7 +13,10 @@ from slowapi.errors import RateLimitExceeded
 from frontend.core.config import settings
 from frontend.core.db import ensure_db
 from frontend.api.routers import search, search_api, stats, crawler, admin
-from frontend.api.routers.system import root_router as health_root_router, router as health_router
+from frontend.api.routers.system import (
+    root_router as health_root_router,
+    router as health_router,
+)
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from frontend.api.metrics import router as metrics_router, MetricsMiddleware
