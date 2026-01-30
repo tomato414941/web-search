@@ -81,50 +81,173 @@ def require_auth(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-def get_stats() -> dict[str, Any]:
-    """Get comprehensive stats for dashboard."""
-    stats = {
+def get_dashboard_data() -> dict[str, Any]:
+    """Get comprehensive data for dashboard."""
+    data: dict[str, Any] = {
+        # Basic stats
         "indexed_pages": 0,
+        "indexed_delta": 0,
         "queue_size": 0,
         "visited_count": 0,
         "last_crawl": None,
+        # Crawler details
         "worker_status": "unknown",
+        "uptime_seconds": None,
+        "active_tasks": 0,
+        "recent_error_count": 0,
+        "crawl_rate": 0,
+        # Search stats (today)
+        "today_searches": 0,
+        "today_unique_queries": 0,
+        "today_zero_hits": 0,
+        "zero_hit_rate": 0.0,
+        "top_query": None,
+        # Attention items
+        "zero_hit_queries": [],
+        "recent_errors": [],
+        # Health status
+        "health": {"level": "ok", "messages": []},
     }
 
-    # Database stats (Local SQLite)
+    # Database stats
     try:
         if settings.DB_PATH:
             with get_connection(settings.DB_PATH) as conn:
+                # Total indexed pages
                 cursor = conn.execute("SELECT COUNT(*) FROM documents")
-                stats["indexed_pages"] = cursor.fetchone()[0]
+                data["indexed_pages"] = cursor.fetchone()[0]
 
+                # Pages indexed in last 24 hours
+                cursor = conn.execute(
+                    "SELECT COUNT(*) FROM documents "
+                    "WHERE indexed_at >= datetime('now', '-1 day')"
+                )
+                data["indexed_delta"] = cursor.fetchone()[0]
+
+                # Last crawl time
                 cursor = conn.execute(
                     "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
                 )
                 result = cursor.fetchone()
                 if result and result[0]:
-                    stats["last_crawl"] = result[0]
+                    data["last_crawl"] = result[0]
+
+                # Today's search stats
+                cursor = conn.execute(
+                    """
+                    SELECT
+                        COUNT(*) as total,
+                        COUNT(DISTINCT query) as unique_queries,
+                        SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
+                    FROM search_logs
+                    WHERE created_at >= date('now')
+                    """
+                )
+                row = cursor.fetchone()
+                if row:
+                    data["today_searches"] = row[0] or 0
+                    data["today_unique_queries"] = row[1] or 0
+                    data["today_zero_hits"] = row[2] or 0
+                    if data["today_searches"] > 0:
+                        data["zero_hit_rate"] = round(
+                            data["today_zero_hits"] / data["today_searches"] * 100, 1
+                        )
+
+                # Top query today
+                cursor = conn.execute(
+                    """
+                    SELECT query, COUNT(*) as count
+                    FROM search_logs
+                    WHERE created_at >= date('now')
+                    GROUP BY query
+                    ORDER BY count DESC
+                    LIMIT 1
+                    """
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    data["top_query"] = {"query": row[0], "count": row[1]}
+
+                # Zero-hit queries (top 5)
+                cursor = conn.execute(
+                    """
+                    SELECT query, COUNT(*) as count
+                    FROM search_logs
+                    WHERE result_count = 0 AND created_at >= date('now')
+                    GROUP BY query
+                    ORDER BY count DESC
+                    LIMIT 5
+                    """
+                )
+                data["zero_hit_queries"] = [
+                    {"query": row[0], "count": row[1]} for row in cursor.fetchall()
+                ]
     except Exception as e:
         logger.warning(f"Failed to get DB stats: {e}")
 
     # Crawler Stats (Remote)
+    crawler_reachable = False
     try:
         with httpx.Client(timeout=3.0) as client:
             resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/status")
             if resp.status_code == 200:
+                crawler_reachable = True
                 remote_stats = resp.json()
-                stats["queue_size"] = remote_stats.get("queue_size", 0)
-                stats["visited_count"] = remote_stats.get("total_crawled", 0)
+                data["queue_size"] = remote_stats.get("queue_size", 0)
+                data["visited_count"] = remote_stats.get("total_crawled", 0)
 
-            # Get worker status
+            # Worker status
             resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/status")
             if resp.status_code == 200:
                 worker_data = resp.json()
-                stats["worker_status"] = worker_data.get("status", "unknown")
+                data["worker_status"] = worker_data.get("status", "unknown")
+                data["uptime_seconds"] = worker_data.get("uptime_seconds")
+                data["active_tasks"] = worker_data.get("active_tasks", 0)
+
+            # Recent errors from history
+            resp = client.get(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/history?limit=100"
+            )
+            if resp.status_code == 200:
+                history = resp.json()
+                # Count errors in last hour and get recent error details
+                errors = [h for h in history if h.get("status") == "error"]
+                data["recent_error_count"] = len(errors)
+                data["recent_errors"] = [
+                    {
+                        "url": e.get("url", ""),
+                        "error_message": e.get("error_message", "Unknown"),
+                    }
+                    for e in errors[:5]
+                ]
+                # Calculate crawl rate (pages/hour based on recent history)
+                if history:
+                    data["crawl_rate"] = len(history)  # Approximation
     except Exception as e:
         logger.warning(f"Failed to get crawler stats: {e}")
 
-    return stats
+    # Determine health status
+    health_messages = []
+    if not crawler_reachable:
+        health_messages.append("Crawler service is unreachable")
+        data["health"]["level"] = "error"
+    elif data["worker_status"] == "stopped":
+        health_messages.append("Crawler is stopped. Indexing paused.")
+        data["health"]["level"] = "warning"
+    elif data["queue_size"] == 0 and data["worker_status"] == "running":
+        health_messages.append("Queue is empty. Waiting for new URLs.")
+        data["health"]["level"] = "warning"
+
+    if data["zero_hit_rate"] > 50 and data["today_searches"] >= 10:
+        health_messages.append(
+            f"High zero-hit rate: {data['zero_hit_rate']}% of searches returned no results"
+        )
+        if data["health"]["level"] == "ok":
+            data["health"]["level"] = "warning"
+
+    data["health"]["messages"] = health_messages
+
+    return data
 
 
 # ==================== Routes ====================
@@ -207,13 +330,13 @@ async def dashboard(request: Request):
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
 
-    stats = get_stats()
+    data = get_dashboard_data()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/dashboard.html",
         {
             "request": request,
-            "stats": stats,
+            "data": data,
             "crawler_url": settings.CRAWLER_SERVICE_URL,
             "csrf_token": csrf_token,
         },

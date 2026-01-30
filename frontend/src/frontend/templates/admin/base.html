@@ -69,6 +69,115 @@
         .error { color: #ef5350; margin-bottom: 16px; }
         .success { color: #66bb6a; margin-bottom: 16px; }
 
+        /* Health Banner */
+        .health-banner {
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .health-banner p { margin: 4px 0; }
+        .health-banner.warning {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid #f59e0b;
+            color: #fbbf24;
+        }
+        .health-banner.error {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid #ef4444;
+            color: #f87171;
+        }
+
+        /* 4-column stats grid */
+        .stats-grid-4 {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        /* 2-column layout */
+        .grid-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* Delta indicators */
+        .delta { font-size: 0.8rem; margin-top: 4px; }
+        .delta.positive { color: #22c55e; }
+        .delta.negative { color: #ef4444; }
+        .delta.neutral { color: #9ca3af; }
+
+        /* Status indicator */
+        .status-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-indicator.running { background: #22c55e; }
+        .status-indicator.stopped { background: #ef4444; }
+        .status-indicator.unknown { background: #f59e0b; }
+        .muted { color: #9ca3af; font-size: 0.9rem; }
+
+        /* Compact table */
+        table.compact th, table.compact td {
+            padding: 8px 12px;
+        }
+        table.compact th { width: 40%; }
+
+        /* Link style */
+        a.link {
+            color: #64b5f6;
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin-top: 12px;
+        }
+        a.link:hover { text-decoration: underline; }
+
+        /* Attention card */
+        .card.attention { border-color: #f59e0b; }
+        .attention-section { margin-bottom: 1rem; }
+        .attention-section:last-child { margin-bottom: 0; }
+        .attention-section h3 {
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            color: #fbbf24;
+        }
+        .attention-section ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .attention-section li {
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+        .attention-section li:last-child { border-bottom: none; }
+
+        /* Action grid */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        .action-group h3 {
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .action-group a { display: block; margin-bottom: 8px; }
+        .action-group button { width: 100%; }
+
         /* Responsive - Mobile First */
         @media (max-width: 768px) {
             /* Navigation: wrap to multiple lines */
@@ -100,6 +209,21 @@
                 grid-template-columns: 1fr;
             }
 
+            /* 4-column stats grid: 2 columns on tablet */
+            .stats-grid-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            /* 2-column layout: single column */
+            .grid-2col {
+                grid-template-columns: 1fr;
+            }
+
+            /* Action grid: single column */
+            .action-grid {
+                grid-template-columns: 1fr;
+            }
+
             /* Cards: reduce padding */
             .card {
                 padding: 16px;
@@ -108,6 +232,13 @@
             /* Container: reduce padding */
             .container {
                 padding: 12px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* 4-column stats grid: single column on mobile */
+            .stats-grid-4 {
+                grid-template-columns: 1fr;
             }
         }
 

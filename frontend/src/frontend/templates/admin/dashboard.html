@@ -17,52 +17,149 @@
         </div>
     </div>
 
+    {% if data.health.level != 'ok' %}
+    <div class="health-banner {{ data.health.level }}">
+        {% for msg in data.health.messages %}
+        <p>{{ msg }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="card">
-        <h2>Statistics</h2>
-        <div class="stats-grid">
+        <h2>Key Metrics</h2>
+        <div class="stats-grid-4">
             <div class="stat-box">
-                <div class="value">{{ "{:,}".format(stats.indexed_pages) }}</div>
+                <div class="value">{{ "{:,}".format(data.indexed_pages) }}</div>
                 <div class="label">Indexed Pages</div>
+                {% if data.indexed_delta > 0 %}
+                <div class="delta positive">+{{ data.indexed_delta }} today</div>
+                {% elif data.indexed_delta == 0 %}
+                <div class="delta neutral">No change today</div>
+                {% endif %}
             </div>
             <div class="stat-box">
-                <div class="value">{{ "{:,}".format(stats.queue_size) }}</div>
+                <div class="value">{{ "{:,}".format(data.queue_size) }}</div>
                 <div class="label">Queue Size</div>
             </div>
             <div class="stat-box">
-                <div class="value">{{ "{:,}".format(stats.visited_count) }}</div>
-                <div class="label">Visited URLs</div>
+                <div class="value">{{ "{:,}".format(data.today_searches) }}</div>
+                <div class="label">Today's Searches</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ data.zero_hit_rate }}%</div>
+                <div class="label">Zero-hit Rate</div>
             </div>
         </div>
     </div>
 
-    <div class="card">
-        <h2>Crawler Status</h2>
-        <table>
-            <tr>
-                <th>Default Worker</th>
-                <td>
-                    {% if stats.worker_status == "running" %}
-                        <span style="color: #22c55e; font-weight: bold;">● Running</span>
-                    {% elif stats.worker_status == "stopped" %}
-                        <span style="color: #ef4444; font-weight: bold;">● Stopped</span>
-                    {% else %}
-                        <span style="color: #f59e0b;">● {{ stats.worker_status }}</span>
-                    {% endif %}
-                </td>
-            </tr>
-            <tr><th>Last Crawl</th><td>{{ stats.last_crawl or "Never" }}</td></tr>
-        </table>
-        <div class="form-row" style="margin-top: 1rem;">
-            <a href="/admin/crawlers"><button>Manage Crawler Instances</button></a>
+    <div class="grid-2col">
+        <div class="card">
+            <h2>Crawler Overview</h2>
+            <div class="status-row">
+                <span class="status-indicator {{ data.worker_status }}"></span>
+                <span>{{ data.worker_status | title }}</span>
+                {% if data.uptime_seconds %}
+                <span class="muted">
+                    (Uptime: {{ (data.uptime_seconds // 3600) }}h {{ ((data.uptime_seconds % 3600) // 60) }}m)
+                </span>
+                {% endif %}
+            </div>
+            <table class="compact">
+                <tr>
+                    <th>Active Tasks</th>
+                    <td>{{ data.active_tasks or 0 }}</td>
+                </tr>
+                <tr>
+                    <th>Crawl Rate</th>
+                    <td>~{{ data.crawl_rate }} pages/hour</td>
+                </tr>
+                <tr>
+                    <th>Recent Errors</th>
+                    <td>{{ data.recent_error_count }} in last batch</td>
+                </tr>
+                <tr>
+                    <th>Total Crawled</th>
+                    <td>{{ "{:,}".format(data.visited_count) }}</td>
+                </tr>
+                <tr>
+                    <th>Last Indexed</th>
+                    <td>{{ data.last_crawl or "Never" }}</td>
+                </tr>
+            </table>
+            <a href="/admin/crawlers" class="link">Manage Instances &rarr;</a>
+        </div>
+
+        <div class="card">
+            <h2>Search Analytics (Today)</h2>
+            <table class="compact">
+                <tr>
+                    <th>Total Searches</th>
+                    <td>{{ "{:,}".format(data.today_searches) }}</td>
+                </tr>
+                <tr>
+                    <th>Unique Queries</th>
+                    <td>{{ "{:,}".format(data.today_unique_queries) }}</td>
+                </tr>
+                <tr>
+                    <th>Zero-hit Queries</th>
+                    <td>{{ data.today_zero_hits }}</td>
+                </tr>
+                {% if data.top_query %}
+                <tr>
+                    <th>Top Query</th>
+                    <td>"{{ data.top_query.query }}" ({{ data.top_query.count }}x)</td>
+                </tr>
+                {% endif %}
+            </table>
+            <a href="/admin/analytics" class="link">View Full Analytics &rarr;</a>
         </div>
     </div>
 
+    {% if data.zero_hit_queries or data.recent_errors %}
+    <div class="card attention">
+        <h2>Attention Required</h2>
+        {% if data.zero_hit_queries %}
+        <div class="attention-section">
+            <h3>Zero-hit Queries (Today)</h3>
+            <ul>
+            {% for q in data.zero_hit_queries %}
+                <li>"{{ q.query }}" &mdash; {{ q.count }} searches with no results</li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        {% if data.recent_errors %}
+        <div class="attention-section">
+            <h3>Recent Crawl Errors</h3>
+            <ul>
+            {% for e in data.recent_errors %}
+                <li>{{ e.url[:60] }}{% if e.url|length > 60 %}...{% endif %} &mdash; {{ e.error_message }}</li>
+            {% endfor %}
+            </ul>
+            <a href="/admin/history" class="link">View All History &rarr;</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="card">
         <h2>Quick Actions</h2>
-        <div class="form-row">
-            <a href="/admin/seeds"><button>Manage Seed URLs</button></a>
-            <a href="/admin/analytics"><button>Search Analytics</button></a>
-            <a href="/"><button>View Search</button></a>
+        <div class="action-grid">
+            <div class="action-group">
+                <h3>Crawler</h3>
+                <a href="/admin/crawlers"><button>Manage Instances</button></a>
+                <a href="/admin/queue"><button>View Queue</button></a>
+            </div>
+            <div class="action-group">
+                <h3>Content</h3>
+                <a href="/admin/seeds"><button>Manage Seeds</button></a>
+                <a href="/admin/history"><button>Crawl History</button></a>
+            </div>
+            <div class="action-group">
+                <h3>Analytics</h3>
+                <a href="/admin/analytics"><button>Full Analytics</button></a>
+                <a href="/"><button>View Search</button></a>
+            </div>
         </div>
     </div>
 </div>
