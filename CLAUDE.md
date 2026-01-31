@@ -47,7 +47,10 @@ Microservices architecture with CQRS-lite pattern:
 - **shared**: Common library (DB, search logic, config) installed as editable package
 
 ### Database
-- **Production**: Turso (libsql) - set `TURSO_URL` and `TURSO_TOKEN` environment variables
+- **Production**: Turso (libsql)
+  - Database: `web-search-tomato414941.aws-ap-northeast-1.turso.io`
+  - URL: `libsql://web-search-tomato414941.aws-ap-northeast-1.turso.io`
+  - Token: `turso db tokens create web-search --expiration none` で生成
 - **Local**: SQLite - auto-selected when Turso env vars are not set
 - **Search Index**: Custom inverted index (NOT FTS5)
   - Reason: Integration with SudachiPy (Japanese morphological analyzer)
@@ -71,10 +74,12 @@ Microservices architecture with CQRS-lite pattern:
 
 ## Deployment
 
-- **Server**: 52.199.231.181 (all-in-one)
-- **CI/CD**: GitHub Actions → Coolify (docker-compose)
-- Push to `main` → CI (test/lint) → Coolify (build + deploy)
-- **Environment variables**: Set in Coolify dashboard (not in repo)
+- **Service name**: paleblue search
+- **Domain**: https://palebluesearch.com/
+- **Server**: 52.199.231.181 (AWS Lightsail, all-in-one)
+- **CI/CD**: GitHub Actions → docker-compose
+  - Push to `main` → CI (test/lint) → deploy
+- **Environment variables**: Set on server (not in repo)
 
 ## API Endpoints
 
