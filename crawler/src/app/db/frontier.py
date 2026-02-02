@@ -244,7 +244,8 @@ class Frontier:
             # Delete them
             placeholders = ",".join("?" * len(hashes))
             con.execute(
-                f"DELETE FROM frontier WHERE url_hash IN ({placeholders})", hashes
+                f"DELETE FROM frontier WHERE url_hash IN ({placeholders})",
+                tuple(hashes),
             )
             con.commit()
 
