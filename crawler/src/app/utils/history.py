@@ -5,7 +5,6 @@ SQLite/Turso-based crawl history tracking.
 """
 
 import os
-import sqlite3
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
@@ -87,11 +86,20 @@ def get_recent_history(
         path = db_path or get_db_path()
         con = get_connection(path)
         try:
-            con.row_factory = sqlite3.Row
             cursor = con.execute(
-                "SELECT * FROM crawl_history ORDER BY created_at DESC LIMIT ?", (limit,)
+                "SELECT id, url, status, http_code, error_message, created_at "
+                "FROM crawl_history ORDER BY created_at DESC LIMIT ?",
+                (limit,),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            columns = [
+                "id",
+                "url",
+                "status",
+                "http_code",
+                "error_message",
+                "created_at",
+            ]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
         finally:
             con.close()
     except Exception:
@@ -106,12 +114,20 @@ def get_url_history(
         path = db_path or get_db_path()
         con = get_connection(path)
         try:
-            con.row_factory = sqlite3.Row
             cursor = con.execute(
-                "SELECT * FROM crawl_history WHERE url = ? ORDER BY created_at DESC LIMIT ?",
+                "SELECT id, url, status, http_code, error_message, created_at "
+                "FROM crawl_history WHERE url = ? ORDER BY created_at DESC LIMIT ?",
                 (url, limit),
             )
-            return [dict(row) for row in cursor.fetchall()]
+            columns = [
+                "id",
+                "url",
+                "status",
+                "http_code",
+                "error_message",
+                "created_at",
+            ]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
         finally:
             con.close()
     except Exception:

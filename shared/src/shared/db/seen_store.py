@@ -7,7 +7,6 @@ Supports recrawling after configurable threshold.
 
 import hashlib
 import os
-import sqlite3
 import time
 from pathlib import Path
 from typing import Optional
@@ -260,14 +259,14 @@ class HybridSeenStore:
 
         con = get_connection(self.db_path)
         try:
-            con.row_factory = sqlite3.Row
             cur = con.execute(
                 "SELECT url, first_seen_at, last_seen_at, crawl_count FROM seen_urls WHERE url_hash = ?",
                 (url_hash,),
             )
             row = cur.fetchone()
             if row:
-                return dict(row)
+                columns = ["url", "first_seen_at", "last_seen_at", "crawl_count"]
+                return dict(zip(columns, row))
             return None
         finally:
             con.close()

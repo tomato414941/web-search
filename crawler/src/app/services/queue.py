@@ -5,12 +5,11 @@ Manages Redis-based crawl queue operations.
 """
 
 import logging
-import sqlite3
 
 from shared.db.redis import enqueue_batch
 from shared.db.seen_store import HybridSeenStore
+from shared.db.search import get_connection
 from app.core.config import settings
-from app.utils.history import get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +66,12 @@ class QueueService:
         """
         indexed_count = 0
         try:
-            db_path = get_db_path()
-            with sqlite3.connect(db_path) as con:
-                cursor = con.execute(
-                    "SELECT COUNT(*) FROM crawl_history WHERE status IN ('success', 'indexed')"
-                )
-                indexed_count = cursor.fetchone()[0]
+            con = get_connection()
+            cursor = con.execute(
+                "SELECT COUNT(*) FROM crawl_history WHERE status IN ('success', 'indexed')"
+            )
+            indexed_count = cursor.fetchone()[0]
+            con.close()
         except Exception as e:
             logger.warning(f"Failed to get indexed count: {e}")
 
