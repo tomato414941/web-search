@@ -1,5 +1,10 @@
 """Test fixtures for shared package tests."""
 
+import os
+
+# Set ENVIRONMENT before importing any modules that use infrastructure_config
+os.environ.setdefault("ENVIRONMENT", "test")
+
 import pytest
 
 

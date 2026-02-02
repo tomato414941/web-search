@@ -6,7 +6,32 @@ Contains only database, Redis, and path configurations.
 """
 
 import os
+from enum import Enum
 from pathlib import Path
+
+
+class Environment(str, Enum):
+    """Application environment"""
+
+    PRODUCTION = "production"
+    DEVELOPMENT = "development"
+    TEST = "test"
+
+
+def _get_environment() -> Environment:
+    """Get and validate ENVIRONMENT variable."""
+    env_value = os.getenv("ENVIRONMENT")
+    if env_value is None:
+        raise RuntimeError(
+            "ENVIRONMENT is required. Set to 'production', 'development', or 'test'."
+        )
+    try:
+        return Environment(env_value.lower())
+    except ValueError:
+        raise RuntimeError(
+            f"Invalid ENVIRONMENT value: '{env_value}'. "
+            "Must be 'production', 'development', or 'test'."
+        )
 
 
 class InfrastructureSettings:
@@ -21,6 +46,9 @@ class InfrastructureSettings:
 
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+    # Environment
+    ENVIRONMENT: Environment = _get_environment()
 
 
 settings = InfrastructureSettings()

@@ -2,8 +2,12 @@
 Test configuration and fixtures for Crawler tests
 """
 
-import pytest
 import os
+
+# Set ENVIRONMENT before importing any modules that use infrastructure_config
+os.environ.setdefault("ENVIRONMENT", "test")
+
+import pytest
 from unittest.mock import MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
@@ -11,6 +15,7 @@ from fastapi.testclient import TestClient
 @pytest.fixture(scope="session", autouse=True)
 def setup_test_env():
     """Set required environment variables for tests"""
+    os.environ["ENVIRONMENT"] = "test"
     os.environ["INDEXER_API_URL"] = "http://test:8000/api/indexer/page"
     os.environ["INDEXER_API_KEY"] = "test-api-key"
     os.environ["REDIS_URL"] = "redis://test:6379"

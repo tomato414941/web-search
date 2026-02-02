@@ -1,7 +1,11 @@
 """Pytest configuration for Indexer service tests."""
 
+import os
 import sys
 from pathlib import Path
+
+# Set ENVIRONMENT before importing any modules that use infrastructure_config
+os.environ.setdefault("ENVIRONMENT", "test")
 
 # Add indexer/src and shared/src to path for imports
 indexer_root = Path(__file__).parent.parent
@@ -10,7 +14,6 @@ sys.path.insert(0, str(indexer_root.parent / "shared" / "src"))
 
 import gc  # noqa: E402
 import time  # noqa: E402
-import os  # noqa: E402
 import pytest  # noqa: E402
 from unittest.mock import patch  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

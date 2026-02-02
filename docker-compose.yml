@@ -23,6 +23,7 @@ services:
     ports:
       - "8080:8000"
     environment:
+      - ENVIRONMENT=${ENVIRONMENT}
       - PORT=8000
       - HOST=0.0.0.0
       - REDIS_URL=redis://redis:6379
@@ -54,6 +55,7 @@ services:
     ports:
       - "8081:8000"
     environment:
+      - ENVIRONMENT=${ENVIRONMENT}
       - PORT=8000
       - HOST=0.0.0.0
       - SEARCH_DB=/data/search.db
@@ -77,6 +79,7 @@ services:
     ports:
       - "8082:8000"
     environment:
+      - ENVIRONMENT=${ENVIRONMENT}
       - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
       - REDIS_URL=redis://redis:6379/0
       - INDEXER_API_KEY=${INDEXER_API_KEY}

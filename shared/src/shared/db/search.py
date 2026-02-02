@@ -11,7 +11,7 @@ Supports both:
 
 import os
 import sqlite3
-from shared.core.infrastructure_config import settings
+from shared.core.infrastructure_config import settings, Environment
 
 SCHEMA_SQL = """
 PRAGMA journal_mode=WAL;
@@ -95,9 +95,18 @@ def get_connection(db_path: str | None = None):
 
     Returns a connection object that is compatible with sqlite3.Connection.
     - If TURSO_URL is set: connects to Turso (production)
-    - Otherwise: connects to local SQLite (development)
+    - Otherwise: connects to local SQLite (development/test only)
+
+    Raises:
+        RuntimeError: If ENVIRONMENT is 'production' but TURSO_URL is not set.
     """
     turso_url = os.getenv("TURSO_URL")
+
+    if settings.ENVIRONMENT == Environment.PRODUCTION and not turso_url:
+        raise RuntimeError(
+            "TURSO_URL is required in production environment. "
+            "Set TURSO_URL and TURSO_TOKEN environment variables."
+        )
 
     if turso_url:
         # Turso (production)

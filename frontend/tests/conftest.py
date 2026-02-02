@@ -1,5 +1,8 @@
 import os
 
+# Set ENVIRONMENT before importing any modules that use infrastructure_config
+os.environ.setdefault("ENVIRONMENT", "test")
+
 # Set test environment variables before importing any app modules
 os.environ.setdefault("ADMIN_USERNAME", "test_admin")
 os.environ.setdefault("ADMIN_PASSWORD", "test_password")
