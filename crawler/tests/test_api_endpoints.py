@@ -4,7 +4,7 @@ API Endpoint Tests
 Tests for all FastAPI routes in the crawler service.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 def test_root_health_endpoint(test_client):
@@ -23,11 +23,10 @@ def test_api_v1_health_endpoint(test_client):
     assert data["status"] == "ok"
 
 
-def test_crawl_urls_endpoint(test_client, mock_redis):
+def test_crawl_urls_endpoint(test_client, test_frontier, test_history):
     """Test POST /api/v1/urls endpoint"""
-    # Mock enqueue_batch at the point where QueueService calls it
-    with patch("app.api.deps.get_redis", return_value=mock_redis):
-        with patch("app.services.queue.enqueue_batch", return_value=2):
+    with patch("app.api.deps._get_frontier", return_value=test_frontier):
+        with patch("app.api.deps._get_history", return_value=test_history):
             response = test_client.post(
                 "/api/v1/urls",
                 json={
@@ -41,61 +40,38 @@ def test_crawl_urls_endpoint(test_client, mock_redis):
             assert data["added_count"] == 2
 
 
-def test_queue_peek_endpoint(test_client, mock_redis):
+def test_queue_peek_endpoint(test_client, test_frontier, test_history):
     """Test GET /api/v1/queue endpoint"""
-    mock_redis.zrange.return_value = [
-        (b"http://example.com", 100.0),
-        (b"http://test.com", 90.0),
-    ]
+    # Add some URLs to frontier
+    test_frontier.add("http://example.com", priority=100.0)
+    test_frontier.add("http://test.com", priority=90.0)
 
-    with patch("app.api.deps.get_redis", return_value=mock_redis):
-        response = test_client.get("/api/v1/queue?limit=10")
-        assert response.status_code == 200
-        data = response.json()
-        # Response is a list[QueueItem], not a dict
-        assert isinstance(data, list)
-        assert len(data) == 2
-        assert data[0]["url"] == "http://example.com"
-        assert data[0]["score"] == 100.0
+    with patch("app.api.deps._get_frontier", return_value=test_frontier):
+        with patch("app.api.deps._get_history", return_value=test_history):
+            response = test_client.get("/api/v1/queue?limit=10")
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, list)
+            assert len(data) == 2
+            assert data[0]["url"] == "http://example.com"
+            assert data[0]["score"] == 100.0
 
 
-def test_queue_status_endpoint(test_client, mock_redis):
+def test_queue_status_endpoint(test_client, test_frontier, test_history):
     """Test GET /api/v1/status endpoint"""
-    mock_redis.zcard.return_value = 50
-    mock_redis.scard.return_value = 1000
+    # Add some data
+    test_frontier.add("http://example.com", priority=100.0)
+    test_history.record("http://crawled.com", status="done")
 
-    # Mock HybridSeenStore
-    mock_seen_store = MagicMock()
-    mock_seen_store.get_stats.return_value = {
-        "total_seen": 5000,
-        "active_seen": 1000,
-        "cache_size": 500,
-    }
-
-    # Reset global _seen_store and mock _get_seen_store
-    import app.services.queue as queue_module
-
-    original_seen_store = queue_module._seen_store
-    queue_module._seen_store = None
-
-    try:
-        with patch("app.api.deps.get_redis", return_value=mock_redis):
-            with patch.object(
-                queue_module, "_get_seen_store", return_value=mock_seen_store
-            ):
-                response = test_client.get("/api/v1/status")
-                assert response.status_code == 200
-                data = response.json()
-                # New domain model with HybridSeenStore stats
-                assert data["queue_size"] == 50
-                assert data["total_seen"] == 5000
-                assert data["active_seen"] == 1000
-                assert data["cache_size"] == 500
-                # total_crawled is now alias for active_seen (backward compat)
-                assert data["total_crawled"] == 1000
-                assert "total_indexed" in data
-    finally:
-        queue_module._seen_store = original_seen_store
+    with patch("app.api.deps._get_frontier", return_value=test_frontier):
+        with patch("app.api.deps._get_history", return_value=test_history):
+            response = test_client.get("/api/v1/status")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["queue_size"] == 1
+            assert data["total_seen"] == 1
+            assert data["total_indexed"] == 1
+            assert "cache_size" in data  # Backward compat (always 0)
 
 
 def test_history_endpoint(test_client):
@@ -109,7 +85,6 @@ def test_history_endpoint(test_client):
     response = test_client.get("/api/v1/history?limit=10")
     assert response.status_code == 200
     data = response.json()
-    # Response is a list[dict], not a dict with "history" key
     assert isinstance(data, list)
     assert len(data) >= 1
     assert data[0]["url"] == "http://test.com"

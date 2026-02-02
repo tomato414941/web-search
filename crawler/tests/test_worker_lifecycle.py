@@ -79,9 +79,9 @@ def test_worker_service_get_uptime():
     assert service.get_uptime() is None
 
     # Started (mock datetime)
-    from datetime import datetime
+    from datetime import datetime, UTC
 
-    service.started_at = datetime.utcnow()
+    service.started_at = datetime.now(UTC)
     uptime = service.get_uptime()
 
     assert uptime is not None

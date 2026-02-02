@@ -1,8 +1,8 @@
 """
 Crawler Service Configuration
 
-Configuration specific to the Crawler service, including crawl parameters,
-queue settings, and indexer API configuration.
+Configuration specific to the Crawler service, including crawl parameters
+and indexer API configuration.
 """
 
 import os
@@ -14,17 +14,13 @@ class CrawlerSettings(InfrastructureSettings):
 
     # Application
     APP_NAME: str = "Crawler Service"
-    APP_VERSION: str = "2.0.0"
+    APP_VERSION: str = "3.0.0"
 
-    # Redis Queue Keys (Crawler-specific)
-    CRAWL_QUEUE_KEY: str = os.getenv("CRAWL_QUEUE_KEY", "crawl:queue")
-    CRAWL_SEEN_KEY: str = os.getenv("CRAWL_SEEN_KEY", "crawl:seen")
-    CRAWL_SEEDS_KEY: str = os.getenv("CRAWL_SEEDS_KEY", "crawl:seeds")
-
-    # Seen URL Management (HybridSeenStore)
-    CRAWL_CACHE_TTL_DAYS: int = int(os.getenv("CRAWL_CACHE_TTL_DAYS", "7"))
-    CRAWL_RECRAWL_AFTER_DAYS: int = int(os.getenv("CRAWL_RECRAWL_AFTER_DAYS", "30"))
+    # Database Path (for Frontier, History, Seeds)
     CRAWLER_DB_PATH: str = os.getenv("CRAWLER_DB_PATH", "/data/crawler.db")
+
+    # Recrawl settings
+    CRAWL_RECRAWL_AFTER_DAYS: int = int(os.getenv("CRAWL_RECRAWL_AFTER_DAYS", "30"))
 
     # Crawler Behavior
     CRAWL_USER_AGENT: str = os.getenv(

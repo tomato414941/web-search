@@ -18,32 +18,40 @@ def setup_test_env():
     os.environ["ENVIRONMENT"] = "test"
     os.environ["INDEXER_API_URL"] = "http://test:8000/api/indexer/page"
     os.environ["INDEXER_API_KEY"] = "test-api-key"
-    os.environ["REDIS_URL"] = "redis://test:6379"
     os.environ["CRAWLER_HISTORY_DB"] = "/tmp/test_crawler_history.db"
 
 
 @pytest.fixture
-def test_client():
-    """FastAPI test client"""
-    from app.main import app
-
-    return TestClient(app)
+def temp_db_path(tmp_path):
+    """Create a temporary database path for testing"""
+    return str(tmp_path / "test_crawler.db")
 
 
 @pytest.fixture
-def mock_redis():
-    """Mock Redis client"""
-    redis = MagicMock()
-    redis.ping.return_value = True
-    redis.zcard.return_value = 0
-    redis.scard.return_value = 0
-    redis.zrange.return_value = []
-    redis.zpopmax.return_value = []
-    redis.zadd.return_value = 1
-    redis.sadd.return_value = 1
-    redis.get.return_value = None
-    redis.setex.return_value = True
-    return redis
+def test_frontier(temp_db_path):
+    """Create a test Frontier instance"""
+    from app.db import Frontier
+
+    return Frontier(temp_db_path)
+
+
+@pytest.fixture
+def test_history(temp_db_path):
+    """Create a test History instance"""
+    from app.db import History
+
+    return History(temp_db_path, recrawl_after_days=30)
+
+
+@pytest.fixture
+def test_client(temp_db_path):
+    """FastAPI test client with temporary database"""
+    # Set the database path before importing app
+    os.environ["CRAWLER_DB_PATH"] = temp_db_path
+
+    from app.main import app
+
+    return TestClient(app)
 
 
 @pytest.fixture

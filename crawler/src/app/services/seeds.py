@@ -2,25 +2,56 @@
 Seed Service
 
 Manages seed URL storage and requeueing operations.
-Seeds are stored in Redis Hash for persistence.
+Seeds are stored in SQLite for persistence.
 """
 
-import json
 import logging
+import os
+import time
 from datetime import datetime
+from pathlib import Path
 
-from shared.db.redis import enqueue_batch
+from shared.db.search import get_connection
+
+from app.db import Frontier, History
 from app.core.config import settings
 from app.models.seeds import SeedItem
 
 logger = logging.getLogger(__name__)
 
+SEEDS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS seeds (
+    url TEXT PRIMARY KEY,
+    added_at INTEGER NOT NULL,
+    priority REAL NOT NULL DEFAULT 100.0,
+    last_queued INTEGER
+);
+"""
+
 
 class SeedService:
     """Seed URL management service"""
 
-    def __init__(self, redis_client):
-        self.redis = redis_client
+    def __init__(self, frontier: Frontier, history: History):
+        self.frontier = frontier
+        self.history = history
+        self.db_path = settings.CRAWLER_DB_PATH
+        self._init_db()
+
+    def _init_db(self):
+        """Initialize seeds table."""
+        turso_mode = os.getenv("TURSO_URL") is not None
+
+        if not turso_mode:
+            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+
+        con = get_connection(self.db_path)
+        try:
+            if not turso_mode:
+                con.execute("PRAGMA journal_mode=WAL")
+            con.executescript(SEEDS_SCHEMA)
+        finally:
+            con.close()
 
     def list_seeds(self) -> list[SeedItem]:
         """
@@ -29,25 +60,27 @@ class SeedService:
         Returns:
             List of SeedItem objects
         """
-        seeds_data = self.redis.hgetall(settings.CRAWL_SEEDS_KEY)
-        result = []
-        for url, data_json in seeds_data.items():
-            try:
-                data = json.loads(data_json)
+        con = get_connection(self.db_path)
+        try:
+            cur = con.execute(
+                "SELECT url, added_at, priority, last_queued FROM seeds ORDER BY added_at DESC"
+            )
+            result = []
+            for row in cur.fetchall():
+                url, added_at, priority, last_queued = row
                 result.append(
                     SeedItem(
                         url=url,
-                        added_at=datetime.fromisoformat(data["added_at"]),
-                        priority=data.get("priority", 100.0),
-                        last_queued=datetime.fromisoformat(data["last_queued"])
-                        if data.get("last_queued")
+                        added_at=datetime.fromtimestamp(added_at),
+                        priority=priority,
+                        last_queued=datetime.fromtimestamp(last_queued)
+                        if last_queued
                         else None,
                     )
                 )
-            except (json.JSONDecodeError, KeyError, ValueError) as e:
-                logger.warning(f"Invalid seed data for {url}: {e}")
-                continue
-        return sorted(result, key=lambda x: x.added_at, reverse=True)
+            return result
+        finally:
+            con.close()
 
     def add_seeds(self, urls: list[str], priority: float = 100.0) -> int:
         """
@@ -60,41 +93,37 @@ class SeedService:
         Returns:
             Number of new seeds added
         """
-        now = datetime.utcnow()
+        now = int(time.time())
         added = 0
-        pipe = self.redis.pipeline()
-        new_urls = []
 
-        for url in urls:
-            if not self.redis.hexists(settings.CRAWL_SEEDS_KEY, url):
-                data = {
-                    "added_at": now.isoformat(),
-                    "priority": priority,
-                    "last_queued": now.isoformat(),
-                }
-                pipe.hset(settings.CRAWL_SEEDS_KEY, url, json.dumps(data))
-                new_urls.append(url)
-                added += 1
-            else:
-                # Update last_queued for existing seeds
-                existing = self.redis.hget(settings.CRAWL_SEEDS_KEY, url)
-                if existing:
-                    data = json.loads(existing)
-                    data["last_queued"] = now.isoformat()
-                    pipe.hset(settings.CRAWL_SEEDS_KEY, url, json.dumps(data))
-                new_urls.append(url)
+        con = get_connection(self.db_path)
+        try:
+            for url in urls:
+                # Check if already exists
+                cur = con.execute("SELECT 1 FROM seeds WHERE url = ?", (url,))
+                if cur.fetchone() is None:
+                    # New seed
+                    con.execute(
+                        "INSERT INTO seeds (url, added_at, priority, last_queued) VALUES (?, ?, ?, ?)",
+                        (url, now, priority, now),
+                    )
+                    added += 1
+                else:
+                    # Update last_queued for existing seed
+                    con.execute(
+                        "UPDATE seeds SET last_queued = ? WHERE url = ?",
+                        (now, url),
+                    )
 
-        pipe.execute()
+            con.commit()
+        finally:
+            con.close()
 
-        # Queue all URLs (new and existing)
+        # Add to frontier (filter out already seen)
+        new_urls = self.history.filter_new(urls)
+        new_urls = [u for u in new_urls if not self.frontier.contains(u)]
         if new_urls:
-            enqueue_batch(
-                self.redis,
-                new_urls,
-                parent_score=priority,
-                queue_key=settings.CRAWL_QUEUE_KEY,
-                seen_key=settings.CRAWL_SEEN_KEY,
-            )
+            self.frontier.add_batch(new_urls, priority=priority)
 
         logger.info(f"Added {added} new seeds, queued {len(new_urls)} URLs")
         return added
@@ -110,9 +139,15 @@ class SeedService:
             Number of seeds removed
         """
         deleted = 0
-        for url in urls:
-            result = self.redis.hdel(settings.CRAWL_SEEDS_KEY, url)
-            deleted += result
+        con = get_connection(self.db_path)
+        try:
+            for url in urls:
+                cur = con.execute("DELETE FROM seeds WHERE url = ?", (url,))
+                deleted += cur.rowcount
+            con.commit()
+        finally:
+            con.close()
+
         logger.info(f"Deleted {deleted} seeds")
         return deleted
 
@@ -121,49 +156,42 @@ class SeedService:
         Re-add all seeds to the crawl queue.
 
         Args:
-            force: If True, remove from crawl:seen first to allow re-crawling
+            force: If True, add even if recently crawled
 
         Returns:
             Number of URLs queued
         """
-        seeds_data = self.redis.hgetall(settings.CRAWL_SEEDS_KEY)
-        if not seeds_data:
+        now = int(time.time())
+        con = get_connection(self.db_path)
+        try:
+            cur = con.execute("SELECT url, priority FROM seeds")
+            seeds = [(row[0], row[1]) for row in cur.fetchall()]
+
+            # Update last_queued for all
+            con.execute("UPDATE seeds SET last_queued = ?", (now,))
+            con.commit()
+        finally:
+            con.close()
+
+        if not seeds:
             return 0
 
-        now = datetime.utcnow()
-        urls_to_queue = []
-        pipe = self.redis.pipeline()
+        urls = [url for url, _ in seeds]
+        priorities = {url: priority for url, priority in seeds}
 
-        for url, data_json in seeds_data.items():
-            try:
-                data = json.loads(data_json)
-                data["last_queued"] = now.isoformat()
-                pipe.hset(settings.CRAWL_SEEDS_KEY, url, json.dumps(data))
-                urls_to_queue.append((url, data.get("priority", 100.0)))
+        # Filter unless force
+        if not force:
+            urls = self.history.filter_new(urls)
 
-                if force:
-                    pipe.srem(settings.CRAWL_SEEN_KEY, url)
-            except (json.JSONDecodeError, KeyError, ValueError):
-                continue
+        # Filter out already in frontier
+        urls = [u for u in urls if not self.frontier.contains(u)]
 
-        pipe.execute()
-
-        # Queue URLs
+        # Add to frontier
         queued = 0
-        for url, priority in urls_to_queue:
-            if force:
-                # Direct add since we removed from seen
-                self.redis.zadd(settings.CRAWL_QUEUE_KEY, {url: priority})
+        for url in urls:
+            priority = priorities.get(url, 100.0)
+            if self.frontier.add(url, priority=priority):
                 queued += 1
-            else:
-                count = enqueue_batch(
-                    self.redis,
-                    [url],
-                    parent_score=priority,
-                    queue_key=settings.CRAWL_QUEUE_KEY,
-                    seen_key=settings.CRAWL_SEEN_KEY,
-                )
-                queued += count
 
         logger.info(f"Requeued {queued} seeds (force={force})")
         return queued
@@ -174,33 +202,32 @@ class SeedService:
 
         Args:
             url: URL to requeue
-            force: If True, remove from crawl:seen first
+            force: If True, add even if recently crawled
 
         Returns:
             True if URL was queued
         """
-        data_json = self.redis.hget(settings.CRAWL_SEEDS_KEY, url)
-        if not data_json:
-            return False
-
+        now = int(time.time())
+        con = get_connection(self.db_path)
         try:
-            data = json.loads(data_json)
-            priority = data.get("priority", 100.0)
-            data["last_queued"] = datetime.utcnow().isoformat()
-            self.redis.hset(settings.CRAWL_SEEDS_KEY, url, json.dumps(data))
+            cur = con.execute("SELECT priority FROM seeds WHERE url = ?", (url,))
+            row = cur.fetchone()
+            if not row:
+                return False
 
-            if force:
-                self.redis.srem(settings.CRAWL_SEEN_KEY, url)
-                self.redis.zadd(settings.CRAWL_QUEUE_KEY, {url: priority})
-                return True
-            else:
-                count = enqueue_batch(
-                    self.redis,
-                    [url],
-                    parent_score=priority,
-                    queue_key=settings.CRAWL_QUEUE_KEY,
-                    seen_key=settings.CRAWL_SEEN_KEY,
-                )
-                return count > 0
-        except (json.JSONDecodeError, KeyError, ValueError):
+            priority = row[0]
+
+            # Update last_queued
+            con.execute("UPDATE seeds SET last_queued = ? WHERE url = ?", (now, url))
+            con.commit()
+        finally:
+            con.close()
+
+        # Check if can add
+        if not force and self.history.is_recently_crawled(url):
             return False
+
+        if self.frontier.contains(url):
+            return False
+
+        return self.frontier.add(url, priority=priority)

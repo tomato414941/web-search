@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends
 from app.models.queue import QueueStats, QueueItem
 from app.services.queue import QueueService
 from app.api.deps import get_queue_service
-from app.core.config import settings
 
 router = APIRouter()
 
@@ -25,15 +24,5 @@ async def view_queue(
     limit: int = 20, queue_service: QueueService = Depends(get_queue_service)
 ):
     """View current queue contents"""
-    # Get top items from Redis sorted set
-    items = queue_service.redis.zrange(
-        settings.CRAWL_QUEUE_KEY, 0, limit - 1, withscores=True
-    )
-
-    # Convert to QueueItem models
-    result = []
-    for url, score in items:
-        url_str = url.decode() if isinstance(url, bytes) else url
-        result.append(QueueItem(url=url_str, score=float(score)))
-
-    return result
+    items = queue_service.get_queue_items(limit)
+    return [QueueItem(url=item["url"], score=item["score"]) for item in items]

@@ -6,7 +6,7 @@ Manages background crawler worker lifecycle.
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class WorkerService:
         self.concurrency = concurrency
         self.task = asyncio.create_task(worker_loop(concurrency=concurrency))
         self.is_running = True
-        self.started_at = datetime.utcnow()
+        self.started_at = datetime.now(UTC)
         logger.info(f"✅ Worker started with concurrency={concurrency}")
 
     async def stop(self, graceful: bool = True):
@@ -61,4 +61,4 @@ class WorkerService:
         """Get worker uptime in seconds"""
         if not self.started_at:
             return None
-        return (datetime.utcnow() - self.started_at).total_seconds()
+        return (datetime.now(UTC) - self.started_at).total_seconds()

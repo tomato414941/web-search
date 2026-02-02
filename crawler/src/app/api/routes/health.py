@@ -11,7 +11,8 @@ import logging
 
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-from shared.db.redis import get_redis
+
+from app.db import Frontier
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -23,25 +24,25 @@ router = APIRouter()
 root_router = APIRouter()
 
 
-def _check_redis() -> bool:
-    """Check Redis connectivity."""
+def _check_db() -> bool:
+    """Check SQLite/Turso connectivity."""
     try:
-        r = get_redis()
-        r.ping()
+        frontier = Frontier(settings.CRAWLER_DB_PATH)
+        frontier.size()
         return True
     except Exception as e:
-        logger.warning(f"Redis health check failed: {e}")
+        logger.warning(f"Database health check failed: {e}")
         return False
 
 
-def _check_queue() -> bool:
-    """Check queue accessibility."""
+def _check_frontier() -> bool:
+    """Check frontier accessibility."""
     try:
-        r = get_redis()
-        r.zcard(settings.CRAWL_QUEUE_KEY)
+        frontier = Frontier(settings.CRAWLER_DB_PATH)
+        frontier.size()
         return True
     except Exception as e:
-        logger.warning(f"Queue health check failed: {e}")
+        logger.warning(f"Frontier health check failed: {e}")
         return False
 
 
@@ -64,8 +65,8 @@ async def liveness():
 async def readiness():
     """Kubernetes readiness probe - are dependencies healthy?"""
     checks = {
-        "redis": "ok" if _check_redis() else "unhealthy",
-        "queue": "ok" if _check_queue() else "unhealthy",
+        "database": "ok" if _check_db() else "unhealthy",
+        "frontier": "ok" if _check_frontier() else "unhealthy",
     }
 
     all_healthy = all(v == "ok" for v in checks.values())

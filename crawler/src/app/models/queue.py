@@ -17,18 +17,18 @@ class QueueItem(BaseModel):
 class QueueStats(BaseModel):
     """Overall queue statistics"""
 
-    queue_size: int = Field(default=0, ge=0, description="Number of URLs in queue")
-    total_seen: int = Field(default=0, ge=0, description="Total unique URLs ever seen")
+    queue_size: int = Field(default=0, ge=0, description="Number of URLs in frontier")
+    total_seen: int = Field(default=0, ge=0, description="Total unique URLs in history")
     active_seen: int = Field(
-        default=0, ge=0, description="URLs seen within recrawl threshold"
+        default=0, ge=0, description="URLs crawled within recrawl threshold"
     )
     cache_size: int = Field(
-        default=0, ge=0, description="Redis cache size for fast lookups"
+        default=0, ge=0, description="Deprecated (always 0, no Redis cache)"
     )
     total_indexed: int = Field(
         default=0,
         ge=0,
-        description="Total URLs successfully indexed",
+        description="Total URLs successfully indexed (status=done)",
     )
     # Backward compatible alias
     total_crawled: int = Field(

@@ -1,90 +1,106 @@
 """
 Queue Service
 
-Manages Redis-based crawl queue operations.
+Manages crawl queue operations using Frontier and History.
 """
 
 import logging
 
-from shared.db.redis import enqueue_batch
-from shared.db.seen_store import HybridSeenStore
-from shared.db.search import get_connection
+from app.db import Frontier, History
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Lazy-initialized seen store
-_seen_store: HybridSeenStore | None = None
+# Lazy-initialized instances
+_frontier: Frontier | None = None
+_history: History | None = None
 
 
-def _get_seen_store(redis_client) -> HybridSeenStore:
-    """Get or create the HybridSeenStore instance."""
-    global _seen_store
-    if _seen_store is None:
-        _seen_store = HybridSeenStore(
-            redis_client=redis_client,
-            db_path=settings.CRAWLER_DB_PATH,
-            cache_ttl_days=settings.CRAWL_CACHE_TTL_DAYS,
+def _get_frontier() -> Frontier:
+    """Get or create Frontier instance."""
+    global _frontier
+    if _frontier is None:
+        _frontier = Frontier(settings.CRAWLER_DB_PATH)
+    return _frontier
+
+
+def _get_history() -> History:
+    """Get or create History instance."""
+    global _history
+    if _history is None:
+        _history = History(
+            settings.CRAWLER_DB_PATH,
             recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
         )
-    return _seen_store
+    return _history
 
 
 class QueueService:
     """Crawl queue management service"""
 
-    def __init__(self, redis_client):
-        self.redis = redis_client
+    def __init__(
+        self, frontier: Frontier | None = None, history: History | None = None
+    ):
+        self.frontier = frontier or _get_frontier()
+        self.history = history or _get_history()
 
     async def enqueue_urls(self, urls: list[str], priority: float = 100.0) -> int:
         """
-        Add URLs to crawl queue
+        Add URLs to crawl queue.
 
         Args:
             urls: List of URLs to add
             priority: Priority score (higher = crawled sooner)
 
         Returns:
-            Number of URLs added (excludes duplicates)
+            Number of URLs added (excludes duplicates and recently crawled)
         """
-        count = enqueue_batch(
-            self.redis,
-            urls,
-            parent_score=priority,
-            queue_key=settings.CRAWL_QUEUE_KEY,
-            seen_key=settings.CRAWL_SEEN_KEY,
-        )
+        if not urls:
+            return 0
+
+        # Filter out recently crawled URLs
+        new_urls = self.history.filter_new(urls)
+
+        # Filter out URLs already in frontier
+        new_urls = [u for u in new_urls if not self.frontier.contains(u)]
+
+        if not new_urls:
+            logger.info(f"All {len(urls)} URLs already seen or in queue")
+            return 0
+
+        # Add to frontier
+        count = self.frontier.add_batch(new_urls, priority=priority)
         logger.info(f"Queued {count}/{len(urls)} URLs (priority={priority})")
         return count
 
     def get_stats(self) -> dict:
         """
-        Get queue statistics
+        Get queue statistics.
 
         Returns:
-            Dict with queue_size, seen stats, and total_indexed
+            Dict with queue_size, history stats, and total_indexed
         """
-        indexed_count = 0
-        try:
-            con = get_connection()
-            cursor = con.execute(
-                "SELECT COUNT(*) FROM crawl_history WHERE status IN ('success', 'indexed')"
-            )
-            indexed_count = cursor.fetchone()[0]
-            con.close()
-        except Exception as e:
-            logger.warning(f"Failed to get indexed count: {e}")
-
-        # Get seen URL stats from HybridSeenStore
-        seen_store = _get_seen_store(self.redis)
-        seen_stats = seen_store.get_stats()
+        history_stats = self.history.get_stats()
 
         return {
-            "queue_size": self.redis.zcard(settings.CRAWL_QUEUE_KEY),
-            "total_seen": seen_stats["total_seen"],
-            "active_seen": seen_stats["active_seen"],
-            "cache_size": seen_stats["cache_size"],
-            "total_indexed": indexed_count,
+            "queue_size": self.frontier.size(),
+            "total_seen": history_stats["total"],
+            "active_seen": history_stats["recent"],
+            "cache_size": 0,  # No Redis cache anymore
+            "total_indexed": history_stats["done"],
             # Legacy field for backward compatibility
-            "total_crawled": seen_stats["active_seen"],
+            "total_crawled": history_stats["recent"],
         }
+
+    def get_queue_items(self, limit: int = 20) -> list[dict]:
+        """
+        Get top items from queue.
+
+        Args:
+            limit: Maximum number of items to return
+
+        Returns:
+            List of dicts with url and score
+        """
+        items = self.frontier.peek(limit)
+        return [{"url": item.url, "score": item.priority} for item in items]

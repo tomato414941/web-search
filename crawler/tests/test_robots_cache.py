@@ -1,26 +1,26 @@
 """
 Robots.txt Cache Tests
 
-Tests for AsyncRobotsCache with Redis persistence.
+Tests for AsyncRobotsCache with in-memory LRU caching.
 """
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock
 from app.utils.robots import AsyncRobotsCache
 
 
 @pytest.mark.asyncio
 async def test_robots_cache_allow():
-    """Test robots.txt allows URL when cached"""
-    # Use cached content to avoid the async HTTP fetch complications
-    cached_content = b"User-agent: *\nAllow: /"
-
+    """Test robots.txt allows URL"""
     mock_session = MagicMock()
-    mock_redis = MagicMock()
-    mock_redis.get.return_value = cached_content
-    mock_redis.sismember.return_value = False  # Domain not blocked
 
-    cache = AsyncRobotsCache(mock_session, mock_redis)
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nAllow: /")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
     allowed = await cache.can_fetch("http://example.com/foo", "MyBot")
 
     assert allowed is True
@@ -29,14 +29,15 @@ async def test_robots_cache_allow():
 @pytest.mark.asyncio
 async def test_robots_cache_disallow():
     """Test robots.txt disallows URL"""
-    cached_content = b"User-agent: *\nDisallow: /private"
-
     mock_session = MagicMock()
-    mock_redis = MagicMock()
-    mock_redis.get.return_value = cached_content
-    mock_redis.sismember.return_value = False
 
-    cache = AsyncRobotsCache(mock_session, mock_redis)
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nDisallow: /private")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
     allowed = await cache.can_fetch("http://example.com/private/doc", "MyBot")
 
     assert allowed is False
@@ -44,56 +45,65 @@ async def test_robots_cache_disallow():
 
 @pytest.mark.asyncio
 async def test_robots_cache_hit():
-    """Test Redis cache hit (no HTTP request)"""
-    cached_content = b"User-agent: *\nDisallow: /admin"
-
+    """Test in-memory cache hit (no second HTTP request)"""
     mock_session = MagicMock()
-    mock_redis = MagicMock()
-    mock_redis.get.return_value = cached_content
-    mock_redis.sismember.return_value = False
 
-    cache = AsyncRobotsCache(mock_session, mock_redis)
-    allowed = await cache.can_fetch("http://example.com/admin", "MyBot")
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nDisallow: /admin")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
 
-    # Should not make HTTP request (cache hit)
-    mock_session.get.assert_not_called()
+    cache = AsyncRobotsCache(mock_session)
+
+    # First call - should make HTTP request
+    await cache.can_fetch("http://example.com/admin", "MyBot")
+    assert mock_session.get.call_count == 1
+
+    # Second call - should use cache
+    allowed = await cache.can_fetch("http://example.com/admin/test", "MyBot")
+    assert mock_session.get.call_count == 1  # No additional request
     assert allowed is False
 
 
 @pytest.mark.asyncio
 async def test_robots_cache_miss_and_store():
-    """Test Redis cache miss with cached allow-all content"""
-    # Simulate cached allow-all response (what would be stored on 404)
-    cached_content = b"User-agent: *\nDisallow:"
-
+    """Test cache miss triggers HTTP request and stores result"""
     mock_session = MagicMock()
-    mock_redis = MagicMock()
-    mock_redis.get.return_value = cached_content
-    mock_redis.sismember.return_value = False
 
-    cache = AsyncRobotsCache(mock_session, mock_redis)
-    allowed = await cache.can_fetch("http://example.com/test", "MyBot")
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nAllow: /")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
 
-    # Cache hit, no HTTP request
-    mock_session.get.assert_not_called()
-    assert allowed is True
+    cache = AsyncRobotsCache(mock_session)
+
+    # First call
+    allowed1 = await cache.can_fetch("http://example.com/test", "MyBot")
+    assert allowed1 is True
+    assert mock_session.get.call_count == 1
+
+    # Second call - same domain, should use cache
+    allowed2 = await cache.can_fetch("http://example.com/other", "MyBot")
+    assert allowed2 is True
+    assert mock_session.get.call_count == 1  # No additional request
 
 
 @pytest.mark.asyncio
 async def test_robots_cache_http_404():
-    """Test robots.txt not found (404) allows all when cached"""
-    # Simulate cached allow-all response from 404
-    cached_content = b"User-agent: *\nDisallow:"
-
+    """Test robots.txt not found (404) allows all"""
     mock_session = MagicMock()
-    mock_redis = MagicMock()
-    mock_redis.get.return_value = cached_content
-    mock_redis.sismember.return_value = False
 
-    cache = AsyncRobotsCache(mock_session, mock_redis)
+    # Mock 404 response
+    mock_response = AsyncMock()
+    mock_response.status = 404
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
     allowed = await cache.can_fetch("http://example.com/test", "MyBot")
 
-    # Should allow all from cached allow-all content
+    # Should allow all when robots.txt is not found
     assert allowed is True
 
 
@@ -103,27 +113,27 @@ async def test_robots_cache_network_error():
     mock_session = MagicMock()
     mock_session.get.side_effect = Exception("Network error")
 
-    mock_redis = MagicMock()
-    mock_redis.get.return_value = None  # No cache
-    mock_redis.sismember.return_value = False  # Not blocked
+    cache = AsyncRobotsCache(mock_session)
 
-    cache = AsyncRobotsCache(mock_session, mock_redis)
     # First call: should return False (skip URL, try again later)
     allowed = await cache.can_fetch("http://example.com/test", "MyBot")
 
-    # New behavior: return False on first failure (skip URL for now)
     assert allowed is False
 
 
 @pytest.mark.asyncio
 async def test_robots_cache_blocked_domain():
-    """Test blocked domain is denied"""
+    """Test blocked domain (after repeated failures) is denied"""
     mock_session = MagicMock()
-    mock_redis = MagicMock()
-    mock_redis.sismember.return_value = True  # Domain is blocked
+    mock_session.get.side_effect = Exception("Network error")
 
-    cache = AsyncRobotsCache(mock_session, mock_redis)
-    allowed = await cache.can_fetch("http://blocked.com/test", "MyBot")
+    cache = AsyncRobotsCache(mock_session)
 
-    # Should deny blocked domain
+    # Simulate 3 failures to trigger blocking
+    for _ in range(3):
+        await cache.can_fetch("http://blocked.com/test", "MyBot")
+
+    # Domain should now be blocked
+    allowed = await cache.can_fetch("http://blocked.com/another", "MyBot")
+
     assert allowed is False
