@@ -7,7 +7,6 @@ Provides Kubernetes-compatible health check endpoints:
 - /health/ready: Readiness probe (dependencies healthy)
 """
 
-import os
 import httpx
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -23,16 +22,12 @@ root_router = APIRouter()
 
 
 def _check_database() -> bool:
-    """Check SQLite database connectivity."""
+    """Check database connectivity (Turso or SQLite)."""
     try:
-        if os.path.exists(settings.DB_PATH):
-            con = get_connection(settings.DB_PATH)
-            con.execute("SELECT 1")
-            con.close()
-            return True
-        else:
-            # DB file doesn't exist yet, but that's OK for fresh installs
-            return True
+        con = get_connection(settings.DB_PATH)
+        con.execute("SELECT 1")
+        con.close()
+        return True
     except Exception:
         return False
 

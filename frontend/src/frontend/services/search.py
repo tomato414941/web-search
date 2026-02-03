@@ -4,8 +4,6 @@ Search Service - Frontend search functionality using custom search engine.
 Uses hybrid search: Combined BM25 + Semantic using RRF.
 """
 
-import os
-import sqlite3
 from typing import Any
 
 from frontend.core.config import settings
@@ -81,19 +79,14 @@ class SearchService:
 
     def get_index_stats(self) -> dict[str, int]:
         """Return index stats: total pages."""
-        if not os.path.exists(self.db_path):
-            return {"indexed": 0}
-
-        con = get_connection(self.db_path)
         try:
-            # Use new documents table
+            con = get_connection(self.db_path)
             cur = con.execute("SELECT count(*) FROM documents")
             count = cur.fetchone()[0]
-            return {"indexed": count}
-        except sqlite3.OperationalError:
-            return {"indexed": 0}
-        finally:
             con.close()
+            return {"indexed": count}
+        except Exception:
+            return {"indexed": 0}
 
     def _empty_result(self, k: int, q: str = "") -> dict[str, Any]:
         return {
