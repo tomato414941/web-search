@@ -86,7 +86,12 @@ else:
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # --- CORS ---
-cors_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+cors_origins_env = os.getenv("CORS_ORIGINS")
+if cors_origins_env:
+    cors_origins = cors_origins_env.split(",")
+else:
+    # Development only - production must set CORS_ORIGINS
+    cors_origins = ["http://localhost:8080"] if settings.DEBUG else []
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

@@ -13,8 +13,6 @@ COPY shared/ ./shared/
 
 # Copy and install dependencies
 COPY indexer/requirements.txt .
-# Fix shared library path: ../shared -> ./shared (as we copied it to /app/shared)
-RUN sed -i 's|\.\./shared|\./shared|g' requirements.txt
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Production image

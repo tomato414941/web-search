@@ -8,6 +8,10 @@ Provides Kubernetes-compatible health check endpoints:
 """
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+
+from app.core.config import settings
+from shared.db.search import get_connection
 
 # Router for /api/v1 prefix (backward compatibility)
 router = APIRouter()
@@ -34,8 +38,19 @@ async def liveness():
 @root_router.get("/health/ready")
 async def readiness():
     """Kubernetes readiness probe - are dependencies healthy?"""
-    # Indexer has no external dependencies currently
-    return {"status": "ok", "checks": {}}
+    checks = {}
+    try:
+        with get_connection(settings.DB_PATH) as conn:
+            conn.execute("SELECT 1")
+        checks["database"] = True
+    except Exception:
+        checks["database"] = False
+
+    all_ok = all(checks.values())
+    return JSONResponse(
+        {"status": "ok" if all_ok else "degraded", "checks": checks},
+        status_code=200 if all_ok else 503,
+    )
 
 
 # --- /api/v1 endpoints (backward compatibility) ---

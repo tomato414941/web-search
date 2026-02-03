@@ -38,7 +38,9 @@ class CrawlerSettings(InfrastructureSettings):
     INDEXER_API_URL: str = os.getenv(
         "INDEXER_API_URL", "http://localhost:8000/api/v1/indexer/page"
     )
-    INDEXER_API_KEY: str = os.getenv("INDEXER_API_KEY", "dev-key")
+    INDEXER_API_KEY: str = os.environ[
+        "INDEXER_API_KEY"
+    ]  # Required - no default for security
 
 
 settings = CrawlerSettings()

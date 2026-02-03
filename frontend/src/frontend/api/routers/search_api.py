@@ -1,5 +1,6 @@
 """Search API Router - JSON endpoints for search and prediction."""
 
+import logging
 import httpx
 from fastapi import APIRouter, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
@@ -8,6 +9,8 @@ from frontend.core.config import settings
 from frontend.core.db import get_connection
 from frontend.services.search import search_service
 from frontend.api.middleware.rate_limiter import limiter
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
@@ -93,8 +96,9 @@ async def api_predict(
             if resp.status_code == 200:
                 return JSONResponse(resp.json())
             else:
+                logger.error(f"Crawler service error: {resp.text}")
                 return JSONResponse(
-                    {"error": "Crawler service error", "detail": resp.text},
+                    {"error": "Crawler service unavailable"},
                     status_code=502,
                 )
     except httpx.RequestError as e:

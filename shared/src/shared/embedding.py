@@ -5,7 +5,6 @@ Provides both synchronous and asynchronous embedding services.
 """
 
 import logging
-import pickle
 import struct
 import numpy as np
 from openai import OpenAI, AsyncOpenAI
@@ -35,13 +34,11 @@ def serialize(vector: np.ndarray) -> bytes:
 def deserialize(blob: bytes, dimensions: int = DEFAULT_DIMENSIONS) -> np.ndarray:
     """Convert bytes back to numpy array."""
     expected_size = len(blob) // 4
-    if expected_size == dimensions:
-        try:
-            return np.array(struct.unpack(f"{expected_size}f", blob), dtype=np.float32)
-        except struct.error:
-            pass
-    # Fallback to pickle (legacy format)
-    return pickle.loads(blob)
+    if expected_size != dimensions:
+        raise ValueError(
+            f"Invalid embedding size: expected {dimensions}, got {expected_size}"
+        )
+    return np.array(struct.unpack(f"{expected_size}f", blob), dtype=np.float32)
 
 
 class EmbeddingService:

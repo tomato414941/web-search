@@ -1,7 +1,10 @@
+import logging
 from fastapi import APIRouter
 import httpx
 from frontend.core.config import settings
 from frontend.services.search import search_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -18,8 +21,8 @@ async def api_stats():
                 data = resp.json()
                 redis_stats["queued"] = data.get("queued", 0)
                 redis_stats["visited"] = data.get("visited", 0)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to get crawler stats: {e}")
 
     # DB stats (delegated to search service)
     db_stats = search_service.get_index_stats()

@@ -55,7 +55,7 @@ jobs:
         env:
           PYTHONPATH: frontend/src
           REDIS_URL: redis://localhost:6379
-        run: cd frontend && pytest tests/ -v --tb=short
+        run: cd frontend && pytest tests/ -v --tb=short --cov=frontend --cov-report=term-missing
 
   test-crawler:
     runs-on: ubuntu-latest
@@ -89,8 +89,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e shared/
-          cd indexer && sed -i '/^-e/d' requirements.txt
-          pip install -r requirements.txt
+          pip install -r indexer/requirements.txt
       - name: Run indexer tests
         env:
           PYTHONPATH: indexer/src

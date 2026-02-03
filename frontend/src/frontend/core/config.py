@@ -49,8 +49,8 @@ class Settings(InfrastructureSettings):
     MAX_PER_PAGE: int = int(os.getenv("MAX_PER_PAGE", "50"))
     RESULTS_LIMIT: int = int(os.getenv("RESULTS_LIMIT", "10"))
 
-    # Indexer API
-    INDEXER_API_KEY: str = os.getenv("INDEXER_API_KEY", "dev-key")
+    # Indexer API (required - no default for security)
+    INDEXER_API_KEY: str = os.environ["INDEXER_API_KEY"]
 
     # OpenAI (for embeddings)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")

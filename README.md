@@ -1,17 +1,17 @@
 # Web Search Engine
 
-A custom full-text search engine built with **FastAPI**, **Redis**, and **SQLite FTS5**.
-It features a parallel crawler, a separate high-performance indexer, and a modern UI with theme support.
+A custom full-text search engine built with **FastAPI** and **Turso (libsql)**.
+It features a parallel crawler, a separate indexer with SudachiPy tokenization, and a modern UI.
 
 ## Features
 
-- **Full-Text Search**: Powered by SQLite FTS5 with **Trigram Tokenizer** for multilingual support.
+- **Full-Text Search**: Custom inverted index with **SudachiPy** (Japanese morphological analyzer).
 - **Microservices Architecture**:
     - **Search Service (Frontend)**: Read-only, scalable, serving UI & API.
     - **Indexer Service**: Dedicated Write-node for heavy processing (Tokenization, Embedding).
     - **Crawler Service**: Distributed worker nodes.
 - **CQRS-lite**: Reads (`:8080`) are isolated from Writes (`:8081`) via SQLite WAL mode.
-- **Parallel Crawler**: Uses **Redis** as a URL frontier.
+- **Parallel Crawler**: SQLite-based URL frontier.
 - **Internationalization (i18n)**: UI supports both English and Japanese.
 - **API First**: Provides JSON endpoints for search, stats, and crawling.
 
@@ -30,8 +30,8 @@ It features a parallel crawler, a separate high-performance indexer, and a moder
 ### Running the App
 
 ```bash
-# Build and start services (Frontend, Indexer, Redis)
-docker compose -f deployment/frontend/docker-compose.yml up --build -d
+# Build and start services (Frontend, Indexer, Crawler)
+docker compose up --build -d
 ```
 
 Once running, access the following:
@@ -45,7 +45,7 @@ Once running, access the following:
 - **Web Node (Frontend)**: FastAPI (serves UI and Search API).
 - **Write Node (Indexer)**: FastAPI (handles Ingestion and Vectors).
 - **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `BeautifulSoup`.
-- **Database**: Shared SQLite (FTS5) on persistent volume.
+- **Database**: Turso (libsql) for production, SQLite for local development.
 
 ## License
 
