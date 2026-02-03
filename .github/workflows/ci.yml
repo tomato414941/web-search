@@ -55,6 +55,10 @@ jobs:
         env:
           PYTHONPATH: frontend/src
           REDIS_URL: redis://localhost:6379
+          ADMIN_USERNAME: test
+          ADMIN_PASSWORD: test
+          ADMIN_SESSION_SECRET: test
+          INDEXER_API_KEY: test
         run: cd frontend && pytest tests/ -v --tb=short --cov=frontend --cov-report=term-missing
 
   test-crawler:
@@ -74,6 +78,7 @@ jobs:
       - name: Run crawler tests
         env:
           PYTHONPATH: crawler/src
+          INDEXER_API_KEY: test
         run: cd crawler && pytest tests/ -v --tb=short
 
   test-indexer:
@@ -93,6 +98,7 @@ jobs:
       - name: Run indexer tests
         env:
           PYTHONPATH: indexer/src
+          INDEXER_API_KEY: test
         run: cd indexer && pytest tests/ -v --tb=short
 
   lint:
