@@ -12,24 +12,18 @@ pip install -e shared/
 pip install -r frontend/requirements.txt
 
 # Run frontend locally
+export ENVIRONMENT=development
 export PYTHONPATH=frontend/src
 uvicorn frontend.api.main:app --reload --port 8000
 
 # Run tests
+export ENVIRONMENT=test
 cd frontend && pytest tests/ -v
 cd shared && pytest tests/ -v
-
-# Run single test
-pytest frontend/tests/test_search.py::test_function_name -v
 
 # Lint
 ruff check frontend/src/ shared/src/ crawler/src/
 ruff format frontend/src/ shared/src/ crawler/src/
-
-# Full local setup (all services)
-pip install -r frontend/requirements.txt
-pip install -r crawler/requirements.txt
-pip install -r indexer/requirements.txt
 ```
 
 ## Pre-commit Verification
@@ -47,15 +41,16 @@ Microservices architecture with CQRS-lite pattern:
 - **shared**: Common library (DB, search logic, config) installed as editable package
 
 ### Database
-- **Production**: PostgreSQL 16 (Docker on Hetzner SG)
-  - Server: 5.223.74.201 (CPX22: 2 vCPU / 4GB RAM / 80GB)
-  - Connection: `DATABASE_URL=postgresql://websearch:websearch_password@localhost:5432/websearch`
-- **Local**: SQLite - auto-selected when DATABASE_URL env var is not set
+
+- **Production**: PostgreSQL 16 (Docker)
+  - Environment variable: `DATABASE_URL=postgresql://websearch:<password>@postgres:5432/websearch`
+- **Local Development**: SQLite (auto-selected when `DATABASE_URL` is not set)
 - **Search Index**: Custom inverted index (NOT FTS5)
   - Reason: Integration with SudachiPy (Japanese morphological analyzer)
-- Connection logic in `shared/src/shared/db/search.py`
+- Connection logic: `shared/src/shared/db/search.py`
 
 ### Search Algorithm
+
 - **BM25**: Keyword search (k1=1.2, b=0.75, title_boost=3.0)
 - **Vector Search**: Semantic search with OpenAI embeddings
 - **Hybrid Search**: Reciprocal Rank Fusion (RRF)
@@ -63,6 +58,7 @@ Microservices architecture with CQRS-lite pattern:
 - Tokenizer: SudachiPy Mode A
 
 ### Key Paths
+
 - Frontend API: `frontend/src/frontend/api/main.py`
 - Search logic: `shared/src/shared/search/searcher.py`
 - BM25/Scoring: `shared/src/shared/search/scoring.py`
@@ -75,14 +71,15 @@ Microservices architecture with CQRS-lite pattern:
 
 - **Service name**: paleblue search
 - **Domain**: https://palebluesearch.com/
-- **Server**: 52.199.231.181 (AWS Lightsail, all-in-one)
-- **CI/CD**: GitHub Actions → docker-compose
-  - Push to `main` → CI (test/lint) → deploy
-- **Environment variables**: Set on server (not in repo)
+- **Server**: Hetzner SG (5.223.74.201)
+  - Spec: CPX22 (2 vCPU / 4GB RAM / 80GB SSD)
+  - Location: Singapore
+  - SSH: `ssh dev@5.223.74.201`
+- **Deploy**: `cd /home/dev/web-search && git pull && docker compose up -d --build`
+- **Environment variables**: `/home/dev/web-search/.env`
 
 ## API Endpoints
 
 - Search API: `/api/v1/search?q=<query>`
-- Health: `/health`, `/healthz`, `/readyz` (root level, recommended)
-- Health (backward compatible): `/api/v1/health`
+- Health: `/health`, `/healthz`, `/readyz` (root level)
 - API docs: `/docs` (Swagger UI)
