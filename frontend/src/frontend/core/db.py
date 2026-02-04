@@ -11,6 +11,7 @@ from shared.db.search import (
     open_db,
     ensure_db,
     get_connection,
+    is_postgres_mode,
 )
 
-__all__ = ["SCHEMA_SQL", "open_db", "ensure_db", "get_connection"]
+__all__ = ["SCHEMA_SQL", "open_db", "ensure_db", "get_connection", "is_postgres_mode"]

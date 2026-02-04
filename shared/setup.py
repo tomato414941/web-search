@@ -9,7 +9,7 @@ setup(
     install_requires=[
         "pydantic>=2.0.0",
         "pydantic-settings>=2.0.0",
-        "libsql-experimental>=0.0.50",
+        "psycopg2-binary>=2.9.0",
         "numpy",
         "sudachipy",
         "sudachidict-core",

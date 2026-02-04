@@ -42,6 +42,9 @@ class InfrastructureSettings:
     DATA_DIR: Path = BASE_DIR / "data"
 
     # Database
+    # PostgreSQL (production): Set DATABASE_URL environment variable
+    # SQLite (development): Uses SEARCH_DB path or default
+    DATABASE_URL: str | None = os.getenv("DATABASE_URL")
     DB_PATH: str = os.getenv("SEARCH_DB", str(DATA_DIR / "search.db"))
 
     # Redis

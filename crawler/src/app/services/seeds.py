@@ -2,16 +2,15 @@
 Seed Service
 
 Manages seed URL storage and requeueing operations.
-Seeds are stored in SQLite for persistence.
+Seeds are stored in the database for persistence.
 """
 
 import logging
-import os
 import time
 from datetime import datetime
 from pathlib import Path
 
-from shared.db.search import get_connection
+from shared.db.search import get_connection, is_postgres_mode
 
 from app.db import Frontier, History
 from app.core.config import settings
@@ -19,7 +18,22 @@ from app.models.seeds import SeedItem
 
 logger = logging.getLogger(__name__)
 
-SEEDS_SCHEMA = """
+
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
+
+
+SEEDS_SCHEMA_PG = """
+CREATE TABLE IF NOT EXISTS seeds (
+    url TEXT PRIMARY KEY,
+    added_at INTEGER NOT NULL,
+    priority REAL NOT NULL DEFAULT 100.0,
+    last_queued INTEGER
+);
+"""
+
+SEEDS_SCHEMA_SQLITE = """
 CREATE TABLE IF NOT EXISTS seeds (
     url TEXT PRIMARY KEY,
     added_at INTEGER NOT NULL,
@@ -40,16 +54,21 @@ class SeedService:
 
     def _init_db(self):
         """Initialize seeds table."""
-        turso_mode = os.getenv("TURSO_URL") is not None
+        postgres_mode = is_postgres_mode()
 
-        if not turso_mode:
+        if not postgres_mode:
             Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         con = get_connection(self.db_path)
         try:
-            if not turso_mode:
+            if postgres_mode:
+                cur = con.cursor()
+                cur.execute(SEEDS_SCHEMA_PG)
+                con.commit()
+                cur.close()
+            else:
                 con.execute("PRAGMA journal_mode=WAL")
-            con.executescript(SEEDS_SCHEMA)
+                con.executescript(SEEDS_SCHEMA_SQLITE)
         finally:
             con.close()
 
@@ -62,7 +81,8 @@ class SeedService:
         """
         con = get_connection(self.db_path)
         try:
-            cur = con.execute(
+            cur = con.cursor()
+            cur.execute(
                 "SELECT url, added_at, priority, last_queued FROM seeds ORDER BY added_at DESC"
             )
             result = []
@@ -78,6 +98,7 @@ class SeedService:
                         else None,
                     )
                 )
+            cur.close()
             return result
         finally:
             con.close()
@@ -95,27 +116,30 @@ class SeedService:
         """
         now = int(time.time())
         added = 0
+        ph = _placeholder()
 
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             for url in urls:
                 # Check if already exists
-                cur = con.execute("SELECT 1 FROM seeds WHERE url = ?", (url,))
+                cur.execute(f"SELECT 1 FROM seeds WHERE url = {ph}", (url,))
                 if cur.fetchone() is None:
                     # New seed
-                    con.execute(
-                        "INSERT INTO seeds (url, added_at, priority, last_queued) VALUES (?, ?, ?, ?)",
+                    cur.execute(
+                        f"INSERT INTO seeds (url, added_at, priority, last_queued) VALUES ({ph}, {ph}, {ph}, {ph})",
                         (url, now, priority, now),
                     )
                     added += 1
                 else:
                     # Update last_queued for existing seed
-                    con.execute(
-                        "UPDATE seeds SET last_queued = ? WHERE url = ?",
+                    cur.execute(
+                        f"UPDATE seeds SET last_queued = {ph} WHERE url = {ph}",
                         (now, url),
                     )
 
             con.commit()
+            cur.close()
         finally:
             con.close()
 
@@ -139,12 +163,15 @@ class SeedService:
             Number of seeds removed
         """
         deleted = 0
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             for url in urls:
-                cur = con.execute("DELETE FROM seeds WHERE url = ?", (url,))
+                cur.execute(f"DELETE FROM seeds WHERE url = {ph}", (url,))
                 deleted += cur.rowcount
             con.commit()
+            cur.close()
         finally:
             con.close()
 
@@ -162,14 +189,17 @@ class SeedService:
             Number of URLs queued
         """
         now = int(time.time())
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
-            cur = con.execute("SELECT url, priority FROM seeds")
+            cur = con.cursor()
+            cur.execute("SELECT url, priority FROM seeds")
             seeds = [(row[0], row[1]) for row in cur.fetchall()]
 
             # Update last_queued for all
-            con.execute("UPDATE seeds SET last_queued = ?", (now,))
+            cur.execute(f"UPDATE seeds SET last_queued = {ph}", (now,))
             con.commit()
+            cur.close()
         finally:
             con.close()
 
@@ -208,18 +238,24 @@ class SeedService:
             True if URL was queued
         """
         now = int(time.time())
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
-            cur = con.execute("SELECT priority FROM seeds WHERE url = ?", (url,))
+            cur = con.cursor()
+            cur.execute(f"SELECT priority FROM seeds WHERE url = {ph}", (url,))
             row = cur.fetchone()
             if not row:
+                cur.close()
                 return False
 
             priority = row[0]
 
             # Update last_queued
-            con.execute("UPDATE seeds SET last_queued = ? WHERE url = ?", (now, url))
+            cur.execute(
+                f"UPDATE seeds SET last_queued = {ph} WHERE url = {ph}", (now, url)
+            )
             con.commit()
+            cur.close()
         finally:
             con.close()
 

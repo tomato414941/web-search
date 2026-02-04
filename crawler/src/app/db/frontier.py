@@ -5,14 +5,13 @@ Manages URLs that have been discovered but not yet crawled.
 """
 
 import hashlib
-import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
-from shared.db.search import get_connection
+from shared.db.search import get_connection, is_postgres_mode
 
 
 def url_hash(url: str) -> str:
@@ -28,6 +27,11 @@ def get_domain(url: str) -> str:
         return ""
 
 
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
+
+
 @dataclass
 class FrontierItem:
     url: str
@@ -37,7 +41,21 @@ class FrontierItem:
     created_at: int
 
 
-SCHEMA = """
+SCHEMA_PG = """
+CREATE TABLE IF NOT EXISTS frontier (
+    url_hash TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    priority REAL NOT NULL DEFAULT 0,
+    source_url TEXT,
+    created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_frontier_priority ON frontier(priority DESC);
+CREATE INDEX IF NOT EXISTS idx_frontier_domain ON frontier(domain);
+"""
+
+SCHEMA_SQLITE = """
 CREATE TABLE IF NOT EXISTS frontier (
     url_hash TEXT PRIMARY KEY,
     url TEXT NOT NULL,
@@ -57,7 +75,7 @@ class Frontier:
     Pending URL storage.
 
     Stores URLs that have been discovered but not yet crawled.
-    Uses SQLite for persistence.
+    Uses PostgreSQL or SQLite for persistence.
     """
 
     def __init__(self, db_path: str):
@@ -66,16 +84,27 @@ class Frontier:
 
     def _init_db(self):
         """Initialize database."""
-        turso_mode = os.getenv("TURSO_URL") is not None
+        postgres_mode = is_postgres_mode()
 
-        if not turso_mode:
+        if not postgres_mode:
             Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         con = get_connection(self.db_path)
         try:
-            if not turso_mode:
+            if postgres_mode:
+                cur = con.cursor()
+                for stmt in SCHEMA_PG.split(";"):
+                    stmt = stmt.strip()
+                    if stmt:
+                        try:
+                            cur.execute(stmt)
+                        except Exception:
+                            pass
+                con.commit()
+                cur.close()
+            else:
                 con.execute("PRAGMA journal_mode=WAL")
-            con.executescript(SCHEMA)
+                con.executescript(SCHEMA_SQLITE)
         finally:
             con.close()
 
@@ -99,19 +128,32 @@ class Frontier:
         h = url_hash(url)
         domain = get_domain(url)
         now = int(time.time())
+        ph = _placeholder()
 
         con = get_connection(self.db_path)
         try:
-            # INSERT OR IGNORE to handle duplicates
-            cur = con.execute(
-                """
-                INSERT OR IGNORE INTO frontier (url_hash, url, domain, priority, source_url, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (h, url, domain, priority, source_url, now),
-            )
+            cur = con.cursor()
+            if is_postgres_mode():
+                cur.execute(
+                    f"""
+                    INSERT INTO frontier (url_hash, url, domain, priority, source_url, created_at)
+                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+                    ON CONFLICT (url_hash) DO NOTHING
+                    """,
+                    (h, url, domain, priority, source_url, now),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    INSERT OR IGNORE INTO frontier (url_hash, url, domain, priority, source_url, created_at)
+                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+                    """,
+                    (h, url, domain, priority, source_url, now),
+                )
+            rowcount = cur.rowcount
             con.commit()
-            return cur.rowcount > 0
+            cur.close()
+            return rowcount > 0
         finally:
             con.close()
 
@@ -137,24 +179,38 @@ class Frontier:
 
         now = int(time.time())
         added = 0
+        ph = _placeholder()
+        postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             for url in urls:
                 h = url_hash(url)
                 domain = get_domain(url)
 
-                cur = con.execute(
-                    """
-                    INSERT OR IGNORE INTO frontier (url_hash, url, domain, priority, source_url, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (h, url, domain, priority, source_url, now),
-                )
+                if postgres_mode:
+                    cur.execute(
+                        f"""
+                        INSERT INTO frontier (url_hash, url, domain, priority, source_url, created_at)
+                        VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+                        ON CONFLICT (url_hash) DO NOTHING
+                        """,
+                        (h, url, domain, priority, source_url, now),
+                    )
+                else:
+                    cur.execute(
+                        f"""
+                        INSERT OR IGNORE INTO frontier (url_hash, url, domain, priority, source_url, created_at)
+                        VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+                        """,
+                        (h, url, domain, priority, source_url, now),
+                    )
                 if cur.rowcount > 0:
                     added += 1
 
             con.commit()
+            cur.close()
             return added
         finally:
             con.close()
@@ -166,10 +222,12 @@ class Frontier:
         Returns:
             FrontierItem or None if empty
         """
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             # Select highest priority
-            cur = con.execute(
+            cur.execute(
                 """
                 SELECT url_hash, url, domain, priority, source_url, created_at
                 FROM frontier
@@ -179,13 +237,15 @@ class Frontier:
             )
             row = cur.fetchone()
             if not row:
+                cur.close()
                 return None
 
             url_hash_val, url, domain, priority, source_url, created_at = row
 
             # Delete it
-            con.execute("DELETE FROM frontier WHERE url_hash = ?", (url_hash_val,))
+            cur.execute(f"DELETE FROM frontier WHERE url_hash = {ph}", (url_hash_val,))
             con.commit()
+            cur.close()
 
             return FrontierItem(
                 url=url,
@@ -210,20 +270,23 @@ class Frontier:
         if count <= 0:
             return []
 
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             # Select highest priority
-            cur = con.execute(
-                """
+            cur.execute(
+                f"""
                 SELECT url_hash, url, domain, priority, source_url, created_at
                 FROM frontier
                 ORDER BY priority DESC
-                LIMIT ?
+                LIMIT {ph}
                 """,
                 (count,),
             )
             rows = cur.fetchall()
             if not rows:
+                cur.close()
                 return []
 
             items = []
@@ -242,12 +305,13 @@ class Frontier:
                 )
 
             # Delete them
-            placeholders = ",".join("?" * len(hashes))
-            con.execute(
+            placeholders = ",".join(ph for _ in hashes)
+            cur.execute(
                 f"DELETE FROM frontier WHERE url_hash IN ({placeholders})",
                 tuple(hashes),
             )
             con.commit()
+            cur.close()
 
             return items
         finally:
@@ -263,18 +327,20 @@ class Frontier:
         Returns:
             List of FrontierItems
         """
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
-            cur = con.execute(
-                """
+            cur = con.cursor()
+            cur.execute(
+                f"""
                 SELECT url_hash, url, domain, priority, source_url, created_at
                 FROM frontier
                 ORDER BY priority DESC
-                LIMIT ?
+                LIMIT {ph}
                 """,
                 (count,),
             )
-            return [
+            result = [
                 FrontierItem(
                     url=row[1],
                     domain=row[2],
@@ -284,6 +350,8 @@ class Frontier:
                 )
                 for row in cur.fetchall()
             ]
+            cur.close()
+            return result
         finally:
             con.close()
 
@@ -291,18 +359,25 @@ class Frontier:
         """Return number of URLs in frontier."""
         con = get_connection(self.db_path)
         try:
-            cur = con.execute("SELECT COUNT(*) FROM frontier")
-            return cur.fetchone()[0]
+            cur = con.cursor()
+            cur.execute("SELECT COUNT(*) FROM frontier")
+            result = cur.fetchone()[0]
+            cur.close()
+            return result
         finally:
             con.close()
 
     def contains(self, url: str) -> bool:
         """Check if URL is in frontier."""
         h = url_hash(url)
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
-            cur = con.execute("SELECT 1 FROM frontier WHERE url_hash = ?", (h,))
-            return cur.fetchone() is not None
+            cur = con.cursor()
+            cur.execute(f"SELECT 1 FROM frontier WHERE url_hash = {ph}", (h,))
+            result = cur.fetchone() is not None
+            cur.close()
+            return result
         finally:
             con.close()
 
@@ -313,18 +388,22 @@ class Frontier:
         Returns:
             List of (domain, count) tuples ordered by count desc
         """
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
-            cur = con.execute(
-                """
+            cur = con.cursor()
+            cur.execute(
+                f"""
                 SELECT domain, COUNT(*) as cnt
                 FROM frontier
                 GROUP BY domain
                 ORDER BY cnt DESC
-                LIMIT ?
+                LIMIT {ph}
                 """,
                 (limit,),
             )
-            return [(row[0], row[1]) for row in cur.fetchall()]
+            result = [(row[0], row[1]) for row in cur.fetchall()]
+            cur.close()
+            return result
         finally:
             con.close()

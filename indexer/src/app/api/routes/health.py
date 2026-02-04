@@ -40,8 +40,9 @@ async def readiness():
     """Kubernetes readiness probe - are dependencies healthy?"""
     checks = {}
     try:
-        with get_connection(settings.DB_PATH) as conn:
-            conn.execute("SELECT 1")
+        conn = get_connection(settings.DB_PATH)
+        conn.execute("SELECT 1")
+        conn.close()
         checks["database"] = True
     except Exception:
         checks["database"] = False

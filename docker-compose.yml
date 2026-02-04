@@ -1,12 +1,26 @@
-version: '3.8'
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: web-search-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: websearch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-websearch_password}
+      POSTGRES_DB: websearch
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U websearch']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7-alpine
     container_name: web-search-redis
     restart: unless-stopped
     volumes:
-      - redis-data:/data
+      - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -23,9 +37,10 @@ services:
     ports:
       - "8080:8000"
     environment:
-      - ENVIRONMENT=${ENVIRONMENT}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
       - PORT=8000
       - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
       - REDIS_URL=redis://redis:6379
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
@@ -33,9 +48,10 @@ services:
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CRAWLER_SERVICE_URL=http://crawler:8000
-      - TURSO_URL=${TURSO_URL}
-      - TURSO_TOKEN=${TURSO_TOKEN}
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -54,13 +70,15 @@ services:
     ports:
       - "8081:8000"
     environment:
-      - ENVIRONMENT=${ENVIRONMENT}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
       - PORT=8000
       - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TURSO_URL=${TURSO_URL}
-      - TURSO_TOKEN=${TURSO_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -77,13 +95,14 @@ services:
     ports:
       - "8082:8000"
     environment:
-      - ENVIRONMENT=${ENVIRONMENT}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
       - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
       - REDIS_URL=redis://redis:6379/0
       - INDEXER_API_KEY=${INDEXER_API_KEY}
-      - TURSO_URL=${TURSO_URL}
-      - TURSO_TOKEN=${TURSO_TOKEN}
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -94,4 +113,5 @@ services:
       start_period: 30s
 
 volumes:
-  redis-data:
+  postgres_data:
+  redis_data:

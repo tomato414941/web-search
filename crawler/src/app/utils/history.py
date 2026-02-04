@@ -1,26 +1,43 @@
 """
 Crawl History Database
 
-SQLite/Turso-based crawl history tracking.
+PostgreSQL/SQLite-based crawl history tracking.
 """
 
-import os
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from shared.db.search import get_connection
+from shared.db.search import get_connection, is_postgres_mode
 
 # Default DB path (can be overridden by environment variable)
 # Unified crawler database for all crawler-related tables
 DEFAULT_DB_PATH = "/data/crawler.db"
 
+
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
+
+
 # Note: seen_urls table is defined in shared/db/seen_store.py
-SCHEMA = """
--- Crawl history (audit/analysis)
+SCHEMA_PG = """
+CREATE TABLE IF NOT EXISTS crawl_history (
+    id SERIAL PRIMARY KEY,
+    url TEXT NOT NULL,
+    status TEXT NOT NULL,
+    http_code INTEGER,
+    error_message TEXT,
+    created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())::INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_history_url ON crawl_history(url);
+CREATE INDEX IF NOT EXISTS idx_history_created ON crawl_history(created_at);
+"""
+
+SCHEMA_SQLITE = """
 CREATE TABLE IF NOT EXISTS crawl_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT NOT NULL,
-    status TEXT NOT NULL,  -- 'success', 'error', 'blocked', 'skipped'
+    status TEXT NOT NULL,
     http_code INTEGER,
     error_message TEXT,
     created_at INTEGER DEFAULT (strftime('%s', 'now'))
@@ -38,19 +55,30 @@ def get_db_path() -> str:
 
 
 def init_db(db_path: str | None = None):
-    """Initialize crawler database (Turso or local SQLite with WAL mode)"""
+    """Initialize crawler database (PostgreSQL or local SQLite with WAL mode)"""
     path = db_path or get_db_path()
-    turso_mode = os.getenv("TURSO_URL") is not None
+    postgres_mode = is_postgres_mode()
 
     # Ensure directory exists (only for local SQLite)
-    if not turso_mode:
+    if not postgres_mode:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
     con = get_connection(path)
     try:
-        if not turso_mode:
+        if postgres_mode:
+            cur = con.cursor()
+            for stmt in SCHEMA_PG.split(";"):
+                stmt = stmt.strip()
+                if stmt:
+                    try:
+                        cur.execute(stmt)
+                    except Exception:
+                        pass
+            con.commit()
+            cur.close()
+        else:
             con.execute("PRAGMA journal_mode=WAL")
-        con.executescript(SCHEMA)
+            con.executescript(SCHEMA_SQLITE)
     finally:
         con.close()
 
@@ -65,13 +93,16 @@ def log_crawl_attempt(
     """Log a crawl attempt to history"""
     try:
         path = db_path or get_db_path()
+        ph = _placeholder()
         con = get_connection(path)
         try:
-            con.execute(
-                "INSERT INTO crawl_history (url, status, http_code, error_message) VALUES (?, ?, ?, ?)",
+            cur = con.cursor()
+            cur.execute(
+                f"INSERT INTO crawl_history (url, status, http_code, error_message) VALUES ({ph}, {ph}, {ph}, {ph})",
                 (url, status, http_code, error_message),
             )
             con.commit()
+            cur.close()
         finally:
             con.close()
     except Exception as e:
@@ -84,11 +115,13 @@ def get_recent_history(
     """Get recent crawl logs"""
     try:
         path = db_path or get_db_path()
+        ph = _placeholder()
         con = get_connection(path)
         try:
-            cursor = con.execute(
-                "SELECT id, url, status, http_code, error_message, created_at "
-                "FROM crawl_history ORDER BY created_at DESC LIMIT ?",
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT id, url, status, http_code, error_message, created_at "
+                f"FROM crawl_history ORDER BY created_at DESC LIMIT {ph}",
                 (limit,),
             )
             columns = [
@@ -99,7 +132,9 @@ def get_recent_history(
                 "error_message",
                 "created_at",
             ]
-            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+            result = [dict(zip(columns, row)) for row in cur.fetchall()]
+            cur.close()
+            return result
         finally:
             con.close()
     except Exception:
@@ -112,11 +147,13 @@ def get_url_history(
     """Get history for a specific URL"""
     try:
         path = db_path or get_db_path()
+        ph = _placeholder()
         con = get_connection(path)
         try:
-            cursor = con.execute(
-                "SELECT id, url, status, http_code, error_message, created_at "
-                "FROM crawl_history WHERE url = ? ORDER BY created_at DESC LIMIT ?",
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT id, url, status, http_code, error_message, created_at "
+                f"FROM crawl_history WHERE url = {ph} ORDER BY created_at DESC LIMIT {ph}",
                 (url, limit),
             )
             columns = [
@@ -127,7 +164,9 @@ def get_url_history(
                 "error_message",
                 "created_at",
             ]
-            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+            result = [dict(zip(columns, row)) for row in cur.fetchall()]
+            cur.close()
+            return result
         finally:
             con.close()
     except Exception:

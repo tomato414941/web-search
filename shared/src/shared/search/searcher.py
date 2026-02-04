@@ -5,19 +5,23 @@ Provides search functionality using the inverted index.
 Supports BM25, Vector (Semantic), and Hybrid (RRF) search modes.
 """
 
-import sqlite3
 from dataclasses import dataclass
 from typing import Any, Callable
 
 import numpy as np
 
 from shared.analyzer import analyzer
-from shared.db.search import get_connection
+from shared.db.search import get_connection, is_postgres_mode
 from shared.search.scoring import BM25Scorer, BM25Config
 
 
 # Type alias for embedding function
 EmbeddingFunc = Callable[[str], np.ndarray]
+
+
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
 
 
 @dataclass
@@ -121,11 +125,15 @@ class SearchEngine:
 
             # 6. Fetch document details
             hits = []
+            ph = _placeholder()
             for url, score in page_results:
-                doc = conn.execute(
-                    "SELECT title, content FROM documents WHERE url = ?",
+                cur = conn.cursor()
+                cur.execute(
+                    f"SELECT title, content FROM documents WHERE url = {ph}",
                     (url,),
-                ).fetchone()
+                )
+                doc = cur.fetchone()
+                cur.close()
                 if doc:
                     hits.append(
                         SearchHit(
@@ -168,25 +176,26 @@ class SearchEngine:
         if not tokens:
             return set()
 
+        ph = _placeholder()
+
         # Get documents for first token
-        first_token = tokens[0]
-        candidates = set(
-            row[0]
-            for row in conn.execute(
-                "SELECT DISTINCT url FROM inverted_index WHERE token = ?",
-                (first_token,),
-            ).fetchall()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT DISTINCT url FROM inverted_index WHERE token = {ph}",
+            (tokens[0],),
         )
+        candidates = set(row[0] for row in cur.fetchall())
+        cur.close()
 
         # Intersect with remaining tokens
         for token in tokens[1:]:
-            token_docs = set(
-                row[0]
-                for row in conn.execute(
-                    "SELECT DISTINCT url FROM inverted_index WHERE token = ?",
-                    (token,),
-                ).fetchall()
+            cur = conn.cursor()
+            cur.execute(
+                f"SELECT DISTINCT url FROM inverted_index WHERE token = {ph}",
+                (token,),
             )
+            token_docs = set(row[0] for row in cur.fetchall())
+            cur.close()
             candidates &= token_docs
 
             # Early exit if no candidates
@@ -265,15 +274,19 @@ class SearchEngine:
         # 6. Fetch document details
         hits = []
         conn = get_connection(self.db_path)
+        ph = _placeholder()
         try:
             for idx in slice_indices:
                 url = urls[idx]
                 score = float(sims[idx])
 
-                doc = conn.execute(
-                    "SELECT title, content FROM documents WHERE url = ?",
+                cur = conn.cursor()
+                cur.execute(
+                    f"SELECT title, content FROM documents WHERE url = {ph}",
                     (url,),
-                ).fetchone()
+                )
+                doc = cur.fetchone()
+                cur.close()
 
                 if doc:
                     hits.append(
@@ -399,15 +412,23 @@ class SearchEngine:
         try:
             # Check if table exists
             try:
-                conn.execute("SELECT COUNT(*) FROM page_embeddings")
-            except sqlite3.OperationalError:
+                cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM page_embeddings")
+                cur.close()
+            except Exception:
                 self._vector_cache = []
                 return
 
-            rows = conn.execute("SELECT url, embedding FROM page_embeddings").fetchall()
+            cur = conn.cursor()
+            cur.execute("SELECT url, embedding FROM page_embeddings")
+            rows = cur.fetchall()
+            cur.close()
 
             cache = []
             for url, blob in rows:
+                # Handle PostgreSQL memoryview
+                if isinstance(blob, memoryview):
+                    blob = bytes(blob)
                 vec = self._deserialize(blob)
                 cache.append((url, vec))
 

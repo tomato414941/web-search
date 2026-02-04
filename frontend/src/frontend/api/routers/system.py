@@ -22,7 +22,7 @@ root_router = APIRouter()
 
 
 def _check_database() -> bool:
-    """Check database connectivity (Turso or SQLite)."""
+    """Check database connectivity (PostgreSQL or SQLite)."""
     try:
         con = get_connection(settings.DB_PATH)
         con.execute("SELECT 1")

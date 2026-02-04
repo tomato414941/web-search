@@ -4,15 +4,19 @@ History - Visited URL Storage
 Manages URLs that have been crawled.
 """
 
-import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from shared.db.search import get_connection
+from shared.db.search import get_connection, is_postgres_mode
 
 from app.db.frontier import url_hash, get_domain
+
+
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
 
 
 @dataclass
@@ -25,7 +29,23 @@ class HistoryItem:
     crawl_count: int
 
 
-SCHEMA = """
+SCHEMA_PG = """
+CREATE TABLE IF NOT EXISTS history (
+    url_hash TEXT PRIMARY KEY,
+    url TEXT NOT NULL,
+    domain TEXT NOT NULL,
+    status TEXT NOT NULL,
+    first_crawled_at INTEGER NOT NULL,
+    last_crawled_at INTEGER NOT NULL,
+    crawl_count INTEGER DEFAULT 1
+);
+
+CREATE INDEX IF NOT EXISTS idx_history_domain ON history(domain);
+CREATE INDEX IF NOT EXISTS idx_history_recrawl ON history(last_crawled_at);
+CREATE INDEX IF NOT EXISTS idx_history_status ON history(status);
+"""
+
+SCHEMA_SQLITE = """
 CREATE TABLE IF NOT EXISTS history (
     url_hash TEXT PRIMARY KEY,
     url TEXT NOT NULL,
@@ -60,16 +80,27 @@ class History:
 
     def _init_db(self):
         """Initialize database."""
-        turso_mode = os.getenv("TURSO_URL") is not None
+        postgres_mode = is_postgres_mode()
 
-        if not turso_mode:
+        if not postgres_mode:
             Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         con = get_connection(self.db_path)
         try:
-            if not turso_mode:
+            if postgres_mode:
+                cur = con.cursor()
+                for stmt in SCHEMA_PG.split(";"):
+                    stmt = stmt.strip()
+                    if stmt:
+                        try:
+                            cur.execute(stmt)
+                        except Exception:
+                            pass
+                con.commit()
+                cur.close()
+            else:
                 con.execute("PRAGMA journal_mode=WAL")
-            con.executescript(SCHEMA)
+                con.executescript(SCHEMA_SQLITE)
         finally:
             con.close()
 
@@ -88,21 +119,38 @@ class History:
         h = url_hash(url)
         domain = get_domain(url)
         now = int(time.time())
+        ph = _placeholder()
+        postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
         try:
-            con.execute(
-                """
-                INSERT INTO history (url_hash, url, domain, status, first_crawled_at, last_crawled_at, crawl_count)
-                VALUES (?, ?, ?, ?, ?, ?, 1)
-                ON CONFLICT(url_hash) DO UPDATE SET
-                    status = excluded.status,
-                    last_crawled_at = excluded.last_crawled_at,
-                    crawl_count = crawl_count + 1
-                """,
-                (h, url, domain, status, now, now),
-            )
+            cur = con.cursor()
+            if postgres_mode:
+                cur.execute(
+                    f"""
+                    INSERT INTO history (url_hash, url, domain, status, first_crawled_at, last_crawled_at, crawl_count)
+                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, 1)
+                    ON CONFLICT(url_hash) DO UPDATE SET
+                        status = EXCLUDED.status,
+                        last_crawled_at = EXCLUDED.last_crawled_at,
+                        crawl_count = history.crawl_count + 1
+                    """,
+                    (h, url, domain, status, now, now),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    INSERT INTO history (url_hash, url, domain, status, first_crawled_at, last_crawled_at, crawl_count)
+                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, 1)
+                    ON CONFLICT(url_hash) DO UPDATE SET
+                        status = excluded.status,
+                        last_crawled_at = excluded.last_crawled_at,
+                        crawl_count = crawl_count + 1
+                    """,
+                    (h, url, domain, status, now, now),
+                )
             con.commit()
+            cur.close()
         finally:
             con.close()
 
@@ -122,27 +170,44 @@ class History:
 
         now = int(time.time())
         count = 0
+        ph = _placeholder()
+        postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             for url in urls:
                 h = url_hash(url)
                 domain = get_domain(url)
 
-                con.execute(
-                    """
-                    INSERT INTO history (url_hash, url, domain, status, first_crawled_at, last_crawled_at, crawl_count)
-                    VALUES (?, ?, ?, ?, ?, ?, 1)
-                    ON CONFLICT(url_hash) DO UPDATE SET
-                        status = excluded.status,
-                        last_crawled_at = excluded.last_crawled_at,
-                        crawl_count = crawl_count + 1
-                    """,
-                    (h, url, domain, status, now, now),
-                )
+                if postgres_mode:
+                    cur.execute(
+                        f"""
+                        INSERT INTO history (url_hash, url, domain, status, first_crawled_at, last_crawled_at, crawl_count)
+                        VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, 1)
+                        ON CONFLICT(url_hash) DO UPDATE SET
+                            status = EXCLUDED.status,
+                            last_crawled_at = EXCLUDED.last_crawled_at,
+                            crawl_count = history.crawl_count + 1
+                        """,
+                        (h, url, domain, status, now, now),
+                    )
+                else:
+                    cur.execute(
+                        f"""
+                        INSERT INTO history (url_hash, url, domain, status, first_crawled_at, last_crawled_at, crawl_count)
+                        VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, 1)
+                        ON CONFLICT(url_hash) DO UPDATE SET
+                            status = excluded.status,
+                            last_crawled_at = excluded.last_crawled_at,
+                            crawl_count = crawl_count + 1
+                        """,
+                        (h, url, domain, status, now, now),
+                    )
                 count += 1
 
             con.commit()
+            cur.close()
             return count
         finally:
             con.close()
@@ -158,14 +223,18 @@ class History:
         h = url_hash(url)
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
+        ph = _placeholder()
 
         con = get_connection(self.db_path)
         try:
-            cur = con.execute(
-                "SELECT 1 FROM history WHERE url_hash = ? AND last_crawled_at > ?",
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT 1 FROM history WHERE url_hash = {ph} AND last_crawled_at > {ph}",
                 (h, cutoff),
             )
-            return cur.fetchone() is not None
+            result = cur.fetchone() is not None
+            cur.close()
+            return result
         finally:
             con.close()
 
@@ -185,17 +254,20 @@ class History:
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
         result = []
+        ph = _placeholder()
 
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             for url in urls:
                 h = url_hash(url)
-                cur = con.execute(
-                    "SELECT 1 FROM history WHERE url_hash = ? AND last_crawled_at > ?",
+                cur.execute(
+                    f"SELECT 1 FROM history WHERE url_hash = {ph} AND last_crawled_at > {ph}",
                     (h, cutoff),
                 )
                 if cur.fetchone() is None:
                     result.append(url)
+            cur.close()
             return result
         finally:
             con.close()
@@ -209,19 +281,23 @@ class History:
         """
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
+        ph = _placeholder()
 
         con = get_connection(self.db_path)
         try:
-            cur = con.execute(
-                """
+            cur = con.cursor()
+            cur.execute(
+                f"""
                 SELECT url FROM history
-                WHERE last_crawled_at < ? AND status = 'done'
+                WHERE last_crawled_at < {ph} AND status = 'done'
                 ORDER BY last_crawled_at ASC
-                LIMIT ?
+                LIMIT {ph}
                 """,
                 (cutoff, limit),
             )
-            return [row[0] for row in cur.fetchall()]
+            result = [row[0] for row in cur.fetchall()]
+            cur.close()
+            return result
         finally:
             con.close()
 
@@ -233,17 +309,20 @@ class History:
             HistoryItem or None
         """
         h = url_hash(url)
+        ph = _placeholder()
 
         con = get_connection(self.db_path)
         try:
-            cur = con.execute(
-                """
+            cur = con.cursor()
+            cur.execute(
+                f"""
                 SELECT url, domain, status, first_crawled_at, last_crawled_at, crawl_count
-                FROM history WHERE url_hash = ?
+                FROM history WHERE url_hash = {ph}
                 """,
                 (h,),
             )
             row = cur.fetchone()
+            cur.close()
             if not row:
                 return None
 
@@ -268,15 +347,19 @@ class History:
         Returns:
             Count of URLs
         """
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
+            cur = con.cursor()
             if status:
-                cur = con.execute(
-                    "SELECT COUNT(*) FROM history WHERE status = ?", (status,)
+                cur.execute(
+                    f"SELECT COUNT(*) FROM history WHERE status = {ph}", (status,)
                 )
             else:
-                cur = con.execute("SELECT COUNT(*) FROM history")
-            return cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM history")
+            result = cur.fetchone()[0]
+            cur.close()
+            return result
         finally:
             con.close()
 
@@ -289,19 +372,27 @@ class History:
         """
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
+        ph = _placeholder()
 
         con = get_connection(self.db_path)
         try:
-            total = con.execute("SELECT COUNT(*) FROM history").fetchone()[0]
-            done = con.execute(
-                "SELECT COUNT(*) FROM history WHERE status = 'done'"
-            ).fetchone()[0]
-            failed = con.execute(
-                "SELECT COUNT(*) FROM history WHERE status = 'failed'"
-            ).fetchone()[0]
-            recent = con.execute(
-                "SELECT COUNT(*) FROM history WHERE last_crawled_at > ?", (cutoff,)
-            ).fetchone()[0]
+            cur = con.cursor()
+
+            cur.execute("SELECT COUNT(*) FROM history")
+            total = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM history WHERE status = 'done'")
+            done = cur.fetchone()[0]
+
+            cur.execute("SELECT COUNT(*) FROM history WHERE status = 'failed'")
+            failed = cur.fetchone()[0]
+
+            cur.execute(
+                f"SELECT COUNT(*) FROM history WHERE last_crawled_at > {ph}", (cutoff,)
+            )
+            recent = cur.fetchone()[0]
+
+            cur.close()
 
             return {
                 "total": total,
@@ -319,19 +410,23 @@ class History:
         Returns:
             List of (domain, count) tuples ordered by count desc
         """
+        ph = _placeholder()
         con = get_connection(self.db_path)
         try:
-            cur = con.execute(
-                """
+            cur = con.cursor()
+            cur.execute(
+                f"""
                 SELECT domain, COUNT(*) as cnt
                 FROM history
                 WHERE status = 'done'
                 GROUP BY domain
                 ORDER BY cnt DESC
-                LIMIT ?
+                LIMIT {ph}
                 """,
                 (limit,),
             )
-            return [(row[0], row[1]) for row in cur.fetchall()]
+            result = [(row[0], row[1]) for row in cur.fetchall()]
+            cur.close()
+            return result
         finally:
             con.close()

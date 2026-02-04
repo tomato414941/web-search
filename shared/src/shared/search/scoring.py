@@ -5,8 +5,10 @@ Implements the Okapi BM25 ranking function for full-text search.
 """
 
 import math
-import sqlite3
 from dataclasses import dataclass
+from typing import Any
+
+from shared.db.search import is_postgres_mode
 
 
 @dataclass
@@ -17,6 +19,11 @@ class BM25Config:
     b: float = 0.75  # Length normalization
     title_boost: float = 3.0  # Boost for title matches
     pagerank_weight: float = 0.5  # Weight for PageRank score (0 to disable)
+
+
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
 
 
 class BM25Scorer:
@@ -42,7 +49,7 @@ class BM25Scorer:
 
     def score(
         self,
-        conn: sqlite3.Connection,
+        conn: Any,
         url: str,
         tokens: list[str],
     ) -> float:
@@ -70,7 +77,7 @@ class BM25Scorer:
 
     def _calculate_bm25(
         self,
-        conn: sqlite3.Connection,
+        conn: Any,
         url: str,
         tokens: list[str],
     ) -> float:
@@ -90,18 +97,23 @@ class BM25Scorer:
         k1 = self.config.k1
         b = self.config.b
 
+        ph = _placeholder()
+
         for token in tokens:
             # Get IDF
             idf = self._calculate_idf(conn, token, total_docs)
 
             # Get term frequencies for this token in this document
-            term_data = conn.execute(
-                """
+            cur = conn.cursor()
+            cur.execute(
+                f"""
                 SELECT field, term_freq FROM inverted_index
-                WHERE token = ? AND url = ?
+                WHERE token = {ph} AND url = {ph}
                 """,
                 (token, url),
-            ).fetchall()
+            )
+            term_data = cur.fetchall()
+            cur.close()
 
             for field, tf in term_data:
                 # Apply field boost
@@ -115,41 +127,52 @@ class BM25Scorer:
 
         return score
 
-    def _get_pagerank(self, conn: sqlite3.Connection, url: str) -> float:
+    def _get_pagerank(self, conn: Any, url: str) -> float:
         """Get PageRank score for a URL (0.0 if not found)."""
-        row = conn.execute(
-            "SELECT score FROM page_ranks WHERE url = ?",
+        ph = _placeholder()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT score FROM page_ranks WHERE url = {ph}",
             (url,),
-        ).fetchone()
+        )
+        row = cur.fetchone()
+        cur.close()
         return row[0] if row else 0.0
 
     def _get_global_stats(
         self,
-        conn: sqlite3.Connection,
+        conn: Any,
     ) -> tuple[float, float]:
         """Get total docs and average doc length (cached)."""
         if "total_docs" not in self._stats_cache:
-            row = conn.execute(
+            cur = conn.cursor()
+            cur.execute(
                 "SELECT key, value FROM index_stats WHERE key IN ('total_docs', 'avg_doc_length')"
-            ).fetchall()
+            )
+            rows = cur.fetchall()
+            cur.close()
 
-            stats = {k: v for k, v in row}
+            stats = {k: v for k, v in rows}
             self._stats_cache["total_docs"] = stats.get("total_docs", 0)
             self._stats_cache["avg_doc_length"] = stats.get("avg_doc_length", 0)
 
         return self._stats_cache["total_docs"], self._stats_cache["avg_doc_length"]
 
-    def _get_doc_length(self, conn: sqlite3.Connection, url: str) -> int:
+    def _get_doc_length(self, conn: Any, url: str) -> int:
         """Get document word count."""
-        row = conn.execute(
-            "SELECT word_count FROM documents WHERE url = ?",
+        ph = _placeholder()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT word_count FROM documents WHERE url = {ph}",
             (url,),
-        ).fetchone()
+        )
+        row = cur.fetchone()
+        cur.close()
         return row[0] if row else 0
 
     def _calculate_idf(
         self,
-        conn: sqlite3.Connection,
+        conn: Any,
         token: str,
         total_docs: float,
     ) -> float:
@@ -161,10 +184,14 @@ class BM25Scorer:
         Using the "+1" variant to avoid negative IDF for common terms.
         """
         # Get document frequency
-        row = conn.execute(
-            "SELECT doc_freq FROM token_stats WHERE token = ?",
+        ph = _placeholder()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT doc_freq FROM token_stats WHERE token = {ph}",
             (token,),
-        ).fetchone()
+        )
+        row = cur.fetchone()
+        cur.close()
 
         df = row[0] if row else 0
 

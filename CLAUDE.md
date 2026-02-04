@@ -47,11 +47,10 @@ Microservices architecture with CQRS-lite pattern:
 - **shared**: Common library (DB, search logic, config) installed as editable package
 
 ### Database
-- **Production**: Turso (libsql)
-  - Database: `web-search-tomato414941.aws-ap-northeast-1.turso.io`
-  - URL: `libsql://web-search-tomato414941.aws-ap-northeast-1.turso.io`
-  - Token: `turso db tokens create web-search --expiration none` で生成
-- **Local**: SQLite - auto-selected when Turso env vars are not set
+- **Production**: PostgreSQL 16 (Docker on Hetzner SG)
+  - Server: 5.223.74.201 (CPX22: 2 vCPU / 4GB RAM / 80GB)
+  - Connection: `DATABASE_URL=postgresql://websearch:websearch_password@localhost:5432/websearch`
+- **Local**: SQLite - auto-selected when DATABASE_URL env var is not set
 - **Search Index**: Custom inverted index (NOT FTS5)
   - Reason: Integration with SudachiPy (Japanese morphological analyzer)
 - Connection logic in `shared/src/shared/db/search.py`

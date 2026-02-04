@@ -19,12 +19,13 @@ router = APIRouter()
 def log_search(query: str, result_count: int, user_agent: str | None):
     """Log search query to database (runs in background)."""
     try:
-        with get_connection(settings.DB_PATH) as conn:
-            conn.execute(
-                "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (?, ?, ?, ?)",
-                (query, result_count, "hybrid", user_agent),
-            )
-            conn.commit()
+        conn = get_connection(settings.DB_PATH)
+        conn.execute(
+            "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (?, ?, ?, ?)",
+            (query, result_count, "hybrid", user_agent),
+        )
+        conn.commit()
+        conn.close()
     except Exception:
         pass  # Don't fail search if logging fails
 

@@ -1,8 +1,12 @@
-import sqlite3
-from typing import Dict, Set
+from typing import Dict, Set, Any
 
-from frontend.core.db import open_db
+from frontend.core.db import open_db, is_postgres_mode
 from frontend.core.config import settings
+
+
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
 
 
 class RankingService:
@@ -19,9 +23,11 @@ class RankingService:
         try:
             # 1. Load Graph
             nodes: Set[str] = set()
-            cur_nodes = con.execute("SELECT url FROM pages")
-            for row in cur_nodes:
+            cur = con.cursor()
+            cur.execute("SELECT url FROM pages")
+            for row in cur.fetchall():
                 nodes.add(row[0])
+            cur.close()
 
             # Map URL -> List of Outbound URLs
             out_links: Dict[str, list] = {u: [] for u in nodes}
@@ -29,12 +35,13 @@ class RankingService:
             in_links: Dict[str, list] = {u: [] for u in nodes}
 
             # Load edges
-            # Ideally we only load relevant edges
-            cur_links = con.execute("SELECT src, dst FROM links")
-            for src, dst in cur_links:
+            cur = con.cursor()
+            cur.execute("SELECT src, dst FROM links")
+            for src, dst in cur.fetchall():
                 if src in nodes and dst in nodes:
                     out_links[src].append(dst)
                     in_links[dst].append(src)
+            cur.close()
 
             N = len(nodes)
             if N == 0:
@@ -77,12 +84,19 @@ class RankingService:
         finally:
             con.close()
 
-    def _save_scores(self, con: sqlite3.Connection, scores: Dict[str, float]) -> None:
-        con.execute("DELETE FROM page_ranks")
-        con.executemany(
-            "INSERT INTO page_ranks (url, score) VALUES (?, ?)", list(scores.items())
-        )
+    def _save_scores(self, con: Any, scores: Dict[str, float]) -> None:
+        ph = _placeholder()
+        cur = con.cursor()
+        cur.execute("DELETE FROM page_ranks")
+
+        for url, score in scores.items():
+            cur.execute(
+                f"INSERT INTO page_ranks (url, score) VALUES ({ph}, {ph})",
+                (url, score),
+            )
+
         con.commit()
+        cur.close()
 
 
 # Global instance

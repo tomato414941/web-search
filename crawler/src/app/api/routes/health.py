@@ -25,7 +25,7 @@ root_router = APIRouter()
 
 
 def _check_db() -> bool:
-    """Check SQLite/Turso connectivity."""
+    """Check PostgreSQL/SQLite connectivity."""
     try:
         frontier = Frontier(settings.CRAWLER_DB_PATH)
         frontier.size()

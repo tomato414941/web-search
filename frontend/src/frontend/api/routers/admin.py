@@ -111,77 +111,77 @@ def get_dashboard_data() -> dict[str, Any]:
 
     # Database stats
     try:
-        if settings.DB_PATH:
-            with get_connection(settings.DB_PATH) as conn:
-                # Total indexed pages
-                cursor = conn.execute("SELECT COUNT(*) FROM documents")
-                data["indexed_pages"] = cursor.fetchone()[0]
+        conn = get_connection(settings.DB_PATH)
+        # Total indexed pages
+        cursor = conn.execute("SELECT COUNT(*) FROM documents")
+        data["indexed_pages"] = cursor.fetchone()[0]
 
-                # Pages indexed in last 24 hours
-                cursor = conn.execute(
-                    "SELECT COUNT(*) FROM documents "
-                    "WHERE indexed_at >= datetime('now', '-1 day')"
-                )
-                data["indexed_delta"] = cursor.fetchone()[0]
+        # Pages indexed in last 24 hours
+        cursor = conn.execute(
+            "SELECT COUNT(*) FROM documents "
+            "WHERE indexed_at >= datetime('now', '-1 day')"
+        )
+        data["indexed_delta"] = cursor.fetchone()[0]
 
-                # Last crawl time
-                cursor = conn.execute(
-                    "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
-                )
-                result = cursor.fetchone()
-                if result and result[0]:
-                    data["last_crawl"] = result[0]
+        # Last crawl time
+        cursor = conn.execute(
+            "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
+        )
+        result = cursor.fetchone()
+        if result and result[0]:
+            data["last_crawl"] = result[0]
 
-                # Today's search stats
-                cursor = conn.execute(
-                    """
-                    SELECT
-                        COUNT(*) as total,
-                        COUNT(DISTINCT query) as unique_queries,
-                        SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
-                    FROM search_logs
-                    WHERE created_at >= date('now')
-                    """
+        # Today's search stats
+        cursor = conn.execute(
+            """
+            SELECT
+                COUNT(*) as total,
+                COUNT(DISTINCT query) as unique_queries,
+                SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
+            FROM search_logs
+            WHERE created_at >= date('now')
+            """
+        )
+        row = cursor.fetchone()
+        if row:
+            data["today_searches"] = row[0] or 0
+            data["today_unique_queries"] = row[1] or 0
+            data["today_zero_hits"] = row[2] or 0
+            if data["today_searches"] > 0:
+                data["zero_hit_rate"] = round(
+                    data["today_zero_hits"] / data["today_searches"] * 100, 1
                 )
-                row = cursor.fetchone()
-                if row:
-                    data["today_searches"] = row[0] or 0
-                    data["today_unique_queries"] = row[1] or 0
-                    data["today_zero_hits"] = row[2] or 0
-                    if data["today_searches"] > 0:
-                        data["zero_hit_rate"] = round(
-                            data["today_zero_hits"] / data["today_searches"] * 100, 1
-                        )
 
-                # Top query today
-                cursor = conn.execute(
-                    """
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE created_at >= date('now')
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 1
-                    """
-                )
-                row = cursor.fetchone()
-                if row and row[0]:
-                    data["top_query"] = {"query": row[0], "count": row[1]}
+        # Top query today
+        cursor = conn.execute(
+            """
+            SELECT query, COUNT(*) as count
+            FROM search_logs
+            WHERE created_at >= date('now')
+            GROUP BY query
+            ORDER BY count DESC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        if row and row[0]:
+            data["top_query"] = {"query": row[0], "count": row[1]}
 
-                # Zero-hit queries (top 5)
-                cursor = conn.execute(
-                    """
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE result_count = 0 AND created_at >= date('now')
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 5
-                    """
-                )
-                data["zero_hit_queries"] = [
-                    {"query": row[0], "count": row[1]} for row in cursor.fetchall()
-                ]
+        # Zero-hit queries (top 5)
+        cursor = conn.execute(
+            """
+            SELECT query, COUNT(*) as count
+            FROM search_logs
+            WHERE result_count = 0 AND created_at >= date('now')
+            GROUP BY query
+            ORDER BY count DESC
+            LIMIT 5
+            """
+        )
+        data["zero_hit_queries"] = [
+            {"query": row[0], "count": row[1]} for row in cursor.fetchall()
+        ]
+        conn.close()
     except Exception as e:
         logger.warning(f"Failed to get DB stats: {e}")
 
@@ -651,46 +651,47 @@ def get_analytics_data() -> dict:
     }
 
     try:
-        with get_connection(settings.DB_PATH) as conn:
-            # Total searches in last 7 days
-            cursor = conn.execute(
-                """
-                SELECT COUNT(*) FROM search_logs
-                WHERE created_at >= datetime('now', '-7 days')
-                """
-            )
-            data["total_searches"] = cursor.fetchone()[0]
+        conn = get_connection(settings.DB_PATH)
+        # Total searches in last 7 days
+        cursor = conn.execute(
+            """
+            SELECT COUNT(*) FROM search_logs
+            WHERE created_at >= datetime('now', '-7 days')
+            """
+        )
+        data["total_searches"] = cursor.fetchone()[0]
 
-            # Top queries (last 7 days)
-            cursor = conn.execute(
-                """
-                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-                FROM search_logs
-                WHERE created_at >= datetime('now', '-7 days')
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """
-            )
-            data["top_queries"] = [
-                {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
-                for row in cursor.fetchall()
-            ]
+        # Top queries (last 7 days)
+        cursor = conn.execute(
+            """
+            SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
+            FROM search_logs
+            WHERE created_at >= datetime('now', '-7 days')
+            GROUP BY query
+            ORDER BY count DESC
+            LIMIT 20
+            """
+        )
+        data["top_queries"] = [
+            {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
+            for row in cursor.fetchall()
+        ]
 
-            # Zero-hit queries (content gaps)
-            cursor = conn.execute(
-                """
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE result_count = 0 AND created_at >= datetime('now', '-7 days')
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """
-            )
-            data["zero_hit_queries"] = [
-                {"query": row[0], "count": row[1]} for row in cursor.fetchall()
-            ]
+        # Zero-hit queries (content gaps)
+        cursor = conn.execute(
+            """
+            SELECT query, COUNT(*) as count
+            FROM search_logs
+            WHERE result_count = 0 AND created_at >= datetime('now', '-7 days')
+            GROUP BY query
+            ORDER BY count DESC
+            LIMIT 20
+            """
+        )
+        data["zero_hit_queries"] = [
+            {"query": row[0], "count": row[1]} for row in cursor.fetchall()
+        ]
+        conn.close()
     except Exception as e:
         logger.warning(f"Failed to get analytics data: {e}")
 
