@@ -37,7 +37,7 @@ Microservices architecture with CQRS-lite pattern:
 
 - **frontend** (`:8080`): Read-only search service with UI, uses FastAPI + Jinja2
 - **indexer** (`:8081`): Write-node for tokenization and embedding
-- **crawler** (`:8082`): Distributed crawler with API for queue/worker management, uses Redis as URL frontier
+- **crawler** (`:8082`): Distributed crawler with API for queue/worker management, uses PostgreSQL `frontier` table as URL queue
 - **shared**: Common library (DB, search logic, config) installed as editable package
 
 ### Database
