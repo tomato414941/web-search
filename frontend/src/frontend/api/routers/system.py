@@ -25,7 +25,9 @@ def _check_database() -> bool:
     """Check database connectivity (PostgreSQL or SQLite)."""
     try:
         con = get_connection(settings.DB_PATH)
-        con.execute("SELECT 1")
+        cur = con.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
         con.close()
         return True
     except Exception:

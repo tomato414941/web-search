@@ -81,8 +81,10 @@ class SearchService:
         """Return index stats: total pages."""
         try:
             con = get_connection(self.db_path)
-            cur = con.execute("SELECT count(*) FROM documents")
+            cur = con.cursor()
+            cur.execute("SELECT count(*) FROM documents")
             count = cur.fetchone()[0]
+            cur.close()
             con.close()
             return {"indexed": count}
         except Exception:

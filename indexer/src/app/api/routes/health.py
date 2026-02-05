@@ -41,7 +41,9 @@ async def readiness():
     checks = {}
     try:
         conn = get_connection(settings.DB_PATH)
-        conn.execute("SELECT 1")
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
         conn.close()
         checks["database"] = True
     except Exception:

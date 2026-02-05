@@ -20,11 +20,13 @@ def log_search(query: str, result_count: int, user_agent: str | None):
     """Log search query to database (runs in background)."""
     try:
         conn = get_connection(settings.DB_PATH)
-        conn.execute(
-            "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (?, ?, ?, ?)",
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (%s, %s, %s, %s)",
             (query, result_count, "hybrid", user_agent),
         )
         conn.commit()
+        cur.close()
         conn.close()
     except Exception:
         pass  # Don't fail search if logging fails

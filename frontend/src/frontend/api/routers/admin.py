@@ -112,19 +112,20 @@ def get_dashboard_data() -> dict[str, Any]:
     # Database stats
     try:
         conn = get_connection(settings.DB_PATH)
+        cursor = conn.cursor()
         # Total indexed pages
-        cursor = conn.execute("SELECT COUNT(*) FROM documents")
+        cursor.execute("SELECT COUNT(*) FROM documents")
         data["indexed_pages"] = cursor.fetchone()[0]
 
         # Pages indexed in last 24 hours
-        cursor = conn.execute(
+        cursor.execute(
             "SELECT COUNT(*) FROM documents "
-            "WHERE indexed_at >= datetime('now', '-1 day')"
+            "WHERE indexed_at >= NOW() - INTERVAL '1 day'"
         )
         data["indexed_delta"] = cursor.fetchone()[0]
 
         # Last crawl time
-        cursor = conn.execute(
+        cursor.execute(
             "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
         )
         result = cursor.fetchone()
@@ -132,14 +133,14 @@ def get_dashboard_data() -> dict[str, Any]:
             data["last_crawl"] = result[0]
 
         # Today's search stats
-        cursor = conn.execute(
+        cursor.execute(
             """
             SELECT
                 COUNT(*) as total,
                 COUNT(DISTINCT query) as unique_queries,
                 SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
             FROM search_logs
-            WHERE created_at >= date('now')
+            WHERE created_at >= CURRENT_DATE
             """
         )
         row = cursor.fetchone()
@@ -153,11 +154,11 @@ def get_dashboard_data() -> dict[str, Any]:
                 )
 
         # Top query today
-        cursor = conn.execute(
+        cursor.execute(
             """
             SELECT query, COUNT(*) as count
             FROM search_logs
-            WHERE created_at >= date('now')
+            WHERE created_at >= CURRENT_DATE
             GROUP BY query
             ORDER BY count DESC
             LIMIT 1
@@ -168,11 +169,11 @@ def get_dashboard_data() -> dict[str, Any]:
             data["top_query"] = {"query": row[0], "count": row[1]}
 
         # Zero-hit queries (top 5)
-        cursor = conn.execute(
+        cursor.execute(
             """
             SELECT query, COUNT(*) as count
             FROM search_logs
-            WHERE result_count = 0 AND created_at >= date('now')
+            WHERE result_count = 0 AND created_at >= CURRENT_DATE
             GROUP BY query
             ORDER BY count DESC
             LIMIT 5
@@ -181,6 +182,7 @@ def get_dashboard_data() -> dict[str, Any]:
         data["zero_hit_queries"] = [
             {"query": row[0], "count": row[1]} for row in cursor.fetchall()
         ]
+        cursor.close()
         conn.close()
     except Exception as e:
         logger.warning(f"Failed to get DB stats: {e}")
@@ -652,21 +654,22 @@ def get_analytics_data() -> dict:
 
     try:
         conn = get_connection(settings.DB_PATH)
+        cursor = conn.cursor()
         # Total searches in last 7 days
-        cursor = conn.execute(
+        cursor.execute(
             """
             SELECT COUNT(*) FROM search_logs
-            WHERE created_at >= datetime('now', '-7 days')
+            WHERE created_at >= NOW() - INTERVAL '7 days'
             """
         )
         data["total_searches"] = cursor.fetchone()[0]
 
         # Top queries (last 7 days)
-        cursor = conn.execute(
+        cursor.execute(
             """
             SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
             FROM search_logs
-            WHERE created_at >= datetime('now', '-7 days')
+            WHERE created_at >= NOW() - INTERVAL '7 days'
             GROUP BY query
             ORDER BY count DESC
             LIMIT 20
@@ -678,11 +681,11 @@ def get_analytics_data() -> dict:
         ]
 
         # Zero-hit queries (content gaps)
-        cursor = conn.execute(
+        cursor.execute(
             """
             SELECT query, COUNT(*) as count
             FROM search_logs
-            WHERE result_count = 0 AND created_at >= datetime('now', '-7 days')
+            WHERE result_count = 0 AND created_at >= NOW() - INTERVAL '7 days'
             GROUP BY query
             ORDER BY count DESC
             LIMIT 20
@@ -691,6 +694,7 @@ def get_analytics_data() -> dict:
         data["zero_hit_queries"] = [
             {"query": row[0], "count": row[1]} for row in cursor.fetchall()
         ]
+        cursor.close()
         conn.close()
     except Exception as e:
         logger.warning(f"Failed to get analytics data: {e}")
