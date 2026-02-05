@@ -1,7 +1,7 @@
 """
 Japanese Text Analyzer (Shared Kernel)
 
-Tokenizes Japanese text using SudachiPy for FTS5 indexing.
+Tokenizes Japanese text using SudachiPy for the custom inverted index.
 Used by both Frontend (Search) and Indexer services.
 """
 

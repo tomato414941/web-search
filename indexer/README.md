@@ -5,15 +5,14 @@ The Indexer Service is a write-optimized microservice responsible for ingesting,
 ## Responsibilities
 
 1.  **Ingestion**: Receives crawled data (URL, Title, Content) from the Crawler Service via HTTP API.
-2.  **Tokenization**: Uses `shared.analyzer` (SudachiPy) to tokenize Japanese text for SQLite FTS5.
+2.  **Tokenization**: Uses `shared.analyzer` (SudachiPy) to tokenize Japanese text for the custom inverted index.
 3.  **Embedding**: Uses OpenAI API to generate vector embeddings for semantic search.
-4.  **Storage**: Writes data to the shared SQLite database (`shared.db.search`).
+4.  **Storage**: Writes data to the shared DB (`shared.db.search`) using PostgreSQL (production) or SQLite (local dev).
 
 ## Directory Structure
 
 ```
 indexer/
-├── .env.example       # Configuration template
 ├── Dockerfile         # Docker build instruction
 ├── requirements.txt   # Dependencies (FastAPI, SudachiPy, OpenAI)
 ├── src/
@@ -29,6 +28,7 @@ indexer/
 
 ```bash
 # Install dependencies
+pip install -e ../shared
 pip install -r requirements.txt
 
 # Start Server

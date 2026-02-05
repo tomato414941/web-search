@@ -6,7 +6,7 @@ and indexer API configuration.
 """
 
 import os
-from shared.core.infrastructure_config import InfrastructureSettings
+from shared.core.infrastructure_config import Environment, InfrastructureSettings
 
 
 class CrawlerSettings(InfrastructureSettings):
@@ -38,9 +38,19 @@ class CrawlerSettings(InfrastructureSettings):
     INDEXER_API_URL: str = os.getenv(
         "INDEXER_API_URL", "http://localhost:8000/api/v1/indexer/page"
     )
-    INDEXER_API_KEY: str = os.environ[
-        "INDEXER_API_KEY"
-    ]  # Required - no default for security
+    INDEXER_API_KEY: str | None = os.getenv("INDEXER_API_KEY")  # Required outside tests
 
 
 settings = CrawlerSettings()
+
+
+def _validate_required(settings: CrawlerSettings) -> None:
+    """Validate required settings outside of tests."""
+    if settings.ENVIRONMENT == Environment.TEST:
+        return
+
+    if not settings.INDEXER_API_KEY:
+        raise RuntimeError("Missing required environment variable: INDEXER_API_KEY")
+
+
+_validate_required(settings)

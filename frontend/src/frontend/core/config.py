@@ -7,16 +7,16 @@ Inherits infrastructure settings from shared library.
 
 import os
 
-from shared.core.infrastructure_config import InfrastructureSettings
+from shared.core.infrastructure_config import Environment, InfrastructureSettings
 
 
 class Settings(InfrastructureSettings):
     """Frontend service configuration"""
 
     # Admin Authentication (required - no defaults for security)
-    ADMIN_USERNAME: str = os.environ["ADMIN_USERNAME"]
-    ADMIN_PASSWORD: str = os.environ["ADMIN_PASSWORD"]
-    SECRET_KEY: str = os.environ["ADMIN_SESSION_SECRET"]
+    ADMIN_USERNAME: str | None = os.getenv("ADMIN_USERNAME")
+    ADMIN_PASSWORD: str | None = os.getenv("ADMIN_PASSWORD")
+    SECRET_KEY: str | None = os.getenv("ADMIN_SESSION_SECRET")
 
     # Crawler Service Integration
     CRAWLER_SERVICE_URL: str = os.getenv("CRAWLER_SERVICE_URL", "http://localhost:8000")
@@ -50,7 +50,7 @@ class Settings(InfrastructureSettings):
     RESULTS_LIMIT: int = int(os.getenv("RESULTS_LIMIT", "10"))
 
     # Indexer API (required - no default for security)
-    INDEXER_API_KEY: str = os.environ["INDEXER_API_KEY"]
+    INDEXER_API_KEY: str | None = os.getenv("INDEXER_API_KEY")
 
     # OpenAI (for embeddings)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
@@ -70,3 +70,24 @@ class Settings(InfrastructureSettings):
 
 
 settings = Settings()
+
+
+def _validate_required(settings: Settings) -> None:
+    """Validate required settings outside of tests."""
+    if settings.ENVIRONMENT == Environment.TEST:
+        return
+
+    required_fields = [
+        "ADMIN_USERNAME",
+        "ADMIN_PASSWORD",
+        "SECRET_KEY",
+        "INDEXER_API_KEY",
+    ]
+    missing = [name for name in required_fields if not getattr(settings, name)]
+    if missing:
+        raise RuntimeError(
+            "Missing required environment variables: " + ", ".join(missing)
+        )
+
+
+_validate_required(settings)

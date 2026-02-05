@@ -13,7 +13,8 @@ COPY shared/ ./shared/
 
 # Copy and install dependencies
 COPY crawler/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -e ./shared \
+    && pip install --no-cache-dir -r requirements.txt
 
 # Stage 2: Production image
 FROM python:3.11-slim

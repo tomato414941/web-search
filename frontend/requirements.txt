@@ -1,5 +1,4 @@
 # Frontend Service Requirements
--e ./shared
 
 # Web Framework
 fastapi

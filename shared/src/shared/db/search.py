@@ -196,11 +196,7 @@ def _execute_schema_statements(con: Any, schema: str, is_postgres: bool) -> None
         cur = con.cursor()
         statements = [s.strip() for s in schema.split(";") if s.strip()]
         for stmt in statements:
-            try:
-                cur.execute(stmt)
-            except Exception:
-                # Ignore errors for CREATE INDEX IF NOT EXISTS on existing indexes
-                pass
+            cur.execute(stmt)
         con.commit()
         cur.close()
     else:

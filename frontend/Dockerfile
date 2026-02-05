@@ -13,7 +13,8 @@ COPY shared/ ./shared/
 
 # Copy and install dependencies
 COPY frontend/requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt gunicorn
+RUN pip install --no-cache-dir --user -e ./shared \
+    && pip install --no-cache-dir --user -r requirements.txt gunicorn
 
 # Stage 2: Production image
 FROM python:3.11-slim

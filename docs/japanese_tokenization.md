@@ -1,42 +1,33 @@
 # Japanese Tokenization & Internationalization
 
 ## Overview
-
-The search engine supports identifying and tokenizing Japanese text to provide accurate search results. This is achieved by combining **SudachiPy** (morphological analyzer) with **SQLite FTS5**.
+Japanese text is tokenized with **SudachiPy** before indexing and searching. Tokens are stored in the custom inverted index tables (not FTS5) so that the same analysis is used at index time and query time.
 
 ## Implementation Details
 
 ### 1. Tokenizer: SudachiPy (Shared Logic)
-Unlike English, Japanese text does not use spaces to separate words. We use **SudachiPy** with the `sudachidict_core` dictionary to split Japanese sentences into tokens.
+We use `sudachidict_core` with SudachiPy to split Japanese text into tokens.
 
 **Code Location**: `shared/src/shared/analyzer.py`
 
-When a Japanese sentence like `東京都へ行く` is processed, it is converted to space-separated tokens: `東京都 へ 行く`.
+Example:
+- Input: `東京都へ行く`
+- Output tokens: `東京都 へ 行く`
 
-This logic is centralized in the **Shared Library** because it must be identical for both:
-*   **Indexer Service**: When saving content to the DB.
-*   **Frontend Service**: When parsing user search queries.
+This logic is shared by:
+- **Indexer Service**: Tokenizes content before writing to the inverted index.
+- **Frontend Service**: Tokenizes user queries before searching.
 
-### 2. Indexing Strategy (SQLite FTS5)
-To support this pre-tokenized text, we use the FTS5 **`unicode61` tokenizer**.
+### 2. Indexing Strategy (Custom Inverted Index)
+Tokens are stored in the `inverted_index` table alongside per-token statistics:
+- `inverted_index` for token → document matches
+- `token_stats` and `index_stats` for BM25 scoring
 
-```sql
-CREATE VIRTUAL TABLE pages USING fts5(
-  ...
-  tokenize='unicode61'
-);
-```
-
-The `unicode61` tokenizer splits text by whitespace and unicode boundaries. By feeding it the space-separated output from SudachiPy, we enable word-based matching for Japanese.
+This keeps indexing logic explicit and predictable, with full control over scoring and ranking.
 
 ### 3. Query Processing
-When a user searches for a query, the same `JapaneseAnalyzer` from `shared` is applied to the query string *before* it is sent to the database.
-
-*   User Query (Raw): `東京へ`
-*   Analyzed Query: `東京 OR へ` (or just `東京 へ`)
-*   SQL Query: `MATCH '東京 へ'`
+Search queries are analyzed with the same tokenizer and matched against the inverted index tables. For hybrid search, the token-based results are combined with embedding-based results using Reciprocal Rank Fusion (RRF).
 
 ## Development Notes
-
-*   **Dictionary**: The project uses `sudachidict_core` by default.
-*   **Performance**: Tokenization happens in-memory (Python) before DB insertion.
+- **Dictionary**: Uses `sudachidict_core` by default.
+- **Performance**: Tokenization happens in Python before database writes and reads.

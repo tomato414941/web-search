@@ -6,6 +6,8 @@ import os
 
 # Set ENVIRONMENT before importing any modules that use infrastructure_config
 os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("INDEXER_API_KEY", "test-api-key")
+os.environ.setdefault("INDEXER_API_URL", "http://test:8000/api/indexer/page")
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock

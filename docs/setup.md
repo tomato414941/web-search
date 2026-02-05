@@ -1,115 +1,79 @@
 # Setup Guide
 
 ## Prerequisites
-
-*   **Docker & Docker Compose**: Recommended for production-like environments.
-*   **Python 3.10+**: For local development.
-*   **Git**: For version control.
+- Docker & Docker Compose (recommended)
+- Python 3.11+
+- Git
 
 ## Docker Setup (Recommended)
-
-The easiest way to run the full search engine is via Docker Compose.
-
-1.  **Clone and Start**:
-    ```bash
-    git clone <repository_url>
-    cd web-search
-    docker compose -f deployment/frontend/docker-compose.yml up --build -d
-    # Note: Crawler service might need its own compose file if deploying distributedly
-    ```
-
-    This starts:
-    *   `frontend` (Web Node): http://localhost:8080
-    *   `indexer` (Write Node): http://localhost:8081
-    *   `crawler` (Worker Node): Background service.
-    *   `redis`: URL Frontier (Internal).
-
-## Local Development Setup
-
-For development, you run services individually. This project uses a **Folder-Separated Monorepo** structure.
-
-### 1. Environment Setup
-
-Create a virtual environment and install dependencies.
+Run the full stack with Docker Compose:
 
 ```bash
-# Create venv
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# Linux/Mac
+docker compose up --build -d
+```
+
+Services and ports:
+- Frontend (UI + Search API): http://localhost:8080
+- Indexer (Write API): http://localhost:8081
+- Crawler (API): http://localhost:8082
+- PostgreSQL: internal to the compose network
+
+## Local Development Setup
+This repo is a folder-separated monorepo. Install the shared package first, then service deps.
+
+```bash
+python3 -m venv .venv
 source .venv/bin/activate
-
-# 1. Install Shared Library (Editable Mode) - CRITICAL
-pip install -e shared
-
-# 2. Install Service Dependencies
+pip install -e shared/
 pip install -r frontend/requirements.txt
 pip install -r indexer/requirements.txt
 pip install -r crawler/requirements.txt
 ```
 
-### 2. Configuration (.env)
-
-Copy example configurations:
+### Environment Configuration
+Copy and load the root `.env` file:
 
 ```bash
-# Frontend
-cp frontend/.env.example frontend/.env
-
-# Indexer
-cp indexer/.env.example indexer/.env
-
-# Crawler
-cp crawler/.env.example crawler/.env
+cp .env.example .env
+set -a
+source .env
+set +a
 ```
 
-Ensure `REDIS_URL` in `crawler/.env` points to your local Redis.
-Ensure `OPENAI_API_KEY` is set in `indexer/.env` and `frontend/.env` if you want semantic search.
+Required variables for local runs:
+- `ENVIRONMENT=development`
+- `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
+- `INDEXER_API_KEY`
+- `CRAWLER_SERVICE_URL` and `INDEXER_API_URL` when running multiple services locally
 
-### 3. Running Services (Manually)
+Optional:
+- `OPENAI_API_KEY` for semantic search
+- `DATABASE_URL` if you want to use PostgreSQL locally (otherwise SQLite is used)
 
-You need 4 terminals.
+### Running Services
+Use separate terminals:
 
-**Terminal 1: Redis**
 ```bash
-docker run -p 6379:6379 redis:alpine
-```
-
-**Terminal 2: Frontend (Search Cluster)**
-```bash
-cd frontend/src
+export PYTHONPATH=frontend/src
 uvicorn frontend.api.main:app --reload --port 8080
-# Access at http://localhost:8080
 ```
 
-**Terminal 3: Indexer (Write Cluster)**
 ```bash
-cd indexer/src
+export PYTHONPATH=indexer/src
 uvicorn app.main:app --reload --port 8081
-# Access at http://localhost:8081
 ```
 
-**Terminal 4: Crawler (Worker)**
 ```bash
-cd crawler/src
-python -m app.main
+export PYTHONPATH=crawler/src
+uvicorn app.main:app --reload --port 8082
 ```
 
 ## Running Tests
-
 Tests are split by service.
 
 ```bash
-# Test Shared Library
 pytest shared/tests
-
-# Test Frontend
 pytest frontend/tests
-
-# Test Indexer
 pytest indexer/tests
-
-# Test Crawler
 pytest crawler/tests
 ```

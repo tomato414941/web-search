@@ -92,10 +92,7 @@ class History:
                 for stmt in SCHEMA_PG.split(";"):
                     stmt = stmt.strip()
                     if stmt:
-                        try:
-                            cur.execute(stmt)
-                        except Exception:
-                            pass
+                        cur.execute(stmt)
                 con.commit()
                 cur.close()
             else:

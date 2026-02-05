@@ -6,6 +6,7 @@ from pathlib import Path
 
 # Set ENVIRONMENT before importing any modules that use infrastructure_config
 os.environ.setdefault("ENVIRONMENT", "test")
+os.environ.setdefault("INDEXER_API_KEY", "test-api-key")
 
 # Add indexer/src and shared/src to path for imports
 indexer_root = Path(__file__).parent.parent
