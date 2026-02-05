@@ -3,11 +3,16 @@
 import logging
 
 from app.core.config import settings
-from shared.db.search import open_db, get_connection
+from shared.db.search import open_db, get_connection, is_postgres_mode
 from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
 
 logger = logging.getLogger(__name__)
+
+
+def _placeholder() -> str:
+    """Return the appropriate placeholder for the current database."""
+    return "%s" if is_postgres_mode() else "?"
 
 
 class IndexerService:
@@ -30,11 +35,16 @@ class IndexerService:
                 try:
                     vector_blob = await embedding_service.embed(content)
                     if vector_blob:
-                        conn.execute("DELETE FROM page_embeddings WHERE url=?", (url,))
-                        conn.execute(
-                            "INSERT INTO page_embeddings (url, embedding) VALUES (?, ?)",
+                        ph = _placeholder()
+                        cur = conn.cursor()
+                        cur.execute(
+                            f"DELETE FROM page_embeddings WHERE url={ph}", (url,)
+                        )
+                        cur.execute(
+                            f"INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})",
                             (url, vector_blob),
                         )
+                        cur.close()
                         conn.commit()
                 except Exception as embed_error:
                     # Don't fail indexing if embedding fails
@@ -55,8 +65,10 @@ class IndexerService:
         """Get indexing statistics."""
         try:
             conn = get_connection(self.db_path)
-            cursor = conn.execute("SELECT COUNT(*) FROM documents")
-            total = cursor.fetchone()[0]
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM documents")
+            total = cur.fetchone()[0]
+            cur.close()
             conn.close()
             return {"total": total}
         except Exception as e:
