@@ -5,6 +5,7 @@ Provides search functionality using the inverted index.
 Supports BM25, Vector (Semantic), and Hybrid (RRF) search modes.
 """
 
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -57,6 +58,7 @@ class SearchEngine:
     """
 
     RRF_K = 60  # Standard RRF constant
+    CACHE_TTL_SECONDS = 300  # 5 minutes
 
     def __init__(
         self,
@@ -79,6 +81,7 @@ class SearchEngine:
         self._embed_query = embed_query_func
         self._deserialize = deserialize_func
         self._vector_cache: list[tuple[str, np.ndarray]] | None = None
+        self._vector_cache_loaded_at: float | None = None
 
     def search(
         self,
@@ -123,26 +126,33 @@ class SearchEngine:
             offset = (page - 1) * limit
             page_results = scored[offset : offset + limit]
 
-            # 6. Fetch document details
+            # 6. Fetch document details (batch query to avoid N+1)
             hits = []
-            ph = _placeholder()
-            for url, score in page_results:
+            if page_results:
+                result_urls = [url for url, _ in page_results]
+                result_scores = {url: score for url, score in page_results}
+
+                ph = _placeholder()
+                placeholders = ",".join([ph] * len(result_urls))
                 cur = conn.cursor()
                 cur.execute(
-                    f"SELECT title, content FROM documents WHERE url = {ph}",
-                    (url,),
+                    f"SELECT url, title, content FROM documents WHERE url IN ({placeholders})",
+                    tuple(result_urls),
                 )
-                doc = cur.fetchone()
+                docs = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
                 cur.close()
-                if doc:
-                    hits.append(
-                        SearchHit(
-                            url=url,
-                            title=doc[0],
-                            content=doc[1],
-                            score=score,
+
+                # Preserve order from BM25 ranking
+                for url in result_urls:
+                    if url in docs:
+                        hits.append(
+                            SearchHit(
+                                url=url,
+                                title=docs[url][0],
+                                content=docs[url][1],
+                                score=result_scores[url],
+                            )
                         )
-                    )
 
             last_page = max((total + limit - 1) // limit, 1)
 
@@ -172,35 +182,26 @@ class SearchEngine:
     ) -> set[str]:
         """
         Find documents containing ALL tokens (AND logic).
+        Uses a single query with GROUP BY HAVING for efficiency.
         """
         if not tokens:
             return set()
 
         ph = _placeholder()
+        placeholders = ",".join([ph] * len(tokens))
 
-        # Get documents for first token
         cur = conn.cursor()
         cur.execute(
-            f"SELECT DISTINCT url FROM inverted_index WHERE token = {ph}",
-            (tokens[0],),
+            f"""
+            SELECT url FROM inverted_index
+            WHERE token IN ({placeholders})
+            GROUP BY url
+            HAVING COUNT(DISTINCT token) = {ph}
+            """,
+            (*tokens, len(tokens)),
         )
         candidates = set(row[0] for row in cur.fetchall())
         cur.close()
-
-        # Intersect with remaining tokens
-        for token in tokens[1:]:
-            cur = conn.cursor()
-            cur.execute(
-                f"SELECT DISTINCT url FROM inverted_index WHERE token = {ph}",
-                (token,),
-            )
-            token_docs = set(row[0] for row in cur.fetchall())
-            cur.close()
-            candidates &= token_docs
-
-            # Early exit if no candidates
-            if not candidates:
-                return set()
 
         return candidates
 
@@ -271,34 +272,37 @@ class SearchEngine:
         end = start + limit
         slice_indices = top_indices[start:end]
 
-        # 6. Fetch document details
+        # 6. Fetch document details (batch query to avoid N+1)
         hits = []
-        conn = get_connection(self.db_path)
-        ph = _placeholder()
-        try:
-            for idx in slice_indices:
-                url = urls[idx]
-                score = float(sims[idx])
+        if len(slice_indices) > 0:
+            result_urls = [urls[idx] for idx in slice_indices]
+            result_scores = {urls[idx]: float(sims[idx]) for idx in slice_indices}
 
+            conn = get_connection(self.db_path)
+            ph = _placeholder()
+            try:
+                placeholders = ",".join([ph] * len(result_urls))
                 cur = conn.cursor()
                 cur.execute(
-                    f"SELECT title, content FROM documents WHERE url = {ph}",
-                    (url,),
+                    f"SELECT url, title, content FROM documents WHERE url IN ({placeholders})",
+                    tuple(result_urls),
                 )
-                doc = cur.fetchone()
+                docs = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
                 cur.close()
 
-                if doc:
-                    hits.append(
-                        SearchHit(
-                            url=url,
-                            title=doc[0],
-                            content=doc[1],
-                            score=score,
+                # Preserve order from similarity ranking
+                for url in result_urls:
+                    if url in docs:
+                        hits.append(
+                            SearchHit(
+                                url=url,
+                                title=docs[url][0],
+                                content=docs[url][1],
+                                score=result_scores[url],
+                            )
                         )
-                    )
-        finally:
-            conn.close()
+            finally:
+                conn.close()
 
         last_page = max((total + limit - 1) // limit, 1)
 
@@ -400,9 +404,11 @@ class SearchEngine:
         )
 
     def _load_vector_cache(self) -> None:
-        """Load all embeddings from DB into memory."""
-        if self._vector_cache is not None:
-            return  # Already loaded
+        """Load all embeddings from DB into memory with TTL-based invalidation."""
+        now = time.time()
+        if self._vector_cache is not None and self._vector_cache_loaded_at is not None:
+            if (now - self._vector_cache_loaded_at) < self.CACHE_TTL_SECONDS:
+                return  # Cache still valid
 
         if self._deserialize is None:
             self._vector_cache = []
@@ -433,6 +439,7 @@ class SearchEngine:
                 cache.append((url, vec))
 
             self._vector_cache = cache
+            self._vector_cache_loaded_at = time.time()
 
         finally:
             conn.close()
@@ -440,6 +447,7 @@ class SearchEngine:
     def clear_vector_cache(self) -> None:
         """Clear the vector cache (call after indexing new documents)."""
         self._vector_cache = None
+        self._vector_cache_loaded_at = None
 
     def _empty_result(self, query: str, limit: int) -> SearchResult:
         """Return empty search result."""
