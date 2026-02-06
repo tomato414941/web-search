@@ -9,7 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
-from app.db.frontier import Frontier, FrontierItem
+from app.db.url_store import UrlStore, UrlItem
 
 
 @dataclass
@@ -18,7 +18,7 @@ class SchedulerConfig:
     domain_min_interval: float = 1.0
     # Maximum concurrent requests per domain
     domain_max_concurrent: int = 2
-    # How many URLs to fetch from frontier at once
+    # How many URLs to fetch from url_store at once
     batch_size: int = 100
 
 
@@ -26,16 +26,16 @@ class Scheduler:
     """
     URL Scheduler with domain rate limiting.
 
-    Fetches URLs from Frontier and applies domain-based rate limiting
+    Fetches URLs from UrlStore and applies domain-based rate limiting
     to avoid overloading individual hosts.
     """
 
     def __init__(
         self,
-        frontier: Frontier,
+        url_store: UrlStore,
         config: Optional[SchedulerConfig] = None,
     ):
-        self.frontier = frontier
+        self.url_store = url_store
         self.config = config or SchedulerConfig()
 
         # Track last request time per domain
@@ -44,10 +44,10 @@ class Scheduler:
         # Track concurrent requests per domain
         self._concurrent: dict[str, int] = defaultdict(int)
 
-        # Buffer of URLs fetched from frontier but not yet ready
-        self._buffer: list[FrontierItem] = []
+        # Buffer of URLs fetched from url_store but not yet ready
+        self._buffer: list[UrlItem] = []
 
-    def get_next(self) -> Optional[FrontierItem]:
+    def get_next(self) -> Optional[UrlItem]:
         """
         Get next URL that is ready to crawl.
 
@@ -61,9 +61,9 @@ class Scheduler:
                 self._buffer.pop(i)
                 return item
 
-        # Fetch more from frontier if buffer is empty or exhausted
+        # Fetch more from url_store if buffer is empty or exhausted
         if len(self._buffer) < self.config.batch_size // 2:
-            items = self.frontier.pop_batch(self.config.batch_size)
+            items = self.url_store.pop_batch(self.config.batch_size)
             self._buffer.extend(items)
 
         # Try again with new items
@@ -74,7 +74,7 @@ class Scheduler:
 
         return None
 
-    def get_ready_urls(self, count: int) -> list[FrontierItem]:
+    def get_ready_urls(self, count: int) -> list[UrlItem]:
         """
         Get multiple URLs that are ready to crawl.
 
@@ -82,7 +82,7 @@ class Scheduler:
             count: Maximum number of URLs to return
 
         Returns:
-            List of FrontierItems that are ready for crawling
+            List of UrlItems that are ready for crawling
         """
         if count <= 0:
             return []
@@ -103,9 +103,9 @@ class Scheduler:
         for i in reversed(to_remove):
             self._buffer.pop(i)
 
-        # If we need more, fetch from frontier
+        # If we need more, fetch from url_store
         while len(result) < count:
-            items = self.frontier.pop_batch(self.config.batch_size)
+            items = self.url_store.pop_batch(self.config.batch_size)
             if not items:
                 break
 
@@ -146,7 +146,7 @@ class Scheduler:
         """Record that a request to domain has completed."""
         self._concurrent[domain] = max(0, self._concurrent.get(domain, 0) - 1)
 
-    def return_to_buffer(self, item: FrontierItem) -> None:
+    def return_to_buffer(self, item: UrlItem) -> None:
         """
         Return an item to the buffer (e.g., if processing failed).
 
@@ -162,7 +162,7 @@ class Scheduler:
         """Get scheduler statistics."""
         return {
             "buffer_size": len(self._buffer),
-            "frontier_size": self.frontier.size(),
+            "pending_count": self.url_store.pending_count(),
             "active_domains": len([d for d, c in self._concurrent.items() if c > 0]),
             "domain_min_interval": self.config.domain_min_interval,
             "domain_max_concurrent": self.config.domain_max_concurrent,

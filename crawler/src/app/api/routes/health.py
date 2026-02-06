@@ -12,7 +12,7 @@ import logging
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from app.db import Frontier
+from app.db.url_store import UrlStore
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -27,22 +27,11 @@ root_router = APIRouter()
 def _check_db() -> bool:
     """Check PostgreSQL/SQLite connectivity."""
     try:
-        frontier = Frontier(settings.CRAWLER_DB_PATH)
-        frontier.size()
+        url_store = UrlStore(settings.CRAWLER_DB_PATH)
+        url_store.size()
         return True
     except Exception as e:
         logger.warning(f"Database health check failed: {e}")
-        return False
-
-
-def _check_frontier() -> bool:
-    """Check frontier accessibility."""
-    try:
-        frontier = Frontier(settings.CRAWLER_DB_PATH)
-        frontier.size()
-        return True
-    except Exception as e:
-        logger.warning(f"Frontier health check failed: {e}")
         return False
 
 
@@ -66,7 +55,6 @@ async def readiness():
     """Kubernetes readiness probe - are dependencies healthy?"""
     checks = {
         "database": "ok" if _check_db() else "unhealthy",
-        "frontier": "ok" if _check_frontier() else "unhealthy",
     }
 
     all_healthy = all(v == "ok" for v in checks.values())

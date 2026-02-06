@@ -23,55 +23,52 @@ def test_api_v1_health_endpoint(test_client):
     assert data["status"] == "ok"
 
 
-def test_crawl_urls_endpoint(test_client, test_frontier, test_history):
+def test_crawl_urls_endpoint(test_client, test_url_store):
     """Test POST /api/v1/urls endpoint"""
-    with patch("app.api.deps._get_frontier", return_value=test_frontier):
-        with patch("app.api.deps._get_history", return_value=test_history):
-            response = test_client.post(
-                "/api/v1/urls",
-                json={
-                    "urls": ["http://example.com", "http://test.com"],
-                    "priority": 100.0,
-                },
-            )
-            assert response.status_code == 200
-            data = response.json()
-            assert data["status"] == "queued"
-            assert data["added_count"] == 2
+    with patch("app.api.deps._get_url_store", return_value=test_url_store):
+        response = test_client.post(
+            "/api/v1/urls",
+            json={
+                "urls": ["http://example.com", "http://test.com"],
+                "priority": 100.0,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "queued"
+        assert data["added_count"] == 2
 
 
-def test_queue_peek_endpoint(test_client, test_frontier, test_history):
+def test_queue_peek_endpoint(test_client, test_url_store):
     """Test GET /api/v1/queue endpoint"""
-    # Add some URLs to frontier
-    test_frontier.add("http://example.com", priority=100.0)
-    test_frontier.add("http://test.com", priority=90.0)
+    # Add some URLs to url_store
+    test_url_store.add("http://example.com", priority=100.0)
+    test_url_store.add("http://test.com", priority=90.0)
 
-    with patch("app.api.deps._get_frontier", return_value=test_frontier):
-        with patch("app.api.deps._get_history", return_value=test_history):
-            response = test_client.get("/api/v1/queue?limit=10")
-            assert response.status_code == 200
-            data = response.json()
-            assert isinstance(data, list)
-            assert len(data) == 2
-            assert data[0]["url"] == "http://example.com"
-            assert data[0]["score"] == 100.0
+    with patch("app.api.deps._get_url_store", return_value=test_url_store):
+        response = test_client.get("/api/v1/queue?limit=10")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 2
+        assert data[0]["url"] == "http://example.com"
+        assert data[0]["score"] == 100.0
 
 
-def test_queue_status_endpoint(test_client, test_frontier, test_history):
+def test_queue_status_endpoint(test_client, test_url_store):
     """Test GET /api/v1/status endpoint"""
     # Add some data
-    test_frontier.add("http://example.com", priority=100.0)
-    test_history.record("http://crawled.com", status="done")
+    test_url_store.add("http://example.com", priority=100.0)
+    test_url_store.record("http://crawled.com", status="done")
 
-    with patch("app.api.deps._get_frontier", return_value=test_frontier):
-        with patch("app.api.deps._get_history", return_value=test_history):
-            response = test_client.get("/api/v1/status")
-            assert response.status_code == 200
-            data = response.json()
-            assert data["queue_size"] == 1
-            assert data["total_seen"] == 1
-            assert data["total_indexed"] == 1
-            assert "cache_size" in data  # Backward compat (always 0)
+    with patch("app.api.deps._get_url_store", return_value=test_url_store):
+        response = test_client.get("/api/v1/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["queue_size"] == 1
+        assert data["total_seen"] == 2
+        assert data["total_indexed"] == 1
+        assert "cache_size" in data  # Backward compat (always 0)
 
 
 def test_history_endpoint(test_client):

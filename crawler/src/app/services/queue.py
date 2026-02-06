@@ -1,48 +1,36 @@
 """
 Queue Service
 
-Manages crawl queue operations using Frontier and History.
+Manages crawl queue operations using UrlStore.
 """
 
 import logging
 
-from app.db import Frontier, History
+from app.db.url_store import UrlStore
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Lazy-initialized instances
-_frontier: Frontier | None = None
-_history: History | None = None
+# Lazy-initialized instance
+_url_store: UrlStore | None = None
 
 
-def _get_frontier() -> Frontier:
-    """Get or create Frontier instance."""
-    global _frontier
-    if _frontier is None:
-        _frontier = Frontier(settings.CRAWLER_DB_PATH)
-    return _frontier
-
-
-def _get_history() -> History:
-    """Get or create History instance."""
-    global _history
-    if _history is None:
-        _history = History(
+def _get_url_store() -> UrlStore:
+    """Get or create UrlStore instance."""
+    global _url_store
+    if _url_store is None:
+        _url_store = UrlStore(
             settings.CRAWLER_DB_PATH,
             recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
         )
-    return _history
+    return _url_store
 
 
 class QueueService:
     """Crawl queue management service"""
 
-    def __init__(
-        self, frontier: Frontier | None = None, history: History | None = None
-    ):
-        self.frontier = frontier or _get_frontier()
-        self.history = history or _get_history()
+    def __init__(self, url_store: UrlStore | None = None):
+        self.url_store = url_store or _get_url_store()
 
     async def enqueue_urls(self, urls: list[str], priority: float = 100.0) -> int:
         """
@@ -58,18 +46,8 @@ class QueueService:
         if not urls:
             return 0
 
-        # Filter out recently crawled URLs
-        new_urls = self.history.filter_new(urls)
-
-        # Filter out URLs already in frontier
-        new_urls = [u for u in new_urls if not self.frontier.contains(u)]
-
-        if not new_urls:
-            logger.info(f"All {len(urls)} URLs already seen or in queue")
-            return 0
-
-        # Add to frontier
-        count = self.frontier.add_batch(new_urls, priority=priority)
+        # add_batch handles dedup + recrawl check internally
+        count = self.url_store.add_batch(urls, priority=priority)
         logger.info(f"Queued {count}/{len(urls)} URLs (priority={priority})")
         return count
 
@@ -80,16 +58,16 @@ class QueueService:
         Returns:
             Dict with queue_size, history stats, and total_indexed
         """
-        history_stats = self.history.get_stats()
+        stats = self.url_store.get_stats()
 
         return {
-            "queue_size": self.frontier.size(),
-            "total_seen": history_stats["total"],
-            "active_seen": history_stats["recent"],
+            "queue_size": stats["pending"],
+            "total_seen": stats["total"],
+            "active_seen": stats["recent"],
             "cache_size": 0,  # No Redis cache anymore
-            "total_indexed": history_stats["done"],
+            "total_indexed": stats["done"],
             # Legacy field for backward compatibility
-            "total_crawled": history_stats["recent"],
+            "total_crawled": stats["recent"],
         }
 
     def get_queue_items(self, limit: int = 20) -> list[dict]:
@@ -102,5 +80,5 @@ class QueueService:
         Returns:
             List of dicts with url and score
         """
-        items = self.frontier.peek(limit)
+        items = self.url_store.peek(limit)
         return [{"url": item.url, "score": item.priority} for item in items]

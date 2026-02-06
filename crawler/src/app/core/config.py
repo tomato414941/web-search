@@ -16,7 +16,7 @@ class CrawlerSettings(InfrastructureSettings):
     APP_NAME: str = "Crawler Service"
     APP_VERSION: str = "3.0.0"
 
-    # Database Path (for Frontier, History, Seeds)
+    # Database Path (for UrlStore, Seeds)
     CRAWLER_DB_PATH: str = os.getenv("CRAWLER_DB_PATH", "/data/crawler.db")
 
     # Recrawl settings

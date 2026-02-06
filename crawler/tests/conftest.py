@@ -30,19 +30,11 @@ def temp_db_path(tmp_path):
 
 
 @pytest.fixture
-def test_frontier(temp_db_path):
-    """Create a test Frontier instance"""
-    from app.db import Frontier
+def test_url_store(temp_db_path):
+    """Create a test UrlStore instance"""
+    from app.db import UrlStore
 
-    return Frontier(temp_db_path)
-
-
-@pytest.fixture
-def test_history(temp_db_path):
-    """Create a test History instance"""
-    from app.db import History
-
-    return History(temp_db_path, recrawl_after_days=30)
+    return UrlStore(temp_db_path, recrawl_after_days=30)
 
 
 @pytest.fixture

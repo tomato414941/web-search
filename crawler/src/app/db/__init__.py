@@ -1,10 +1,9 @@
 """
 Crawler Database Layer
 
-Provides Frontier (pending URLs) and History (visited URLs) storage.
+Provides UrlStore for unified URL lifecycle management.
 """
 
-from app.db.frontier import Frontier
-from app.db.history import History
+from app.db.url_store import UrlStore
 
-__all__ = ["Frontier", "History"]
+__all__ = ["UrlStore"]

@@ -12,7 +12,7 @@ from pathlib import Path
 
 from shared.db.search import get_connection, is_postgres_mode
 
-from app.db import Frontier, History
+from app.db.url_store import UrlStore
 from app.core.config import settings
 from app.models.seeds import SeedItem
 
@@ -46,9 +46,8 @@ CREATE TABLE IF NOT EXISTS seeds (
 class SeedService:
     """Seed URL management service"""
 
-    def __init__(self, frontier: Frontier, history: History):
-        self.frontier = frontier
-        self.history = history
+    def __init__(self, url_store: UrlStore):
+        self.url_store = url_store
         self.db_path = settings.CRAWLER_DB_PATH
         self._init_db()
 
@@ -143,13 +142,10 @@ class SeedService:
         finally:
             con.close()
 
-        # Add to frontier (filter out already seen)
-        new_urls = self.history.filter_new(urls)
-        new_urls = [u for u in new_urls if not self.frontier.contains(u)]
-        if new_urls:
-            self.frontier.add_batch(new_urls, priority=priority)
+        # add_batch handles dedup + recrawl check internally
+        self.url_store.add_batch(urls, priority=priority)
 
-        logger.info(f"Added {added} new seeds, queued {len(new_urls)} URLs")
+        logger.info(f"Added {added} new seeds")
         return added
 
     def delete_seeds(self, urls: list[str]) -> int:
@@ -206,22 +202,12 @@ class SeedService:
         if not seeds:
             return 0
 
-        urls = [url for url, _ in seeds]
-        priorities = {url: priority for url, priority in seeds}
-
-        # Filter unless force
-        if not force:
-            urls = self.history.filter_new(urls)
-
-        # Filter out already in frontier
-        urls = [u for u in urls if not self.frontier.contains(u)]
-
-        # Add to frontier
+        # Add to url_store (add_batch handles dedup internally)
         queued = 0
-        for url in urls:
-            priority = priorities.get(url, 100.0)
-            if self.frontier.add(url, priority=priority):
-                queued += 1
+        for url, priority in seeds:
+            if force or not self.url_store.is_recently_crawled(url):
+                if self.url_store.add(url, priority=priority):
+                    queued += 1
 
         logger.info(f"Requeued {queued} seeds (force={force})")
         return queued
@@ -260,10 +246,7 @@ class SeedService:
             con.close()
 
         # Check if can add
-        if not force and self.history.is_recently_crawled(url):
+        if not force and self.url_store.is_recently_crawled(url):
             return False
 
-        if self.frontier.contains(url):
-            return False
-
-        return self.frontier.add(url, priority=priority)
+        return self.url_store.add(url, priority=priority)

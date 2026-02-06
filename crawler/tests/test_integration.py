@@ -7,25 +7,24 @@ End-to-end tests for the full crawler workflow.
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
-from app.db import Frontier, History
+from app.db import UrlStore
 from app.scheduler import Scheduler, SchedulerConfig
 from app.workers.tasks import process_url
 
 
 @pytest.fixture
 def test_components(tmp_path):
-    """Create test Frontier, History, and Scheduler"""
+    """Create test UrlStore and Scheduler"""
     db_path = str(tmp_path / "test.db")
-    frontier = Frontier(db_path)
-    history = History(db_path, recrawl_after_days=30)
-    scheduler = Scheduler(frontier, SchedulerConfig())
-    return frontier, history, scheduler
+    url_store = UrlStore(db_path, recrawl_after_days=30)
+    scheduler = Scheduler(url_store, SchedulerConfig())
+    return url_store, scheduler
 
 
 @pytest.mark.asyncio
 async def test_process_url_success_flow(test_components):
     """Test complete process_url flow with successful indexing"""
-    frontier, history, scheduler = test_components
+    url_store, scheduler = test_components
 
     # Mock dependencies
     mock_session = MagicMock()
@@ -66,8 +65,7 @@ async def test_process_url_success_flow(test_components):
                     await process_url(
                         mock_session,
                         mock_robots,
-                        frontier,
-                        history,
+                        url_store,
                         scheduler,
                         "http://example.com/test",
                         100.0,
@@ -82,16 +80,14 @@ async def test_process_url_success_flow(test_components):
                     # Verify indexer submission
                     mock_indexer.assert_called_once()
 
-                    # Verify URL was recorded in history
-                    item = history.get("http://example.com/test")
-                    assert item is not None
-                    assert item.status == "done"
+                    # Verify URL was recorded as done
+                    assert url_store.contains("http://example.com/test")
 
 
 @pytest.mark.asyncio
 async def test_process_url_robots_blocked(test_components):
     """Test process_url when robots.txt blocks URL"""
-    frontier, history, scheduler = test_components
+    url_store, scheduler = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -101,8 +97,7 @@ async def test_process_url_robots_blocked(test_components):
         await process_url(
             mock_session,
             mock_robots,
-            frontier,
-            history,
+            url_store,
             scheduler,
             "http://example.com/blocked",
             100.0,
@@ -112,15 +107,13 @@ async def test_process_url_robots_blocked(test_components):
         mock_session.get.assert_not_called()
 
         # URL should be recorded as failed
-        item = history.get("http://example.com/blocked")
-        assert item is not None
-        assert item.status == "failed"
+        assert url_store.contains("http://example.com/blocked")
 
 
 @pytest.mark.asyncio
 async def test_process_url_http_error(test_components):
     """Test process_url with HTTP error (404)"""
-    frontier, history, scheduler = test_components
+    url_store, scheduler = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -136,23 +129,20 @@ async def test_process_url_http_error(test_components):
         await process_url(
             mock_session,
             mock_robots,
-            frontier,
-            history,
+            url_store,
             scheduler,
             "http://example.com/notfound",
             100.0,
         )
 
         # URL should be recorded as failed
-        item = history.get("http://example.com/notfound")
-        assert item is not None
-        assert item.status == "failed"
+        assert url_store.contains("http://example.com/notfound")
 
 
 @pytest.mark.asyncio
 async def test_process_url_network_error(test_components):
     """Test process_url with network error"""
-    frontier, history, scheduler = test_components
+    url_store, scheduler = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -167,21 +157,20 @@ async def test_process_url_network_error(test_components):
         await process_url(
             mock_session,
             mock_robots,
-            frontier,
-            history,
+            url_store,
             scheduler,
             "http://example.com/error",
             100.0,
         )
 
-        # URL should be re-added to frontier (retry)
-        assert frontier.contains("http://example.com/error")
+        # URL should be re-added as pending (retry)
+        assert url_store.contains("http://example.com/error")
 
 
 @pytest.mark.asyncio
 async def test_process_url_discovers_links(test_components):
-    """Test that process_url adds discovered links to frontier"""
-    frontier, history, scheduler = test_components
+    """Test that process_url adds discovered links to url_store"""
+    url_store, scheduler = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -214,13 +203,12 @@ async def test_process_url_discovers_links(test_components):
                     await process_url(
                         mock_session,
                         mock_robots,
-                        frontier,
-                        history,
+                        url_store,
                         scheduler,
                         "http://example.com/",
                         100.0,
                     )
 
-                    # Discovered links should be in frontier
-                    assert frontier.contains("http://example.com/link1")
-                    assert frontier.contains("http://example.com/link2")
+                    # Discovered links should be in url_store
+                    assert url_store.contains("http://example.com/link1")
+                    assert url_store.contains("http://example.com/link2")

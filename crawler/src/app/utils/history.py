@@ -1,7 +1,7 @@
 """
-Crawl History Database
+Crawl Logs Database
 
-PostgreSQL/SQLite-based crawl history tracking.
+PostgreSQL/SQLite-based crawl attempt logging.
 """
 
 from typing import Optional, List, Dict, Any
@@ -21,7 +21,7 @@ def _placeholder() -> str:
 
 # Note: seen_urls table is defined in shared/db/seen_store.py
 SCHEMA_PG = """
-CREATE TABLE IF NOT EXISTS crawl_history (
+CREATE TABLE IF NOT EXISTS crawl_logs (
     id SERIAL PRIMARY KEY,
     url TEXT NOT NULL,
     status TEXT NOT NULL,
@@ -29,12 +29,12 @@ CREATE TABLE IF NOT EXISTS crawl_history (
     error_message TEXT,
     created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())::INTEGER
 );
-CREATE INDEX IF NOT EXISTS idx_history_url ON crawl_history(url);
-CREATE INDEX IF NOT EXISTS idx_history_created ON crawl_history(created_at);
+CREATE INDEX IF NOT EXISTS idx_crawl_logs_url ON crawl_logs(url);
+CREATE INDEX IF NOT EXISTS idx_crawl_logs_created ON crawl_logs(created_at);
 """
 
 SCHEMA_SQLITE = """
-CREATE TABLE IF NOT EXISTS crawl_history (
+CREATE TABLE IF NOT EXISTS crawl_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT NOT NULL,
     status TEXT NOT NULL,
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS crawl_history (
     error_message TEXT,
     created_at INTEGER DEFAULT (strftime('%s', 'now'))
 );
-CREATE INDEX IF NOT EXISTS idx_history_url ON crawl_history(url);
-CREATE INDEX IF NOT EXISTS idx_history_created ON crawl_history(created_at);
+CREATE INDEX IF NOT EXISTS idx_crawl_logs_url ON crawl_logs(url);
+CREATE INDEX IF NOT EXISTS idx_crawl_logs_created ON crawl_logs(created_at);
 """
 
 
@@ -95,7 +95,7 @@ def log_crawl_attempt(
         try:
             cur = con.cursor()
             cur.execute(
-                f"INSERT INTO crawl_history (url, status, http_code, error_message) VALUES ({ph}, {ph}, {ph}, {ph})",
+                f"INSERT INTO crawl_logs (url, status, http_code, error_message) VALUES ({ph}, {ph}, {ph}, {ph})",
                 (url, status, http_code, error_message),
             )
             con.commit()
@@ -118,7 +118,7 @@ def get_recent_history(
             cur = con.cursor()
             cur.execute(
                 f"SELECT id, url, status, http_code, error_message, created_at "
-                f"FROM crawl_history ORDER BY created_at DESC LIMIT {ph}",
+                f"FROM crawl_logs ORDER BY created_at DESC LIMIT {ph}",
                 (limit,),
             )
             columns = [
@@ -150,7 +150,7 @@ def get_url_history(
             cur = con.cursor()
             cur.execute(
                 f"SELECT id, url, status, http_code, error_message, created_at "
-                f"FROM crawl_history WHERE url = {ph} ORDER BY created_at DESC LIMIT {ph}",
+                f"FROM crawl_logs WHERE url = {ph} ORDER BY created_at DESC LIMIT {ph}",
                 (url, limit),
             )
             columns = [

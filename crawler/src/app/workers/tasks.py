@@ -1,14 +1,14 @@
 """
 Background Crawler Tasks
 
-Main worker loop that fetches URLs from Frontier and crawls them.
+Main worker loop that fetches URLs from UrlStore and crawls them.
 """
 
 import asyncio
 import logging
 import aiohttp
 
-from app.db import Frontier, History
+from app.db.url_store import UrlStore, get_domain
 from app.scheduler import Scheduler, SchedulerConfig
 from app.domain.scoring import calculate_url_score
 from app.core.config import settings
@@ -32,27 +32,14 @@ _retry_counts: dict[str, int] = {}
 async def process_url(
     session: aiohttp.ClientSession,
     robots: AsyncRobotsCache,
-    frontier: Frontier,
-    history: History,
+    url_store: UrlStore,
     scheduler: Scheduler,
     url: str,
     priority: float,
 ):
     """
     Process a single URL: check robots, fetch, parse, submit to indexer, extract links.
-
-    Args:
-        session: aiohttp client session
-        robots: Robots.txt cache
-        frontier: Frontier for adding discovered URLs
-        history: History for recording crawled URLs
-        scheduler: Scheduler for rate limiting
-        url: URL to crawl
-        priority: Priority score (for child URL scoring)
     """
-    domain = frontier.get_domain(url) if hasattr(frontier, "get_domain") else ""
-    from app.db.frontier import get_domain
-
     domain = get_domain(url)
 
     try:
@@ -62,7 +49,7 @@ async def process_url(
             history_log.log_crawl_attempt(
                 url, "blocked", error_message="Blocked by robots.txt"
             )
-            history.record(url, status="failed")
+            url_store.record(url, status="failed")
             return
 
         # 2. Fetch HTML
@@ -85,7 +72,7 @@ async def process_url(
                             resp.status,
                             f"Response too large: {content_length} bytes",
                         )
-                        history.record(url, status="failed")
+                        url_store.record(url, status="failed")
                         return
                 except ValueError:
                     pass
@@ -103,7 +90,7 @@ async def process_url(
                         resp.status,
                         f"Response truncated at {MAX_RESPONSE_SIZE} bytes",
                     )
-                    history.record(url, status="failed")
+                    url_store.record(url, status="failed")
                     return
 
                 html = body.decode("utf-8", errors="replace")
@@ -127,17 +114,17 @@ async def process_url(
                         # Clear retry count on success
                         _retry_counts.pop(url, None)
                         history_log.log_crawl_attempt(url, "indexed", 200)
-                        history.record(url, status="done")
+                        url_store.record(url, status="done")
                     else:
                         history_log.log_crawl_attempt(
                             url, "indexer_error", 500, "Indexer API rejected"
                         )
-                        history.record(url, status="failed")
+                        url_store.record(url, status="failed")
                 else:
                     history_log.log_crawl_attempt(
                         url, "skipped", 200, "No main content found"
                     )
-                    history.record(url, status="done")
+                    url_store.record(url, status="done")
 
                 # 5. Extract & Enqueue Links
                 discovered = await loop.run_in_executor(None, extract_links, url, html)
@@ -146,34 +133,20 @@ async def process_url(
                     # Limit outlinks
                     discovered = discovered[: settings.CRAWL_OUTLINKS_PER_PAGE]
 
-                    # Filter out recently crawled URLs
-                    new_urls = await loop.run_in_executor(
-                        None, lambda: history.filter_new(discovered)
+                    # add() handles dedup + recrawl check internally
+                    for new_url in discovered:
+                        domain_visits = 1
+                        score = calculate_url_score(new_url, priority, domain_visits)
+                        url_store.add(new_url, priority=score, source_url=url)
+
+                    logger.debug(
+                        f"Enqueued links from {url} ({len(discovered)} discovered)"
                     )
-
-                    # Filter out URLs already in frontier
-                    new_urls = [u for u in new_urls if not frontier.contains(u)]
-
-                    if new_urls:
-                        # Calculate scores and add to frontier
-                        for new_url in new_urls:
-                            # Use a simple domain count approximation
-                            domain_visits = 1
-                            score = calculate_url_score(
-                                new_url, priority, domain_visits
-                            )
-                            frontier.add(new_url, priority=score, source_url=url)
-
-                        logger.debug(
-                            f"Enqueued {len(new_urls)}/{len(discovered)} links from {url}"
-                        )
 
             elif resp.status in (429, 500, 502, 503, 504):
                 # Retryable errors
                 logger.warning(f"Retryable error {resp.status} for {url}")
-                await _handle_retry(
-                    url, frontier, history, priority, f"HTTP {resp.status}"
-                )
+                await _handle_retry(url, url_store, priority, f"HTTP {resp.status}")
 
             else:
                 # Other HTTP errors (404, etc)
@@ -181,16 +154,16 @@ async def process_url(
                 history_log.log_crawl_attempt(
                     url, "http_error", resp.status, "HTTP Error"
                 )
-                history.record(url, status="failed")
+                url_store.record(url, status="failed")
 
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.warning(f"Network error for {url}: {e}")
-        await _handle_retry(url, frontier, history, priority, str(e))
+        await _handle_retry(url, url_store, priority, str(e))
 
     except Exception as e:
         logger.error(f"Unexpected error processing {url}: {e}", exc_info=True)
         history_log.log_crawl_attempt(url, "unknown_error", error_message=str(e))
-        history.record(url, status="failed")
+        url_store.record(url, status="failed")
 
     finally:
         # Always record completion for rate limiting
@@ -199,8 +172,7 @@ async def process_url(
 
 async def _handle_retry(
     url: str,
-    frontier: Frontier,
-    history: History,
+    url_store: UrlStore,
     priority: float,
     error: str,
 ):
@@ -215,12 +187,12 @@ async def _handle_retry(
             "dead_letter",
             error_message=f"Max retries ({MAX_RETRIES}) exceeded: {error}",
         )
-        history.record(url, status="failed")
+        url_store.record(url, status="failed")
         _retry_counts.pop(url, None)
     else:
-        # Re-add to frontier with lower priority
+        # Re-add to url_store as pending with lower priority
         new_priority = max(priority - 5.0, -100.0)
-        frontier.add(url, priority=new_priority)
+        url_store.add(url, priority=new_priority)
         history_log.log_crawl_attempt(
             url,
             "retry_later",
@@ -235,18 +207,22 @@ async def worker_loop(concurrency: int = 1):
     Args:
         concurrency: Number of concurrent crawl tasks
 
-    Continuously fetches URLs from Frontier via Scheduler and processes them.
+    Continuously fetches URLs from UrlStore via Scheduler and processes them.
     """
     logger.info(f"Worker loop started with concurrency={concurrency}")
 
     # Initialize history log database
     history_log.init_db()
 
-    # Initialize Frontier and History
-    frontier = Frontier(settings.CRAWLER_DB_PATH)
-    history = History(
+    # Initialize UrlStore
+    url_store = UrlStore(
         settings.CRAWLER_DB_PATH, recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS
     )
+
+    # Recover stale crawling URLs from previous crash
+    recovered = url_store.recover_stale_crawling()
+    if recovered:
+        logger.info(f"Recovered {recovered} stale crawling URLs back to pending")
 
     # Initialize Scheduler with rate limiting
     scheduler_config = SchedulerConfig(
@@ -254,7 +230,7 @@ async def worker_loop(concurrency: int = 1):
         domain_max_concurrent=2,  # Max 2 concurrent per domain
         batch_size=100,
     )
-    scheduler = Scheduler(frontier, scheduler_config)
+    scheduler = Scheduler(url_store, scheduler_config)
 
     sem = asyncio.Semaphore(concurrency)
 
@@ -296,7 +272,7 @@ async def worker_loop(concurrency: int = 1):
                 async def process_with_semaphore(url: str, priority: float, item):
                     try:
                         await process_url(
-                            session, robots, frontier, history, scheduler, url, priority
+                            session, robots, url_store, scheduler, url, priority
                         )
                     except Exception as e:
                         logger.error(f"Error processing {url}: {e}")
