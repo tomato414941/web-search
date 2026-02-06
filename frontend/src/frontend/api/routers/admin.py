@@ -634,7 +634,8 @@ async def crawler_stop(
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/stop"
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/stop",
+                json={},
             )
             if resp.status_code != 200:
                 logger.warning(f"Failed to stop crawler: {resp.text}")
@@ -844,7 +845,7 @@ async def crawler_instance_stop(
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(f"{url}/api/v1/worker/stop")
+            await client.post(f"{url}/api/v1/worker/stop", json={})
     except httpx.RequestError as e:
         logger.warning(f"Failed to stop crawler instance {name}: {e}")
 
