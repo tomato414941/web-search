@@ -40,17 +40,14 @@
             <input type="number" name="priority" value="100" min="0" max="1000" step="1" style="width: 100px;" title="Priority">
             <button type="submit">Add Seed</button>
         </form>
-        <hr style="margin: 16px 0; border: none; border-top: 1px solid #ddd;">
-        <h3 style="margin-bottom: 8px;">Import from Tranco</h3>
-        <form method="post" action="/admin/seeds/import-tranco" class="form-row">
+        <hr style="margin: 16px 0; border: none; border-top: 1px solid #333;">
+        <form method="post" action="/admin/seeds/import-tranco" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9rem;">
-                Top <input type="number" name="count" value="1000" min="1" max="10000" step="1" style="width: 80px;"> domains
-            </label>
-            <label style="display: flex; align-items: center; gap: 4px; font-size: 0.9rem;">
-                Priority <input type="number" name="priority" value="50" min="0" max="1000" step="1" style="width: 80px;">
-            </label>
-            <button type="submit">Import from Tranco</button>
+            <span style="font-size: 0.9rem;">Import Tranco top</span>
+            <input type="number" name="count" value="1000" min="1" max="10000" step="1" style="width: 80px; flex: none;">
+            <span style="font-size: 0.9rem;">domains, priority</span>
+            <input type="number" name="priority" value="50" min="0" max="1000" step="1" style="width: 70px; flex: none;">
+            <button type="submit">Import</button>
         </form>
     </div>
 
