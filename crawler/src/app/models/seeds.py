@@ -13,7 +13,6 @@ class SeedItem(BaseModel):
 
     url: str = Field(..., description="Seed URL")
     added_at: datetime = Field(..., description="When the seed was added")
-    priority: float = Field(default=100.0, description="Priority score")
     last_queued: datetime | None = Field(None, description="When last added to queue")
 
 
@@ -24,12 +23,6 @@ class SeedAddRequest(BaseModel):
         ...,
         min_length=1,
         description="List of URLs to add as seeds",
-    )
-    priority: float = Field(
-        default=100.0,
-        ge=0.0,
-        le=1000.0,
-        description="Priority score (higher = crawled sooner)",
     )
 
 
@@ -60,12 +53,6 @@ class TrancoImportRequest(BaseModel):
         ge=1,
         le=10000,
         description="Number of top domains to import",
-    )
-    priority: float = Field(
-        default=50.0,
-        ge=0.0,
-        le=1000.0,
-        description="Priority score for imported seeds",
     )
 
 

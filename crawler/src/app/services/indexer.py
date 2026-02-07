@@ -17,6 +17,7 @@ async def submit_page_to_indexer(
     url: str,
     title: str,
     content: str,
+    outlinks: list[str] | None = None,
 ) -> bool:
     """
     Submit a page to the Indexer API
@@ -28,6 +29,7 @@ async def submit_page_to_indexer(
         url: Page URL
         title: Page title
         content: Page content
+        outlinks: List of discovered outbound URLs
 
     Returns:
         True if successful, False otherwise
@@ -42,6 +44,8 @@ async def submit_page_to_indexer(
             "title": title,
             "content": content,
         }
+        if outlinks:
+            payload["outlinks"] = outlinks
 
         async with session.post(
             api_url, json=payload, headers=headers, timeout=60

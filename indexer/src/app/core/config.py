@@ -25,6 +25,10 @@ class IndexerSettings(InfrastructureSettings):
     # OpenAI Embeddings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
+    # PageRank scheduling
+    PAGERANK_INTERVAL_HOURS: int = int(os.getenv("PAGERANK_INTERVAL_HOURS", "24"))
+    DOMAIN_RANK_INTERVAL_HOURS: int = int(os.getenv("DOMAIN_RANK_INTERVAL_HOURS", "6"))
+
 
 settings = IndexerSettings()
 

@@ -25,7 +25,7 @@ async def add_urls_to_queue(
     """
     try:
         count = await queue_service.enqueue_urls(
-            urls=[str(url) for url in request.urls], priority=request.priority
+            urls=[str(url) for url in request.urls],
         )
         return CrawlResponse(status="queued", added_count=count)
     except Exception as e:

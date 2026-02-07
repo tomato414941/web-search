@@ -20,7 +20,13 @@ class IndexerService:
         self.db_path = db_path
         self.search_indexer = SearchIndexer(db_path)
 
-    async def index_page(self, url: str, title: str, content: str):
+    async def index_page(
+        self,
+        url: str,
+        title: str,
+        content: str,
+        outlinks: list[str] | None = None,
+    ):
         """Index a single page into the database (async for embedding)."""
         try:
             # Open DB connection
@@ -29,6 +35,10 @@ class IndexerService:
             # Index using custom search engine (inverted index)
             self.search_indexer.index_document(url, title, content, conn)
             conn.commit()
+
+            # Save outlinks to link graph
+            if outlinks:
+                self._save_links(conn, url, outlinks)
 
             # Generate and store embedding (skip if no OpenAI key)
             if settings.OPENAI_API_KEY:
@@ -60,6 +70,32 @@ class IndexerService:
         except Exception as e:
             logger.error(f"DB Error indexing {url}: {e}")
             raise
+
+    def _save_links(self, conn, src_url: str, outlinks: list[str]) -> None:
+        """Save outlinks to the links table."""
+        ph = _placeholder()
+        try:
+            cur = conn.cursor()
+            # Remove old links from this page
+            cur.execute(f"DELETE FROM links WHERE src = {ph}", (src_url,))
+            # Insert new links (skip self-links)
+            for dst in outlinks:
+                if dst != src_url:
+                    if is_postgres_mode():
+                        cur.execute(
+                            f"INSERT INTO links (src, dst) VALUES ({ph}, {ph}) "
+                            "ON CONFLICT DO NOTHING",
+                            (src_url, dst),
+                        )
+                    else:
+                        cur.execute(
+                            f"INSERT OR IGNORE INTO links (src, dst) VALUES ({ph}, {ph})",
+                            (src_url, dst),
+                        )
+            conn.commit()
+            cur.close()
+        except Exception as e:
+            logger.warning(f"Failed to save links for {src_url}: {e}")
 
     def get_index_stats(self):
         """Get indexing statistics."""

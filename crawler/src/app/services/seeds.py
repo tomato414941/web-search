@@ -14,6 +14,7 @@ from shared.db.search import get_connection, is_postgres_mode
 
 from app.db.url_store import UrlStore
 from app.core.config import settings
+from app.domain.scoring import SEED_DEFAULT_SCORE
 from app.models.seeds import SeedItem
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,6 @@ SEEDS_SCHEMA_PG = """
 CREATE TABLE IF NOT EXISTS seeds (
     url TEXT PRIMARY KEY,
     added_at INTEGER NOT NULL,
-    priority REAL NOT NULL DEFAULT 100.0,
     last_queued INTEGER
 );
 """
@@ -37,7 +37,6 @@ SEEDS_SCHEMA_SQLITE = """
 CREATE TABLE IF NOT EXISTS seeds (
     url TEXT PRIMARY KEY,
     added_at INTEGER NOT NULL,
-    priority REAL NOT NULL DEFAULT 100.0,
     last_queued INTEGER
 );
 """
@@ -63,6 +62,8 @@ class SeedService:
             if postgres_mode:
                 cur = con.cursor()
                 cur.execute(SEEDS_SCHEMA_PG)
+                # Drop legacy priority column if it exists
+                cur.execute("ALTER TABLE seeds DROP COLUMN IF EXISTS priority")
                 con.commit()
                 cur.close()
             else:
@@ -82,16 +83,15 @@ class SeedService:
         try:
             cur = con.cursor()
             cur.execute(
-                "SELECT url, added_at, priority, last_queued FROM seeds ORDER BY added_at DESC"
+                "SELECT url, added_at, last_queued FROM seeds ORDER BY added_at DESC"
             )
             result = []
             for row in cur.fetchall():
-                url, added_at, priority, last_queued = row
+                url, added_at, last_queued = row
                 result.append(
                     SeedItem(
                         url=url,
                         added_at=datetime.fromtimestamp(added_at),
-                        priority=priority,
                         last_queued=datetime.fromtimestamp(last_queued)
                         if last_queued
                         else None,
@@ -102,13 +102,13 @@ class SeedService:
         finally:
             con.close()
 
-    def add_seeds(self, urls: list[str], priority: float = 100.0) -> int:
+    def add_seeds(self, urls: list[str], score: float = SEED_DEFAULT_SCORE) -> int:
         """
         Add URLs as seeds and queue them for crawling.
 
         Args:
             urls: List of URLs to add
-            priority: Priority score for queuing
+            score: Queue priority score (internal constant, not user-specified)
 
         Returns:
             Number of new seeds added
@@ -126,8 +126,8 @@ class SeedService:
                 if cur.fetchone() is None:
                     # New seed
                     cur.execute(
-                        f"INSERT INTO seeds (url, added_at, priority, last_queued) VALUES ({ph}, {ph}, {ph}, {ph})",
-                        (url, now, priority, now),
+                        f"INSERT INTO seeds (url, added_at, last_queued) VALUES ({ph}, {ph}, {ph})",
+                        (url, now, now),
                     )
                     added += 1
                 else:
@@ -143,7 +143,7 @@ class SeedService:
             con.close()
 
         # add_batch handles dedup + recrawl check internally
-        self.url_store.add_batch(urls, priority=priority)
+        self.url_store.add_batch(urls, priority=score)
 
         logger.info(f"Added {added} new seeds")
         return added
@@ -189,8 +189,8 @@ class SeedService:
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            cur.execute("SELECT url, priority FROM seeds")
-            seeds = [(row[0], row[1]) for row in cur.fetchall()]
+            cur.execute("SELECT url FROM seeds")
+            seed_urls = [row[0] for row in cur.fetchall()]
 
             # Update last_queued for all
             cur.execute(f"UPDATE seeds SET last_queued = {ph}", (now,))
@@ -199,14 +199,14 @@ class SeedService:
         finally:
             con.close()
 
-        if not seeds:
+        if not seed_urls:
             return 0
 
         # Add to url_store (add_batch handles dedup internally)
         queued = 0
-        for url, priority in seeds:
+        for url in seed_urls:
             if force or not self.url_store.is_recently_crawled(url):
-                if self.url_store.add(url, priority=priority):
+                if self.url_store.add(url, priority=SEED_DEFAULT_SCORE):
                     queued += 1
 
         logger.info(f"Requeued {queued} seeds (force={force})")
@@ -228,13 +228,11 @@ class SeedService:
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            cur.execute(f"SELECT priority FROM seeds WHERE url = {ph}", (url,))
+            cur.execute(f"SELECT 1 FROM seeds WHERE url = {ph}", (url,))
             row = cur.fetchone()
             if not row:
                 cur.close()
                 return False
-
-            priority = row[0]
 
             # Update last_queued
             cur.execute(
@@ -249,4 +247,4 @@ class SeedService:
         if not force and self.url_store.is_recently_crawled(url):
             return False
 
-        return self.url_store.add(url, priority=priority)
+        return self.url_store.add(url, priority=SEED_DEFAULT_SCORE)

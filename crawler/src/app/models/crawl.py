@@ -16,12 +16,6 @@ class CrawlRequest(BaseModel):
         description="List of URLs to crawl",
         examples=[["https://example.com", "https://example.org"]],
     )
-    priority: float = Field(
-        default=100.0,
-        ge=0.0,
-        le=1000.0,
-        description="Priority score (higher = crawled sooner)",
-    )
 
 
 class CrawlResponse(BaseModel):

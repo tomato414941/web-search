@@ -8,6 +8,7 @@ import logging
 
 from app.db.url_store import UrlStore
 from app.core.config import settings
+from app.domain.scoring import MANUAL_CRAWL_SCORE
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,9 @@ class QueueService:
     def __init__(self, url_store: UrlStore | None = None):
         self.url_store = url_store or _get_url_store()
 
-    async def enqueue_urls(self, urls: list[str], priority: float = 100.0) -> int:
+    async def enqueue_urls(
+        self, urls: list[str], priority: float = MANUAL_CRAWL_SCORE
+    ) -> int:
         """
         Add URLs to crawl queue.
 

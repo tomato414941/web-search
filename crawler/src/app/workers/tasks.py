@@ -10,7 +10,11 @@ import aiohttp
 
 from app.db.url_store import UrlStore, get_domain
 from app.scheduler import Scheduler, SchedulerConfig
-from app.domain.scoring import calculate_url_score
+from app.domain.scoring import (
+    calculate_url_score,
+    load_domain_rank_cache,
+    get_domain_rank,
+)
 from app.core.config import settings
 from app.utils.parser import html_to_doc, extract_links
 from app.utils.robots import AsyncRobotsCache
@@ -102,8 +106,13 @@ async def process_url(
                 loop = asyncio.get_running_loop()
                 title, content = await loop.run_in_executor(None, html_to_doc, html)
 
+                # 5. Extract & Enqueue Links (moved before indexer submit to include in payload)
+                discovered = await loop.run_in_executor(None, extract_links, url, html)
+                if discovered:
+                    discovered = discovered[: settings.CRAWL_OUTLINKS_PER_PAGE]
+
                 if content:
-                    # 4. Submit to Indexer API
+                    # 4. Submit to Indexer API (with outlinks)
                     success = await submit_page_to_indexer(
                         session,
                         settings.INDEXER_API_URL,
@@ -111,6 +120,7 @@ async def process_url(
                         url,
                         title,
                         content,
+                        outlinks=discovered or [],
                     )
 
                     if success:
@@ -129,14 +139,8 @@ async def process_url(
                     )
                     url_store.record(url, status="done")
 
-                # 5. Extract & Enqueue Links
-                discovered = await loop.run_in_executor(None, extract_links, url, html)
-
+                # 6. Enqueue discovered links
                 if discovered:
-                    # Limit outlinks
-                    discovered = discovered[: settings.CRAWL_OUTLINKS_PER_PAGE]
-
-                    # add() handles dedup + recrawl check internally
                     for new_url in discovered:
                         new_domain = get_domain(new_url)
                         if new_domain not in _domain_cache:
@@ -144,7 +148,10 @@ async def process_url(
                                 new_domain
                             )
                         domain_visits = max(_domain_cache[new_domain], 1)
-                        score = calculate_url_score(new_url, priority, domain_visits)
+                        dr = get_domain_rank(new_domain)
+                        score = calculate_url_score(
+                            new_url, priority, domain_visits, domain_pagerank=dr
+                        )
                         url_store.add(new_url, priority=score)
 
                     logger.debug(
@@ -222,6 +229,9 @@ async def worker_loop(concurrency: int = 1):
     # Initialize history log database
     history_log.init_db()
 
+    # Load domain PageRank cache (best-effort, empty if no data yet)
+    load_domain_rank_cache(settings.DB_PATH)
+
     # Initialize UrlStore
     url_store = UrlStore(
         settings.CRAWLER_DB_PATH, recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS
@@ -259,9 +269,10 @@ async def worker_loop(concurrency: int = 1):
 
         try:
             while True:
-                # Clear domain cache periodically
+                # Clear domain cache periodically and refresh PageRank cache
                 if len(_domain_cache) > 1000:
                     _domain_cache.clear()
+                    load_domain_rank_cache(settings.DB_PATH)
 
                 # Get next URL from scheduler
                 item = scheduler.get_next()

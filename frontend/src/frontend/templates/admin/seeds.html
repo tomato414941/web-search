@@ -37,7 +37,6 @@
         <form method="post" action="/admin/seeds" class="form-row">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="url" name="url" placeholder="https://example.com" required style="flex: 2;">
-            <input type="number" name="priority" value="100" min="0" max="1000" step="1" style="width: 100px;" title="Priority">
             <button type="submit">Add Seed</button>
         </form>
         <hr style="margin: 16px 0; border: none; border-top: 1px solid #333;">
@@ -45,8 +44,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <span style="font-size: 0.9rem;">Import Tranco top</span>
             <input type="number" name="count" value="1000" min="1" max="10000" step="1" style="width: 80px; flex: none;">
-            <span style="font-size: 0.9rem;">domains, priority</span>
-            <input type="number" name="priority" value="50" min="0" max="1000" step="1" style="width: 70px; flex: none;">
+            <span style="font-size: 0.9rem;">domains</span>
             <button type="submit">Import</button>
         </form>
     </div>
@@ -57,7 +55,6 @@
             <thead>
                 <tr>
                     <th>URL</th>
-                    <th>Priority</th>
                     <th>Added</th>
                     <th>Last Queued</th>
                     <th>Action</th>
@@ -68,7 +65,6 @@
                     {% for seed in seeds %}
                     <tr>
                         <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ seed.url }}">{{ seed.url }}</td>
-                        <td>{{ seed.priority | int }}</td>
                         <td>{{ seed.added_at[:10] if seed.added_at else '-' }}</td>
                         <td>{{ seed.last_queued[:10] if seed.last_queued else '-' }}</td>
                         <td>
@@ -81,7 +77,7 @@
                     </tr>
                     {% endfor %}
                 {% else %}
-                    <tr><td colspan="5">No seeds registered</td></tr>
+                    <tr><td colspan="4">No seeds registered</td></tr>
                 {% endif %}
             </tbody>
         </table>

@@ -424,7 +424,6 @@ async def history_page(request: Request, url: str = ""):
 async def add_seed(
     request: Request,
     url: str = Form(...),
-    priority: float = Form(default=100.0),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
     """Add a seed URL (persistent)."""
@@ -439,7 +438,7 @@ async def add_seed(
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            payload = {"urls": [url], "priority": priority}
+            payload = {"urls": [url]}
             resp = await client.post(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds", json=payload
             )
@@ -499,7 +498,6 @@ async def delete_seed(
 async def import_tranco(
     request: Request,
     count: int = Form(default=1000),
-    priority: float = Form(default=50.0),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
     """Import seeds from Tranco top domains list."""
@@ -514,7 +512,7 @@ async def import_tranco(
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            payload = {"count": count, "priority": priority}
+            payload = {"count": count}
             resp = await client.post(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds/import-tranco",
                 json=payload,
@@ -592,7 +590,7 @@ async def add_to_queue(
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            payload = {"urls": [url], "priority": 100}
+            payload = {"urls": [url]}
             resp = await client.post(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/urls", json=payload
             )

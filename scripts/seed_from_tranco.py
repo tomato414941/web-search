@@ -53,7 +53,7 @@ def submit_seeds(api_url: str, domains: list[str]) -> int:
         batch = domains[i : i + BATCH_SIZE]
         urls = [f"https://{d}/" for d in batch]
 
-        payload = json.dumps({"urls": urls, "priority": 50.0}).encode()
+        payload = json.dumps({"urls": urls}).encode()
         req = Request(
             f"{api_url}/api/v1/seeds",
             data=payload,

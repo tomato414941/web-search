@@ -23,7 +23,7 @@ async def api_crawl(req: CrawlRequest):
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/urls",
-                json={"urls": [url], "priority": 1000.0},
+                json={"urls": [url]},
             )
 
             if resp.status_code == 200:

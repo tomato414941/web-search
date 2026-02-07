@@ -15,8 +15,9 @@ from shared.core.infrastructure_config import settings, Environment
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS links (
-  src TEXT,
-  dst TEXT
+  src TEXT NOT NULL,
+  dst TEXT NOT NULL,
+  PRIMARY KEY (src, dst)
 );
 CREATE INDEX IF NOT EXISTS idx_links_src ON links(src);
 CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
@@ -24,6 +25,11 @@ CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
 CREATE TABLE IF NOT EXISTS page_ranks (
   url TEXT PRIMARY KEY,
   score REAL
+);
+
+CREATE TABLE IF NOT EXISTS domain_ranks (
+  domain TEXT PRIMARY KEY,
+  score REAL NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS page_embeddings (
@@ -89,8 +95,9 @@ PRAGMA journal_mode=WAL;
 PRAGMA synchronous=NORMAL;
 
 CREATE TABLE IF NOT EXISTS links (
-  src TEXT,
-  dst TEXT
+  src TEXT NOT NULL,
+  dst TEXT NOT NULL,
+  PRIMARY KEY (src, dst)
 );
 CREATE INDEX IF NOT EXISTS idx_links_src ON links(src);
 CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
@@ -98,6 +105,11 @@ CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
 CREATE TABLE IF NOT EXISTS page_ranks (
   url TEXT PRIMARY KEY,
   score REAL
+);
+
+CREATE TABLE IF NOT EXISTS domain_ranks (
+  domain TEXT PRIMARY KEY,
+  score REAL NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS page_embeddings (
