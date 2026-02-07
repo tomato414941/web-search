@@ -9,7 +9,6 @@ import hashlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 from shared.db.search import get_connection, is_postgres_mode
@@ -38,7 +37,6 @@ class UrlItem:
     url: str
     domain: str
     priority: float
-    source_url: Optional[str]
     created_at: int
 
 
@@ -49,7 +47,6 @@ CREATE TABLE IF NOT EXISTS urls (
     domain TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     priority REAL NOT NULL DEFAULT 0,
-    source_url TEXT,
     crawl_count INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     last_crawled_at INTEGER
@@ -68,7 +65,6 @@ CREATE TABLE IF NOT EXISTS urls (
     domain TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     priority REAL NOT NULL DEFAULT 0,
-    source_url TEXT,
     crawl_count INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
     last_crawled_at INTEGER
@@ -121,7 +117,6 @@ class UrlStore:
         self,
         url: str,
         priority: float = 0.0,
-        source_url: Optional[str] = None,
     ) -> bool:
         """
         Add a URL as pending. Skips if already pending/crawling.
@@ -142,15 +137,14 @@ class UrlStore:
             if is_postgres_mode():
                 cur.execute(
                     f"""
-                    INSERT INTO urls (url_hash, url, domain, status, priority, source_url, crawl_count, created_at)
-                    VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, {ph}, 0, {ph})
+                    INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
+                    VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
                     ON CONFLICT (url_hash) DO UPDATE SET
                         status = 'pending',
-                        priority = EXCLUDED.priority,
-                        source_url = EXCLUDED.source_url
+                        priority = EXCLUDED.priority
                     WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
                     """,
-                    (h, url, domain, priority, source_url, now, cutoff),
+                    (h, url, domain, priority, now, cutoff),
                 )
             else:
                 # SQLite: check existence first, then insert or update
@@ -164,19 +158,19 @@ class UrlStore:
                     # New URL
                     cur.execute(
                         f"""
-                        INSERT INTO urls (url_hash, url, domain, status, priority, source_url, crawl_count, created_at)
-                        VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, {ph}, 0, {ph})
+                        INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
+                        VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
                         """,
-                        (h, url, domain, priority, source_url, now),
+                        (h, url, domain, priority, now),
                     )
                 elif existing[0] in ("done", "failed") and (existing[1] or 0) < cutoff:
                     # Stale, re-queue
                     cur.execute(
                         f"""
-                        UPDATE urls SET status = 'pending', priority = {ph}, source_url = {ph}
+                        UPDATE urls SET status = 'pending', priority = {ph}
                         WHERE url_hash = {ph}
                         """,
-                        (priority, source_url, h),
+                        (priority, h),
                     )
                 else:
                     # Already pending/crawling or recently crawled
@@ -195,7 +189,6 @@ class UrlStore:
         self,
         urls: list[str],
         priority: float = 0.0,
-        source_url: Optional[str] = None,
     ) -> int:
         """
         Add multiple URLs as pending.
@@ -222,15 +215,14 @@ class UrlStore:
                 if postgres_mode:
                     cur.execute(
                         f"""
-                        INSERT INTO urls (url_hash, url, domain, status, priority, source_url, crawl_count, created_at)
-                        VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, {ph}, 0, {ph})
+                        INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
+                        VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
                         ON CONFLICT (url_hash) DO UPDATE SET
                             status = 'pending',
-                            priority = EXCLUDED.priority,
-                            source_url = EXCLUDED.source_url
+                            priority = EXCLUDED.priority
                         WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
                         """,
-                        (h, url, domain, priority, source_url, now, cutoff),
+                        (h, url, domain, priority, now, cutoff),
                     )
                 else:
                     cur.execute(
@@ -242,10 +234,10 @@ class UrlStore:
                     if existing is None:
                         cur.execute(
                             f"""
-                            INSERT INTO urls (url_hash, url, domain, status, priority, source_url, crawl_count, created_at)
-                            VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, {ph}, 0, {ph})
+                            INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
+                            VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
                             """,
-                            (h, url, domain, priority, source_url, now),
+                            (h, url, domain, priority, now),
                         )
                     elif (
                         existing[0] in ("done", "failed")
@@ -253,10 +245,10 @@ class UrlStore:
                     ):
                         cur.execute(
                             f"""
-                            UPDATE urls SET status = 'pending', priority = {ph}, source_url = {ph}
+                            UPDATE urls SET status = 'pending', priority = {ph}
                             WHERE url_hash = {ph}
                             """,
-                            (priority, source_url, h),
+                            (priority, h),
                         )
                     else:
                         continue
@@ -306,7 +298,7 @@ class UrlStore:
                         ORDER BY rn ASC
                         LIMIT {ph}
                     )
-                    RETURNING url_hash, url, domain, priority, source_url, created_at
+                    RETURNING url_hash, url, domain, priority, created_at
                     """,
                     (max_per_domain, count),
                 )
@@ -315,9 +307,9 @@ class UrlStore:
                 # SQLite: window functions supported since 3.25
                 cur.execute(
                     f"""
-                    SELECT url_hash, url, domain, priority, source_url, created_at
+                    SELECT url_hash, url, domain, priority, created_at
                     FROM (
-                        SELECT url_hash, url, domain, priority, source_url, created_at,
+                        SELECT url_hash, url, domain, priority, created_at,
                                ROW_NUMBER() OVER (
                                    PARTITION BY domain ORDER BY priority DESC
                                ) AS rn
@@ -347,8 +339,7 @@ class UrlStore:
                     url=row[1],
                     domain=row[2],
                     priority=row[3],
-                    source_url=row[4],
-                    created_at=row[5],
+                    created_at=row[4],
                 )
                 for row in rows
             ]
@@ -471,7 +462,7 @@ class UrlStore:
             cur = con.cursor()
             cur.execute(
                 f"""
-                SELECT url_hash, url, domain, priority, source_url, created_at
+                SELECT url_hash, url, domain, priority, created_at
                 FROM urls
                 WHERE status = 'pending'
                 ORDER BY priority DESC
@@ -484,8 +475,7 @@ class UrlStore:
                     url=row[1],
                     domain=row[2],
                     priority=row[3],
-                    source_url=row[4],
-                    created_at=row[5],
+                    created_at=row[4],
                 )
                 for row in cur.fetchall()
             ]

@@ -145,7 +145,7 @@ async def process_url(
                             )
                         domain_visits = max(_domain_cache[new_domain], 1)
                         score = calculate_url_score(new_url, priority, domain_visits)
-                        url_store.add(new_url, priority=score, source_url=url)
+                        url_store.add(new_url, priority=score)
 
                     logger.debug(
                         f"Enqueued links from {url} ({len(discovered)} discovered)"
