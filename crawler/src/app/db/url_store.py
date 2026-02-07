@@ -57,7 +57,6 @@ CREATE INDEX IF NOT EXISTS idx_urls_pending ON urls(priority DESC) WHERE status 
 CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
 CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status);
 CREATE INDEX IF NOT EXISTS idx_urls_recrawl ON urls(last_crawled_at) WHERE status IN ('done', 'failed');
-CREATE INDEX IF NOT EXISTS idx_urls_seed ON urls(url_hash) WHERE is_seed = TRUE;
 """
 
 SCHEMA_SQLITE = """
@@ -75,7 +74,6 @@ CREATE TABLE IF NOT EXISTS urls (
 
 CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
 CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status);
-CREATE INDEX IF NOT EXISTS idx_urls_seed ON urls(url_hash) WHERE is_seed = 1;
 """
 
 
@@ -125,6 +123,11 @@ class UrlStore:
                         "UPDATE urls SET is_seed = TRUE"
                         " WHERE url IN (SELECT url FROM seeds)"
                     )
+                # Create seed index after column exists
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_urls_seed"
+                    " ON urls(url_hash) WHERE is_seed = TRUE"
+                )
                 con.commit()
                 cur.close()
             else:
