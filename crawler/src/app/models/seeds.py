@@ -52,6 +52,23 @@ class SeedRequeueRequest(BaseModel):
     )
 
 
+class TrancoImportRequest(BaseModel):
+    """Request to import seeds from Tranco list"""
+
+    count: int = Field(
+        default=1000,
+        ge=1,
+        le=10000,
+        description="Number of top domains to import",
+    )
+    priority: float = Field(
+        default=50.0,
+        ge=0.0,
+        le=1000.0,
+        description="Priority score for imported seeds",
+    )
+
+
 class SeedResponse(BaseModel):
     """Response for seed operations"""
 

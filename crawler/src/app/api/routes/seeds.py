@@ -11,8 +11,10 @@ from app.models.seeds import (
     SeedDeleteRequest,
     SeedRequeueRequest,
     SeedResponse,
+    TrancoImportRequest,
 )
 from app.services.seeds import SeedService
+from app.services.tranco import download_tranco
 from app.api.deps import get_seed_service
 
 router = APIRouter()
@@ -55,6 +57,22 @@ async def delete_seeds(
         return SeedResponse(status="ok", count=count)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete seeds: {str(e)}")
+
+
+@router.post("/seeds/import-tranco", response_model=SeedResponse)
+async def import_tranco(
+    request: TrancoImportRequest = TrancoImportRequest(),
+    seed_service: SeedService = Depends(get_seed_service),
+):
+    """Import top domains from the Tranco list as seeds."""
+    try:
+        urls = download_tranco(count=request.count)
+        count = seed_service.add_seeds(urls=urls, priority=request.priority)
+        return SeedResponse(status="ok", count=count)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to import Tranco list: {str(e)}"
+        )
 
 
 @router.post("/seeds/requeue", response_model=SeedResponse)
