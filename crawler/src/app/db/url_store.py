@@ -270,12 +270,14 @@ class UrlStore:
         finally:
             con.close()
 
-    def pop_batch(self, count: int) -> list[UrlItem]:
+    def pop_batch(self, count: int, max_per_domain: int = 3) -> list[UrlItem]:
         """
         Get pending URLs and mark them as crawling.
+        Ensures domain diversity by limiting URLs per domain.
 
         Args:
             count: Maximum number of URLs to return
+            max_per_domain: Maximum URLs from a single domain
 
         Returns:
             List of UrlItems
@@ -293,27 +295,39 @@ class UrlStore:
                     f"""
                     UPDATE urls SET status = 'crawling'
                     WHERE url_hash IN (
-                        SELECT url_hash FROM urls
-                        WHERE status = 'pending'
-                        ORDER BY priority DESC
+                        SELECT url_hash FROM (
+                            SELECT url_hash,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY domain ORDER BY priority DESC
+                                   ) AS rn
+                            FROM urls WHERE status = 'pending'
+                        ) ranked
+                        WHERE rn <= {ph}
+                        ORDER BY rn ASC
                         LIMIT {ph}
                     )
                     RETURNING url_hash, url, domain, priority, source_url, created_at
                     """,
-                    (count,),
+                    (max_per_domain, count),
                 )
                 rows = cur.fetchall()
             else:
-                # SQLite: SELECT then UPDATE
+                # SQLite: window functions supported since 3.25
                 cur.execute(
                     f"""
                     SELECT url_hash, url, domain, priority, source_url, created_at
-                    FROM urls
-                    WHERE status = 'pending'
+                    FROM (
+                        SELECT url_hash, url, domain, priority, source_url, created_at,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY domain ORDER BY priority DESC
+                               ) AS rn
+                        FROM urls WHERE status = 'pending'
+                    )
+                    WHERE rn <= {ph}
                     ORDER BY priority DESC
                     LIMIT {ph}
                     """,
-                    (count,),
+                    (max_per_domain, count),
                 )
                 rows = cur.fetchall()
 
@@ -581,6 +595,22 @@ class UrlStore:
                 (limit,),
             )
             result = [(row[0], row[1]) for row in cur.fetchall()]
+            cur.close()
+            return result
+        finally:
+            con.close()
+
+    def domain_done_count(self, domain: str) -> int:
+        """Return number of 'done' URLs for a given domain."""
+        ph = _placeholder()
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT COUNT(*) FROM urls WHERE domain = {ph} AND status = 'done'",
+                (domain,),
+            )
+            result = cur.fetchone()[0]
             cur.close()
             return result
         finally:

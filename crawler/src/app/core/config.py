@@ -24,7 +24,8 @@ class CrawlerSettings(InfrastructureSettings):
 
     # Crawler Behavior
     CRAWL_USER_AGENT: str = os.getenv(
-        "CRAWL_USER_AGENT", "SearchBot/0.3 (+https://example.local/; async crawler)"
+        "CRAWL_USER_AGENT",
+        "PaleblueBot/1.0 (+https://palebluesearch.com/about; web crawler)",
     )
     CRAWL_TIMEOUT_SEC: int = int(os.getenv("CRAWL_TIMEOUT_SEC", "10"))
     CRAWL_OUTLINKS_PER_PAGE: int = int(os.getenv("CRAWL_OUTLINKS_PER_PAGE", "50"))

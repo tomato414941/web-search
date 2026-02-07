@@ -28,6 +28,9 @@ MAX_RETRIES = 3
 # Track retry counts in memory (reset on restart)
 _retry_counts: dict[str, int] = {}
 
+# Domain visit count cache (refreshed each batch)
+_domain_cache: dict[str, int] = {}
+
 
 async def process_url(
     session: aiohttp.ClientSession,
@@ -135,7 +138,12 @@ async def process_url(
 
                     # add() handles dedup + recrawl check internally
                     for new_url in discovered:
-                        domain_visits = 1
+                        new_domain = get_domain(new_url)
+                        if new_domain not in _domain_cache:
+                            _domain_cache[new_domain] = url_store.domain_done_count(
+                                new_domain
+                            )
+                        domain_visits = max(_domain_cache[new_domain], 1)
                         score = calculate_url_score(new_url, priority, domain_visits)
                         url_store.add(new_url, priority=score, source_url=url)
 
@@ -251,6 +259,10 @@ async def worker_loop(concurrency: int = 1):
 
         try:
             while True:
+                # Clear domain cache periodically
+                if len(_domain_cache) > 1000:
+                    _domain_cache.clear()
+
                 # Get next URL from scheduler
                 item = scheduler.get_next()
 
