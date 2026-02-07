@@ -138,6 +138,85 @@ def get_recent_history(
         return []
 
 
+def get_crawl_rate(hours: int = 1, db_path: str | None = None) -> int:
+    """Get count of crawl attempts in the last N hours (computed via SQL)."""
+    try:
+        path = db_path or get_db_path()
+        ph = _placeholder()
+        con = get_connection(path)
+        try:
+            import time
+
+            cutoff = int(time.time()) - (hours * 3600)
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT COUNT(*) FROM crawl_logs WHERE created_at >= {ph}",
+                (cutoff,),
+            )
+            result = cur.fetchone()[0]
+            cur.close()
+            return result
+        finally:
+            con.close()
+    except Exception:
+        return 0
+
+
+def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
+    """Get count of error crawl attempts in the last N hours."""
+    try:
+        path = db_path or get_db_path()
+        ph = _placeholder()
+        con = get_connection(path)
+        try:
+            import time
+
+            cutoff = int(time.time()) - (hours * 3600)
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT COUNT(*) FROM crawl_logs WHERE status = 'error' AND created_at >= {ph}",
+                (cutoff,),
+            )
+            result = cur.fetchone()[0]
+            cur.close()
+            return result
+        finally:
+            con.close()
+    except Exception:
+        return 0
+
+
+def get_recent_errors(
+    limit: int = 5, db_path: str | None = None
+) -> List[Dict[str, Any]]:
+    """Get most recent error entries."""
+    try:
+        path = db_path or get_db_path()
+        ph = _placeholder()
+        con = get_connection(path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT url, error_message, created_at FROM crawl_logs "
+                f"WHERE status = 'error' ORDER BY created_at DESC LIMIT {ph}",
+                (limit,),
+            )
+            result = [
+                {
+                    "url": row[0],
+                    "error_message": row[1] or "Unknown",
+                    "created_at": row[2],
+                }
+                for row in cur.fetchall()
+            ]
+            cur.close()
+            return result
+        finally:
+            con.close()
+    except Exception:
+        return []
+
+
 def get_url_history(
     url: str, limit: int = 10, db_path: str | None = None
 ) -> List[Dict[str, Any]]:

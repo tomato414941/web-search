@@ -57,6 +57,13 @@ Microservices architecture with CQRS-lite pattern:
 - **PageRank**: Link analysis scoring
 - Tokenizer: SudachiPy Mode A
 
+### Design Principles
+
+- **Metrics are computed at the source**: Each service computes its own metrics via SQL (COUNT, AVG, etc.) and exposes aggregated values via API. The dashboard aggregates and displays — it does NOT fetch raw data and compute metrics in Python.
+- **No raw data over HTTP for aggregation**: If you need a count, return the count from SQL. Do not fetch N rows and call `len()`.
+- **Async HTTP in async handlers**: Use `httpx.AsyncClient` (not `httpx.Client`) inside `async def` handlers to avoid blocking the event loop.
+- **Minimize HTTP round-trips**: Prefer one aggregated endpoint (e.g., `/api/v1/stats`) over multiple fine-grained calls when the consumer needs all the data at once.
+
 ### Key Paths
 
 - Frontend API: `frontend/src/frontend/api/main.py`

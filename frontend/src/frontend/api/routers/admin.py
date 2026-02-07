@@ -81,7 +81,7 @@ def require_auth(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-def get_dashboard_data() -> dict[str, Any]:
+async def get_dashboard_data() -> dict[str, Any]:
     """Get comprehensive data for dashboard."""
     data: dict[str, Any] = {
         # Basic stats
@@ -187,44 +187,22 @@ def get_dashboard_data() -> dict[str, Any]:
     except Exception as e:
         logger.warning(f"Failed to get DB stats: {e}")
 
-    # Crawler Stats (Remote)
+    # Crawler Stats (single aggregated request)
     crawler_reachable = False
     try:
-        with httpx.Client(timeout=3.0) as client:
-            resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/status")
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats")
             if resp.status_code == 200:
                 crawler_reachable = True
-                remote_stats = resp.json()
-                data["queue_size"] = remote_stats.get("queue_size", 0)
-                data["visited_count"] = remote_stats.get("total_crawled", 0)
-
-            # Worker status
-            resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/status")
-            if resp.status_code == 200:
-                worker_data = resp.json()
-                data["worker_status"] = worker_data.get("status", "unknown")
-                data["uptime_seconds"] = worker_data.get("uptime_seconds")
-                data["active_tasks"] = worker_data.get("active_tasks", 0)
-
-            # Recent errors from history
-            resp = client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/history?limit=100"
-            )
-            if resp.status_code == 200:
-                history = resp.json()
-                # Count errors in last hour and get recent error details
-                errors = [h for h in history if h.get("status") == "error"]
-                data["recent_error_count"] = len(errors)
-                data["recent_errors"] = [
-                    {
-                        "url": e.get("url", ""),
-                        "error_message": e.get("error_message", "Unknown"),
-                    }
-                    for e in errors[:5]
-                ]
-                # Calculate crawl rate (pages/hour based on recent history)
-                if history:
-                    data["crawl_rate"] = len(history)  # Approximation
+                stats = resp.json()
+                data["queue_size"] = stats.get("queue_size", 0)
+                data["visited_count"] = stats.get("total_crawled", 0)
+                data["worker_status"] = stats.get("worker_status", "unknown")
+                data["uptime_seconds"] = stats.get("uptime_seconds")
+                data["active_tasks"] = stats.get("active_tasks", 0)
+                data["crawl_rate"] = stats.get("crawl_rate_1h", 0)
+                data["recent_error_count"] = stats.get("error_count_1h", 0)
+                data["recent_errors"] = stats.get("recent_errors", [])
     except Exception as e:
         logger.warning(f"Failed to get crawler stats: {e}")
 
@@ -332,7 +310,7 @@ async def dashboard(request: Request):
     if not validate_session(token):
         return RedirectResponse(url="/admin/login", status_code=303)
 
-    data = get_dashboard_data()
+    data = await get_dashboard_data()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         "admin/dashboard.html",
