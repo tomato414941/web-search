@@ -9,7 +9,6 @@ from app.models.seeds import (
     SeedItem,
     SeedAddRequest,
     SeedDeleteRequest,
-    SeedRequeueRequest,
     SeedResponse,
     TrancoImportRequest,
 )
@@ -73,46 +72,3 @@ async def import_tranco(
         raise HTTPException(
             status_code=500, detail=f"Failed to import Tranco list: {str(e)}"
         )
-
-
-@router.post("/seeds/requeue", response_model=SeedResponse)
-async def requeue_all_seeds(
-    request: SeedRequeueRequest = SeedRequeueRequest(),
-    seed_service: SeedService = Depends(get_seed_service),
-):
-    """
-    Re-add all seeds to the crawl queue.
-
-    Set force=true to bypass crawl:seen check and force re-crawling.
-    """
-    try:
-        count = seed_service.requeue_all(force=request.force)
-        return SeedResponse(status="ok", count=count)
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to requeue seeds: {str(e)}"
-        )
-
-
-@router.post("/seeds/{url:path}/requeue", response_model=SeedResponse)
-async def requeue_one_seed(
-    url: str,
-    force: bool = False,
-    seed_service: SeedService = Depends(get_seed_service),
-):
-    """
-    Re-add a specific seed to the crawl queue.
-
-    Set force=true to bypass crawl:seen check.
-    """
-    try:
-        success = seed_service.requeue_one(url, force=force)
-        if not success:
-            raise HTTPException(
-                status_code=404, detail="Seed URL not found or already in queue"
-            )
-        return SeedResponse(status="ok", count=1)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to requeue seed: {str(e)}")

@@ -533,45 +533,6 @@ async def import_tranco(
         )
 
 
-@router.post("/seeds/requeue")
-async def requeue_seeds(
-    request: Request,
-    force: bool = Form(default=False),
-    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
-):
-    """Requeue all seeds."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(
-            url="/admin/seeds?error=Invalid+request", status_code=303
-        )
-
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            payload = {"force": force}
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds/requeue",
-                json=payload,
-            )
-            if resp.status_code != 200:
-                raise Exception(f"Crawler API Error: {resp.text}")
-            data = resp.json()
-            count = data.get("count", 0)
-
-        return RedirectResponse(
-            url=f"/admin/seeds?success={quote(f'Requeued {count} seeds', safe='')}",
-            status_code=303,
-        )
-    except Exception as e:
-        return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(e), safe='')}",
-            status_code=303,
-        )
-
-
 @router.post("/queue")
 async def add_to_queue(
     request: Request,

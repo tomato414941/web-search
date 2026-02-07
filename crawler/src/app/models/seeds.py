@@ -12,8 +12,10 @@ class SeedItem(BaseModel):
     """Single seed URL with metadata"""
 
     url: str = Field(..., description="Seed URL")
-    added_at: datetime = Field(..., description="When the seed was added")
-    last_queued: datetime | None = Field(None, description="When last added to queue")
+    status: str = Field(..., description="URL status (pending/crawling/done/failed)")
+    priority: float = Field(0, description="Crawl priority")
+    created_at: datetime = Field(..., description="When the URL was first added")
+    last_crawled_at: datetime | None = Field(None, description="When last crawled")
 
 
 class SeedAddRequest(BaseModel):
@@ -33,15 +35,6 @@ class SeedDeleteRequest(BaseModel):
         ...,
         min_length=1,
         description="List of URLs to remove from seeds",
-    )
-
-
-class SeedRequeueRequest(BaseModel):
-    """Request to requeue seeds"""
-
-    force: bool = Field(
-        default=False,
-        description="If true, bypass crawl:seen check",
     )
 
 

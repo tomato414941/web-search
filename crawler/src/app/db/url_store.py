@@ -49,13 +49,15 @@ CREATE TABLE IF NOT EXISTS urls (
     priority REAL NOT NULL DEFAULT 0,
     crawl_count INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
-    last_crawled_at INTEGER
+    last_crawled_at INTEGER,
+    is_seed BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE INDEX IF NOT EXISTS idx_urls_pending ON urls(priority DESC) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
 CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status);
 CREATE INDEX IF NOT EXISTS idx_urls_recrawl ON urls(last_crawled_at) WHERE status IN ('done', 'failed');
+CREATE INDEX IF NOT EXISTS idx_urls_seed ON urls(url_hash) WHERE is_seed = TRUE;
 """
 
 SCHEMA_SQLITE = """
@@ -67,11 +69,13 @@ CREATE TABLE IF NOT EXISTS urls (
     priority REAL NOT NULL DEFAULT 0,
     crawl_count INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL,
-    last_crawled_at INTEGER
+    last_crawled_at INTEGER,
+    is_seed BOOLEAN NOT NULL DEFAULT FALSE
 ) WITHOUT ROWID;
 
 CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
 CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status);
+CREATE INDEX IF NOT EXISTS idx_urls_seed ON urls(url_hash) WHERE is_seed = 1;
 """
 
 
@@ -105,11 +109,48 @@ class UrlStore:
                     stmt = stmt.strip()
                     if stmt:
                         cur.execute(stmt)
+                # Migration: add is_seed column to existing tables
+                cur.execute(
+                    "ALTER TABLE urls ADD COLUMN IF NOT EXISTS"
+                    " is_seed BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+                # Migrate seeds table data if it exists
+                cur.execute(
+                    "SELECT EXISTS ("
+                    "SELECT FROM information_schema.tables"
+                    " WHERE table_name = 'seeds')"
+                )
+                if cur.fetchone()[0]:
+                    cur.execute(
+                        "UPDATE urls SET is_seed = TRUE"
+                        " WHERE url IN (SELECT url FROM seeds)"
+                    )
                 con.commit()
                 cur.close()
             else:
                 con.execute("PRAGMA journal_mode=WAL")
                 con.executescript(SCHEMA_SQLITE)
+                # Migration: add is_seed column if missing (SQLite)
+                cur = con.cursor()
+                cur.execute("PRAGMA table_info(urls)")
+                columns = [row[1] for row in cur.fetchall()]
+                if "is_seed" not in columns:
+                    cur.execute(
+                        "ALTER TABLE urls ADD COLUMN"
+                        " is_seed BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+                    # Migrate seeds table data if it exists
+                    cur.execute(
+                        "SELECT name FROM sqlite_master"
+                        " WHERE type='table' AND name='seeds'"
+                    )
+                    if cur.fetchone():
+                        cur.execute(
+                            "UPDATE urls SET is_seed = TRUE"
+                            " WHERE url IN (SELECT url FROM seeds)"
+                        )
+                    con.commit()
+                cur.close()
         finally:
             con.close()
 
@@ -613,6 +654,77 @@ class UrlStore:
             cur = con.cursor()
             cur.execute("SELECT COUNT(*) FROM urls")
             result = cur.fetchone()[0]
+            cur.close()
+            return result
+        finally:
+            con.close()
+
+    def mark_seeds(self, urls: list[str]) -> int:
+        """Set is_seed = TRUE for the given URLs."""
+        if not urls:
+            return 0
+
+        ph = _placeholder()
+        marked = 0
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            for url in urls:
+                h = url_hash(url)
+                cur.execute(
+                    f"UPDATE urls SET is_seed = TRUE WHERE url_hash = {ph}",
+                    (h,),
+                )
+                marked += cur.rowcount
+            con.commit()
+            cur.close()
+            return marked
+        finally:
+            con.close()
+
+    def unmark_seeds(self, urls: list[str]) -> int:
+        """Set is_seed = FALSE for the given URLs."""
+        if not urls:
+            return 0
+
+        ph = _placeholder()
+        unmarked = 0
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            for url in urls:
+                h = url_hash(url)
+                cur.execute(
+                    f"UPDATE urls SET is_seed = FALSE WHERE url_hash = {ph}",
+                    (h,),
+                )
+                unmarked += cur.rowcount
+            con.commit()
+            cur.close()
+            return unmarked
+        finally:
+            con.close()
+
+    def get_seeds(self) -> list[dict]:
+        """Get all URLs marked as seeds."""
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                "SELECT url, domain, status, priority, created_at, last_crawled_at"
+                " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
+            )
+            result = [
+                {
+                    "url": row[0],
+                    "domain": row[1],
+                    "status": row[2],
+                    "priority": row[3],
+                    "created_at": row[4],
+                    "last_crawled_at": row[5],
+                }
+                for row in cur.fetchall()
+            ]
             cur.close()
             return result
         finally:
