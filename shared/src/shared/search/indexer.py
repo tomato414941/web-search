@@ -9,7 +9,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
-from shared.analyzer import analyzer
+from shared.analyzer import analyzer, STOP_WORDS
 from shared.db.search import get_connection, is_postgres_mode
 
 
@@ -181,7 +181,7 @@ class SearchIndexer:
         if not text:
             return []
         tokenized = analyzer.tokenize(text)
-        return tokenized.split()
+        return [t for t in tokenized.split() if len(t) > 1 and t not in STOP_WORDS]
 
     def _index_field(
         self,

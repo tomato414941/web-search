@@ -131,8 +131,8 @@ class TestSearchEngine:
         # 京都 should not match 東京
         assert "http://example.com/kyoto" not in urls
 
-    def test_and_search(self, temp_search_db):
-        """Test AND logic - all tokens must match."""
+    def test_or_search(self, temp_search_db):
+        """Test OR logic - documents with any token match, full match ranks higher."""
         indexer = SearchIndexer(temp_search_db)
         engine = SearchEngine(temp_search_db)
 
@@ -148,10 +148,11 @@ class TestSearchEngine:
         )
         indexer.update_global_stats()
 
-        # Search for "Python JavaScript" should only match doc 1
+        # Search for "Python JavaScript" should match both docs (OR logic)
         result = engine.search("Python JavaScript")
 
-        assert result.total == 1
+        assert result.total == 2
+        # Doc with both tokens should rank higher
         assert result.hits[0].url == "http://example.com/1"
 
     def test_empty_query(self, temp_search_db):
@@ -230,6 +231,72 @@ class TestSearchEngine:
         # Get page 3 (last page, only 1 result)
         result3 = engine.search("テスト", limit=2, page=3)
         assert len(result3.hits) == 1
+
+    def test_case_insensitive_search(self, temp_search_db):
+        """Test that search is case-insensitive."""
+        indexer = SearchIndexer(temp_search_db)
+        engine = SearchEngine(temp_search_db)
+
+        indexer.index_document(
+            url="http://example.com/claude",
+            title="Claude AI Assistant",
+            content="Claude is made by Anthropic.",
+        )
+        indexer.update_global_stats()
+
+        # Lowercase query should find uppercase content
+        result = engine.search("claude")
+        assert result.total >= 1
+        assert result.hits[0].url == "http://example.com/claude"
+
+        # Uppercase query should also work
+        result2 = engine.search("CLAUDE")
+        assert result2.total >= 1
+        assert result2.hits[0].url == "http://example.com/claude"
+
+    def test_or_search_ranking(self, temp_search_db):
+        """Test that documents matching more tokens rank higher."""
+        indexer = SearchIndexer(temp_search_db)
+        engine = SearchEngine(temp_search_db)
+
+        indexer.index_document(
+            url="http://example.com/both",
+            title="Python JavaScript tutorial",
+            content="Learn Python and JavaScript together.",
+        )
+        indexer.index_document(
+            url="http://example.com/one",
+            title="Ruby tutorial",
+            content="Learn Ruby programming.",
+        )
+        indexer.update_global_stats()
+
+        result = engine.search("Python JavaScript Ruby")
+        assert result.total == 2
+        # Document with more token matches should rank first
+        assert result.hits[0].url == "http://example.com/both"
+
+    def test_stop_words_filtered(self, temp_search_db):
+        """Test that stop words are filtered from indexing and search."""
+        indexer = SearchIndexer(temp_search_db)
+
+        indexer.index_document(
+            url="http://example.com/1",
+            title="Python programming",
+            content="Python is the best language.",
+        )
+        indexer.update_global_stats()
+
+        # Check that stop words like "is", "the" are not in the index
+        import sqlite3
+
+        conn = sqlite3.connect(temp_search_db)
+        stop_entries = conn.execute(
+            "SELECT token FROM inverted_index WHERE token IN ('is', 'the')"
+        ).fetchall()
+        conn.close()
+
+        assert len(stop_entries) == 0
 
 
 class TestBM25Scoring:
@@ -310,14 +377,14 @@ class TestBM25Scoring:
         # Short document with keyword
         indexer.index_document(
             url="http://example.com/short",
-            title="短い",
-            content="Python を使う",
+            title="短い文書",
+            content="Python programming language basics",
         )
         # Long document with same keyword (once) but much more text
         indexer.index_document(
             url="http://example.com/long",
-            title="長い",
-            content="Python を使う。その他の単語がたくさんある長い文書です。" * 5,
+            title="長い文書",
+            content="Python " + " ".join(f"word{i}" for i in range(200)),
         )
         indexer.update_global_stats()
 
@@ -483,7 +550,7 @@ class TestHybridSearch:
 
         # Create engine with mock functions
         def mock_embed(text):
-            if "Python" in text:
+            if "python" in text.lower():
                 return np.array([0.9, 0.1, 0.0])
             return np.array([0.1, 0.9, 0.0])
 

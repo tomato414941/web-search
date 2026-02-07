@@ -11,7 +11,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from shared.analyzer import analyzer
+from shared.analyzer import analyzer, STOP_WORDS
 from shared.db.search import get_connection, is_postgres_mode
 from shared.search.scoring import BM25Scorer, BM25Config
 
@@ -90,7 +90,7 @@ class SearchEngine:
         page: int = 1,
     ) -> SearchResult:
         """
-        Search documents using AND logic.
+        Search documents using OR logic (ranked by token coverage).
 
         Args:
             query: Search query string
@@ -110,7 +110,7 @@ class SearchEngine:
 
         conn = get_connection(self.db_path)
         try:
-            # 2. Find candidate documents (AND logic)
+            # 2. Find candidate documents (OR logic, ranked by coverage)
             candidates = self._find_candidates(conn, tokens)
             if not candidates:
                 return self._empty_result(query, limit)
@@ -173,7 +173,7 @@ class SearchEngine:
         if not text:
             return []
         tokenized = analyzer.tokenize(text)
-        return tokenized.split()
+        return [t for t in tokenized.split() if len(t) > 1 and t not in STOP_WORDS]
 
     def _find_candidates(
         self,
@@ -181,8 +181,8 @@ class SearchEngine:
         tokens: list[str],
     ) -> set[str]:
         """
-        Find documents containing ALL tokens (AND logic).
-        Uses a single query with GROUP BY HAVING for efficiency.
+        Find documents containing ANY token (OR logic).
+        Results are capped at 1000 and ordered by token coverage + term frequency.
         """
         if not tokens:
             return set()
@@ -196,9 +196,10 @@ class SearchEngine:
             SELECT url FROM inverted_index
             WHERE token IN ({placeholders})
             GROUP BY url
-            HAVING COUNT(DISTINCT token) = {ph}
+            ORDER BY COUNT(DISTINCT token) DESC, SUM(term_freq) DESC
+            LIMIT 1000
             """,
-            (*tokens, len(tokens)),
+            tuple(tokens),
         )
         candidates = set(row[0] for row in cur.fetchall())
         cur.close()
