@@ -4,8 +4,6 @@ import logging
 import secrets
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, HttpUrl, Field
-from typing import Optional
-
 from app.core.config import settings
 from app.services.indexer import indexer_service
 from shared.pagerank import calculate_pagerank, calculate_domain_pagerank
@@ -25,7 +23,6 @@ class PageSubmission(BaseModel):
     url: HttpUrl
     title: str = Field(max_length=MAX_TITLE_LENGTH)
     content: str = Field(max_length=MAX_CONTENT_LENGTH)
-    raw_html: Optional[str] = None
     outlinks: list[str] = Field(default_factory=list, max_length=500)
 
 

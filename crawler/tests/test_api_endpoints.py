@@ -15,14 +15,6 @@ def test_root_health_endpoint(test_client):
     assert data["status"] == "ok"
 
 
-def test_api_v1_health_endpoint(test_client):
-    """Test GET /api/v1/health endpoint (backward compatible)"""
-    response = test_client.get("/api/v1/health")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "ok"
-
-
 def test_crawl_urls_endpoint(test_client, test_url_store):
     """Test POST /api/v1/urls endpoint"""
     with patch("app.api.deps._get_url_store", return_value=test_url_store):
@@ -68,7 +60,7 @@ def test_queue_status_endpoint(test_client, test_url_store):
         assert data["queue_size"] == 1
         assert data["total_seen"] == 2
         assert data["total_indexed"] == 1
-        assert "cache_size" in data  # Backward compat (always 0)
+        assert "active_seen" in data
 
 
 def test_history_endpoint(test_client):

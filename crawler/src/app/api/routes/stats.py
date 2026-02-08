@@ -25,7 +25,7 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
         "error_count_1h": get_error_count(hours=1),
         "recent_errors": get_recent_errors(limit=5),
         "queue_size": queue_stats.get("queue_size", 0),
-        "total_crawled": queue_stats.get("total_crawled", 0),
+        "active_seen": queue_stats.get("active_seen", 0),
         "worker_status": worker_status.status,
         "uptime_seconds": worker_status.uptime_seconds,
         "active_tasks": worker_status.active_tasks,

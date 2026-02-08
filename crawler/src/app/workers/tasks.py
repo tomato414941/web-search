@@ -270,8 +270,7 @@ async def worker_loop(concurrency: int = 1):
     async with aiohttp.ClientSession(
         headers={"User-Agent": settings.CRAWL_USER_AGENT}, connector=connector
     ) as session:
-        # Create robots cache without Redis
-        robots = AsyncRobotsCache(session, redis_client=None)
+        robots = AsyncRobotsCache(session)
 
         logger.info(f"Crawler started with concurrency={concurrency}")
         logger.info(f"Submitting pages to: {settings.INDEXER_API_URL}")

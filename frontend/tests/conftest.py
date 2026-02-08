@@ -11,7 +11,6 @@ os.environ.setdefault("ADMIN_SESSION_SECRET", "test-secret-key-for-testing")
 import gc
 import time
 import pytest
-import fakeredis
 import numpy as np
 from unittest.mock import patch
 from shared.db.search import ensure_db
@@ -78,14 +77,6 @@ def setup_test_env():
             except (PermissionError, OSError):
                 if attempt < 2:
                     time.sleep(0.1)
-
-
-@pytest.fixture(autouse=True)
-def mock_redis_server():
-    r = fakeredis.FakeRedis(decode_responses=True)
-    # Patch redis.Redis.from_url so any call to it returns our fake client
-    with patch("redis.Redis.from_url", return_value=r):
-        yield r
 
 
 @pytest.fixture(autouse=True)

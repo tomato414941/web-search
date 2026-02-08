@@ -22,17 +22,10 @@ class QueueStats(BaseModel):
     active_seen: int = Field(
         default=0, ge=0, description="URLs crawled within recrawl threshold"
     )
-    cache_size: int = Field(
-        default=0, ge=0, description="Deprecated (always 0, no Redis cache)"
-    )
     total_indexed: int = Field(
         default=0,
         ge=0,
         description="Total URLs successfully indexed (status=done)",
-    )
-    # Backward compatible alias
-    total_crawled: int = Field(
-        default=0, ge=0, description="Alias for active_seen (backward compat)"
     )
 
 

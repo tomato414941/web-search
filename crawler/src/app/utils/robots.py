@@ -23,14 +23,7 @@ BLOCKED_DOMAIN_TTL = 3600
 class AsyncRobotsCache:
     """Async wrapper for robots.txt parsing with LRU eviction"""
 
-    def __init__(self, session: aiohttp.ClientSession, redis_client=None):
-        """
-        Initialize robots.txt cache.
-
-        Args:
-            session: aiohttp session for fetching robots.txt
-            redis_client: Deprecated, kept for backward compatibility
-        """
+    def __init__(self, session: aiohttp.ClientSession):
         self._session = session
         self._parsers: LRUCache[str, urllib.robotparser.RobotFileParser] = LRUCache(
             maxsize=MAX_CACHED_DOMAINS

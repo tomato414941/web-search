@@ -20,7 +20,7 @@ async def add_urls_to_queue(
     """
     Add URLs to crawl queue
 
-    URLs are added to Redis queue for asynchronous processing.
+    URLs are added to crawl queue for asynchronous processing.
     Worker must be started separately via POST /worker/start.
     """
     try:

@@ -2,7 +2,7 @@
 Infrastructure Configuration
 
 Base configuration for infrastructure-level settings shared across all services.
-Contains only database, Redis, and path configurations.
+Contains database and path configurations.
 """
 
 import os
@@ -35,7 +35,7 @@ def _get_environment() -> Environment:
 
 
 class InfrastructureSettings:
-    """Infrastructure-level configuration (database, Redis, paths)"""
+    """Infrastructure-level configuration (database, paths)"""
 
     # Project Paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent.parent
@@ -46,9 +46,6 @@ class InfrastructureSettings:
     # SQLite (development): Uses SEARCH_DB path or default
     DATABASE_URL: str | None = os.getenv("DATABASE_URL")
     DB_PATH: str = os.getenv("SEARCH_DB", str(DATA_DIR / "search.db"))
-
-    # Redis
-    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
     # Environment
     ENVIRONMENT: Environment = _get_environment()

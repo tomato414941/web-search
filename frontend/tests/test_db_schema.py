@@ -1,4 +1,4 @@
-from frontend.core.db import open_db
+from shared.db.search import open_db
 
 
 def test_db_creation():

@@ -7,13 +7,11 @@ from typing import Any
 from urllib.parse import quote
 
 import httpx
-from fastapi import APIRouter, HTTPException, Request, Form
+from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from pydantic import BaseModel, HttpUrl
-
 from frontend.core.config import settings
-from frontend.core.db import get_connection
+from shared.db.search import get_connection
 from frontend.api.templates import templates
 
 logger = logging.getLogger(__name__)
@@ -28,12 +26,6 @@ CSRF_FORM_FIELD = "csrf_token"
 
 # Serializer for secure session tokens
 _serializer = URLSafeTimedSerializer(settings.SECRET_KEY)
-
-
-class SeedUrlRequest(BaseModel):
-    """Request model for adding seed URLs."""
-
-    url: HttpUrl
 
 
 def create_session() -> str:
@@ -72,13 +64,6 @@ def validate_csrf_token(request: Request, form_token: str | None) -> bool:
     if not cookie_token or not form_token:
         return False
     return secrets.compare_digest(cookie_token, form_token)
-
-
-def require_auth(request: Request) -> None:
-    """Dependency to require authentication."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
-        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 async def get_dashboard_data() -> dict[str, Any]:
@@ -196,7 +181,7 @@ async def get_dashboard_data() -> dict[str, Any]:
                 crawler_reachable = True
                 stats = resp.json()
                 data["queue_size"] = stats.get("queue_size", 0)
-                data["visited_count"] = stats.get("total_crawled", 0)
+                data["visited_count"] = stats.get("active_seen", 0)
                 data["worker_status"] = stats.get("worker_status", "unknown")
                 data["uptime_seconds"] = stats.get("uptime_seconds")
                 data["active_tasks"] = stats.get("active_tasks", 0)
@@ -707,7 +692,7 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
     status = {
         "state": "unreachable",
         "queue_size": 0,
-        "total_crawled": 0,
+        "active_seen": 0,
         "uptime": None,
         "concurrency": None,
     }
@@ -717,7 +702,7 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
             if resp.status_code == 200:
                 data = resp.json()
                 status["queue_size"] = data.get("queue_size", 0)
-                status["total_crawled"] = data.get("total_crawled", 0)
+                status["active_seen"] = data.get("active_seen", 0)
 
             resp = await client.get(f"{url}/api/v1/worker/status")
             if resp.status_code == 200:

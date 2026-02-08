@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from frontend.core.config import settings
-from frontend.core.db import get_connection
+from shared.db.search import get_connection
 from frontend.services.search import search_service
 from frontend.api.middleware.rate_limiter import limiter
 

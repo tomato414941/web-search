@@ -17,9 +17,6 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Router for /api/v1 prefix (backward compatibility)
-router = APIRouter()
-
 # Router for root-level health endpoints
 root_router = APIRouter()
 
@@ -64,12 +61,3 @@ async def readiness():
         status_code=200 if all_healthy else 503,
         content={"status": status, "checks": checks},
     )
-
-
-# --- /api/v1 endpoints (backward compatibility) ---
-
-
-@router.get("/health")
-async def health_check():
-    """Health check endpoint (backward compatible)."""
-    return {"status": "ok"}

@@ -15,11 +15,9 @@ slowapi
 prometheus-client
 
 # Search & Indexing
-beautifulsoup4
 sudachipy
 sudachidict_core
 
 # Test dependencies
 pytest
 pytest-asyncio
-fakeredis

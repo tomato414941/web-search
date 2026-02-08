@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from shared.db.search import ensure_db
 from shared.pagerank import calculate_pagerank, calculate_domain_pagerank
-from app.api.routes import indexer, health
+from app.api.routes import indexer
 from app.api.routes.health import root_router as health_root_router
 
 logger = logging.getLogger(__name__)
@@ -95,9 +95,6 @@ app.add_middleware(
 # --- Routers ---
 # Root-level health endpoints (Kubernetes probes)
 app.include_router(health_root_router, tags=["health"])
-
-# Public health check (no auth, for load balancer) - backward compatibility
-app.include_router(health.router, prefix="/api/v1", tags=["health"])
 
 # Indexer API (requires API key)
 app.include_router(indexer.router, prefix="/api/v1", tags=["indexer"])

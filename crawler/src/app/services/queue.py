@@ -67,10 +67,7 @@ class QueueService:
             "queue_size": stats["pending"],
             "total_seen": stats["total"],
             "active_seen": stats["recent"],
-            "cache_size": 0,  # No Redis cache anymore
             "total_indexed": stats["done"],
-            # Legacy field for backward compatibility
-            "total_crawled": stats["recent"],
         }
 
     def get_queue_items(self, limit: int = 20) -> list[dict]:

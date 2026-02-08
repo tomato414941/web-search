@@ -7,8 +7,7 @@ uvicorn[standard]
 # Async HTTP
 aiohttp
 
-# Queue & Caching
-redis
+# Caching
 cachetools
 
 # Parsing
@@ -20,4 +19,3 @@ httpx
 # Test dependencies
 pytest
 pytest-asyncio
-fakeredis

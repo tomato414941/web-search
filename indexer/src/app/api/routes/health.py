@@ -13,9 +13,6 @@ from fastapi.responses import JSONResponse
 from app.core.config import settings
 from shared.db.search import get_connection
 
-# Router for /api/v1 prefix (backward compatibility)
-router = APIRouter()
-
 # Router for root-level health endpoints
 root_router = APIRouter()
 
@@ -54,12 +51,3 @@ async def readiness():
         {"status": "ok" if all_ok else "degraded", "checks": checks},
         status_code=200 if all_ok else 503,
     )
-
-
-# --- /api/v1 endpoints (backward compatibility) ---
-
-
-@router.get("/health")
-async def health_check() -> dict:
-    """Public health check endpoint for load balancer (backward compatible)."""
-    return {"status": "ok", "service": "indexer"}

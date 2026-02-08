@@ -12,10 +12,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from frontend.core.config import settings
-from frontend.core.db import get_connection
-
-# Router for /api/v1 prefix (backward compatibility)
-router = APIRouter()
+from shared.db.search import get_connection
 
 # Router for root-level health endpoints
 root_router = APIRouter()
@@ -92,12 +89,3 @@ async def healthz():
 async def readyz():
     """Readiness probe alias (/readyz)."""
     return _get_readiness_response()
-
-
-# --- /api/v1 endpoints (backward compatibility) ---
-
-
-@router.get("/health")
-async def health_check() -> dict:
-    """Public health check endpoint for load balancer (backward compatible)."""
-    return {"status": "ok", "service": "frontend"}

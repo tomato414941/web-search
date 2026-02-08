@@ -39,10 +39,6 @@ class Settings(InfrastructureSettings):
             else [{"name": "default", "url": self.CRAWLER_SERVICE_URL}]
         )
 
-    # Crawler Queue Keys (for stats display)
-    CRAWL_QUEUE_KEY: str = os.getenv("CRAWL_QUEUE_KEY", "crawl:queue")
-    CRAWL_SEEN_KEY: str = os.getenv("CRAWL_SEEN_KEY", "crawl:seen")
-
     # Search Settings
     MAX_QUERY_LEN: int = int(os.getenv("MAX_QUERY_LEN", "200"))
     MAX_PAGE: int = int(os.getenv("MAX_PAGE", "100"))

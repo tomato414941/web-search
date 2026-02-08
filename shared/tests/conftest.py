@@ -15,7 +15,6 @@ def clean_env(monkeypatch):
     env_vars = [
         "CRAWLER_SERVICE_URL",
         "WEB_SERVER_URL",
-        "REDIS_URL",
         "DB_PATH",
         "SECRET_KEY",
         "ADMIN_USERNAME",

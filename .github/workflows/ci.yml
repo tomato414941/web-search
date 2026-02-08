@@ -28,16 +28,6 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -50,11 +40,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e shared/
           pip install -r frontend/requirements.txt
-          pip install pytest pytest-cov pytest-asyncio httpx fakeredis
+          pip install pytest pytest-cov pytest-asyncio httpx
       - name: Run frontend tests
         env:
           PYTHONPATH: frontend/src
-          REDIS_URL: redis://localhost:6379
           ADMIN_USERNAME: test
           ADMIN_PASSWORD: test
           ADMIN_SESSION_SECRET: test

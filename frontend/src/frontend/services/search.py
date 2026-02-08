@@ -7,7 +7,7 @@ Uses hybrid search: Combined BM25 + Semantic using RRF.
 from typing import Any
 
 from frontend.core.config import settings
-from frontend.core.db import get_connection
+from shared.db.search import get_connection
 from frontend.services.embedding import embedding_service
 from shared.search import SearchEngine, BM25Config
 from shared.search.snippet import highlight_snippet

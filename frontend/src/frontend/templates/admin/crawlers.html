@@ -46,7 +46,7 @@
                         {% endif %}
                     </td>
                     <td>{{ "{:,}".format(inst.queue_size) }}</td>
-                    <td>{{ "{:,}".format(inst.total_crawled) }}</td>
+                    <td>{{ "{:,}".format(inst.active_seen) }}</td>
                     <td>{{ inst.uptime or "-" }}</td>
                     <td>
                         {% if inst.state == "running" %}
