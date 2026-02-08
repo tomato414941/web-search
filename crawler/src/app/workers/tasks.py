@@ -319,7 +319,7 @@ async def worker_loop(concurrency: int = 1):
                     asyncio.create_task(process_with_semaphore(url, priority, item))
                 except Exception as e:
                     sem.release()
-                    scheduler.record_complete(domain)
+                    scheduler.record_complete(domain, success=False)
                     logger.error(f"Failed to create task for {url}: {e}")
 
         except asyncio.CancelledError:
