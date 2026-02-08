@@ -110,3 +110,13 @@ class AsyncRobotsCache:
         except Exception as e:
             logger.warning(f"Robots.txt check failed for {url}: {e}")
             return False  # Deny on unexpected errors for safety
+
+    def get_crawl_delay(self, domain: str, user_agent: str) -> float | None:
+        """Get Crawl-delay for a domain from cached robots.txt parser."""
+        rp = self._parsers.get(domain)
+        if rp is None:
+            return None
+        delay = rp.crawl_delay(user_agent)
+        if delay is not None:
+            return float(delay)
+        return None

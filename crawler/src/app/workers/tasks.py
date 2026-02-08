@@ -48,6 +48,7 @@ async def process_url(
     Process a single URL: check robots, fetch, parse, submit to indexer, extract links.
     """
     domain = get_domain(url)
+    host_error = False
 
     try:
         # 1. Check robots.txt
@@ -58,6 +59,11 @@ async def process_url(
             )
             url_store.record(url, status="failed")
             return
+
+        # Apply Crawl-delay from robots.txt
+        crawl_delay = robots.get_crawl_delay(domain, settings.CRAWL_USER_AGENT)
+        if crawl_delay is not None:
+            scheduler.set_crawl_delay(domain, crawl_delay)
 
         # 2. Fetch HTML
         async with session.get(
@@ -160,6 +166,7 @@ async def process_url(
 
             elif resp.status in (429, 500, 502, 503, 504):
                 # Retryable errors
+                host_error = True
                 logger.warning(f"Retryable error {resp.status} for {url}")
                 await _handle_retry(url, url_store, priority, f"HTTP {resp.status}")
 
@@ -172,17 +179,19 @@ async def process_url(
                 url_store.record(url, status="failed")
 
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        host_error = True
         logger.warning(f"Network error for {url}: {e}")
         await _handle_retry(url, url_store, priority, str(e))
 
     except Exception as e:
+        host_error = True
         logger.error(f"Unexpected error processing {url}: {e}", exc_info=True)
         history_log.log_crawl_attempt(url, "unknown_error", error_message=str(e))
         url_store.record(url, status="failed")
 
     finally:
         # Always record completion for rate limiting
-        scheduler.record_complete(domain)
+        scheduler.record_complete(domain, success=not host_error)
 
 
 async def _handle_retry(
@@ -299,7 +308,6 @@ async def worker_loop(concurrency: int = 1):
                         )
                     except Exception as e:
                         logger.error(f"Error processing {url}: {e}")
-                        scheduler.record_complete(item.domain)
                     finally:
                         sem.release()
 

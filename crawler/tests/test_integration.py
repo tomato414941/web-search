@@ -30,6 +30,7 @@ async def test_process_url_success_flow(test_components):
     mock_session = MagicMock()
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
+    mock_robots.get_crawl_delay = MagicMock(return_value=None)
 
     # Mock HTTP response
     mock_response = AsyncMock()
@@ -92,6 +93,7 @@ async def test_process_url_robots_blocked(test_components):
     mock_session = MagicMock()
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = False  # Blocked
+    mock_robots.get_crawl_delay = MagicMock(return_value=None)
 
     with patch("app.workers.tasks.history_log.log_crawl_attempt"):
         await process_url(
@@ -118,6 +120,7 @@ async def test_process_url_http_error(test_components):
     mock_session = MagicMock()
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
+    mock_robots.get_crawl_delay = MagicMock(return_value=None)
 
     # Mock 404 response
     mock_response = AsyncMock()
@@ -147,6 +150,7 @@ async def test_process_url_network_error(test_components):
     mock_session = MagicMock()
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
+    mock_robots.get_crawl_delay = MagicMock(return_value=None)
 
     # Mock network error
     import aiohttp
@@ -175,6 +179,7 @@ async def test_process_url_discovers_links(test_components):
     mock_session = MagicMock()
     mock_robots = AsyncMock()
     mock_robots.can_fetch.return_value = True
+    mock_robots.get_crawl_delay = MagicMock(return_value=None)
 
     # Mock HTTP response
     mock_response = AsyncMock()

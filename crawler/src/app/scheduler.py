@@ -5,11 +5,22 @@ Decides which URLs to crawl next, respecting domain rate limits.
 """
 
 import time
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional
 
 from app.db.url_store import UrlStore, UrlItem
+
+# Maximum backoff in seconds (1 hour)
+MAX_BACKOFF = 3600
+
+
+@dataclass
+class HostGate:
+    next_fetch_at: float = 0.0
+    inflight: int = 0
+    min_interval: float = 1.0
+    concurrency_limit: int = 2
+    fail_streak: int = 0
 
 
 @dataclass
@@ -38,14 +49,21 @@ class Scheduler:
         self.url_store = url_store
         self.config = config or SchedulerConfig()
 
-        # Track last request time per domain
-        self._last_request: dict[str, float] = defaultdict(float)
-
-        # Track concurrent requests per domain
-        self._concurrent: dict[str, int] = defaultdict(int)
+        # Per-host rate limiting state
+        self._gates: dict[str, HostGate] = {}
 
         # Buffer of URLs fetched from url_store but not yet ready
         self._buffer: list[UrlItem] = []
+
+    def _get_gate(self, domain: str) -> HostGate:
+        gate = self._gates.get(domain)
+        if gate is None:
+            gate = HostGate(
+                min_interval=self.config.domain_min_interval,
+                concurrency_limit=self.config.domain_max_concurrent,
+            )
+            self._gates[domain] = gate
+        return gate
 
     def get_next(self) -> Optional[UrlItem]:
         """
@@ -126,25 +144,36 @@ class Scheduler:
 
     def _can_fetch(self, domain: str, now: float) -> bool:
         """Check if domain can be fetched based on rate limits."""
-        # Check interval
-        last = self._last_request.get(domain, 0)
-        if now - last < self.config.domain_min_interval:
+        gate = self._get_gate(domain)
+        if now < gate.next_fetch_at:
             return False
-
-        # Check concurrent limit
-        if self._concurrent.get(domain, 0) >= self.config.domain_max_concurrent:
+        if gate.inflight >= gate.concurrency_limit:
             return False
-
         return True
 
     def record_start(self, domain: str) -> None:
         """Record that a request to domain has started."""
-        self._concurrent[domain] = self._concurrent.get(domain, 0) + 1
-        self._last_request[domain] = time.time()
+        gate = self._get_gate(domain)
+        gate.inflight += 1
 
-    def record_complete(self, domain: str) -> None:
+    def record_complete(self, domain: str, *, success: bool = True) -> None:
         """Record that a request to domain has completed."""
-        self._concurrent[domain] = max(0, self._concurrent.get(domain, 0) - 1)
+        gate = self._get_gate(domain)
+        gate.inflight = max(0, gate.inflight - 1)
+        now = time.time()
+        if success:
+            gate.fail_streak = 0
+            gate.next_fetch_at = now + gate.min_interval
+        else:
+            gate.fail_streak += 1
+            backoff = min(gate.min_interval * (2**gate.fail_streak), MAX_BACKOFF)
+            gate.next_fetch_at = now + backoff
+
+    def set_crawl_delay(self, domain: str, delay: float) -> None:
+        """Set crawl delay for a domain (only if greater than current min_interval)."""
+        gate = self._get_gate(domain)
+        if delay > gate.min_interval:
+            gate.min_interval = delay
 
     def return_to_buffer(self, item: UrlItem) -> None:
         """
@@ -160,10 +189,20 @@ class Scheduler:
 
     def stats(self) -> dict:
         """Get scheduler statistics."""
+        now = time.time()
         return {
             "buffer_size": len(self._buffer),
             "pending_count": self.url_store.pending_count(),
-            "active_domains": len([d for d, c in self._concurrent.items() if c > 0]),
+            "active_domains": len(
+                [d for d, g in self._gates.items() if g.inflight > 0]
+            ),
+            "backed_off_domains": len(
+                [
+                    d
+                    for d, g in self._gates.items()
+                    if g.fail_streak > 0 and now < g.next_fetch_at
+                ]
+            ),
             "domain_min_interval": self.config.domain_min_interval,
             "domain_max_concurrent": self.config.domain_max_concurrent,
         }

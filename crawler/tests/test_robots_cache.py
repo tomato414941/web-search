@@ -137,3 +137,49 @@ async def test_robots_cache_blocked_domain():
     allowed = await cache.can_fetch("http://blocked.com/another", "MyBot")
 
     assert allowed is False
+
+
+@pytest.mark.asyncio
+async def test_get_crawl_delay_with_value():
+    """Test get_crawl_delay returns delay when Crawl-delay is set"""
+    mock_session = MagicMock()
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(
+        return_value="User-agent: *\nCrawl-delay: 5\nAllow: /"
+    )
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+    # Fetch robots.txt first to populate cache
+    await cache.can_fetch("http://example.com/test", "MyBot")
+
+    delay = cache.get_crawl_delay("example.com", "MyBot")
+    assert delay == 5.0
+
+
+@pytest.mark.asyncio
+async def test_get_crawl_delay_without_value():
+    """Test get_crawl_delay returns None when no Crawl-delay"""
+    mock_session = MagicMock()
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nAllow: /")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+    await cache.can_fetch("http://example.com/test", "MyBot")
+
+    delay = cache.get_crawl_delay("example.com", "MyBot")
+    assert delay is None
+
+
+def test_get_crawl_delay_uncached_domain():
+    """Test get_crawl_delay returns None for uncached domain"""
+    mock_session = MagicMock()
+    cache = AsyncRobotsCache(mock_session)
+
+    delay = cache.get_crawl_delay("unknown.com", "MyBot")
+    assert delay is None
