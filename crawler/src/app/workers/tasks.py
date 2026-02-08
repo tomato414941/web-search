@@ -301,7 +301,7 @@ async def worker_loop(concurrency: int = 1):
                 scheduler.record_start(domain)
 
                 # Process URL with semaphore concurrency control
-                async def process_with_semaphore(url: str, priority: float, item):
+                async def process_with_semaphore(url: str, priority: float):
                     try:
                         await process_url(
                             session, robots, url_store, scheduler, url, priority
@@ -316,7 +316,7 @@ async def worker_loop(concurrency: int = 1):
 
                 # Create task for concurrent processing
                 try:
-                    asyncio.create_task(process_with_semaphore(url, priority, item))
+                    asyncio.create_task(process_with_semaphore(url, priority))
                 except Exception as e:
                     sem.release()
                     scheduler.record_complete(domain, success=False)

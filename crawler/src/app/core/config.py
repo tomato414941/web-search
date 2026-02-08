@@ -30,7 +30,6 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_TIMEOUT_SEC: int = int(os.getenv("CRAWL_TIMEOUT_SEC", "10"))
     CRAWL_OUTLINKS_PER_PAGE: int = int(os.getenv("CRAWL_OUTLINKS_PER_PAGE", "50"))
     CRAWL_CONCURRENCY: int = int(os.getenv("CRAWL_CONCURRENCY", "10"))
-    CRAWL_WORKERS: int = int(os.getenv("CRAWL_WORKERS", "3"))
     CRAWL_SEEDS: list[str] = [
         s.strip() for s in os.getenv("CRAWL_SEEDS", "").split() if s.strip()
     ]

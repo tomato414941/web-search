@@ -10,7 +10,6 @@ os.environ.setdefault("INDEXER_API_KEY", "test-api-key")
 os.environ.setdefault("INDEXER_API_URL", "http://test:8000/api/indexer/page")
 
 import pytest
-from unittest.mock import MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 
 
@@ -46,24 +45,6 @@ def test_client(temp_db_path):
     from app.main import app
 
     return TestClient(app)
-
-
-@pytest.fixture
-def mock_aiohttp_session():
-    """Mock aiohttp ClientSession"""
-    session = MagicMock()
-
-    # Mock response
-    response = AsyncMock()
-    response.status = 200
-    response.headers = {"Content-Type": "text/html"}
-    response.text = AsyncMock(return_value="<html><body>Test</body></html>")
-
-    # Setup context manager
-    session.get.return_value.__aenter__.return_value = response
-    session.post.return_value.__aenter__.return_value = response
-
-    return session
 
 
 @pytest.fixture
