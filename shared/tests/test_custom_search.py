@@ -434,6 +434,43 @@ class TestBM25Scoring:
         # Popular page should rank first due to PageRank boost
         assert result.hits[0].url == "http://example.com/popular"
 
+    def test_pagerank_multiplicative_effect(self, temp_search_db):
+        """Test that PageRank applies multiplicative boost to BM25 scores."""
+        indexer = SearchIndexer(temp_search_db)
+
+        indexer.index_document(
+            url="http://example.com/a",
+            title="Python入門",
+            content="Pythonの基礎を学ぶ",
+        )
+        indexer.update_global_stats()
+
+        # Set high PageRank (normalized 0-1 scale)
+        conn = sqlite3.connect(temp_search_db)
+        conn.execute(
+            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
+            ("http://example.com/a", 1.0),
+        )
+        conn.commit()
+        conn.close()
+
+        # Score with PageRank enabled (weight=0.5)
+        engine_with_pr = SearchEngine(
+            temp_search_db, bm25_config=BM25Config(pagerank_weight=0.5)
+        )
+        result_with = engine_with_pr.search("Python")
+        score_with = result_with.hits[0].score
+
+        # Score with PageRank disabled
+        engine_no_pr = SearchEngine(
+            temp_search_db, bm25_config=BM25Config(pagerank_weight=0.0)
+        )
+        result_without = engine_no_pr.search("Python")
+        score_without = result_without.hits[0].score
+
+        # Multiplicative: score_with = score_without * (1 + 0.5 * 1.0) = 1.5x
+        assert score_with == pytest.approx(score_without * 1.5, rel=1e-6)
+
     def test_pagerank_disabled(self, temp_search_db):
         """Test that PageRank can be disabled."""
         indexer = SearchIndexer(temp_search_db)

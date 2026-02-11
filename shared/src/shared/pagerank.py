@@ -171,6 +171,11 @@ def _extract_domain(url: str) -> str | None:
 
 
 def _save_page_ranks(con: Any, scores: dict[str, float]) -> None:
+    if not scores:
+        return
+    max_score = max(scores.values())
+    if max_score > 0:
+        scores = {url: s / max_score for url, s in scores.items()}
     ph = _placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM page_ranks")
@@ -184,6 +189,11 @@ def _save_page_ranks(con: Any, scores: dict[str, float]) -> None:
 
 
 def _save_domain_ranks(con: Any, scores: dict[str, float]) -> None:
+    if not scores:
+        return
+    max_score = max(scores.values())
+    if max_score > 0:
+        scores = {d: s / max_score for d, s in scores.items()}
     ph = _placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM domain_ranks")

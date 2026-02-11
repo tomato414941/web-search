@@ -69,9 +69,9 @@ class BM25Scorer:
         # Add PageRank contribution if enabled
         if self.config.pagerank_weight > 0:
             pagerank = self._get_pagerank(conn, url)
-            # Combine: BM25 + (PageRank * weight)
-            # PageRank is typically 0-1, so weight controls its influence
-            return bm25_score + (pagerank * self.config.pagerank_weight)
+            # Multiplicative: PageRank boosts BM25 score by up to (weight * 100)%
+            # e.g. weight=0.5, pagerank=1.0 → 50% boost
+            return bm25_score * (1 + self.config.pagerank_weight * pagerank)
 
         return bm25_score
 
