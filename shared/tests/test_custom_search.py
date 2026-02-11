@@ -512,6 +512,41 @@ class TestBM25Scoring:
         # Scores should be similar (within 50%) when PR is disabled
         assert abs(scores[0] - scores[1]) / max(scores) < 0.5
 
+    def test_pagerank_dangling_nodes(self, temp_search_db):
+        """Dangling nodes (no outlinks) should still receive PageRank."""
+        from shared.pagerank import calculate_pagerank
+
+        indexer = SearchIndexer(temp_search_db)
+        # A → B → C (C has no outlinks = dangling)
+        for url in ["http://a.com/", "http://b.com/", "http://c.com/"]:
+            indexer.index_document(url=url, title="Test", content="test")
+        indexer.update_global_stats()
+
+        conn = sqlite3.connect(temp_search_db)
+        conn.execute(
+            "INSERT INTO links (src, dst) VALUES (?, ?)",
+            ("http://a.com/", "http://b.com/"),
+        )
+        conn.execute(
+            "INSERT INTO links (src, dst) VALUES (?, ?)",
+            ("http://b.com/", "http://c.com/"),
+        )
+        conn.commit()
+        conn.close()
+
+        calculate_pagerank(temp_search_db)
+
+        conn = sqlite3.connect(temp_search_db)
+        rows = conn.execute("SELECT url, score FROM page_ranks").fetchall()
+        conn.close()
+        scores = {url: score for url, score in rows}
+
+        assert len(scores) == 3
+        # C is linked to by B, so it should have a meaningful score (not near-zero)
+        assert scores["http://c.com/"] > 0.1
+        # All scores should be positive
+        assert all(s > 0 for s in scores.values())
+
 
 class TestHybridSearch:
     """Tests for Hybrid (RRF) search."""

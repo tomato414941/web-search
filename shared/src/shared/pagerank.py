@@ -56,10 +56,12 @@ def calculate_pagerank(
             return 0
 
         scores = {u: 1.0 / n for u in nodes}
+        dangling_nodes = [u for u in nodes if len(out_links[u]) == 0]
 
         for i in range(iterations):
             new_scores: dict[str, float] = {}
             diff = 0.0
+            dangling_sum = sum(scores[u] for u in dangling_nodes)
 
             for u in nodes:
                 incoming = 0.0
@@ -67,7 +69,9 @@ def calculate_pagerank(
                     out_deg = len(out_links[v])
                     if out_deg > 0:
                         incoming += scores[v] / out_deg
-                new_scores[u] = (1 - damping) / n + damping * incoming
+                new_scores[u] = (1 - damping) / n + damping * (
+                    incoming + dangling_sum / n
+                )
 
             for u in nodes:
                 diff += abs(new_scores[u] - scores[u])
@@ -77,6 +81,7 @@ def calculate_pagerank(
                 logger.info(f"Page PageRank converged at iteration {i + 1}.")
                 break
 
+        logger.info(f"Dangling nodes: {len(dangling_nodes)}/{n}")
         _save_page_ranks(con, scores)
         logger.info(f"Page PageRank complete: {n} pages scored.")
         return n
@@ -132,10 +137,12 @@ def calculate_domain_pagerank(
             domain_in.setdefault(d, set())
 
         scores = {d: 1.0 / n for d in all_domains}
+        dangling_domains = [d for d in all_domains if len(domain_out[d]) == 0]
 
         for i in range(iterations):
             new_scores: dict[str, float] = {}
             diff = 0.0
+            dangling_sum = sum(scores[d] for d in dangling_domains)
 
             for d in all_domains:
                 incoming = 0.0
@@ -143,7 +150,9 @@ def calculate_domain_pagerank(
                     out_deg = len(domain_out[v])
                     if out_deg > 0:
                         incoming += scores[v] / out_deg
-                new_scores[d] = (1 - damping) / n + damping * incoming
+                new_scores[d] = (1 - damping) / n + damping * (
+                    incoming + dangling_sum / n
+                )
 
             for d in all_domains:
                 diff += abs(new_scores[d] - scores[d])
@@ -153,6 +162,7 @@ def calculate_domain_pagerank(
                 logger.info(f"Domain PageRank converged at iteration {i + 1}.")
                 break
 
+        logger.info(f"Dangling domains: {len(dangling_domains)}/{n}")
         _save_domain_ranks(con, scores)
         logger.info(f"Domain PageRank complete: {n} domains scored.")
         return n
