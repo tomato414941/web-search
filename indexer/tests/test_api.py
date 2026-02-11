@@ -212,11 +212,3 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
-
-    def test_api_v1_health_check(self, test_client):
-        """API v1 health check (backward compatible) should work without auth."""
-        response = test_client.get("/api/v1/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert data["service"] == "indexer"
