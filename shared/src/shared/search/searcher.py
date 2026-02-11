@@ -212,14 +212,8 @@ class SearchEngine:
         candidates: set[str],
         tokens: list[str],
     ) -> list[tuple[str, float]]:
-        """Score candidates using BM25 algorithm."""
-        scored = []
-
-        for url in candidates:
-            score = self.scorer.score(conn, url, tokens)
-            scored.append((url, score))
-
-        return scored
+        """Score candidates using BM25 algorithm (batch query)."""
+        return self.scorer.score_batch(conn, list(candidates), tokens)
 
     def vector_search(
         self,
