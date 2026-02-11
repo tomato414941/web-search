@@ -1,8 +1,6 @@
 import pytest
 import os
 from typing import Generator
-from unittest.mock import patch
-import numpy as np
 
 from shared.db.search import open_db
 from shared.search import SearchIndexer
@@ -15,28 +13,16 @@ def temp_db(tmp_path) -> Generator[str, None, None]:
     db_path = tmp_path / "test_search.db"
     str_path = str(db_path)
 
-    # Initialize DB (Schema creation)
     con = open_db(str_path)
     con.close()
 
     yield str_path
 
-    # Cleanup
     if os.path.exists(str_path):
         os.remove(str_path)
 
 
-@pytest.fixture
-def mock_embedding():
-    """Mock embedding service for hybrid search tests."""
-    dummy_vec = np.zeros(1536, dtype=np.float32)
-    with patch("frontend.services.search.embedding_service") as mock_embed:
-        mock_embed.embed_query.return_value = dummy_vec
-        mock_embed.deserialize.return_value = dummy_vec
-        yield mock_embed
-
-
-def test_japanese_tokenization(temp_db, mock_embedding):
+def test_japanese_tokenization(temp_db):
     """
     Verify SudachiPy integration and custom search engine behavior.
     """
@@ -70,7 +56,7 @@ def test_japanese_tokenization(temp_db, mock_embedding):
     assert "東京都の観光" not in titles  # Crucial check: No partial match on "Tokyo-To"
 
 
-def test_display_text_raw(temp_db, mock_embedding):
+def test_display_text_raw(temp_db):
     """
     Verify that search results return Raw Title, not Tokenized Title.
     """

@@ -67,6 +67,7 @@ async def search_page(
     result = search_service.search(query, per_page, page_number) if query else None
 
     resp = templates.TemplateResponse(
+        request,
         "search.html",
         {
             "request": request,

@@ -11,46 +11,35 @@ os.environ.setdefault("ADMIN_SESSION_SECRET", "test-secret-key-for-testing")
 import gc
 import time
 import pytest
-import numpy as np
 from unittest.mock import patch
 from shared.db.search import ensure_db
 from shared.search import SearchEngine, BM25Config
 
 # Patch DB_PATH to use a test database
 TEST_DB_PATH = "test_search.db"
-# Should match the path resolved by core.settings.
-# But we patch the attribute on the instance.
 
 
 @pytest.fixture(autouse=True)
 def setup_test_env():
-    # 1. Setup Test DB with retry logic
     if os.path.exists(TEST_DB_PATH):
-        # Force garbage collection to close file handles
         gc.collect()
-
-        # Retry removing the file
         for attempt in range(3):
             try:
                 os.remove(TEST_DB_PATH)
                 break
             except PermissionError:
                 if attempt < 2:
-                    time.sleep(0.2 * (attempt + 1))  # Increasing wait
+                    time.sleep(0.2 * (attempt + 1))
                     gc.collect()
 
     ensure_db(TEST_DB_PATH)
 
-    # Patch settings.DB_PATH
     with patch("frontend.core.config.settings.DB_PATH", TEST_DB_PATH):
-        # Also patch the instantiated search_service's db_path because it was initialized at import time
         from frontend.services.search import search_service
-        from frontend.services.embedding import embedding_service
 
         original_search_path = search_service.db_path
         search_service.db_path = TEST_DB_PATH
 
-        # Reinitialize the internal SearchEngine with the test DB path
         search_service._engine = SearchEngine(
             db_path=TEST_DB_PATH,
             bm25_config=BM25Config(
@@ -59,15 +48,12 @@ def setup_test_env():
                 title_boost=3.0,
                 pagerank_weight=0.5,
             ),
-            embed_query_func=search_service._embed_query,
-            deserialize_func=embedding_service.deserialize,
         )
 
         yield
 
         search_service.db_path = original_search_path
 
-    # Cleanup with retry
     if os.path.exists(TEST_DB_PATH):
         gc.collect()
         for attempt in range(3):
@@ -77,19 +63,6 @@ def setup_test_env():
             except (PermissionError, OSError):
                 if attempt < 2:
                     time.sleep(0.1)
-
-
-@pytest.fixture(autouse=True)
-def mock_embedding_service():
-    """Mock embedding service to avoid OpenAI API calls in tests."""
-    dummy_vec = np.zeros(1536, dtype=np.float32)
-
-    with patch("frontend.services.search.embedding_service") as mock_embed:
-        mock_embed.embed_query.return_value = dummy_vec
-        mock_embed.embed.return_value = dummy_vec.tobytes()
-        mock_embed.deserialize.return_value = dummy_vec
-        mock_embed.dimensions = 1536
-        yield mock_embed
 
 
 @pytest.fixture

@@ -1,14 +1,14 @@
 """
 Search Service - Frontend search functionality using custom search engine.
 
-Uses hybrid search: Combined BM25 + Semantic using RRF.
+Uses BM25 keyword search with PageRank boosting.
+Vector/hybrid search is disabled until index scale justifies the latency cost.
 """
 
 from typing import Any
 
 from frontend.core.config import settings
 from shared.db.search import get_connection
-from frontend.services.embedding import embedding_service
 from shared.search import SearchEngine, BM25Config
 from shared.search.snippet import generate_snippet
 from shared.analyzer import analyzer
@@ -18,7 +18,6 @@ class SearchService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
 
-        # Initialize search engine with embedding support
         self._engine = SearchEngine(
             db_path=db_path,
             bm25_config=BM25Config(
@@ -27,13 +26,7 @@ class SearchService:
                 title_boost=3.0,
                 pagerank_weight=0.5,
             ),
-            embed_query_func=self._embed_query,
-            deserialize_func=embedding_service.deserialize,
         )
-
-    def _embed_query(self, text: str):
-        """Embed query text using the embedding service."""
-        return embedding_service.embed_query(text)
 
     def search(
         self,
@@ -41,17 +34,13 @@ class SearchService:
         k: int = 10,
         page: int = 1,
     ) -> dict[str, Any]:
-        """
-        Search using hybrid BM25 + Semantic using Reciprocal Rank Fusion.
-        """
         if not q:
             return self._empty_result(k)
 
-        return self._hybrid_search(q, k, page)
+        return self._bm25_search(q, k, page)
 
-    def _hybrid_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
-        """Perform hybrid BM25 + vector search using RRF."""
-        result = self._engine.hybrid_search(q, limit=k, page=page)
+    def _bm25_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
+        result = self._engine.search(q, limit=k, page=page)
 
         # Tokenize for snippet highlighting
         analyzed_q = analyzer.tokenize(q)

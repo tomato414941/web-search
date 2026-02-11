@@ -235,6 +235,7 @@ async def login_page(request: Request, error: str = ""):
     """Login page."""
     csrf_token = get_csrf_token(request)
     response = templates.TemplateResponse(
+        request,
         "admin/login.html",
         {"request": request, "error": error, "csrf_token": csrf_token},
     )
@@ -298,6 +299,7 @@ async def dashboard(request: Request):
     data = await get_dashboard_data()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
+        request,
         "admin/dashboard.html",
         {
             "request": request,
@@ -328,6 +330,7 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
 
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
+        request,
         "admin/seeds.html",
         {
             "request": request,
@@ -362,6 +365,7 @@ async def queue_page(request: Request, success: str = "", error: str = ""):
 
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
+        request,
         "admin/queue.html",
         {
             "request": request,
@@ -395,6 +399,7 @@ async def history_page(request: Request, url: str = ""):
 
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
+        request,
         "admin/history.html",
         {
             "request": request,
@@ -675,6 +680,7 @@ async def analytics_page(request: Request):
     analytics = get_analytics_data()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
+        request,
         "admin/analytics.html",
         {
             "request": request,
@@ -748,6 +754,7 @@ async def crawlers_page(request: Request):
     instances = await get_all_crawler_instances()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
+        request,
         "admin/crawlers.html",
         {
             "request": request,
