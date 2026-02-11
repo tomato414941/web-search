@@ -14,6 +14,19 @@ from shared.db.search import open_db, is_postgres_mode
 
 logger = logging.getLogger(__name__)
 
+_SAVE_BATCH_SIZE = 5000
+
+
+def _iter_batches(iterable, size):
+    batch = []
+    for item in iterable:
+        batch.append(item)
+        if len(batch) >= size:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
 
 def _placeholder() -> str:
     return "%s" if is_postgres_mode() else "?"
@@ -35,8 +48,8 @@ def calculate_pagerank(
         nodes: set[str] = set()
         cur = con.cursor()
         cur.execute("SELECT url FROM documents")
-        for row in cur.fetchall():
-            nodes.add(row[0])
+        for (url,) in cur:
+            nodes.add(url)
         cur.close()
 
         out_links: dict[str, list[str]] = {u: [] for u in nodes}
@@ -44,7 +57,7 @@ def calculate_pagerank(
 
         cur = con.cursor()
         cur.execute("SELECT src, dst FROM links")
-        for src, dst in cur.fetchall():
+        for src, dst in cur:
             if src in nodes and dst in nodes:
                 out_links[src].append(dst)
                 in_links[dst].append(src)
@@ -57,6 +70,11 @@ def calculate_pagerank(
 
         scores = {u: 1.0 / n for u in nodes}
         dangling_nodes = [u for u in nodes if len(out_links[u]) == 0]
+        total_edges = sum(len(v) for v in out_links.values())
+        logger.info(
+            f"Graph loaded: {n} nodes, {total_edges} edges, "
+            f"{len(dangling_nodes)} dangling ({len(dangling_nodes) * 100 // n}%)"
+        )
 
         for i in range(iterations):
             new_scores: dict[str, float] = {}
@@ -113,7 +131,7 @@ def calculate_domain_pagerank(
 
         cur = con.cursor()
         cur.execute("SELECT src, dst FROM links")
-        for src, dst in cur.fetchall():
+        for src, dst in cur:
             src_domain = _extract_domain(src)
             dst_domain = _extract_domain(dst)
             if not src_domain or not dst_domain:
@@ -138,6 +156,11 @@ def calculate_domain_pagerank(
 
         scores = {d: 1.0 / n for d in all_domains}
         dangling_domains = [d for d in all_domains if len(domain_out[d]) == 0]
+        total_edges = sum(len(v) for v in domain_out.values())
+        logger.info(
+            f"Domain graph loaded: {n} domains, {total_edges} edges, "
+            f"{len(dangling_domains)} dangling ({len(dangling_domains) * 100 // n}%)"
+        )
 
         for i in range(iterations):
             new_scores: dict[str, float] = {}
@@ -189,10 +212,11 @@ def _save_page_ranks(con: Any, scores: dict[str, float]) -> None:
     ph = _placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM page_ranks")
-    cur.executemany(
-        f"INSERT INTO page_ranks (url, score) VALUES ({ph}, {ph})",
-        list(scores.items()),
-    )
+    for batch in _iter_batches(scores.items(), _SAVE_BATCH_SIZE):
+        cur.executemany(
+            f"INSERT INTO page_ranks (url, score) VALUES ({ph}, {ph})",
+            batch,
+        )
     con.commit()
     cur.close()
     logger.info(f"Saved {len(scores)} page ranks (normalized).")
@@ -207,10 +231,11 @@ def _save_domain_ranks(con: Any, scores: dict[str, float]) -> None:
     ph = _placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM domain_ranks")
-    cur.executemany(
-        f"INSERT INTO domain_ranks (domain, score) VALUES ({ph}, {ph})",
-        list(scores.items()),
-    )
+    for batch in _iter_batches(scores.items(), _SAVE_BATCH_SIZE):
+        cur.executemany(
+            f"INSERT INTO domain_ranks (domain, score) VALUES ({ph}, {ph})",
+            batch,
+        )
     con.commit()
     cur.close()
     logger.info(f"Saved {len(scores)} domain ranks (normalized).")
