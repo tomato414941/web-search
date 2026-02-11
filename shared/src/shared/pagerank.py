@@ -179,13 +179,13 @@ def _save_page_ranks(con: Any, scores: dict[str, float]) -> None:
     ph = _placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM page_ranks")
-    for url, score in scores.items():
-        cur.execute(
-            f"INSERT INTO page_ranks (url, score) VALUES ({ph}, {ph})",
-            (url, score),
-        )
+    cur.executemany(
+        f"INSERT INTO page_ranks (url, score) VALUES ({ph}, {ph})",
+        list(scores.items()),
+    )
     con.commit()
     cur.close()
+    logger.info(f"Saved {len(scores)} page ranks (normalized).")
 
 
 def _save_domain_ranks(con: Any, scores: dict[str, float]) -> None:
@@ -197,10 +197,10 @@ def _save_domain_ranks(con: Any, scores: dict[str, float]) -> None:
     ph = _placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM domain_ranks")
-    for domain, score in scores.items():
-        cur.execute(
-            f"INSERT INTO domain_ranks (domain, score) VALUES ({ph}, {ph})",
-            (domain, score),
-        )
+    cur.executemany(
+        f"INSERT INTO domain_ranks (domain, score) VALUES ({ph}, {ph})",
+        list(scores.items()),
+    )
     con.commit()
     cur.close()
+    logger.info(f"Saved {len(scores)} domain ranks (normalized).")
