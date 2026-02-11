@@ -659,3 +659,37 @@ class TestSnippetGeneration:
 
         assert "<mark>Python</mark>" in result
         assert isinstance(result, str)
+
+    def test_html_escape_in_snippet(self):
+        """Test that HTML entities in content are escaped."""
+        from shared.search.snippet import generate_snippet
+
+        text = "Use <div> tags and & symbols in Python code"
+        snippet = generate_snippet(text, ["Python"])
+
+        assert "&lt;div&gt;" in snippet.text
+        assert "&amp;" in snippet.text
+        assert "<mark>Python</mark>" in snippet.text
+        # Plain text should NOT be escaped
+        assert "<div>" in snippet.plain_text
+
+    def test_xss_prevention_in_snippet(self):
+        """Test that script tags in content are neutralized."""
+        from shared.search.snippet import generate_snippet
+
+        text = '<script>alert("xss")</script> Python is safe'
+        snippet = generate_snippet(text, ["Python"])
+
+        assert "<script>" not in snippet.text
+        assert "&lt;script&gt;" in snippet.text
+        assert "<mark>Python</mark>" in snippet.text
+
+    def test_html_escape_in_matched_term(self):
+        """Test that matched terms with special chars are escaped."""
+        from shared.search.snippet import generate_snippet
+
+        text = "Search for A&B in the document"
+        snippet = generate_snippet(text, ["A&B"])
+
+        assert "<mark>A&amp;B</mark>" in snippet.text
+        assert "A&B" in snippet.plain_text

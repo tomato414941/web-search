@@ -4,6 +4,7 @@ Snippet Generation for Search Results
 Generates KWIC (Key Word In Context) snippets with term highlighting.
 """
 
+import html
 import re
 from dataclasses import dataclass
 
@@ -87,11 +88,14 @@ def generate_snippet(
 
     # 6. Highlight all terms in the snippet (if requested)
     if highlight:
-
-        def replace_fn(match):
-            return f"<mark>{match.group(0)}</mark>"
-
-        highlighted = pattern.sub(replace_fn, snippet)
+        parts = pattern.split(snippet)  # [non-match, match, non-match, ...]
+        result_parts = []
+        for i, part in enumerate(parts):
+            if i % 2 == 0:
+                result_parts.append(html.escape(part))
+            else:
+                result_parts.append(f"<mark>{html.escape(part)}</mark>")
+        highlighted = "".join(result_parts)
         return Snippet(text=highlighted, plain_text=plain_text)
 
     return Snippet(text=plain_text, plain_text=plain_text)

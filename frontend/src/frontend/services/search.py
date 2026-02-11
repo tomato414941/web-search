@@ -10,7 +10,7 @@ from frontend.core.config import settings
 from shared.db.search import get_connection
 from frontend.services.embedding import embedding_service
 from shared.search import SearchEngine, BM25Config
-from shared.search.snippet import highlight_snippet
+from shared.search.snippet import generate_snippet
 from shared.analyzer import analyzer
 
 
@@ -59,11 +59,13 @@ class SearchService:
 
         hits = []
         for hit in result.hits:
+            snippet = generate_snippet(hit.content, search_terms)
             hits.append(
                 {
                     "url": hit.url,
                     "title": hit.title,
-                    "snip": highlight_snippet(hit.content, search_terms),
+                    "snip": snippet.text,
+                    "snip_plain": snippet.plain_text,
                     "rank": hit.score,
                 }
             )
