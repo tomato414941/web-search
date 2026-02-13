@@ -3,7 +3,7 @@
 import logging
 
 from app.core.config import settings
-from shared.db.search import open_db, get_connection, is_postgres_mode
+from shared.db.search import get_connection, is_postgres_mode
 from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
 
@@ -43,17 +43,14 @@ class IndexerService:
         outlinks: list[str] | None = None,
     ):
         """Index a single page into the database (async for embedding)."""
+        conn = get_connection(self.db_path)
         try:
             safe_title = _sanitize_text(title)
             safe_content = _sanitize_text(content)
             safe_outlinks = _sanitize_outlinks(outlinks)
 
-            # Open DB connection
-            conn = open_db(self.db_path)
-
             # Index using custom search engine (inverted index)
             self.search_indexer.index_document(url, safe_title, safe_content, conn)
-            conn.commit()
 
             # Save outlinks to link graph
             if safe_outlinks:
@@ -66,15 +63,16 @@ class IndexerService:
                     if vector_blob:
                         ph = _placeholder()
                         cur = conn.cursor()
-                        cur.execute(
-                            f"DELETE FROM page_embeddings WHERE url={ph}", (url,)
-                        )
-                        cur.execute(
-                            f"INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})",
-                            (url, vector_blob),
-                        )
-                        cur.close()
-                        conn.commit()
+                        try:
+                            cur.execute(
+                                f"DELETE FROM page_embeddings WHERE url={ph}", (url,)
+                            )
+                            cur.execute(
+                                f"INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})",
+                                (url, vector_blob),
+                            )
+                        finally:
+                            cur.close()
                 except Exception as embed_error:
                     # Don't fail indexing if embedding fails
                     logger.warning(f"Embedding failed for {url}: {embed_error}")
@@ -83,18 +81,19 @@ class IndexerService:
             self.search_indexer.update_global_stats(conn)
             conn.commit()
 
-            conn.close()
-
             logger.info(f"Indexed: {url}")
         except Exception as e:
+            conn.rollback()
             logger.error(f"DB Error indexing {url}: {e}")
             raise
+        finally:
+            conn.close()
 
     def _save_links(self, conn, src_url: str, outlinks: list[str]) -> None:
         """Save outlinks to the links table."""
         ph = _placeholder()
+        cur = conn.cursor()
         try:
-            cur = conn.cursor()
             # Remove old links from this page
             cur.execute(f"DELETE FROM links WHERE src = {ph}", (src_url,))
             # Insert new links (skip self-links)
@@ -111,10 +110,10 @@ class IndexerService:
                             f"INSERT OR IGNORE INTO links (src, dst) VALUES ({ph}, {ph})",
                             (src_url, dst),
                         )
-            conn.commit()
-            cur.close()
         except Exception as e:
             logger.warning(f"Failed to save links for {src_url}: {e}")
+        finally:
+            cur.close()
 
     def get_index_stats(self):
         """Get indexing statistics."""
