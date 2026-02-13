@@ -42,7 +42,9 @@ async def test_dashboard_excludes_noise_queries_from_zero_hits():
             "frontend.api.routers.admin.settings.ANALYTICS_EXCLUDED_QUERIES",
             ["deploy-check", "bm25", "sudachipy"],
         ):
-            with patch("frontend.api.routers.admin.httpx.AsyncClient") as mock_client:
+            with patch(
+                "frontend.services.crawler_admin_client.httpx.AsyncClient"
+            ) as mock_client:
                 mock_response = MagicMock()
                 mock_response.status_code = 200
                 mock_response.json.return_value = {

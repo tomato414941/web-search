@@ -382,7 +382,9 @@ class TestSeedImportValidation:
         )
         csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
 
-        with patch("frontend.api.routers.admin.httpx.AsyncClient") as mock_client:
+        with patch(
+            "frontend.services.crawler_admin_client.httpx.AsyncClient"
+        ) as mock_client:
             mock_response = MagicMock()
             mock_response.status_code = 200
             mock_response.json.return_value = {"count": 1234}

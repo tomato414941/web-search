@@ -1,99 +1,51 @@
 """Admin Dashboard Router with Authentication."""
 
 import logging
-import secrets
-from datetime import datetime, timedelta, timezone
-from typing import Any
 from urllib.parse import quote
 
-import httpx
-from fastapi import APIRouter, Request, Form
-from fastapi.responses import RedirectResponse, Response
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-from frontend.core.config import settings
-from shared.core.infrastructure_config import Environment
-from shared.db.search import get_connection, is_postgres_mode
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import RedirectResponse
+
 from frontend.api.templates import templates
+from frontend.core.config import settings
+from frontend.services.admin_analytics import get_analytics_data
+from frontend.services import admin_auth
+from frontend.services.admin_dashboard import get_dashboard_data
+from frontend.services.crawler_admin_client import (
+    fetch_history,
+    fetch_queue,
+    fetch_seeds,
+    find_crawler_url as _find_crawler_url,
+    get_all_crawler_instances as _get_all_crawler_instances,
+    get_crawler_instance_status as _get_crawler_instance_status,
+    import_tranco as import_tranco_seeds,
+    add_seed as crawler_add_seed,
+    delete_seed as crawler_delete_seed,
+    enqueue_url,
+    start_crawler_instance,
+    start_worker,
+    stop_crawler_instance,
+    stop_worker,
+)
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-# Session configuration
-SESSION_MAX_AGE_SECONDS = int(timedelta(hours=24).total_seconds())
-SESSION_COOKIE_NAME = "admin_session"
-CSRF_COOKIE_NAME = "csrf_token"
-CSRF_FORM_FIELD = "csrf_token"
-
-# Serializer for secure session tokens
-_serializer = URLSafeTimedSerializer(settings.SECRET_KEY)
-
-
-def create_session() -> str:
-    """Create a new session token using itsdangerous."""
-    data = {"user": settings.ADMIN_USERNAME}
-    return _serializer.dumps(data)
+# Re-export for backward compatibility with existing tests/imports.
+CSRF_COOKIE_NAME = admin_auth.CSRF_COOKIE_NAME
+CSRF_FORM_FIELD = admin_auth.CSRF_FORM_FIELD
+SESSION_COOKIE_NAME = admin_auth.SESSION_COOKIE_NAME
+create_session = admin_auth.create_session
+generate_csrf_token = admin_auth.generate_csrf_token
+get_csrf_token = admin_auth.get_csrf_token
+validate_csrf_token = admin_auth.validate_csrf_token
+validate_session = admin_auth.validate_session
+add_csrf_cookie = admin_auth.add_csrf_cookie
+add_session_cookie = admin_auth.add_session_cookie
 
 
-def validate_session(token: str | None) -> bool:
-    """Validate a session token with expiration check."""
-    if not token:
-        return False
-    try:
-        _serializer.loads(token, max_age=SESSION_MAX_AGE_SECONDS)
-        return True
-    except (BadSignature, SignatureExpired):
-        return False
-
-
-def generate_csrf_token() -> str:
-    """Generate a new CSRF token."""
-    return secrets.token_urlsafe(32)
-
-
-def get_csrf_token(request: Request) -> str:
-    """Get CSRF token from cookie or generate new one."""
-    token = request.cookies.get(CSRF_COOKIE_NAME)
-    if not token:
-        token = generate_csrf_token()
-    return token
-
-
-def validate_csrf_token(request: Request, form_token: str | None) -> bool:
-    """Validate CSRF token from form against cookie."""
-    cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
-    if not cookie_token or not form_token:
-        return False
-    return secrets.compare_digest(cookie_token, form_token)
-
-
-def _placeholder() -> str:
-    """Return SQL placeholder for current database backend."""
-    return "%s" if is_postgres_mode() else "?"
-
-
-def _is_secure_cookie_enabled() -> bool:
-    """Use secure cookies in production only."""
-    return settings.ENVIRONMENT == Environment.PRODUCTION
-
-
-def _set_admin_cookie(
-    response: Response,
-    key: str,
-    value: str,
-    *,
-    httponly: bool,
-) -> Response:
-    """Set admin cookie with consistent security attributes."""
-    response.set_cookie(
-        key,
-        value,
-        max_age=SESSION_MAX_AGE_SECONDS,
-        httponly=httponly,
-        secure=_is_secure_cookie_enabled(),
-        samesite="strict",
-    )
-    return response
+def _is_authenticated(request: Request) -> bool:
+    return validate_session(request.cookies.get(SESSION_COOKIE_NAME))
 
 
 def _parse_tranco_count(raw_count: str | None) -> int:
@@ -107,276 +59,27 @@ def _parse_tranco_count(raw_count: str | None) -> int:
     return count
 
 
-def _time_boundaries() -> tuple[str, str, str]:
-    """
-    Return UTC boundaries as SQL-friendly timestamps.
-
-    Returns:
-        (day_ago, week_ago, today_start)
-    """
-    now = datetime.now(timezone.utc)
-    day_ago = (now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
-    week_ago = (now - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
-    today_start = now.strftime("%Y-%m-%d 00:00:00")
-    return day_ago, week_ago, today_start
+async def get_crawler_instance_status(url: str) -> dict:
+    return await _get_crawler_instance_status(url)
 
 
-def _analytics_exclusion_filters(is_postgres: bool) -> tuple[str, tuple[Any, ...]]:
-    ph = _placeholder()
-    clauses: list[str] = []
-    params: list[Any] = []
-
-    excluded_user_agents = settings.ANALYTICS_EXCLUDED_USER_AGENTS
-    if excluded_user_agents:
-        ua_clauses: list[str] = []
-        for user_agent in excluded_user_agents:
-            pattern = user_agent if "%" in user_agent else f"{user_agent}%"
-            if is_postgres:
-                ua_clauses.append(f"COALESCE(user_agent, '') ILIKE {ph}")
-            else:
-                ua_clauses.append(f"LOWER(COALESCE(user_agent, '')) LIKE LOWER({ph})")
-            params.append(pattern)
-        clauses.append("NOT (" + " OR ".join(ua_clauses) + ")")
-
-    excluded_queries = settings.ANALYTICS_EXCLUDED_QUERIES
-    if excluded_queries:
-        query_placeholders = ",".join([ph] * len(excluded_queries))
-        clauses.append(f"query NOT IN ({query_placeholders})")
-        params.extend(excluded_queries)
-
-    if not clauses:
-        return "", tuple()
-
-    return " AND " + " AND ".join(clauses), tuple(params)
+async def get_all_crawler_instances() -> list[dict]:
+    return await _get_all_crawler_instances(settings.CRAWLER_INSTANCES)
 
 
-async def get_dashboard_data() -> dict[str, Any]:
-    """Get comprehensive data for dashboard."""
-    data: dict[str, Any] = {
-        # Basic stats
-        "indexed_pages": 0,
-        "indexed_delta": 0,
-        "queue_size": 0,
-        "visited_count": 0,
-        "last_crawl": None,
-        # Crawler details
-        "worker_status": "unknown",
-        "uptime_seconds": None,
-        "active_tasks": 0,
-        "recent_error_count": 0,
-        "crawl_rate": 0,
-        # Search stats (today)
-        "today_searches": 0,
-        "today_unique_queries": 0,
-        "today_zero_hits": 0,
-        "zero_hit_rate": 0.0,
-        "top_query": None,
-        # Attention items
-        "zero_hit_queries": [],
-        "recent_errors": [],
-        # Health status
-        "health": {"level": "ok", "messages": []},
-    }
-
-    # Database stats
-    try:
-        ph = _placeholder()
-        is_postgres = is_postgres_mode()
-        day_ago, _, today_start = _time_boundaries()
-        search_filter_sql, search_filter_params = _analytics_exclusion_filters(
-            is_postgres
-        )
-        conn = get_connection(settings.DB_PATH)
-        cursor = conn.cursor()
-        # Total indexed pages
-        cursor.execute("SELECT COUNT(*) FROM documents")
-        data["indexed_pages"] = cursor.fetchone()[0]
-
-        # Pages indexed in last 24 hours
-        if is_postgres:
-            cursor.execute(
-                f"SELECT COUNT(*) FROM documents WHERE indexed_at >= {ph}",
-                (day_ago,),
-            )
-        else:
-            cursor.execute(
-                f"SELECT COUNT(*) FROM documents WHERE datetime(indexed_at) >= datetime({ph})",
-                (day_ago,),
-            )
-        data["indexed_delta"] = cursor.fetchone()[0]
-
-        # Last crawl time
-        cursor.execute(
-            "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
-        )
-        result = cursor.fetchone()
-        if result and result[0]:
-            data["last_crawl"] = result[0]
-
-        # Today's search stats
-        if is_postgres:
-            cursor.execute(
-                f"""
-                SELECT
-                    COUNT(*) as total,
-                    COUNT(DISTINCT query) as unique_queries,
-                    SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
-                FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                """,
-                (today_start, *search_filter_params),
-            )
-        else:
-            cursor.execute(
-                f"""
-                SELECT
-                    COUNT(*) as total,
-                    COUNT(DISTINCT query) as unique_queries,
-                    SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
-                FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                """,
-                (today_start, *search_filter_params),
-            )
-        row = cursor.fetchone()
-        if row:
-            data["today_searches"] = row[0] or 0
-            data["today_unique_queries"] = row[1] or 0
-            data["today_zero_hits"] = row[2] or 0
-            if data["today_searches"] > 0:
-                data["zero_hit_rate"] = round(
-                    data["today_zero_hits"] / data["today_searches"] * 100, 1
-                )
-
-        # Top query today
-        if is_postgres:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 1
-                """,
-                (today_start, *search_filter_params),
-            )
-        else:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 1
-                """,
-                (today_start, *search_filter_params),
-            )
-        row = cursor.fetchone()
-        if row and row[0]:
-            data["top_query"] = {"query": row[0], "count": row[1]}
-
-        # Zero-hit queries (top 5)
-        if is_postgres:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 5
-                """,
-                (today_start, *search_filter_params),
-            )
-        else:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph}){search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 5
-                """,
-                (today_start, *search_filter_params),
-            )
-        data["zero_hit_queries"] = [
-            {"query": row[0], "count": row[1]} for row in cursor.fetchall()
-        ]
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        logger.warning(f"Failed to get DB stats: {e}")
-
-    # Crawler Stats (single aggregated request)
-    crawler_reachable = False
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats")
-            if resp.status_code == 200:
-                crawler_reachable = True
-                stats = resp.json()
-                data["queue_size"] = stats.get("queue_size", 0)
-                data["visited_count"] = stats.get("active_seen", 0)
-                data["worker_status"] = stats.get("worker_status", "unknown")
-                data["uptime_seconds"] = stats.get("uptime_seconds")
-                data["active_tasks"] = stats.get("active_tasks", 0)
-                data["crawl_rate"] = stats.get("crawl_rate_1h", 0)
-                data["recent_error_count"] = stats.get("error_count_1h", 0)
-                data["recent_errors"] = stats.get("recent_errors", [])
-    except Exception as e:
-        logger.warning(f"Failed to get crawler stats: {e}")
-
-    # Determine health status
-    health_messages = []
-    if not crawler_reachable:
-        health_messages.append("Crawler service is unreachable")
-        data["health"]["level"] = "error"
-    elif data["worker_status"] == "stopped":
-        health_messages.append("Crawler is stopped. Indexing paused.")
-        data["health"]["level"] = "warning"
-    elif data["queue_size"] == 0 and data["worker_status"] == "running":
-        health_messages.append("Queue is empty. Waiting for new URLs.")
-        data["health"]["level"] = "warning"
-
-    if data["zero_hit_rate"] > 50 and data["today_searches"] >= 10:
-        health_messages.append(
-            f"High zero-hit rate: {data['zero_hit_rate']}% of searches returned no results"
-        )
-        if data["health"]["level"] == "ok":
-            data["health"]["level"] = "warning"
-
-    data["health"]["messages"] = health_messages
-
-    return data
-
-
-# ==================== Routes ====================
-
-
-def _add_csrf_cookie(response: Response, token: str) -> Response:
-    """Add CSRF token cookie to response."""
-    # JS needs access for AJAX requests.
-    return _set_admin_cookie(response, CSRF_COOKIE_NAME, token, httponly=False)
-
-
-def _add_session_cookie(response: Response, token: str) -> Response:
-    """Add authenticated admin session cookie."""
-    return _set_admin_cookie(response, SESSION_COOKIE_NAME, token, httponly=True)
+def find_crawler_url(name: str) -> str | None:
+    return _find_crawler_url(name, settings.CRAWLER_INSTANCES)
 
 
 @router.get("/login")
 async def login_page(request: Request, error: str = ""):
-    """Login page."""
     csrf_token = get_csrf_token(request)
     response = templates.TemplateResponse(
         request,
         "admin/login.html",
         {"request": request, "error": error, "csrf_token": csrf_token},
     )
-    return _add_csrf_cookie(response, csrf_token)
+    return add_csrf_cookie(response, csrf_token)
 
 
 @router.post("/login")
@@ -386,8 +89,6 @@ async def login(
     password: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Process login."""
-    # Validate CSRF token
     if not validate_csrf_token(request, csrf_token):
         return RedirectResponse(
             url="/admin/login?error=Invalid+request", status_code=303
@@ -397,9 +98,10 @@ async def login(
         token = create_session()
         new_csrf = generate_csrf_token()
         response = RedirectResponse(url="/admin/", status_code=303)
-        _add_session_cookie(response, token)
-        _add_csrf_cookie(response, new_csrf)
+        add_session_cookie(response, token)
+        add_csrf_cookie(response, new_csrf)
         return response
+
     return RedirectResponse(
         url="/admin/login?error=Invalid+credentials", status_code=303
     )
@@ -407,7 +109,6 @@ async def login(
 
 @router.get("/logout")
 async def logout():
-    """Logout and clear session."""
     response = RedirectResponse(url="/admin/login", status_code=303)
     response.delete_cookie(SESSION_COOKIE_NAME)
     return response
@@ -415,9 +116,7 @@ async def logout():
 
 @router.get("/")
 async def dashboard(request: Request):
-    """Main dashboard page."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     data = await get_dashboard_data()
@@ -436,22 +135,10 @@ async def dashboard(request: Request):
 
 @router.get("/seeds")
 async def seeds_page(request: Request, success: str = "", error: str = ""):
-    """Seed URL management page."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
-    # Get seeds from Crawler API
-    seeds = []
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds")
-            if resp.status_code == 200:
-                seeds = resp.json()
-    except httpx.RequestError as e:
-        logger.warning(f"Failed to fetch seeds from crawler: {e}")
-        seeds = []
-
+    seeds = await fetch_seeds()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         request,
@@ -468,25 +155,10 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
 
 @router.get("/queue")
 async def queue_page(request: Request, success: str = "", error: str = ""):
-    """Crawl queue page."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
-    # Get current queue contents from Crawler API
-    queue_urls = []
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/queue?limit=50"
-            )
-            if resp.status_code == 200:
-                items = resp.json()
-                queue_urls = [(item["url"], item["score"]) for item in items]
-    except httpx.RequestError as e:
-        logger.warning(f"Failed to fetch queue from crawler: {e}")
-        queue_urls = []
-
+    queue_urls = await fetch_queue(limit=50)
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         request,
@@ -503,24 +175,10 @@ async def queue_page(request: Request, success: str = "", error: str = ""):
 
 @router.get("/history")
 async def history_page(request: Request, url: str = ""):
-    """Crawl history page."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
-    # Fetch history from Crawler
-    history_logs = []
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            params = {"url": url} if url else {}
-            resp = await client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/history", params=params
-            )
-            if resp.status_code == 200:
-                history_logs = resp.json()
-    except httpx.RequestError as e:
-        logger.warning(f"Failed to fetch history from crawler: {e}")
-
+    history_logs = await fetch_history(url_filter=url)
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         request,
@@ -540,9 +198,7 @@ async def add_seed(
     url: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Add a seed URL (persistent)."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
@@ -551,21 +207,14 @@ async def add_seed(
         )
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            payload = {"urls": [url]}
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds", json=payload
-            )
-            if resp.status_code != 200:
-                raise Exception(f"Crawler API Error: {resp.text}")
-
+        await crawler_add_seed(url)
         return RedirectResponse(
             url=f"/admin/seeds?success={quote(f'Added seed {url}', safe='')}",
             status_code=303,
         )
-    except Exception as e:
+    except Exception as exc:
         return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(e), safe='')}",
+            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
             status_code=303,
         )
 
@@ -576,9 +225,7 @@ async def delete_seed(
     url: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Delete a seed URL."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
@@ -587,23 +234,14 @@ async def delete_seed(
         )
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            payload = {"urls": [url]}
-            resp = await client.request(
-                "DELETE",
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds",
-                json=payload,
-            )
-            if resp.status_code != 200:
-                raise Exception(f"Crawler API Error: {resp.text}")
-
+        await crawler_delete_seed(url)
         return RedirectResponse(
             url=f"/admin/seeds?success={quote('Seed deleted', safe='')}",
             status_code=303,
         )
-    except Exception as e:
+    except Exception as exc:
         return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(e), safe='')}",
+            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
             status_code=303,
         )
 
@@ -614,9 +252,7 @@ async def import_tranco(
     count: str = Form(default="100"),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Import seeds from Tranco top domains list."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
@@ -626,31 +262,21 @@ async def import_tranco(
 
     try:
         count_value = _parse_tranco_count(count)
-    except ValueError as e:
+    except ValueError as exc:
         return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(e), safe='')}",
+            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
             status_code=303,
         )
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            payload = {"count": count_value}
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds/import-tranco",
-                json=payload,
-            )
-            if resp.status_code != 200:
-                raise Exception(f"Crawler API Error: {resp.text}")
-            data = resp.json()
-            added = data.get("count", 0)
-
+        added = await import_tranco_seeds(count_value)
         return RedirectResponse(
             url=f"/admin/seeds?success={quote(f'Imported {added} seeds from Tranco top {count_value}', safe='')}",
             status_code=303,
         )
-    except Exception as e:
+    except Exception as exc:
         return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(e), safe='')}",
+            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
             status_code=303,
         )
 
@@ -661,9 +287,7 @@ async def add_to_queue(
     url: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Add a URL to the queue (temporary, not a seed)."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
@@ -672,21 +296,14 @@ async def add_to_queue(
         )
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            payload = {"urls": [url]}
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/urls", json=payload
-            )
-            if resp.status_code != 200:
-                raise Exception(f"Crawler API Error: {resp.text}")
-
+        await enqueue_url(url)
         return RedirectResponse(
             url=f"/admin/queue?success={quote(f'Added {url} to queue', safe='')}",
             status_code=303,
         )
-    except Exception as e:
+    except Exception as exc:
         return RedirectResponse(
-            url=f"/admin/queue?error={quote(str(e), safe='')}",
+            url=f"/admin/queue?error={quote(str(exc), safe='')}",
             status_code=303,
         )
 
@@ -696,24 +313,13 @@ async def crawler_start(
     request: Request,
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Start the crawler worker."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
         return RedirectResponse(url="/admin/", status_code=303)
 
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/start"
-            )
-            if resp.status_code != 200:
-                logger.warning(f"Failed to start crawler: {resp.text}")
-    except httpx.RequestError as e:
-        logger.warning(f"Failed to start crawler: {e}")
-
+    await start_worker()
     return RedirectResponse(url="/admin/", status_code=303)
 
 
@@ -722,135 +328,19 @@ async def crawler_stop(
     request: Request,
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Stop the crawler worker (graceful)."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
         return RedirectResponse(url="/admin/", status_code=303)
 
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/stop",
-                json={},
-            )
-            if resp.status_code != 200:
-                logger.warning(f"Failed to stop crawler: {resp.text}")
-    except httpx.RequestError as e:
-        logger.warning(f"Failed to stop crawler: {e}")
-
+    await stop_worker()
     return RedirectResponse(url="/admin/", status_code=303)
-
-
-def get_analytics_data() -> dict:
-    """Get search analytics data."""
-    data = {
-        "top_queries": [],
-        "zero_hit_queries": [],
-        "total_searches": 0,
-    }
-
-    try:
-        ph = _placeholder()
-        is_postgres = is_postgres_mode()
-        _, week_ago, _ = _time_boundaries()
-        search_filter_sql, search_filter_params = _analytics_exclusion_filters(
-            is_postgres
-        )
-        conn = get_connection(settings.DB_PATH)
-        cursor = conn.cursor()
-        # Total searches in last 7 days
-        if is_postgres:
-            cursor.execute(
-                f"""
-                SELECT COUNT(*) FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                """,
-                (week_ago, *search_filter_params),
-            )
-        else:
-            cursor.execute(
-                f"""
-                SELECT COUNT(*) FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                """,
-                (week_ago, *search_filter_params),
-            )
-        data["total_searches"] = cursor.fetchone()[0]
-
-        # Top queries (last 7 days)
-        if is_postgres:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-                FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """,
-                (week_ago, *search_filter_params),
-            )
-        else:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-                FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """,
-                (week_ago, *search_filter_params),
-            )
-        data["top_queries"] = [
-            {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
-            for row in cursor.fetchall()
-        ]
-
-        # Zero-hit queries (content gaps)
-        if is_postgres:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """,
-                (week_ago, *search_filter_params),
-            )
-        else:
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph}){search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """,
-                (week_ago, *search_filter_params),
-            )
-        data["zero_hit_queries"] = [
-            {"query": row[0], "count": row[1]} for row in cursor.fetchall()
-        ]
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        logger.warning(f"Failed to get analytics data: {e}")
-
-    return data
 
 
 @router.get("/analytics")
 async def analytics_page(request: Request):
-    """Search analytics page."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     analytics = get_analytics_data()
@@ -866,65 +356,9 @@ async def analytics_page(request: Request):
     )
 
 
-# ==================== Crawler Instances Management ====================
-
-
-async def get_crawler_instance_status(url: str) -> dict[str, Any]:
-    """Get status for a single crawler instance."""
-    status = {
-        "state": "unreachable",
-        "queue_size": 0,
-        "active_seen": 0,
-        "uptime": None,
-        "concurrency": None,
-    }
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{url}/api/v1/status")
-            if resp.status_code == 200:
-                data = resp.json()
-                status["queue_size"] = data.get("queue_size", 0)
-                status["active_seen"] = data.get("active_seen", 0)
-
-            resp = await client.get(f"{url}/api/v1/worker/status")
-            if resp.status_code == 200:
-                worker = resp.json()
-                status["state"] = worker.get("status", "unknown")
-                status["uptime"] = worker.get("uptime")
-                status["concurrency"] = worker.get("concurrency")
-    except httpx.RequestError as e:
-        logger.debug(f"Crawler instance {url} unreachable: {e}")
-    return status
-
-
-async def get_all_crawler_instances() -> list[dict[str, Any]]:
-    """Get status for all configured crawler instances."""
-    instances = []
-    for inst in settings.CRAWLER_INSTANCES:
-        status = await get_crawler_instance_status(inst["url"])
-        instances.append(
-            {
-                "name": inst["name"],
-                "url": inst["url"],
-                **status,
-            }
-        )
-    return instances
-
-
-def find_crawler_url(name: str) -> str | None:
-    """Find crawler URL by name."""
-    for inst in settings.CRAWLER_INSTANCES:
-        if inst["name"] == name:
-            return inst["url"]
-    return None
-
-
 @router.get("/crawlers")
 async def crawlers_page(request: Request):
-    """Crawler instances management page."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     instances = await get_all_crawler_instances()
@@ -947,9 +381,7 @@ async def crawler_instance_start(
     concurrency: int = Form(default=1),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Start a specific crawler instance."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
@@ -959,14 +391,7 @@ async def crawler_instance_start(
     if not url:
         return RedirectResponse(url="/admin/crawlers", status_code=303)
 
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(
-                f"{url}/api/v1/worker/start", json={"concurrency": concurrency}
-            )
-    except httpx.RequestError as e:
-        logger.warning(f"Failed to start crawler instance {name}: {e}")
-
+    await start_crawler_instance(url, concurrency)
     return RedirectResponse(url="/admin/crawlers", status_code=303)
 
 
@@ -976,9 +401,7 @@ async def crawler_instance_stop(
     name: str,
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
-    """Stop a specific crawler instance."""
-    token = request.cookies.get(SESSION_COOKIE_NAME)
-    if not validate_session(token):
+    if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
     if not validate_csrf_token(request, csrf_token):
@@ -988,10 +411,5 @@ async def crawler_instance_stop(
     if not url:
         return RedirectResponse(url="/admin/crawlers", status_code=303)
 
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(f"{url}/api/v1/worker/stop", json={})
-    except httpx.RequestError as e:
-        logger.warning(f"Failed to stop crawler instance {name}: {e}")
-
+    await stop_crawler_instance(url)
     return RedirectResponse(url="/admin/crawlers", status_code=303)
