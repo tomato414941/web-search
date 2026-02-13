@@ -11,7 +11,7 @@
             <a href="/admin/crawlers">Crawlers</a>
             <a href="/admin/seeds">Seeds</a>
             <a href="/admin/queue">Queue</a>
-            <a href="/admin/history">History</a>
+            <a href="/admin/history">Crawl History</a>
             <a href="/admin/analytics">Analytics</a>
             <a href="/admin/logout">Logout</a>
         </div>
@@ -136,7 +136,7 @@
                 <li>{{ e.url[:60] }}{% if e.url|length > 60 %}...{% endif %} &mdash; {{ e.error_message }}</li>
             {% endfor %}
             </ul>
-            <a href="/admin/history" class="link">View All History &rarr;</a>
+            <a href="/admin/history" class="link">View Crawl History &rarr;</a>
         </div>
         {% endif %}
     </div>

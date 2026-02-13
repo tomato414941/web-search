@@ -58,6 +58,16 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
         th { color: #64b5f6; }
+        table.wrap-table {
+            table-layout: fixed;
+        }
+        table.wrap-table th,
+        table.wrap-table td {
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            vertical-align: top;
+        }
         .login-box {
             max-width: 400px; margin: 100px auto;
             background: rgba(255, 255, 255, 0.05);
@@ -197,6 +207,12 @@
                 display: block;
                 overflow-x: auto;
                 white-space: nowrap;
+            }
+            table.wrap-table {
+                display: table;
+                width: 100%;
+                overflow-x: visible;
+                white-space: normal;
             }
 
             /* Form rows: stack vertically */
