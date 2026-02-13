@@ -42,7 +42,7 @@ class TrancoImportRequest(BaseModel):
     """Request to import seeds from Tranco list"""
 
     count: int = Field(
-        default=1000,
+        default=100,
         ge=1,
         le=10000,
         description="Number of top domains to import",

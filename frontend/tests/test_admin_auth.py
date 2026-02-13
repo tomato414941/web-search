@@ -1,7 +1,7 @@
 """Test Admin Authentication and Security."""
 
 import os
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -339,3 +339,66 @@ class TestCrawlerInstancesConfig:
             assert len(instances) == 2
             assert instances[0]["name"] == "crawler1"
             assert instances[0]["url"] == "http://host1:8000"
+            assert instances[1]["name"] == "crawler2"
+            assert instances[1]["url"] == "http://host2:8000"
+
+
+class TestSeedImportValidation:
+    def test_import_tranco_with_invalid_count_redirects_with_error(self):
+        client.cookies.clear()
+        login_csrf_token = get_csrf_token_from_login_page()
+        client.post(
+            "/admin/login",
+            data={
+                "username": settings.ADMIN_USERNAME,
+                "password": settings.ADMIN_PASSWORD,
+                "csrf_token": login_csrf_token,
+            },
+        )
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        response = client.post(
+            "/admin/seeds/import-tranco",
+            data={"count": "abc", "csrf_token": csrf_token},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 303
+        assert (
+            response.headers["location"]
+            == "/admin/seeds?error=Count%20must%20be%20an%20integer%20between%201%20and%2010000"
+        )
+
+    def test_import_tranco_accepts_comma_separated_count(self):
+        client.cookies.clear()
+        login_csrf_token = get_csrf_token_from_login_page()
+        client.post(
+            "/admin/login",
+            data={
+                "username": settings.ADMIN_USERNAME,
+                "password": settings.ADMIN_PASSWORD,
+                "csrf_token": login_csrf_token,
+            },
+        )
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with patch("frontend.api.routers.admin.httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"count": 1234}
+            mock_instance = AsyncMock()
+            mock_instance.post.return_value = mock_response
+            mock_client.return_value.__aenter__.return_value = mock_instance
+
+            response = client.post(
+                "/admin/seeds/import-tranco",
+                data={"count": "1,234", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert (
+            response.headers["location"]
+            == "/admin/seeds?success=Imported%201234%20seeds%20from%20Tranco%20top%201234"
+        )
+        assert mock_instance.post.await_args.kwargs["json"] == {"count": 1234}

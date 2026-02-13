@@ -96,6 +96,17 @@ def _set_admin_cookie(
     return response
 
 
+def _parse_tranco_count(raw_count: str | None) -> int:
+    normalized = (raw_count or "").strip().replace(",", "")
+    if not normalized.isdigit():
+        raise ValueError("Count must be an integer between 1 and 10000")
+
+    count = int(normalized)
+    if count < 1 or count > 10000:
+        raise ValueError("Count must be between 1 and 10000")
+    return count
+
+
 def _time_boundaries() -> tuple[str, str, str]:
     """
     Return UTC boundaries as SQL-friendly timestamps.
@@ -568,7 +579,7 @@ async def delete_seed(
 @router.post("/seeds/import-tranco")
 async def import_tranco(
     request: Request,
-    count: int = Form(default=1000),
+    count: str = Form(default="100"),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
 ):
     """Import seeds from Tranco top domains list."""
@@ -582,8 +593,16 @@ async def import_tranco(
         )
 
     try:
+        count_value = _parse_tranco_count(count)
+    except ValueError as e:
+        return RedirectResponse(
+            url=f"/admin/seeds?error={quote(str(e), safe='')}",
+            status_code=303,
+        )
+
+    try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            payload = {"count": count}
+            payload = {"count": count_value}
             resp = await client.post(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds/import-tranco",
                 json=payload,
@@ -594,7 +613,7 @@ async def import_tranco(
             added = data.get("count", 0)
 
         return RedirectResponse(
-            url=f"/admin/seeds?success={quote(f'Imported {added} seeds from Tranco top {count}', safe='')}",
+            url=f"/admin/seeds?success={quote(f'Imported {added} seeds from Tranco top {count_value}', safe='')}",
             status_code=303,
         )
     except Exception as e:
