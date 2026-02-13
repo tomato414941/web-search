@@ -3,7 +3,6 @@
 import os
 from unittest.mock import patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from frontend.api.main import app
@@ -279,24 +278,21 @@ class TestSessionSecurity:
             assert response.status_code == 303
             assert "secure" not in response.headers.get("set-cookie", "").lower()
 
-    @pytest.mark.skip(
-        reason="Flaky test - session validation logic needs investigation"
-    )
-    def test_session_token_constant_time_comparison(self):
-        """Session validation should use constant-time comparison (timing attack resistance)."""
-        # This is tested indirectly - the code uses hmac.compare_digest()
-        # We verify the behavior by trying an almost-correct token
+    def test_tampered_session_token_is_rejected(self):
+        """Tampered session token should be rejected."""
         from frontend.api.routers.admin import create_session
 
         valid_token = create_session()
-        # Create an almost-correct token (1 char different)
-        if len(valid_token) > 0:
-            invalid_token = valid_token[:-1] + ("a" if valid_token[-1] != "a" else "b")
+        assert valid_token
 
-            client.cookies.clear()
-            client.cookies.set("admin_session", invalid_token)
-            response = client.get("/admin/", follow_redirects=False)
-            assert response.status_code == 303  # Should still be unauthorized
+        # Create an almost-correct token by flipping one character.
+        invalid_token = valid_token[:-1] + ("a" if valid_token[-1] != "a" else "b")
+
+        client.cookies.clear()
+        client.cookies.set("admin_session", invalid_token)
+        response = client.get("/admin/", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/login"
 
 
 class TestCrawlerInstancesConfig:

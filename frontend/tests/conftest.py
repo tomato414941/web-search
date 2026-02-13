@@ -8,40 +8,26 @@ os.environ.setdefault("ADMIN_USERNAME", "test_admin")
 os.environ.setdefault("ADMIN_PASSWORD", "test_password")
 os.environ.setdefault("ADMIN_SESSION_SECRET", "test-secret-key-for-testing")
 
-import gc
-import time
 import pytest
 from unittest.mock import patch
 from shared.db.search import ensure_db
 from shared.search import SearchEngine, BM25Config
 
-# Patch DB_PATH to use a test database
-TEST_DB_PATH = "test_search.db"
-
 
 @pytest.fixture(autouse=True)
-def setup_test_env():
-    if os.path.exists(TEST_DB_PATH):
-        gc.collect()
-        for attempt in range(3):
-            try:
-                os.remove(TEST_DB_PATH)
-                break
-            except PermissionError:
-                if attempt < 2:
-                    time.sleep(0.2 * (attempt + 1))
-                    gc.collect()
+def setup_test_env(tmp_path):
+    test_db_path = str(tmp_path / "test_search.db")
+    ensure_db(test_db_path)
 
-    ensure_db(TEST_DB_PATH)
-
-    with patch("frontend.core.config.settings.DB_PATH", TEST_DB_PATH):
+    with patch("frontend.core.config.settings.DB_PATH", test_db_path):
         from frontend.services.search import search_service
 
         original_search_path = search_service.db_path
-        search_service.db_path = TEST_DB_PATH
+        original_engine = search_service._engine
+        search_service.db_path = test_db_path
 
         search_service._engine = SearchEngine(
-            db_path=TEST_DB_PATH,
+            db_path=test_db_path,
             bm25_config=BM25Config(
                 k1=1.2,
                 b=0.75,
@@ -53,16 +39,7 @@ def setup_test_env():
         yield
 
         search_service.db_path = original_search_path
-
-    if os.path.exists(TEST_DB_PATH):
-        gc.collect()
-        for attempt in range(3):
-            try:
-                os.remove(TEST_DB_PATH)
-                break
-            except (PermissionError, OSError):
-                if attempt < 2:
-                    time.sleep(0.1)
+        search_service._engine = original_engine
 
 
 @pytest.fixture
