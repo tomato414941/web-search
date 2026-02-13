@@ -243,10 +243,32 @@ def _execute_schema_statements(con: Any, schema: str, is_postgres: bool) -> None
     if is_postgres:
         cur = con.cursor()
         statements = [s.strip() for s in schema.split(";") if s.strip()]
-        for stmt in statements:
-            cur.execute(stmt)
-        con.commit()
-        cur.close()
+        # Serialize schema initialization across multi-worker startup.
+        # Without this lock, concurrent CREATE TABLE IF NOT EXISTS can still race
+        # on PostgreSQL catalogs and raise duplicate key errors.
+        lock_id = 906115423
+        error: Exception | None = None
+        cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
+        try:
+            for stmt in statements:
+                cur.execute(stmt)
+            con.commit()
+        except Exception as e:
+            error = e
+            con.rollback()
+        finally:
+            try:
+                cur.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
+                con.commit()
+            except Exception:
+                con.rollback()
+                if error is None:
+                    raise
+            finally:
+                cur.close()
+
+        if error is not None:
+            raise error
     else:
         con.executescript(schema)
 
