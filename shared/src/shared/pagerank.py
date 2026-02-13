@@ -10,7 +10,7 @@ import logging
 from typing import Any
 from urllib.parse import urlparse
 
-from shared.db.search import open_db, is_postgres_mode
+from shared.db.search import open_db, sql_placeholder
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +26,6 @@ def _iter_batches(iterable, size):
             batch = []
     if batch:
         yield batch
-
-
-def _placeholder() -> str:
-    return "%s" if is_postgres_mode() else "?"
 
 
 def calculate_pagerank(
@@ -209,7 +205,7 @@ def _save_page_ranks(con: Any, scores: dict[str, float]) -> None:
     max_score = max(scores.values())
     if max_score > 0:
         scores = {url: s / max_score for url, s in scores.items()}
-    ph = _placeholder()
+    ph = sql_placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM page_ranks")
     for batch in _iter_batches(scores.items(), _SAVE_BATCH_SIZE):
@@ -228,7 +224,7 @@ def _save_domain_ranks(con: Any, scores: dict[str, float]) -> None:
     max_score = max(scores.values())
     if max_score > 0:
         scores = {d: s / max_score for d, s in scores.items()}
-    ph = _placeholder()
+    ph = sql_placeholder()
     cur = con.cursor()
     cur.execute("DELETE FROM domain_ranks")
     for batch in _iter_batches(scores.items(), _SAVE_BATCH_SIZE):

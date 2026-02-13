@@ -4,13 +4,9 @@ from typing import Any
 
 from frontend.core.config import settings
 from frontend.services.db_helpers import db_cursor
-from shared.db.search import is_postgres_mode
+from shared.db.search import is_postgres_mode, sql_placeholder, sql_placeholders
 
 logger = logging.getLogger(__name__)
-
-
-def _placeholder() -> str:
-    return "%s" if is_postgres_mode() else "?"
 
 
 def time_boundaries() -> tuple[str, str, str]:
@@ -22,7 +18,7 @@ def time_boundaries() -> tuple[str, str, str]:
 
 
 def build_analytics_exclusion_filters(is_postgres: bool) -> tuple[str, tuple[Any, ...]]:
-    ph = _placeholder()
+    ph = sql_placeholder()
     clauses: list[str] = []
     params: list[Any] = []
 
@@ -40,7 +36,7 @@ def build_analytics_exclusion_filters(is_postgres: bool) -> tuple[str, tuple[Any
 
     excluded_queries = settings.ANALYTICS_EXCLUDED_QUERIES
     if excluded_queries:
-        query_placeholders = ",".join([ph] * len(excluded_queries))
+        query_placeholders = sql_placeholders(len(excluded_queries))
         clauses.append(f"query NOT IN ({query_placeholders})")
         params.extend(excluded_queries)
 
@@ -58,7 +54,7 @@ def get_analytics_data() -> dict[str, Any]:
     }
 
     try:
-        ph = _placeholder()
+        ph = sql_placeholder()
         is_postgres = is_postgres_mode()
         _, week_ago, _ = time_boundaries()
         search_filter_sql, search_filter_params = build_analytics_exclusion_filters(

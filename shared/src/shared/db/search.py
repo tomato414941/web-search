@@ -204,6 +204,19 @@ def is_postgres_mode() -> bool:
     return os.getenv("DATABASE_URL") is not None
 
 
+def sql_placeholder() -> str:
+    """Return parameter placeholder for current database driver."""
+    return "%s" if is_postgres_mode() else "?"
+
+
+def sql_placeholders(count: int) -> str:
+    """Return comma-separated placeholders for IN clauses."""
+    if count <= 0:
+        raise ValueError("count must be greater than zero")
+    ph = sql_placeholder()
+    return ",".join([ph] * count)
+
+
 def get_connection(db_path: str | None = None) -> Any:
     """Get database connection (PostgreSQL or local SQLite).
 

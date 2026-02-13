@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -8,7 +9,14 @@ from fastapi import Request, Response
 
 from frontend.core.config import settings
 from shared.core.infrastructure_config import Environment
-from shared.db.search import get_connection, is_postgres_mode
+from shared.db.search import (
+    get_connection,
+    is_postgres_mode,
+    sql_placeholder,
+    sql_placeholders,
+)
+
+logger = logging.getLogger(__name__)
 
 ANON_SESSION_COOKIE = "anon_sid"
 ANON_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
@@ -20,10 +28,6 @@ CRAWL_ERROR_STATUSES = (
     "dead_letter",
 )
 CRAWL_ATTEMPT_STATUSES = CRAWL_ERROR_STATUSES + ("indexed", "blocked", "skipped")
-
-
-def _placeholder() -> str:
-    return "%s" if is_postgres_mode() else "?"
 
 
 def normalize_query(query: str) -> str:
@@ -55,8 +59,9 @@ def hash_session_id(session_id: str | None) -> str | None:
 
 
 def log_search(query: str, result_count: int, user_agent: str | None) -> None:
+    conn = None
     try:
-        ph = _placeholder()
+        ph = sql_placeholder()
         conn = get_connection(settings.DB_PATH)
         cur = conn.cursor()
         cur.execute(
@@ -65,9 +70,11 @@ def log_search(query: str, result_count: int, user_agent: str | None) -> None:
         )
         conn.commit()
         cur.close()
-        conn.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"Failed to persist search log: {exc}")
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def log_impression_event(
@@ -121,8 +128,9 @@ def _log_search_event(
     clicked_rank: int | None,
     latency_ms: int | None,
 ) -> None:
+    conn = None
     try:
-        ph = _placeholder()
+        ph = sql_placeholder()
         conn = get_connection(settings.DB_PATH)
         cur = conn.cursor()
         cur.execute(
@@ -146,9 +154,11 @@ def _log_search_event(
         )
         conn.commit()
         cur.close()
-        conn.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning(f"Failed to persist search event '{event_type}': {exc}")
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def get_quality_summary(window_hours: int) -> dict[str, Any]:
@@ -157,7 +167,7 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
     cutoff_str = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
     cutoff_epoch = int(time.time()) - window_hours * 3600
     postgres_mode = is_postgres_mode()
-    ph = _placeholder()
+    ph = sql_placeholder()
 
     search_data = {
         "impressions": 0,
@@ -302,7 +312,7 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
             crawl_data["pending_count"] = int(cur.fetchone()[0] or 0)
 
         if _table_exists(conn, "crawl_logs"):
-            status_ph = ",".join([ph] * len(CRAWL_ATTEMPT_STATUSES))
+            status_ph = sql_placeholders(len(CRAWL_ATTEMPT_STATUSES))
             cur.execute(
                 f"""
                 SELECT status, COUNT(*)
@@ -333,7 +343,7 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
 def _table_exists(conn: Any, table_name: str) -> bool:
     cur = conn.cursor()
     try:
-        ph = _placeholder()
+        ph = sql_placeholder()
         if is_postgres_mode():
             cur.execute(
                 f"""

@@ -3,16 +3,11 @@
 import logging
 
 from app.core.config import settings
-from shared.db.search import get_connection, is_postgres_mode
+from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
 from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
 
 logger = logging.getLogger(__name__)
-
-
-def _placeholder() -> str:
-    """Return the appropriate placeholder for the current database."""
-    return "%s" if is_postgres_mode() else "?"
 
 
 def _sanitize_text(value: str) -> str:
@@ -61,7 +56,7 @@ class IndexerService:
                 try:
                     vector_blob = await embedding_service.embed(safe_content)
                     if vector_blob:
-                        ph = _placeholder()
+                        ph = sql_placeholder()
                         cur = conn.cursor()
                         try:
                             cur.execute(
@@ -91,7 +86,7 @@ class IndexerService:
 
     def _save_links(self, conn, src_url: str, outlinks: list[str]) -> None:
         """Save outlinks to the links table."""
-        ph = _placeholder()
+        ph = sql_placeholder()
         cur = conn.cursor()
         try:
             # Remove old links from this page

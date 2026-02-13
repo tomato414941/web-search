@@ -12,17 +12,12 @@ from typing import Any, Callable
 import numpy as np
 
 from shared.analyzer import analyzer, STOP_WORDS
-from shared.db.search import get_connection, is_postgres_mode
+from shared.db.search import get_connection, sql_placeholders
 from shared.search.scoring import BM25Scorer, BM25Config
 
 
 # Type alias for embedding function
 EmbeddingFunc = Callable[[str], np.ndarray]
-
-
-def _placeholder() -> str:
-    """Return the appropriate placeholder for the current database."""
-    return "%s" if is_postgres_mode() else "?"
 
 
 @dataclass
@@ -132,8 +127,7 @@ class SearchEngine:
                 result_urls = [url for url, _ in page_results]
                 result_scores = {url: score for url, score in page_results}
 
-                ph = _placeholder()
-                placeholders = ",".join([ph] * len(result_urls))
+                placeholders = sql_placeholders(len(result_urls))
                 cur = conn.cursor()
                 cur.execute(
                     f"SELECT url, title, content FROM documents WHERE url IN ({placeholders})",
@@ -187,8 +181,7 @@ class SearchEngine:
         if not tokens:
             return set()
 
-        ph = _placeholder()
-        placeholders = ",".join([ph] * len(tokens))
+        placeholders = sql_placeholders(len(tokens))
 
         cur = conn.cursor()
         cur.execute(
@@ -274,9 +267,8 @@ class SearchEngine:
             result_scores = {urls[idx]: float(sims[idx]) for idx in slice_indices}
 
             conn = get_connection(self.db_path)
-            ph = _placeholder()
             try:
-                placeholders = ",".join([ph] * len(result_urls))
+                placeholders = sql_placeholders(len(result_urls))
                 cur = conn.cursor()
                 cur.execute(
                     f"SELECT url, title, content FROM documents WHERE url IN ({placeholders})",

@@ -8,7 +8,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from shared.db.search import is_postgres_mode
+from shared.db.search import sql_placeholder, sql_placeholders
 
 
 @dataclass
@@ -19,11 +19,6 @@ class BM25Config:
     b: float = 0.75  # Length normalization
     title_boost: float = 3.0  # Boost for title matches
     pagerank_weight: float = 0.5  # Weight for PageRank score (0 to disable)
-
-
-def _placeholder() -> str:
-    """Return the appropriate placeholder for the current database."""
-    return "%s" if is_postgres_mode() else "?"
 
 
 class BM25Scorer:
@@ -97,7 +92,7 @@ class BM25Scorer:
         k1 = self.config.k1
         b = self.config.b
 
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         for token in tokens:
             # Get IDF
@@ -129,7 +124,7 @@ class BM25Scorer:
 
     def _get_pagerank(self, conn: Any, url: str) -> float:
         """Get PageRank score for a URL (0.0 if not found)."""
-        ph = _placeholder()
+        ph = sql_placeholder()
         cur = conn.cursor()
         cur.execute(
             f"SELECT score FROM page_ranks WHERE url = {ph}",
@@ -160,7 +155,7 @@ class BM25Scorer:
 
     def _get_doc_length(self, conn: Any, url: str) -> int:
         """Get document word count."""
-        ph = _placeholder()
+        ph = sql_placeholder()
         cur = conn.cursor()
         cur.execute(
             f"SELECT word_count FROM documents WHERE url = {ph}",
@@ -184,7 +179,7 @@ class BM25Scorer:
         Using the "+1" variant to avoid negative IDF for common terms.
         """
         # Get document frequency
-        ph = _placeholder()
+        ph = sql_placeholder()
         cur = conn.cursor()
         cur.execute(
             f"SELECT doc_freq FROM token_stats WHERE token = {ph}",
@@ -217,10 +212,9 @@ class BM25Scorer:
         if total_docs == 0 or avg_doc_length == 0:
             return [(url, 0.0) for url in candidates]
 
-        ph = _placeholder()
         url_list = candidates
-        token_phs = ",".join([ph] * len(tokens))
-        url_phs = ",".join([ph] * len(url_list))
+        token_phs = sql_placeholders(len(tokens))
+        url_phs = sql_placeholders(len(url_list))
 
         cur = conn.cursor()
 

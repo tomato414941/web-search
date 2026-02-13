@@ -10,12 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from shared.analyzer import analyzer, STOP_WORDS
-from shared.db.search import get_connection, is_postgres_mode
-
-
-def _placeholder() -> str:
-    """Return the appropriate placeholder for the current database."""
-    return "%s" if is_postgres_mode() else "?"
+from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
 
 
 class SearchIndexer:
@@ -44,7 +39,7 @@ class SearchIndexer:
         if conn is None:
             conn = get_connection(self.db_path)
 
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         try:
             # 1. Tokenize title and content
@@ -107,7 +102,7 @@ class SearchIndexer:
         if conn is None:
             conn = get_connection(self.db_path)
 
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         try:
             cur = conn.cursor()
@@ -161,7 +156,7 @@ class SearchIndexer:
         if conn is None:
             conn = get_connection(self.db_path)
 
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         try:
             cur = conn.cursor()
@@ -194,7 +189,7 @@ class SearchIndexer:
         if not tokens:
             return
 
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         # Calculate term frequency and positions
         freq_map: Counter[str] = Counter(tokens)
@@ -237,7 +232,7 @@ class SearchIndexer:
     ) -> None:
         """Update document frequency for tokens."""
         unique_tokens = set(tokens)
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         cur = conn.cursor()
         for token in unique_tokens:

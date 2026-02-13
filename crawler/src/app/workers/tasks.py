@@ -6,6 +6,7 @@ Main worker loop that fetches URLs from UrlStore and crawls them.
 
 import asyncio
 import logging
+from dataclasses import dataclass, field
 import aiohttp
 
 from app.db.url_store import UrlStore, get_domain
@@ -30,11 +31,11 @@ MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 # Maximum retries for failed URLs
 MAX_RETRIES = 3
 
-# Track retry counts in memory (reset on restart)
-_retry_counts: dict[str, int] = {}
 
-# Domain visit count cache (refreshed each batch)
-_domain_cache: dict[str, int] = {}
+@dataclass
+class WorkerRuntimeState:
+    retry_counts: dict[str, int] = field(default_factory=dict)
+    domain_cache: dict[str, int] = field(default_factory=dict)
 
 
 def _is_html_content_type(content_type: str) -> bool:
@@ -53,10 +54,12 @@ async def process_url(
     scheduler: Scheduler,
     url: str,
     priority: float,
+    runtime_state: WorkerRuntimeState | None = None,
 ):
     """
     Process a single URL: check robots, fetch, parse, submit to indexer, extract links.
     """
+    state = runtime_state or WorkerRuntimeState()
     domain = get_domain(url)
     host_error = False
 
@@ -150,7 +153,7 @@ async def process_url(
 
                     if indexer_result.ok:
                         # Clear retry count on success
-                        _retry_counts.pop(url, None)
+                        state.retry_counts.pop(url, None)
                         history_log.log_crawl_attempt(url, "indexed", 200)
                         url_store.record(url, status="done")
                     else:
@@ -176,11 +179,11 @@ async def process_url(
                 if discovered:
                     for new_url in discovered:
                         new_domain = get_domain(new_url)
-                        if new_domain not in _domain_cache:
-                            _domain_cache[new_domain] = url_store.domain_done_count(
-                                new_domain
+                        if new_domain not in state.domain_cache:
+                            state.domain_cache[new_domain] = (
+                                url_store.domain_done_count(new_domain)
                             )
-                        domain_visits = max(_domain_cache[new_domain], 1)
+                        domain_visits = max(state.domain_cache[new_domain], 1)
                         dr = get_domain_rank(new_domain)
                         score = calculate_url_score(
                             new_url, priority, domain_visits, domain_pagerank=dr
@@ -204,7 +207,13 @@ async def process_url(
                 # Retryable errors
                 host_error = True
                 logger.warning(f"Retryable error {resp.status} for {url}")
-                await _handle_retry(url, url_store, priority, f"HTTP {resp.status}")
+                await _handle_retry(
+                    url,
+                    url_store,
+                    priority,
+                    f"HTTP {resp.status}",
+                    state,
+                )
 
             else:
                 # Other HTTP errors (404, etc)
@@ -217,7 +226,7 @@ async def process_url(
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         host_error = True
         logger.warning(f"Network error for {url}: {e}")
-        await _handle_retry(url, url_store, priority, str(e))
+        await _handle_retry(url, url_store, priority, str(e), state)
 
     except Exception as e:
         host_error = True
@@ -235,10 +244,11 @@ async def _handle_retry(
     url_store: UrlStore,
     priority: float,
     error: str,
+    runtime_state: WorkerRuntimeState,
 ):
     """Handle retry logic for failed URLs."""
-    retry_count = _retry_counts.get(url, 0) + 1
-    _retry_counts[url] = retry_count
+    retry_count = runtime_state.retry_counts.get(url, 0) + 1
+    runtime_state.retry_counts[url] = retry_count
 
     if retry_count >= MAX_RETRIES:
         logger.warning(f"Moving to failed after {retry_count} retries: {url}")
@@ -248,7 +258,7 @@ async def _handle_retry(
             error_message=f"Max retries ({MAX_RETRIES}) exceeded: {error}",
         )
         url_store.record(url, status="failed")
-        _retry_counts.pop(url, None)
+        runtime_state.retry_counts.pop(url, None)
     else:
         # Re-add to url_store as pending with lower priority
         new_priority = max(priority - 5.0, -100.0)
@@ -296,6 +306,8 @@ async def worker_loop(concurrency: int = 1):
     scheduler = Scheduler(url_store, scheduler_config)
 
     sem = asyncio.Semaphore(concurrency)
+    runtime_state = WorkerRuntimeState()
+    in_flight_tasks: set[asyncio.Task[None]] = set()
 
     connector = aiohttp.TCPConnector(
         limit_per_host=5,
@@ -314,8 +326,8 @@ async def worker_loop(concurrency: int = 1):
         try:
             while True:
                 # Clear domain cache periodically and refresh PageRank cache
-                if len(_domain_cache) > 1000:
-                    _domain_cache.clear()
+                if len(runtime_state.domain_cache) > 1000:
+                    runtime_state.domain_cache.clear()
                     load_domain_rank_cache(settings.DB_PATH)
 
                 # Get next URL from scheduler
@@ -332,15 +344,22 @@ async def worker_loop(concurrency: int = 1):
 
                 logger.info(f"Processing: {url} (priority={priority:.1f})")
 
-                # Record start for rate limiting
-                scheduler.record_start(domain)
-
                 # Process URL with semaphore concurrency control
-                async def process_with_semaphore(url: str, priority: float):
+                async def process_with_semaphore(
+                    url: str, priority: float, state: WorkerRuntimeState
+                ) -> None:
                     try:
                         await process_url(
-                            session, robots, url_store, scheduler, url, priority
+                            session,
+                            robots,
+                            url_store,
+                            scheduler,
+                            url,
+                            priority,
+                            runtime_state=state,
                         )
+                    except asyncio.CancelledError:
+                        raise
                     except Exception as e:
                         logger.error(f"Error processing {url}: {e}")
                     finally:
@@ -349,9 +368,16 @@ async def worker_loop(concurrency: int = 1):
                 # Acquire semaphore for concurrency control
                 await sem.acquire()
 
+                # Record start for rate limiting only after acquiring crawl slot
+                scheduler.record_start(domain)
+
                 # Create task for concurrent processing
                 try:
-                    asyncio.create_task(process_with_semaphore(url, priority))
+                    task = asyncio.create_task(
+                        process_with_semaphore(url, priority, runtime_state)
+                    )
+                    in_flight_tasks.add(task)
+                    task.add_done_callback(in_flight_tasks.discard)
                 except Exception as e:
                     sem.release()
                     scheduler.record_complete(domain, success=False)
@@ -365,5 +391,14 @@ async def worker_loop(concurrency: int = 1):
         except Exception as e:
             logger.error(f"Worker loop error: {e}", exc_info=True)
             raise
+        finally:
+            if in_flight_tasks:
+                logger.info(
+                    f"Cancelling {len(in_flight_tasks)} in-flight crawl task(s)"
+                )
+                for task in list(in_flight_tasks):
+                    task.cancel()
+                await asyncio.gather(*in_flight_tasks, return_exceptions=True)
+                in_flight_tasks.clear()
 
     logger.info("Worker loop stopped")

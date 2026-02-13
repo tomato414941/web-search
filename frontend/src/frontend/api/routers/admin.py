@@ -6,6 +6,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
+from frontend.api.routers.admin_crawlers import router as crawlers_router
 from frontend.api.templates import templates
 from frontend.core.config import settings
 from frontend.services.admin_analytics import get_analytics_data
@@ -15,17 +16,10 @@ from frontend.services.crawler_admin_client import (
     fetch_history,
     fetch_queue,
     fetch_seeds,
-    find_crawler_url as _find_crawler_url,
-    get_all_crawler_instances as _get_all_crawler_instances,
-    get_crawler_instance_status as _get_crawler_instance_status,
     import_tranco as import_tranco_seeds,
     add_seed as crawler_add_seed,
     delete_seed as crawler_delete_seed,
     enqueue_url,
-    start_crawler_instance,
-    start_worker,
-    stop_crawler_instance,
-    stop_worker,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,18 +51,6 @@ def _parse_tranco_count(raw_count: str | None) -> int:
     if count < 1 or count > 10000:
         raise ValueError("Count must be between 1 and 10000")
     return count
-
-
-async def get_crawler_instance_status(url: str) -> dict:
-    return await _get_crawler_instance_status(url)
-
-
-async def get_all_crawler_instances() -> list[dict]:
-    return await _get_all_crawler_instances(settings.CRAWLER_INSTANCES)
-
-
-def find_crawler_url(name: str) -> str | None:
-    return _find_crawler_url(name, settings.CRAWLER_INSTANCES)
 
 
 @router.get("/login")
@@ -308,36 +290,6 @@ async def add_to_queue(
         )
 
 
-@router.post("/crawler/start")
-async def crawler_start(
-    request: Request,
-    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
-):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/", status_code=303)
-
-    await start_worker()
-    return RedirectResponse(url="/admin/", status_code=303)
-
-
-@router.post("/crawler/stop")
-async def crawler_stop(
-    request: Request,
-    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
-):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/", status_code=303)
-
-    await stop_worker()
-    return RedirectResponse(url="/admin/", status_code=303)
-
-
 @router.get("/analytics")
 async def analytics_page(request: Request):
     if not _is_authenticated(request):
@@ -356,60 +308,4 @@ async def analytics_page(request: Request):
     )
 
 
-@router.get("/crawlers")
-async def crawlers_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    instances = await get_all_crawler_instances()
-    csrf_token = get_csrf_token(request)
-    return templates.TemplateResponse(
-        request,
-        "admin/crawlers.html",
-        {
-            "request": request,
-            "instances": instances,
-            "csrf_token": csrf_token,
-        },
-    )
-
-
-@router.post("/crawlers/{name}/start")
-async def crawler_instance_start(
-    request: Request,
-    name: str,
-    concurrency: int = Form(default=1),
-    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
-):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/crawlers", status_code=303)
-
-    url = find_crawler_url(name)
-    if not url:
-        return RedirectResponse(url="/admin/crawlers", status_code=303)
-
-    await start_crawler_instance(url, concurrency)
-    return RedirectResponse(url="/admin/crawlers", status_code=303)
-
-
-@router.post("/crawlers/{name}/stop")
-async def crawler_instance_stop(
-    request: Request,
-    name: str,
-    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
-):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/crawlers", status_code=303)
-
-    url = find_crawler_url(name)
-    if not url:
-        return RedirectResponse(url="/admin/crawlers", status_code=303)
-
-    await stop_crawler_instance(url)
-    return RedirectResponse(url="/admin/crawlers", status_code=303)
+router.include_router(crawlers_router)

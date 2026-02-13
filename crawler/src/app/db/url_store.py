@@ -9,9 +9,15 @@ import hashlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
-from shared.db.search import get_connection, is_postgres_mode
+from shared.db.search import (
+    get_connection,
+    is_postgres_mode,
+    sql_placeholder,
+    sql_placeholders,
+)
 
 
 def url_hash(url: str) -> str:
@@ -25,11 +31,6 @@ def get_domain(url: str) -> str:
         return urlparse(url).netloc
     except Exception:
         return ""
-
-
-def _placeholder() -> str:
-    """Return the appropriate placeholder for the current database."""
-    return "%s" if is_postgres_mode() else "?"
 
 
 @dataclass
@@ -157,6 +158,122 @@ class UrlStore:
         finally:
             con.close()
 
+    def _upsert_pending_url(
+        self,
+        cur: Any,
+        *,
+        url_hash_value: str,
+        url: str,
+        domain: str,
+        priority: float,
+        now: int,
+        cutoff: int,
+        postgres_mode: bool,
+    ) -> bool:
+        ph = sql_placeholder()
+        if postgres_mode:
+            cur.execute(
+                f"""
+                INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
+                VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
+                ON CONFLICT (url_hash) DO UPDATE SET
+                    status = 'pending',
+                    priority = EXCLUDED.priority
+                WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
+                """,
+                (url_hash_value, url, domain, priority, now, cutoff),
+            )
+            return cur.rowcount > 0
+
+        cur.execute(
+            f"SELECT status, last_crawled_at FROM urls WHERE url_hash = {ph}",
+            (url_hash_value,),
+        )
+        existing = cur.fetchone()
+
+        if existing is None:
+            cur.execute(
+                f"""
+                INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
+                VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
+                """,
+                (url_hash_value, url, domain, priority, now),
+            )
+            return cur.rowcount > 0
+
+        if existing[0] in ("done", "failed") and (existing[1] or 0) < cutoff:
+            cur.execute(
+                f"""
+                UPDATE urls SET status = 'pending', priority = {ph}
+                WHERE url_hash = {ph}
+                """,
+                (priority, url_hash_value),
+            )
+            return cur.rowcount > 0
+
+        return False
+
+    def _pop_pending_rows(
+        self,
+        cur: Any,
+        *,
+        count: int,
+        max_per_domain: int,
+        postgres_mode: bool,
+    ) -> list[tuple[Any, ...]]:
+        ph = sql_placeholder()
+        ranked_query = """
+            SELECT url_hash, url, domain, priority, created_at,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY domain ORDER BY priority DESC
+                   ) AS rn
+            FROM urls WHERE status = 'pending'
+        """
+
+        if postgres_mode:
+            cur.execute(
+                f"""
+                WITH ranked AS (
+                    {ranked_query}
+                ),
+                selected AS (
+                    SELECT url_hash
+                    FROM ranked
+                    WHERE rn <= {ph}
+                    ORDER BY rn ASC, priority DESC
+                    LIMIT {ph}
+                )
+                UPDATE urls
+                SET status = 'crawling'
+                WHERE url_hash IN (SELECT url_hash FROM selected)
+                RETURNING url_hash, url, domain, priority, created_at
+                """,
+                (max_per_domain, count),
+            )
+            return cur.fetchall()
+
+        cur.execute(
+            f"""
+            SELECT url_hash, url, domain, priority, created_at
+            FROM ({ranked_query}) ranked
+            WHERE rn <= {ph}
+            ORDER BY priority DESC
+            LIMIT {ph}
+            """,
+            (max_per_domain, count),
+        )
+        rows = cur.fetchall()
+        if not rows:
+            return []
+
+        hashes = [row[0] for row in rows]
+        hash_placeholders = sql_placeholders(len(hashes))
+        cur.execute(
+            f"UPDATE urls SET status = 'crawling' WHERE url_hash IN ({hash_placeholders})",
+            tuple(hashes),
+        )
+        return rows
+
     def add(
         self,
         url: str,
@@ -173,59 +290,24 @@ class UrlStore:
         domain = get_domain(url)
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        ph = _placeholder()
+        postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
-                    VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
-                    ON CONFLICT (url_hash) DO UPDATE SET
-                        status = 'pending',
-                        priority = EXCLUDED.priority
-                    WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
-                    """,
-                    (h, url, domain, priority, now, cutoff),
-                )
-            else:
-                # SQLite: check existence first, then insert or update
-                cur.execute(
-                    f"SELECT status, last_crawled_at FROM urls WHERE url_hash = {ph}",
-                    (h,),
-                )
-                existing = cur.fetchone()
-
-                if existing is None:
-                    # New URL
-                    cur.execute(
-                        f"""
-                        INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
-                        VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
-                        """,
-                        (h, url, domain, priority, now),
-                    )
-                elif existing[0] in ("done", "failed") and (existing[1] or 0) < cutoff:
-                    # Stale, re-queue
-                    cur.execute(
-                        f"""
-                        UPDATE urls SET status = 'pending', priority = {ph}
-                        WHERE url_hash = {ph}
-                        """,
-                        (priority, h),
-                    )
-                else:
-                    # Already pending/crawling or recently crawled
-                    con.commit()
-                    cur.close()
-                    return False
-
-            rowcount = cur.rowcount
+            added = self._upsert_pending_url(
+                cur,
+                url_hash_value=h,
+                url=url,
+                domain=domain,
+                priority=priority,
+                now=now,
+                cutoff=cutoff,
+                postgres_mode=postgres_mode,
+            )
             con.commit()
             cur.close()
-            return rowcount > 0
+            return added
         finally:
             con.close()
 
@@ -246,7 +328,6 @@ class UrlStore:
         added = 0
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        ph = _placeholder()
         postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
@@ -256,48 +337,16 @@ class UrlStore:
                 h = url_hash(url)
                 domain = get_domain(url)
 
-                if postgres_mode:
-                    cur.execute(
-                        f"""
-                        INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
-                        VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
-                        ON CONFLICT (url_hash) DO UPDATE SET
-                            status = 'pending',
-                            priority = EXCLUDED.priority
-                        WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
-                        """,
-                        (h, url, domain, priority, now, cutoff),
-                    )
-                else:
-                    cur.execute(
-                        f"SELECT status, last_crawled_at FROM urls WHERE url_hash = {ph}",
-                        (h,),
-                    )
-                    existing = cur.fetchone()
-
-                    if existing is None:
-                        cur.execute(
-                            f"""
-                            INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
-                            VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
-                            """,
-                            (h, url, domain, priority, now),
-                        )
-                    elif (
-                        existing[0] in ("done", "failed")
-                        and (existing[1] or 0) < cutoff
-                    ):
-                        cur.execute(
-                            f"""
-                            UPDATE urls SET status = 'pending', priority = {ph}
-                            WHERE url_hash = {ph}
-                            """,
-                            (priority, h),
-                        )
-                    else:
-                        continue
-
-                if cur.rowcount > 0:
+                if self._upsert_pending_url(
+                    cur,
+                    url_hash_value=h,
+                    url=url,
+                    domain=domain,
+                    priority=priority,
+                    now=now,
+                    cutoff=cutoff,
+                    postgres_mode=postgres_mode,
+                ):
                     added += 1
 
             con.commit()
@@ -321,59 +370,16 @@ class UrlStore:
         if count <= 0:
             return []
 
-        ph = _placeholder()
+        postgres_mode = is_postgres_mode()
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    UPDATE urls SET status = 'crawling'
-                    WHERE url_hash IN (
-                        SELECT url_hash FROM (
-                            SELECT url_hash,
-                                   ROW_NUMBER() OVER (
-                                       PARTITION BY domain ORDER BY priority DESC
-                                   ) AS rn
-                            FROM urls WHERE status = 'pending'
-                        ) ranked
-                        WHERE rn <= {ph}
-                        ORDER BY rn ASC
-                        LIMIT {ph}
-                    )
-                    RETURNING url_hash, url, domain, priority, created_at
-                    """,
-                    (max_per_domain, count),
-                )
-                rows = cur.fetchall()
-            else:
-                # SQLite: window functions supported since 3.25
-                cur.execute(
-                    f"""
-                    SELECT url_hash, url, domain, priority, created_at
-                    FROM (
-                        SELECT url_hash, url, domain, priority, created_at,
-                               ROW_NUMBER() OVER (
-                                   PARTITION BY domain ORDER BY priority DESC
-                               ) AS rn
-                        FROM urls WHERE status = 'pending'
-                    )
-                    WHERE rn <= {ph}
-                    ORDER BY priority DESC
-                    LIMIT {ph}
-                    """,
-                    (max_per_domain, count),
-                )
-                rows = cur.fetchall()
-
-                if rows:
-                    hashes = [row[0] for row in rows]
-                    placeholders = ",".join(ph for _ in hashes)
-                    cur.execute(
-                        f"UPDATE urls SET status = 'crawling' WHERE url_hash IN ({placeholders})",
-                        tuple(hashes),
-                    )
+            rows = self._pop_pending_rows(
+                cur,
+                count=count,
+                max_per_domain=max_per_domain,
+                postgres_mode=postgres_mode,
+            )
 
             con.commit()
             cur.close()
@@ -401,7 +407,7 @@ class UrlStore:
         h = url_hash(url)
         domain = get_domain(url)
         now = int(time.time())
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         con = get_connection(self.db_path)
         try:
@@ -459,7 +465,7 @@ class UrlStore:
     def contains(self, url: str) -> bool:
         """Check if URL exists in any status."""
         h = url_hash(url)
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
@@ -480,7 +486,7 @@ class UrlStore:
         h = url_hash(url)
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         con = get_connection(self.db_path)
         try:
@@ -500,7 +506,7 @@ class UrlStore:
 
     def peek(self, count: int = 10) -> list[UrlItem]:
         """View top pending URLs without modifying them."""
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
@@ -532,7 +538,7 @@ class UrlStore:
         """Get URLs ready for re-crawl (done and past threshold)."""
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         con = get_connection(self.db_path)
         try:
@@ -575,7 +581,7 @@ class UrlStore:
         """Get URL statistics."""
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        ph = _placeholder()
+        ph = sql_placeholder()
 
         con = get_connection(self.db_path)
         try:
@@ -613,7 +619,7 @@ class UrlStore:
 
     def get_domains(self, limit: int = 100) -> list[tuple[str, int]]:
         """Get domain counts for done URLs."""
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
@@ -636,7 +642,7 @@ class UrlStore:
 
     def domain_done_count(self, domain: str) -> int:
         """Return number of 'done' URLs for a given domain."""
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
@@ -667,7 +673,7 @@ class UrlStore:
         if not urls:
             return 0
 
-        ph = _placeholder()
+        ph = sql_placeholder()
         marked = 0
         con = get_connection(self.db_path)
         try:
@@ -690,7 +696,7 @@ class UrlStore:
         if not urls:
             return 0
 
-        ph = _placeholder()
+        ph = sql_placeholder()
         unmarked = 0
         con = get_connection(self.db_path)
         try:

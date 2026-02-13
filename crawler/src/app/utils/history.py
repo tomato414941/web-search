@@ -4,19 +4,22 @@ Crawl Logs Database
 PostgreSQL/SQLite-based crawl attempt logging.
 """
 
+import logging
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-from shared.db.search import get_connection, is_postgres_mode
+from shared.db.search import (
+    get_connection,
+    is_postgres_mode,
+    sql_placeholder,
+    sql_placeholders,
+)
+
+logger = logging.getLogger(__name__)
 
 # Default DB path (can be overridden by environment variable)
 # Unified crawler database for all crawler-related tables
 DEFAULT_DB_PATH = "/data/crawler.db"
-
-
-def _placeholder() -> str:
-    """Return the appropriate placeholder for the current database."""
-    return "%s" if is_postgres_mode() else "?"
 
 
 # Note: seen_urls table is defined in shared/db/seen_store.py
@@ -92,7 +95,7 @@ def log_crawl_attempt(
     """Log a crawl attempt to history"""
     try:
         path = db_path or get_db_path()
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(path)
         try:
             cur = con.cursor()
@@ -105,7 +108,7 @@ def log_crawl_attempt(
         finally:
             con.close()
     except Exception as e:
-        print(f"Failed to log history: {e}")
+        logger.warning(f"Failed to log crawl history for {url}: {e}")
 
 
 def get_recent_history(
@@ -114,7 +117,7 @@ def get_recent_history(
     """Get recent crawl logs"""
     try:
         path = db_path or get_db_path()
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(path)
         try:
             cur = con.cursor()
@@ -136,7 +139,8 @@ def get_recent_history(
             return result
         finally:
             con.close()
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"Failed to fetch recent crawl history: {exc}")
         return []
 
 
@@ -144,7 +148,7 @@ def get_crawl_rate(hours: int = 1, db_path: str | None = None) -> int:
     """Get count of crawl attempts in the last N hours (computed via SQL)."""
     try:
         path = db_path or get_db_path()
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(path)
         try:
             import time
@@ -160,7 +164,8 @@ def get_crawl_rate(hours: int = 1, db_path: str | None = None) -> int:
             return result
         finally:
             con.close()
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"Failed to fetch crawl rate for {hours}h window: {exc}")
         return 0
 
 
@@ -168,8 +173,8 @@ def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
     """Get count of error crawl attempts in the last N hours."""
     try:
         path = db_path or get_db_path()
-        ph = _placeholder()
-        status_ph = ",".join([ph] * len(ERROR_STATUSES))
+        ph = sql_placeholder()
+        status_ph = sql_placeholders(len(ERROR_STATUSES))
         con = get_connection(path)
         try:
             import time
@@ -188,7 +193,8 @@ def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
             return result
         finally:
             con.close()
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"Failed to fetch crawl error count for {hours}h window: {exc}")
         return 0
 
 
@@ -198,8 +204,8 @@ def get_recent_errors(
     """Get most recent error entries."""
     try:
         path = db_path or get_db_path()
-        ph = _placeholder()
-        status_ph = ",".join([ph] * len(ERROR_STATUSES))
+        ph = sql_placeholder()
+        status_ph = sql_placeholders(len(ERROR_STATUSES))
         con = get_connection(path)
         try:
             cur = con.cursor()
@@ -223,7 +229,8 @@ def get_recent_errors(
             return result
         finally:
             con.close()
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"Failed to fetch recent crawl errors: {exc}")
         return []
 
 
@@ -233,7 +240,7 @@ def get_url_history(
     """Get history for a specific URL"""
     try:
         path = db_path or get_db_path()
-        ph = _placeholder()
+        ph = sql_placeholder()
         con = get_connection(path)
         try:
             cur = con.cursor()
@@ -255,5 +262,6 @@ def get_url_history(
             return result
         finally:
             con.close()
-    except Exception:
+    except Exception as exc:
+        logger.warning(f"Failed to fetch crawl history for {url}: {exc}")
         return []

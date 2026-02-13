@@ -8,13 +8,9 @@ from frontend.services.admin_analytics import (
 )
 from frontend.services.crawler_admin_client import fetch_stats
 from frontend.services.db_helpers import db_cursor
-from shared.db.search import is_postgres_mode
+from shared.db.search import is_postgres_mode, sql_placeholder
 
 logger = logging.getLogger(__name__)
-
-
-def _placeholder() -> str:
-    return "%s" if is_postgres_mode() else "?"
 
 
 async def get_dashboard_data() -> dict[str, Any]:
@@ -40,7 +36,7 @@ async def get_dashboard_data() -> dict[str, Any]:
     }
 
     try:
-        ph = _placeholder()
+        ph = sql_placeholder()
         is_postgres = is_postgres_mode()
         day_ago, _, today_start = time_boundaries()
         search_filter_sql, search_filter_params = build_analytics_exclusion_filters(
