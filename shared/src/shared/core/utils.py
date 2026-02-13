@@ -1,6 +1,8 @@
 from urllib.parse import parse_qsl, urldefrag, urlencode, urljoin, urlsplit, urlunsplit
 from typing import Optional
 
+MAX_URL_LENGTH = 2083
+
 TRACKING_KEYS = {
     "utm_source",
     "utm_medium",
@@ -19,6 +21,8 @@ def normalize_url(base: str, link: str | None) -> Optional[str]:
     href, _ = urldefrag(href)
     if not href.startswith(("http://", "https://")):
         return None
+    if len(href) > MAX_URL_LENGTH:
+        return None
     # lower scheme/host & strip common tracking params
     parts = urlsplit(href)
     host = (parts.hostname or "").lower()
@@ -30,4 +34,7 @@ def normalize_url(base: str, link: str | None) -> Optional[str]:
             if k not in TRACKING_KEYS
         ]
     )
-    return urlunsplit((parts.scheme.lower(), host + port, parts.path, query, ""))
+    normalized = urlunsplit((parts.scheme.lower(), host + port, parts.path, query, ""))
+    if len(normalized) > MAX_URL_LENGTH:
+        return None
+    return normalized

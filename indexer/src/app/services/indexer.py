@@ -15,6 +15,21 @@ def _placeholder() -> str:
     return "%s" if is_postgres_mode() else "?"
 
 
+def _sanitize_text(value: str) -> str:
+    return value.replace("\x00", " ")
+
+
+def _sanitize_outlinks(outlinks: list[str] | None) -> list[str]:
+    if not outlinks:
+        return []
+    cleaned: list[str] = []
+    for outlink in outlinks:
+        if not outlink:
+            continue
+        cleaned.append(outlink.replace("\x00", ""))
+    return cleaned
+
+
 class IndexerService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
@@ -29,21 +44,25 @@ class IndexerService:
     ):
         """Index a single page into the database (async for embedding)."""
         try:
+            safe_title = _sanitize_text(title)
+            safe_content = _sanitize_text(content)
+            safe_outlinks = _sanitize_outlinks(outlinks)
+
             # Open DB connection
             conn = open_db(self.db_path)
 
             # Index using custom search engine (inverted index)
-            self.search_indexer.index_document(url, title, content, conn)
+            self.search_indexer.index_document(url, safe_title, safe_content, conn)
             conn.commit()
 
             # Save outlinks to link graph
-            if outlinks:
-                self._save_links(conn, url, outlinks)
+            if safe_outlinks:
+                self._save_links(conn, url, safe_outlinks)
 
             # Generate and store embedding (skip if no OpenAI key)
             if settings.OPENAI_API_KEY:
                 try:
-                    vector_blob = await embedding_service.embed(content)
+                    vector_blob = await embedding_service.embed(safe_content)
                     if vector_blob:
                         ph = _placeholder()
                         cur = conn.cursor()

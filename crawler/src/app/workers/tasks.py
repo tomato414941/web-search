@@ -20,6 +20,7 @@ from app.utils.parser import html_to_doc, extract_links
 from app.utils.robots import AsyncRobotsCache
 from app.services.indexer import submit_page_to_indexer
 from app.utils import history as history_log
+from shared.core.utils import MAX_URL_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,15 @@ _retry_counts: dict[str, int] = {}
 
 # Domain visit count cache (refreshed each batch)
 _domain_cache: dict[str, int] = {}
+
+
+def _is_html_content_type(content_type: str) -> bool:
+    return "text/html" in content_type or "application/xhtml" in content_type
+
+
+def _non_html_reason(content_type: str) -> str:
+    normalized = content_type.strip() or "unknown"
+    return f"Non-HTML content-type: {normalized}"
 
 
 async def process_url(
@@ -51,6 +61,15 @@ async def process_url(
     host_error = False
 
     try:
+        if len(url) > MAX_URL_LENGTH:
+            history_log.log_crawl_attempt(
+                url,
+                "skipped",
+                error_message=f"URL too long: {len(url)} > {MAX_URL_LENGTH}",
+            )
+            url_store.record(url, status="failed")
+            return
+
         # 1. Check robots.txt
         if not await robots.can_fetch(url, settings.CRAWL_USER_AGENT):
             logger.info(f"Blocked by robots.txt: {url}")
@@ -90,7 +109,7 @@ async def process_url(
                 except ValueError:
                     pass
 
-            if resp.status == 200 and ("text/html" in ct or "application/xhtml" in ct):
+            if resp.status == 200 and _is_html_content_type(ct):
                 # Read with size limit
                 body = await resp.content.read(MAX_RESPONSE_SIZE)
                 if len(body) >= MAX_RESPONSE_SIZE:
@@ -119,7 +138,7 @@ async def process_url(
 
                 if content:
                     # 4. Submit to Indexer API (with outlinks)
-                    success = await submit_page_to_indexer(
+                    indexer_result = await submit_page_to_indexer(
                         session,
                         settings.INDEXER_API_URL,
                         settings.INDEXER_API_KEY,
@@ -129,14 +148,22 @@ async def process_url(
                         outlinks=discovered or [],
                     )
 
-                    if success:
+                    if indexer_result.ok:
                         # Clear retry count on success
                         _retry_counts.pop(url, None)
                         history_log.log_crawl_attempt(url, "indexed", 200)
                         url_store.record(url, status="done")
                     else:
+                        http_code = indexer_result.status_code or 500
+                        error_message = (
+                            indexer_result.detail
+                            or f"Indexer API rejected ({http_code})"
+                        )
                         history_log.log_crawl_attempt(
-                            url, "indexer_error", 500, "Indexer API rejected"
+                            url,
+                            "indexer_error",
+                            http_code,
+                            error_message,
                         )
                         url_store.record(url, status="failed")
                 else:
@@ -163,6 +190,15 @@ async def process_url(
                     logger.debug(
                         f"Enqueued links from {url} ({len(discovered)} discovered)"
                     )
+
+            elif resp.status == 200:
+                history_log.log_crawl_attempt(
+                    url,
+                    "skipped",
+                    resp.status,
+                    _non_html_reason(ct),
+                )
+                url_store.record(url, status="done")
 
             elif resp.status in (429, 500, 502, 503, 504):
                 # Retryable errors

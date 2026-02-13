@@ -18,7 +18,7 @@ async def test_submit_page_success():
     mock_session = MagicMock()
     mock_session.post.return_value.__aenter__.return_value = mock_response
 
-    success = await submit_page_to_indexer(
+    result = await submit_page_to_indexer(
         mock_session,
         "http://indexer:8000/api/indexer/page",
         "test-api-key",
@@ -27,7 +27,8 @@ async def test_submit_page_success():
         "Test content",
     )
 
-    assert success is True
+    assert result.ok is True
+    assert result.status_code == 200
 
     # Verify POST was called with correct parameters
     mock_session.post.assert_called_once()
@@ -44,11 +45,12 @@ async def test_submit_page_indexer_error():
     """Test indexer returns error (4xx/5xx)"""
     mock_response = AsyncMock()
     mock_response.status = 500
+    mock_response.text = AsyncMock(return_value='{"detail":"Indexing failed"}')
 
     mock_session = MagicMock()
     mock_session.post.return_value.__aenter__.return_value = mock_response
 
-    success = await submit_page_to_indexer(
+    result = await submit_page_to_indexer(
         mock_session,
         "http://indexer:8000/api/indexer/page",
         "test-api-key",
@@ -57,7 +59,10 @@ async def test_submit_page_indexer_error():
         "Content",
     )
 
-    assert success is False
+    assert result.ok is False
+    assert result.status_code == 500
+    assert result.detail is not None
+    assert "Indexing failed" in result.detail
 
 
 @pytest.mark.asyncio
@@ -66,7 +71,7 @@ async def test_submit_page_network_error():
     mock_session = MagicMock()
     mock_session.post.side_effect = Exception("Connection refused")
 
-    success = await submit_page_to_indexer(
+    result = await submit_page_to_indexer(
         mock_session,
         "http://indexer:8000/api/indexer/page",
         "test-api-key",
@@ -75,7 +80,10 @@ async def test_submit_page_network_error():
         "Content",
     )
 
-    assert success is False
+    assert result.ok is False
+    assert result.status_code is None
+    assert result.detail is not None
+    assert "Connection refused" in result.detail
 
 
 @pytest.mark.asyncio
@@ -86,7 +94,7 @@ async def test_submit_page_timeout():
     mock_session = MagicMock()
     mock_session.post.side_effect = asyncio.TimeoutError()
 
-    success = await submit_page_to_indexer(
+    result = await submit_page_to_indexer(
         mock_session,
         "http://indexer:8000/api/indexer/page",
         "test-api-key",
@@ -95,7 +103,8 @@ async def test_submit_page_timeout():
         "Content",
     )
 
-    assert success is False
+    assert result.ok is False
+    assert result.status_code is None
 
 
 @pytest.mark.asyncio

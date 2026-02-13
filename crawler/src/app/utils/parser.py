@@ -11,6 +11,10 @@ import warnings
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 
+def _strip_nul(text: str) -> str:
+    return text.replace("\x00", " ")
+
+
 def html_to_doc(html: str) -> tuple[str, str]:
     """
     Extract (title, text) from HTML using BeautifulSoup.
@@ -24,12 +28,12 @@ def html_to_doc(html: str) -> tuple[str, str]:
     Returns:
         Tuple of (title, text_content)
     """
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(_strip_nul(html), "html.parser")
 
     # Extract title
     title = ""
     if soup.title and soup.title.string:
-        title = soup.title.string.strip()
+        title = _strip_nul(soup.title.string).strip()
 
     # Remove unwanted tags
     for tag in soup(["script", "style", "noscript"]):
@@ -37,6 +41,7 @@ def html_to_doc(html: str) -> tuple[str, str]:
 
     # Extract text
     text = soup.get_text(" ", strip=True)
+    text = _strip_nul(text)
     text = re.sub(r"\s+", " ", text).strip()
 
     return title, text

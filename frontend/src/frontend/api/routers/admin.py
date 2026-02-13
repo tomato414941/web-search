@@ -121,6 +121,35 @@ def _time_boundaries() -> tuple[str, str, str]:
     return day_ago, week_ago, today_start
 
 
+def _analytics_exclusion_filters(is_postgres: bool) -> tuple[str, tuple[Any, ...]]:
+    ph = _placeholder()
+    clauses: list[str] = []
+    params: list[Any] = []
+
+    excluded_user_agents = settings.ANALYTICS_EXCLUDED_USER_AGENTS
+    if excluded_user_agents:
+        ua_clauses: list[str] = []
+        for user_agent in excluded_user_agents:
+            pattern = user_agent if "%" in user_agent else f"{user_agent}%"
+            if is_postgres:
+                ua_clauses.append(f"COALESCE(user_agent, '') ILIKE {ph}")
+            else:
+                ua_clauses.append(f"LOWER(COALESCE(user_agent, '')) LIKE LOWER({ph})")
+            params.append(pattern)
+        clauses.append("NOT (" + " OR ".join(ua_clauses) + ")")
+
+    excluded_queries = settings.ANALYTICS_EXCLUDED_QUERIES
+    if excluded_queries:
+        query_placeholders = ",".join([ph] * len(excluded_queries))
+        clauses.append(f"query NOT IN ({query_placeholders})")
+        params.extend(excluded_queries)
+
+    if not clauses:
+        return "", tuple()
+
+    return " AND " + " AND ".join(clauses), tuple(params)
+
+
 async def get_dashboard_data() -> dict[str, Any]:
     """Get comprehensive data for dashboard."""
     data: dict[str, Any] = {
@@ -154,6 +183,9 @@ async def get_dashboard_data() -> dict[str, Any]:
         ph = _placeholder()
         is_postgres = is_postgres_mode()
         day_ago, _, today_start = _time_boundaries()
+        search_filter_sql, search_filter_params = _analytics_exclusion_filters(
+            is_postgres
+        )
         conn = get_connection(settings.DB_PATH)
         cursor = conn.cursor()
         # Total indexed pages
@@ -190,9 +222,9 @@ async def get_dashboard_data() -> dict[str, Any]:
                     COUNT(DISTINCT query) as unique_queries,
                     SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
                 FROM search_logs
-                WHERE created_at >= {ph}
+                WHERE created_at >= {ph}{search_filter_sql}
                 """,
-                (today_start,),
+                (today_start, *search_filter_params),
             )
         else:
             cursor.execute(
@@ -202,9 +234,9 @@ async def get_dashboard_data() -> dict[str, Any]:
                     COUNT(DISTINCT query) as unique_queries,
                     SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
                 FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph})
+                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
                 """,
-                (today_start,),
+                (today_start, *search_filter_params),
             )
         row = cursor.fetchone()
         if row:
@@ -222,24 +254,24 @@ async def get_dashboard_data() -> dict[str, Any]:
                 f"""
                 SELECT query, COUNT(*) as count
                 FROM search_logs
-                WHERE created_at >= {ph}
+                WHERE created_at >= {ph}{search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 1
                 """,
-                (today_start,),
+                (today_start, *search_filter_params),
             )
         else:
             cursor.execute(
                 f"""
                 SELECT query, COUNT(*) as count
                 FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph})
+                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 1
                 """,
-                (today_start,),
+                (today_start, *search_filter_params),
             )
         row = cursor.fetchone()
         if row and row[0]:
@@ -251,24 +283,24 @@ async def get_dashboard_data() -> dict[str, Any]:
                 f"""
                 SELECT query, COUNT(*) as count
                 FROM search_logs
-                WHERE result_count = 0 AND created_at >= {ph}
+                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 5
                 """,
-                (today_start,),
+                (today_start, *search_filter_params),
             )
         else:
             cursor.execute(
                 f"""
                 SELECT query, COUNT(*) as count
                 FROM search_logs
-                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph})
+                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph}){search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 5
                 """,
-                (today_start,),
+                (today_start, *search_filter_params),
             )
         data["zero_hit_queries"] = [
             {"query": row[0], "count": row[1]} for row in cursor.fetchall()
@@ -724,6 +756,9 @@ def get_analytics_data() -> dict:
         ph = _placeholder()
         is_postgres = is_postgres_mode()
         _, week_ago, _ = _time_boundaries()
+        search_filter_sql, search_filter_params = _analytics_exclusion_filters(
+            is_postgres
+        )
         conn = get_connection(settings.DB_PATH)
         cursor = conn.cursor()
         # Total searches in last 7 days
@@ -731,17 +766,17 @@ def get_analytics_data() -> dict:
             cursor.execute(
                 f"""
                 SELECT COUNT(*) FROM search_logs
-                WHERE created_at >= {ph}
+                WHERE created_at >= {ph}{search_filter_sql}
                 """,
-                (week_ago,),
+                (week_ago, *search_filter_params),
             )
         else:
             cursor.execute(
                 f"""
                 SELECT COUNT(*) FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph})
+                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
                 """,
-                (week_ago,),
+                (week_ago, *search_filter_params),
             )
         data["total_searches"] = cursor.fetchone()[0]
 
@@ -751,24 +786,24 @@ def get_analytics_data() -> dict:
                 f"""
                 SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
                 FROM search_logs
-                WHERE created_at >= {ph}
+                WHERE created_at >= {ph}{search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 20
                 """,
-                (week_ago,),
+                (week_ago, *search_filter_params),
             )
         else:
             cursor.execute(
                 f"""
                 SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
                 FROM search_logs
-                WHERE datetime(created_at) >= datetime({ph})
+                WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 20
                 """,
-                (week_ago,),
+                (week_ago, *search_filter_params),
             )
         data["top_queries"] = [
             {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
@@ -781,24 +816,24 @@ def get_analytics_data() -> dict:
                 f"""
                 SELECT query, COUNT(*) as count
                 FROM search_logs
-                WHERE result_count = 0 AND created_at >= {ph}
+                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 20
                 """,
-                (week_ago,),
+                (week_ago, *search_filter_params),
             )
         else:
             cursor.execute(
                 f"""
                 SELECT query, COUNT(*) as count
                 FROM search_logs
-                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph})
+                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph}){search_filter_sql}
                 GROUP BY query
                 ORDER BY count DESC
                 LIMIT 20
                 """,
-                (week_ago,),
+                (week_ago, *search_filter_params),
             )
         data["zero_hit_queries"] = [
             {"query": row[0], "count": row[1]} for row in cursor.fetchall()

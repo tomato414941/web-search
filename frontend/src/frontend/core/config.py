@@ -53,6 +53,18 @@ class Settings(InfrastructureSettings):
 
     # Analytics
     ANALYTICS_SALT: str = os.getenv("ANALYTICS_SALT", "")
+    ANALYTICS_EXCLUDED_USER_AGENTS: list[str] = [
+        item.strip()
+        for item in os.getenv("ANALYTICS_EXCLUDED_USER_AGENTS", "curl/").split(",")
+        if item.strip()
+    ]
+    ANALYTICS_EXCLUDED_QUERIES: list[str] = [
+        item.strip()
+        for item in os.getenv(
+            "ANALYTICS_EXCLUDED_QUERIES", "deploy-check,bm25,sudachipy"
+        ).split(",")
+        if item.strip()
+    ]
 
     # Security
     ALLOWED_HOSTS: list[str] = os.getenv(

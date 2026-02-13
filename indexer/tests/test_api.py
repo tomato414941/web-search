@@ -3,6 +3,11 @@
 from unittest.mock import patch
 
 from app.core.config import settings
+from shared.db.search import get_connection, is_postgres_mode
+
+
+def _placeholder() -> str:
+    return "%s" if is_postgres_mode() else "?"
 
 
 class TestIndexerAPIAuth:
@@ -201,6 +206,35 @@ class TestIndexerAPIValidation:
             json={"url": url, "title": "Updated Title", "content": "Updated content"},
         )
         assert response2.status_code == 200
+
+    def test_index_page_strips_nul_characters(self, test_client):
+        """NUL characters in title/content should not break indexing."""
+        url = "https://nul-safe.example.com"
+        response = test_client.post(
+            "/api/v1/indexer/page",
+            headers={"X-API-Key": settings.INDEXER_API_KEY},
+            json={
+                "url": url,
+                "title": "A\u0000B",
+                "content": "hello\u0000world",
+            },
+        )
+        assert response.status_code == 200
+
+        ph = _placeholder()
+        conn = get_connection(settings.DB_PATH)
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT title, content FROM documents WHERE url IN ({ph}, {ph})",
+            (url, f"{url}/"),
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        assert row is not None
+        assert "\x00" not in row[0]
+        assert "\x00" not in row[1]
 
 
 class TestHealthEndpoint:

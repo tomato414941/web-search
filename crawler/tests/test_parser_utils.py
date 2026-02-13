@@ -58,6 +58,12 @@ def test_normalize_url_invalid_scheme():
     assert normalize_url(base, link) is None
 
 
+def test_normalize_url_too_long():
+    base = "http://example.com"
+    link = "/" + ("a" * 3000)
+    assert normalize_url(base, link) is None
+
+
 # ==========================================
 # Tests for html_to_doc
 # ==========================================
@@ -96,6 +102,15 @@ def test_html_to_doc_empty():
     title, text = html_to_doc(html)
     assert title == ""
     assert text == ""
+
+
+def test_html_to_doc_strips_nul_characters():
+    html = "<html><head><title>A\x00B</title></head><body>hello\x00world</body></html>"
+    title, text = html_to_doc(html)
+    assert "\x00" not in title
+    assert "\x00" not in text
+    assert title == "A B"
+    assert "hello world" in text
 
 
 # ==========================================
