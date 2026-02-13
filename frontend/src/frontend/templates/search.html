@@ -67,7 +67,9 @@
                 <div class="hit-head">
                     <img class="hit-favicon" src="https://www.google.com/s2/favicons?sz=32&domain_url={{ r['url'] }}"
                         alt="" loading="lazy">
-                    <a href="{{ r['url'] }}" class="hit-title" target="_blank" rel="noopener noreferrer">
+                    <a href="{{ r['url'] }}" class="hit-title" target="_blank" rel="noopener noreferrer"
+                        data-track-click="1" data-click-url="{{ r['url'] }}"
+                        data-click-rank="{{ (result.page - 1) * result.per_page + loop.index }}">
                         {{ r['title'] or msg.no_title }}
                     </a>
                 </div>
@@ -112,6 +114,51 @@
         {% endif %}
     </div>
 
+    {% if q and result and result.hits and request_id %}
+    <script>
+        (() => {
+            const requestId = {{ request_id | tojson }};
+            const query = {{ q | tojson }};
+
+            if (!requestId || !query) {
+                return;
+            }
+
+            document.addEventListener("click", (event) => {
+                const link = event.target.closest("a[data-track-click='1']");
+                if (!link) {
+                    return;
+                }
+
+                const url = link.getAttribute("data-click-url") || link.href;
+                const rankValue = Number(link.getAttribute("data-click-rank"));
+                if (!url || !Number.isFinite(rankValue) || rankValue < 1) {
+                    return;
+                }
+
+                const payload = JSON.stringify({
+                    request_id: requestId,
+                    query: query,
+                    url: url,
+                    rank: rankValue
+                });
+
+                if (navigator.sendBeacon) {
+                    const blob = new Blob([payload], { type: "application/json" });
+                    navigator.sendBeacon("/api/v1/search/click", blob);
+                    return;
+                }
+
+                fetch("/api/v1/search/click", {
+                    method: "POST",
+                    keepalive: true,
+                    headers: { "Content-Type": "application/json" },
+                    body: payload
+                }).catch(() => { });
+            });
+        })();
+    </script>
+    {% endif %}
 
 </body>
 

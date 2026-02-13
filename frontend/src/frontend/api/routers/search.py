@@ -1,11 +1,20 @@
 """Search UI Router - HTML search page."""
 
-from fastapi import APIRouter, Request, Response, Cookie
+import time
+import uuid
+
+from fastapi import APIRouter, Request, Cookie, BackgroundTasks
 from fastapi.responses import HTMLResponse
 
 from frontend.core.config import settings
 from frontend.i18n.messages import MESSAGES
 from frontend.services.search import search_service
+from frontend.services.analytics import (
+    log_search,
+    log_impression_event,
+    get_or_set_anon_session_id,
+    hash_session_id,
+)
 from frontend.api.templates import templates
 from frontend.api.middleware.rate_limiter import limiter
 
@@ -38,7 +47,7 @@ def _detect_language(
 @limiter.limit("60/minute")
 async def search_page(
     request: Request,
-    response: Response,
+    background_tasks: BackgroundTasks,
     q: str | None = None,
     page: str | None = None,
     mode: str | None = None,
@@ -47,6 +56,7 @@ async def search_page(
     user_lang: str | None = Cookie(default=None, alias="lang"),
 ):
     """Search Page"""
+    started_at = time.perf_counter()
     current_lang = _detect_language(
         lang, user_lang, request.headers.get("accept-language")
     )
@@ -62,6 +72,7 @@ async def search_page(
 
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
     per_page = min(settings.RESULTS_LIMIT, settings.MAX_PER_PAGE)
+    request_id = uuid.uuid4().hex if query else None
 
     # Use Service
     result = search_service.search(query, per_page, page_number) if query else None
@@ -76,8 +87,24 @@ async def search_page(
             "mode": current_mode,
             "lang": current_lang,
             "msg": msg,
+            "request_id": request_id,
         },
     )
+
+    if query and result is not None and request_id is not None:
+        user_agent = request.headers.get("user-agent")
+        latency_ms = int((time.perf_counter() - started_at) * 1000)
+        session_id = get_or_set_anon_session_id(request, resp)
+        session_hash = hash_session_id(session_id)
+        background_tasks.add_task(log_search, query, result["total"], user_agent)
+        background_tasks.add_task(
+            log_impression_event,
+            query=query,
+            request_id=request_id,
+            result_count=result["total"],
+            session_hash=session_hash,
+            latency_ms=latency_ms,
+        )
 
     if mode in ["simple", "modern"]:
         resp.set_cookie(key="ui_mode", value=mode)

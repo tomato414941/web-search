@@ -18,6 +18,10 @@ def test_db_creation():
     assert "page_ranks" in tables
     assert "page_embeddings" in tables
 
+    # Analytics tables
+    assert "search_logs" in tables
+    assert "search_events" in tables
+
     con.close()
 
 

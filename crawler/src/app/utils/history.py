@@ -46,6 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_crawl_logs_url ON crawl_logs(url);
 CREATE INDEX IF NOT EXISTS idx_crawl_logs_created ON crawl_logs(created_at);
 """
 
+ERROR_STATUSES = ("indexer_error", "http_error", "unknown_error", "dead_letter")
+
 
 def get_db_path() -> str:
     """Get database path from config or use default"""
@@ -167,6 +169,7 @@ def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
     try:
         path = db_path or get_db_path()
         ph = _placeholder()
+        status_ph = ",".join([ph] * len(ERROR_STATUSES))
         con = get_connection(path)
         try:
             import time
@@ -174,8 +177,11 @@ def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
             cutoff = int(time.time()) - (hours * 3600)
             cur = con.cursor()
             cur.execute(
-                f"SELECT COUNT(*) FROM crawl_logs WHERE status = 'error' AND created_at >= {ph}",
-                (cutoff,),
+                f"""
+                SELECT COUNT(*) FROM crawl_logs
+                WHERE status IN ({status_ph}) AND created_at >= {ph}
+                """,
+                (*ERROR_STATUSES, cutoff),
             )
             result = cur.fetchone()[0]
             cur.close()
@@ -193,13 +199,17 @@ def get_recent_errors(
     try:
         path = db_path or get_db_path()
         ph = _placeholder()
+        status_ph = ",".join([ph] * len(ERROR_STATUSES))
         con = get_connection(path)
         try:
             cur = con.cursor()
             cur.execute(
-                f"SELECT url, error_message, created_at FROM crawl_logs "
-                f"WHERE status = 'error' ORDER BY created_at DESC LIMIT {ph}",
-                (limit,),
+                f"""
+                SELECT url, error_message, created_at FROM crawl_logs
+                WHERE status IN ({status_ph})
+                ORDER BY created_at DESC LIMIT {ph}
+                """,
+                (*ERROR_STATUSES, limit),
             )
             result = [
                 {

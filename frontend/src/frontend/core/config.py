@@ -51,6 +51,9 @@ class Settings(InfrastructureSettings):
     # OpenAI (for embeddings)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
+    # Analytics
+    ANALYTICS_SALT: str = os.getenv("ANALYTICS_SALT", "")
+
     # Security
     ALLOWED_HOSTS: list[str] = os.getenv(
         "ALLOWED_HOSTS", "localhost,127.0.0.1,testclient,testserver"

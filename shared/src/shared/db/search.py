@@ -87,6 +87,24 @@ CREATE TABLE IF NOT EXISTS search_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_search_logs_created ON search_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_search_logs_query ON search_logs(query);
+
+CREATE TABLE IF NOT EXISTS search_events (
+  id SERIAL PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  query TEXT NOT NULL,
+  query_norm TEXT NOT NULL,
+  request_id TEXT,
+  session_hash TEXT,
+  result_count INTEGER,
+  clicked_url TEXT,
+  clicked_rank INTEGER,
+  latency_ms INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_search_events_created ON search_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_type_created ON search_events(event_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_query_created ON search_events(query_norm, created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_request_id ON search_events(request_id);
 """
 
 # SQLite schema for local development
@@ -160,6 +178,24 @@ CREATE TABLE IF NOT EXISTS search_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_search_logs_created ON search_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_search_logs_query ON search_logs(query);
+
+CREATE TABLE IF NOT EXISTS search_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_type TEXT NOT NULL,
+  query TEXT NOT NULL,
+  query_norm TEXT NOT NULL,
+  request_id TEXT,
+  session_hash TEXT,
+  result_count INTEGER,
+  clicked_url TEXT,
+  clicked_rank INTEGER,
+  latency_ms INTEGER,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_search_events_created ON search_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_type_created ON search_events(event_type, created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_query_created ON search_events(query_norm, created_at);
+CREATE INDEX IF NOT EXISTS idx_search_events_request_id ON search_events(request_id);
 """
 
 

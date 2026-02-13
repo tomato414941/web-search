@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from frontend.core.config import settings
 from shared.db.search import ensure_db
-from frontend.api.routers import search, search_api, stats, crawler, admin
+from frontend.api.routers import search, search_api, stats, crawler, admin, quality
 from frontend.api.routers.system import root_router as health_root_router
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware
@@ -142,6 +142,7 @@ app.include_router(admin.router)
 app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
 app.include_router(stats.router, prefix="/api/v1", tags=["system"])
 app.include_router(crawler.router, prefix="/api/v1", tags=["crawler"])
+app.include_router(quality.router, prefix="/api/v1", tags=["system"])
 app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
 
 
