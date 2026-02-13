@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 from frontend.api.main import app
+from frontend.api.routers.search_api import log_search
 from frontend.core.config import settings
+from shared.db.search import get_connection, is_postgres_mode
 
 MAX_QUERY_LEN = settings.MAX_QUERY_LEN
 MAX_PER_PAGE = settings.MAX_PER_PAGE
@@ -69,3 +71,31 @@ def test_search_special_characters():
     # Just ensure it doesn't crash 500
     response = client.get("/api/v1/search?q=%22%27%3Cscript%3E")
     assert response.status_code == 200
+
+
+def test_log_search_insert_works_in_sqlite_mode():
+    query = "sqlite-log-insert-check"
+    log_search(query, 2, "pytest-agent")
+
+    conn = get_connection(settings.DB_PATH)
+    cur = conn.cursor()
+    ph = "%s" if is_postgres_mode() else "?"
+    cur.execute(
+        f"""
+        SELECT query, result_count, search_mode, user_agent
+        FROM search_logs
+        WHERE query = {ph}
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (query,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    assert row is not None
+    assert row[0] == query
+    assert row[1] == 2
+    assert row[2] == "bm25"
+    assert row[3] == "pytest-agent"

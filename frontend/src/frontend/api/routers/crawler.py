@@ -28,7 +28,11 @@ async def api_crawl(req: CrawlRequest):
 
             if resp.status_code == 200:
                 data = resp.json()
-                added = data.get("added", 0) > 0
+                added_count = data.get("added_count")
+                if added_count is None:
+                    # Backward compatibility for older crawler responses.
+                    added_count = data.get("added", 0)
+                added = added_count > 0
                 msg = "Queued" if added else "Already seen (skipped)"
                 return {"ok": True, "url": url, "message": msg, "added": added}
             else:

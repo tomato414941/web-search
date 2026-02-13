@@ -19,8 +19,17 @@ async def api_stats():
             resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/status")
             if resp.status_code == 200:
                 data = resp.json()
-                crawler_stats["queued"] = data.get("queued", 0)
-                crawler_stats["visited"] = data.get("visited", 0)
+                # Current crawler API uses queue_size/active_seen.
+                # Keep backward-compatible fallbacks for older responses.
+                crawler_stats["queued"] = data.get("queue_size", data.get("queued", 0))
+                crawler_stats["visited"] = data.get(
+                    "active_seen",
+                    data.get("visited", 0),
+                )
+            else:
+                logger.warning(
+                    "Crawler stats API returned non-200 status: %s", resp.status_code
+                )
     except Exception as e:
         logger.warning(f"Failed to get crawler stats: {e}")
 

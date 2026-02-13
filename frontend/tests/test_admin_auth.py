@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from frontend.api.main import app
 from frontend.core.config import settings, Settings
 from frontend.api.routers.admin import CSRF_COOKIE_NAME
+from shared.core.infrastructure_config import Environment
 
 
 client = TestClient(app)
@@ -233,6 +234,50 @@ class TestSessionSecurity:
         )
         set_cookie = response.headers.get("set-cookie", "")
         assert "samesite=strict" in set_cookie.lower()
+
+    def test_cookies_are_secure_in_production(self):
+        """Session/CSRF cookies should include Secure in production."""
+        with TestClient(app, base_url="https://testserver") as secure_client:
+            secure_client.cookies.clear()
+            with patch(
+                "frontend.api.routers.admin.settings.ENVIRONMENT",
+                Environment.PRODUCTION,
+            ):
+                login_page = secure_client.get("/admin/login")
+                assert "secure" in login_page.headers.get("set-cookie", "").lower()
+
+                csrf_token = secure_client.cookies.get(CSRF_COOKIE_NAME, "")
+                response = secure_client.post(
+                    "/admin/login",
+                    data={
+                        "username": settings.ADMIN_USERNAME,
+                        "password": settings.ADMIN_PASSWORD,
+                        "csrf_token": csrf_token,
+                    },
+                    follow_redirects=False,
+                )
+                assert response.status_code == 303
+                assert "secure" in response.headers.get("set-cookie", "").lower()
+
+    def test_cookies_do_not_force_secure_outside_production(self):
+        """Session/CSRF cookies should keep non-production compatibility."""
+        client.cookies.clear()
+        with patch("frontend.api.routers.admin.settings.ENVIRONMENT", Environment.TEST):
+            login_page = client.get("/admin/login")
+            assert "secure" not in login_page.headers.get("set-cookie", "").lower()
+
+            csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+            response = client.post(
+                "/admin/login",
+                data={
+                    "username": settings.ADMIN_USERNAME,
+                    "password": settings.ADMIN_PASSWORD,
+                    "csrf_token": csrf_token,
+                },
+                follow_redirects=False,
+            )
+            assert response.status_code == 303
+            assert "secure" not in response.headers.get("set-cookie", "").lower()
 
     @pytest.mark.skip(
         reason="Flaky test - session validation logic needs investigation"

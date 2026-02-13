@@ -54,7 +54,7 @@ app = FastAPI(
     lifespan=lifespan,
     title="Web Search API",
     version="1.0.0",
-    description="A custom full-text search engine with hybrid ranking (BM25 + PageRank + Semantic).",
+    description="A custom full-text search engine with BM25 ranking and PageRank boosting.",
     openapi_tags=[
         {"name": "search", "description": "Search and discovery endpoints"},
         {"name": "system", "description": "Health checks and system info"},

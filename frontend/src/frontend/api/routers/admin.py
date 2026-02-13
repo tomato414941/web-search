@@ -2,16 +2,17 @@
 
 import logging
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Request, Form
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from frontend.core.config import settings
-from shared.db.search import get_connection
+from shared.core.infrastructure_config import Environment
+from shared.db.search import get_connection, is_postgres_mode
 from frontend.api.templates import templates
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,49 @@ def validate_csrf_token(request: Request, form_token: str | None) -> bool:
     return secrets.compare_digest(cookie_token, form_token)
 
 
+def _placeholder() -> str:
+    """Return SQL placeholder for current database backend."""
+    return "%s" if is_postgres_mode() else "?"
+
+
+def _is_secure_cookie_enabled() -> bool:
+    """Use secure cookies in production only."""
+    return settings.ENVIRONMENT == Environment.PRODUCTION
+
+
+def _set_admin_cookie(
+    response: Response,
+    key: str,
+    value: str,
+    *,
+    httponly: bool,
+) -> Response:
+    """Set admin cookie with consistent security attributes."""
+    response.set_cookie(
+        key,
+        value,
+        max_age=SESSION_MAX_AGE_SECONDS,
+        httponly=httponly,
+        secure=_is_secure_cookie_enabled(),
+        samesite="strict",
+    )
+    return response
+
+
+def _time_boundaries() -> tuple[str, str, str]:
+    """
+    Return UTC boundaries as SQL-friendly timestamps.
+
+    Returns:
+        (day_ago, week_ago, today_start)
+    """
+    now = datetime.now(timezone.utc)
+    day_ago = (now - timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+    week_ago = (now - timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+    today_start = now.strftime("%Y-%m-%d 00:00:00")
+    return day_ago, week_ago, today_start
+
+
 async def get_dashboard_data() -> dict[str, Any]:
     """Get comprehensive data for dashboard."""
     data: dict[str, Any] = {
@@ -96,6 +140,9 @@ async def get_dashboard_data() -> dict[str, Any]:
 
     # Database stats
     try:
+        ph = _placeholder()
+        is_postgres = is_postgres_mode()
+        day_ago, _, today_start = _time_boundaries()
         conn = get_connection(settings.DB_PATH)
         cursor = conn.cursor()
         # Total indexed pages
@@ -103,10 +150,16 @@ async def get_dashboard_data() -> dict[str, Any]:
         data["indexed_pages"] = cursor.fetchone()[0]
 
         # Pages indexed in last 24 hours
-        cursor.execute(
-            "SELECT COUNT(*) FROM documents "
-            "WHERE indexed_at >= NOW() - INTERVAL '1 day'"
-        )
+        if is_postgres:
+            cursor.execute(
+                f"SELECT COUNT(*) FROM documents WHERE indexed_at >= {ph}",
+                (day_ago,),
+            )
+        else:
+            cursor.execute(
+                f"SELECT COUNT(*) FROM documents WHERE datetime(indexed_at) >= datetime({ph})",
+                (day_ago,),
+            )
         data["indexed_delta"] = cursor.fetchone()[0]
 
         # Last crawl time
@@ -118,16 +171,30 @@ async def get_dashboard_data() -> dict[str, Any]:
             data["last_crawl"] = result[0]
 
         # Today's search stats
-        cursor.execute(
-            """
-            SELECT
-                COUNT(*) as total,
-                COUNT(DISTINCT query) as unique_queries,
-                SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
-            FROM search_logs
-            WHERE created_at >= CURRENT_DATE
-            """
-        )
+        if is_postgres:
+            cursor.execute(
+                f"""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(DISTINCT query) as unique_queries,
+                    SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
+                FROM search_logs
+                WHERE created_at >= {ph}
+                """,
+                (today_start,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(DISTINCT query) as unique_queries,
+                    SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
+                FROM search_logs
+                WHERE datetime(created_at) >= datetime({ph})
+                """,
+                (today_start,),
+            )
         row = cursor.fetchone()
         if row:
             data["today_searches"] = row[0] or 0
@@ -139,31 +206,59 @@ async def get_dashboard_data() -> dict[str, Any]:
                 )
 
         # Top query today
-        cursor.execute(
-            """
-            SELECT query, COUNT(*) as count
-            FROM search_logs
-            WHERE created_at >= CURRENT_DATE
-            GROUP BY query
-            ORDER BY count DESC
-            LIMIT 1
-            """
-        )
+        if is_postgres:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE created_at >= {ph}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 1
+                """,
+                (today_start,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE datetime(created_at) >= datetime({ph})
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 1
+                """,
+                (today_start,),
+            )
         row = cursor.fetchone()
         if row and row[0]:
             data["top_query"] = {"query": row[0], "count": row[1]}
 
         # Zero-hit queries (top 5)
-        cursor.execute(
-            """
-            SELECT query, COUNT(*) as count
-            FROM search_logs
-            WHERE result_count = 0 AND created_at >= CURRENT_DATE
-            GROUP BY query
-            ORDER BY count DESC
-            LIMIT 5
-            """
-        )
+        if is_postgres:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE result_count = 0 AND created_at >= {ph}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 5
+                """,
+                (today_start,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph})
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 5
+                """,
+                (today_start,),
+            )
         data["zero_hit_queries"] = [
             {"query": row[0], "count": row[1]} for row in cursor.fetchall()
         ]
@@ -218,16 +313,15 @@ async def get_dashboard_data() -> dict[str, Any]:
 # ==================== Routes ====================
 
 
-def _add_csrf_cookie(response: RedirectResponse, token: str) -> RedirectResponse:
+def _add_csrf_cookie(response: Response, token: str) -> Response:
     """Add CSRF token cookie to response."""
-    response.set_cookie(
-        CSRF_COOKIE_NAME,
-        token,
-        max_age=SESSION_MAX_AGE_SECONDS,
-        httponly=False,  # JS needs access for AJAX requests
-        samesite="strict",
-    )
-    return response
+    # JS needs access for AJAX requests.
+    return _set_admin_cookie(response, CSRF_COOKIE_NAME, token, httponly=False)
+
+
+def _add_session_cookie(response: Response, token: str) -> Response:
+    """Add authenticated admin session cookie."""
+    return _set_admin_cookie(response, SESSION_COOKIE_NAME, token, httponly=True)
 
 
 @router.get("/login")
@@ -239,14 +333,7 @@ async def login_page(request: Request, error: str = ""):
         "admin/login.html",
         {"request": request, "error": error, "csrf_token": csrf_token},
     )
-    response.set_cookie(
-        CSRF_COOKIE_NAME,
-        csrf_token,
-        max_age=SESSION_MAX_AGE_SECONDS,
-        httponly=False,
-        samesite="strict",
-    )
-    return response
+    return _add_csrf_cookie(response, csrf_token)
 
 
 @router.post("/login")
@@ -267,13 +354,7 @@ async def login(
         token = create_session()
         new_csrf = generate_csrf_token()
         response = RedirectResponse(url="/admin/", status_code=303)
-        response.set_cookie(
-            SESSION_COOKIE_NAME,
-            token,
-            max_age=SESSION_MAX_AGE_SECONDS,
-            httponly=True,
-            samesite="strict",
-        )
+        _add_session_cookie(response, token)
         _add_csrf_cookie(response, new_csrf)
         return response
     return RedirectResponse(
@@ -621,44 +702,85 @@ def get_analytics_data() -> dict:
     }
 
     try:
+        ph = _placeholder()
+        is_postgres = is_postgres_mode()
+        _, week_ago, _ = _time_boundaries()
         conn = get_connection(settings.DB_PATH)
         cursor = conn.cursor()
         # Total searches in last 7 days
-        cursor.execute(
-            """
-            SELECT COUNT(*) FROM search_logs
-            WHERE created_at >= NOW() - INTERVAL '7 days'
-            """
-        )
+        if is_postgres:
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) FROM search_logs
+                WHERE created_at >= {ph}
+                """,
+                (week_ago,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) FROM search_logs
+                WHERE datetime(created_at) >= datetime({ph})
+                """,
+                (week_ago,),
+            )
         data["total_searches"] = cursor.fetchone()[0]
 
         # Top queries (last 7 days)
-        cursor.execute(
-            """
-            SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-            FROM search_logs
-            WHERE created_at >= NOW() - INTERVAL '7 days'
-            GROUP BY query
-            ORDER BY count DESC
-            LIMIT 20
-            """
-        )
+        if is_postgres:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
+                FROM search_logs
+                WHERE created_at >= {ph}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """,
+                (week_ago,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
+                FROM search_logs
+                WHERE datetime(created_at) >= datetime({ph})
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """,
+                (week_ago,),
+            )
         data["top_queries"] = [
             {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
             for row in cursor.fetchall()
         ]
 
         # Zero-hit queries (content gaps)
-        cursor.execute(
-            """
-            SELECT query, COUNT(*) as count
-            FROM search_logs
-            WHERE result_count = 0 AND created_at >= NOW() - INTERVAL '7 days'
-            GROUP BY query
-            ORDER BY count DESC
-            LIMIT 20
-            """
-        )
+        if is_postgres:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE result_count = 0 AND created_at >= {ph}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """,
+                (week_ago,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE result_count = 0 AND datetime(created_at) >= datetime({ph})
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """,
+                (week_ago,),
+            )
         data["zero_hit_queries"] = [
             {"query": row[0], "count": row[1]} for row in cursor.fetchall()
         ]

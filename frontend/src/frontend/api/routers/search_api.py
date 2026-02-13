@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 
 from frontend.core.config import settings
-from shared.db.search import get_connection
+from shared.db.search import get_connection, is_postgres_mode
 from frontend.services.search import search_service
 from frontend.api.middleware.rate_limiter import limiter
 
@@ -16,14 +16,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _placeholder() -> str:
+    """Return SQL placeholder for current database backend."""
+    return "%s" if is_postgres_mode() else "?"
+
+
 def log_search(query: str, result_count: int, user_agent: str | None):
     """Log search query to database (runs in background)."""
     try:
+        ph = _placeholder()
         conn = get_connection(settings.DB_PATH)
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES (%s, %s, %s, %s)",
-            (query, result_count, "hybrid", user_agent),
+            f"INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES ({ph}, {ph}, {ph}, {ph})",
+            (query, result_count, "bm25", user_agent),
         )
         conn.commit()
         cur.close()
@@ -49,7 +55,7 @@ async def api_search(
     limit: str | None = None,
     page: str | None = None,
 ):
-    """Search API (JSON) - uses hybrid search (BM25 + Semantic)."""
+    """Search API (JSON) - uses BM25 + PageRank search."""
     query = (q or "").strip()
     if len(query) > settings.MAX_QUERY_LEN:
         query = query[: settings.MAX_QUERY_LEN]
