@@ -44,6 +44,7 @@ class WorkerManager:
             active_tasks=self.worker.active_tasks,
             started_at=self.worker.started_at,
             uptime_seconds=self.worker.get_uptime(),
+            concurrency=self.worker.concurrency,
         )
 
 

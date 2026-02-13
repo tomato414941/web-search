@@ -177,6 +177,11 @@ class TestAdminAuthentication:
         response = client.get("/admin/crawlers")
         assert response.status_code == 200
         assert "Crawler Instances" in response.text
+        assert "Concurrency" in response.text
+        assert "Attempts/h" in response.text
+        assert "Indexed/h" in response.text
+        assert "Success" in response.text
+        assert "Errors/h" in response.text
 
     def test_crawler_start_requires_auth(self):
         """Starting a crawler instance should require authentication."""

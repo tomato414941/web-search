@@ -4,13 +4,18 @@ Test configuration and fixtures for Crawler tests
 
 import os
 
-# Set ENVIRONMENT before importing any modules that use infrastructure_config
+import pytest
+from fastapi.testclient import TestClient
+
+
+COMPILED_TEST_DB = "/tmp/test_crawler.db"
+
+
+# Environment defaults for crawler tests
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("INDEXER_API_KEY", "test-api-key")
 os.environ.setdefault("INDEXER_API_URL", "http://test:8000/api/indexer/page")
-
-import pytest
-from fastapi.testclient import TestClient
+os.environ.setdefault("CRAWLER_DB_PATH", COMPILED_TEST_DB)
 
 
 @pytest.fixture(scope="session", autouse=True)

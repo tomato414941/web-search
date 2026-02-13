@@ -41,6 +41,7 @@ async def test_worker_service_stop_graceful():
         assert service.is_running is False
         assert service.started_at is None
         assert service.active_tasks == 0
+        assert service.concurrency is None
 
 
 @pytest.mark.asyncio
@@ -54,6 +55,7 @@ async def test_worker_service_stop_forceful():
         await service.stop(graceful=False)
 
         assert service.is_running is False
+        assert service.concurrency is None
 
 
 @pytest.mark.asyncio
@@ -131,6 +133,7 @@ async def test_worker_manager_get_status_stopped():
     assert status.active_tasks == 0
     assert status.started_at is None
     assert status.uptime_seconds is None
+    assert status.concurrency is None
 
 
 @pytest.mark.asyncio
@@ -151,6 +154,7 @@ async def test_worker_manager_get_status_running():
         assert status.started_at is not None
         assert status.uptime_seconds is not None
         assert status.uptime_seconds >= 0.0
+        assert status.concurrency == 1
 
         # Cleanup
         await manager.stop(graceful=False)

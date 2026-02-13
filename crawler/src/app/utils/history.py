@@ -198,6 +198,40 @@ def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
         return 0
 
 
+def get_status_counts(hours: int = 1, db_path: str | None = None) -> Dict[str, int]:
+    """Get crawl attempt counts grouped by status in the last N hours."""
+    try:
+        path = db_path or get_db_path()
+        ph = sql_placeholder()
+        con = get_connection(path)
+        try:
+            import time
+
+            cutoff = int(time.time()) - (hours * 3600)
+            cur = con.cursor()
+            cur.execute(
+                f"""
+                SELECT status, COUNT(*)
+                FROM crawl_logs
+                WHERE created_at >= {ph}
+                GROUP BY status
+                """,
+                (cutoff,),
+            )
+            status_counts = {
+                str(status): int(count) for status, count in cur.fetchall()
+            }
+            cur.close()
+            return status_counts
+        finally:
+            con.close()
+    except Exception as exc:
+        logger.warning(
+            f"Failed to fetch crawl status counts for {hours}h window: {exc}"
+        )
+        return {}
+
+
 def get_recent_errors(
     limit: int = 5, db_path: str | None = None
 ) -> List[Dict[str, Any]]:

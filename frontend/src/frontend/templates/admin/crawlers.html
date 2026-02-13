@@ -25,8 +25,13 @@
                     <th>Name</th>
                     <th>URL</th>
                     <th>Status</th>
+                    <th>Concurrency</th>
                     <th>Queue</th>
                     <th>Crawled</th>
+                    <th>Attempts/h</th>
+                    <th>Indexed/h</th>
+                    <th>Success</th>
+                    <th>Errors/h</th>
                     <th>Uptime</th>
                     <th>Action</th>
                 </tr>
@@ -45,8 +50,13 @@
                             <span style="color: #f59e0b;">● {{ inst.state }}</span>
                         {% endif %}
                     </td>
+                    <td>{{ inst.concurrency if inst.concurrency is not none else "-" }}</td>
                     <td>{{ "{:,}".format(inst.queue_size) }}</td>
                     <td>{{ "{:,}".format(inst.active_seen) }}</td>
+                    <td>{{ "{:,}".format(inst.attempts_1h) if inst.attempts_1h is not none else "-" }}</td>
+                    <td>{{ "{:,}".format(inst.indexed_1h) if inst.indexed_1h is not none else "-" }}</td>
+                    <td>{{ "{:.1f}%".format(inst.success_rate_1h) if inst.success_rate_1h is not none else "-" }}</td>
+                    <td>{{ "{:,}".format(inst.error_1h) if inst.error_1h is not none else "-" }}</td>
                     <td>{{ inst.uptime or "-" }}</td>
                     <td>
                         {% if inst.state == "running" %}

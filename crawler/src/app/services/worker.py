@@ -19,7 +19,7 @@ class WorkerService:
         self.is_running: bool = False
         self.started_at: datetime | None = None
         self.active_tasks: int = 0
-        self.concurrency: int = 1  # Current concurrency setting
+        self.concurrency: int | None = None  # Current concurrency setting
 
     async def start(self, concurrency: int = 1):
         """Start worker with specified concurrency"""
@@ -55,6 +55,7 @@ class WorkerService:
         self.is_running = False
         self.started_at = None
         self.active_tasks = 0
+        self.concurrency = None
         logger.info("✅ Background worker stopped")
 
     def get_uptime(self) -> float | None:

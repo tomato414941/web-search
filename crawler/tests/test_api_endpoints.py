@@ -137,6 +137,7 @@ def test_worker_status_stopped(test_client, reset_worker_manager):
     assert data["status"] == "stopped"
     assert data["active_tasks"] == 0
     assert data["started_at"] is None
+    assert data["concurrency"] is None
 
 
 def test_worker_status_running(test_client, reset_worker_manager):
@@ -151,3 +152,29 @@ def test_worker_status_running(test_client, reset_worker_manager):
         data = response.json()
         assert data["status"] == "running"
         assert data["started_at"] is not None
+        assert data["concurrency"] == 1
+
+
+def test_stats_endpoint_includes_extended_metrics(test_client, reset_worker_manager):
+    """Test GET /api/v1/stats includes attempts/indexed/success/concurrency."""
+    with (
+        patch("app.workers.tasks.worker_loop"),
+        patch("app.utils.history.get_crawl_rate", return_value=5),
+        patch("app.utils.history.get_error_count", return_value=1),
+        patch("app.utils.history.get_recent_errors", return_value=[]),
+        patch(
+            "app.utils.history.get_status_counts",
+            return_value={"indexed": 3, "blocked": 2},
+        ),
+    ):
+        test_client.post("/api/v1/worker/start", json={"concurrency": 2})
+        response = test_client.get("/api/v1/stats")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["crawl_rate_1h"] == 5
+    assert data["attempts_count_1h"] == 5
+    assert data["indexed_count_1h"] == 3
+    assert data["success_rate_1h"] == 60.0
+    assert data["error_count_1h"] == 1
+    assert data["concurrency"] == 2

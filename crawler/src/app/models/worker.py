@@ -55,3 +55,8 @@ class WorkerStatus(BaseModel):
     uptime_seconds: float | None = Field(
         default=None, ge=0, description="Worker uptime in seconds (None if stopped)"
     )
+    concurrency: int | None = Field(
+        default=None,
+        ge=1,
+        description="Configured worker concurrency (None if stopped)",
+    )

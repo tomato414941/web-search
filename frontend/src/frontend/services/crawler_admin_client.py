@@ -147,6 +147,10 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
         "active_seen": 0,
         "uptime": None,
         "concurrency": None,
+        "attempts_1h": None,
+        "indexed_1h": None,
+        "success_rate_1h": None,
+        "error_1h": None,
     }
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
@@ -160,8 +164,27 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
             if resp.status_code == 200:
                 worker = resp.json()
                 status["state"] = worker.get("status", "unknown")
-                status["uptime"] = worker.get("uptime")
+                status["uptime"] = worker.get("uptime", worker.get("uptime_seconds"))
                 status["concurrency"] = worker.get("concurrency")
+
+            resp = await client.get(f"{url}/api/v1/stats")
+            if resp.status_code == 200:
+                stats = resp.json()
+                status["attempts_1h"] = stats.get(
+                    "attempts_count_1h",
+                    stats.get("crawl_rate_1h"),
+                )
+                status["indexed_1h"] = stats.get("indexed_count_1h")
+                status["success_rate_1h"] = stats.get("success_rate_1h")
+                status["error_1h"] = stats.get("error_count_1h")
+                status["queue_size"] = stats.get("queue_size", status["queue_size"])
+                status["active_seen"] = stats.get("active_seen", status["active_seen"])
+                if status["state"] == "unreachable":
+                    status["state"] = stats.get("worker_status", "unknown")
+                if status["uptime"] is None:
+                    status["uptime"] = stats.get("uptime_seconds")
+                if status["concurrency"] is None:
+                    status["concurrency"] = stats.get("concurrency")
     except httpx.RequestError as exc:
         logger.debug(f"Crawler instance {url} unreachable: {exc}")
     return status
