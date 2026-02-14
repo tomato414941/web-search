@@ -63,9 +63,36 @@
             width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            /* Keep scrollbars unobtrusive and consistent across admin tabs */
+            scrollbar-width: thin; /* Firefox */
+            scrollbar-color: rgba(100, 181, 246, 0.45) rgba(255, 255, 255, 0.06); /* thumb track */
+        }
+        .table-scroll::-webkit-scrollbar {
+            height: 10px;
+        }
+        .table-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 999px;
+        }
+        .table-scroll::-webkit-scrollbar-thumb {
+            background: rgba(100, 181, 246, 0.45);
+            border-radius: 999px;
+            border: 2px solid rgba(255, 255, 255, 0.06);
+        }
+        .table-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 181, 246, 0.65);
         }
         .admin-table--wide { min-width: 960px; }
         .admin-table--xwide { min-width: 1240px; }
+        .admin-table--dense { font-size: 0.9rem; }
+        .admin-table--dense th,
+        .admin-table--dense td { padding: 8px 10px; }
+        .admin-cell-num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .admin-head-num { text-align: right; white-space: nowrap; }
         td.admin-cell-url {
             max-width: 420px;
             overflow: hidden;
@@ -73,6 +100,22 @@
             white-space: nowrap;
         }
         td.admin-cell-url--narrow { max-width: 280px; }
+        td.admin-cell-url--clamp2 {
+            white-space: normal;
+        }
+        .admin-text-clamp2 {
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow-wrap: anywhere;
+        }
+        .admin-action-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: flex-start;
+        }
         table.wrap-table {
             table-layout: fixed;
         }

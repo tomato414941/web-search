@@ -20,20 +20,20 @@
     <div class="card">
         <h2>Crawler Instances</h2>
         <div class="table-scroll">
-            <table class="admin-table admin-table--xwide">
+            <table class="admin-table admin-table--wide admin-table--dense">
                 <thead>
                     <tr>
                         <th>Name</th>
                         <th>URL</th>
                         <th>Status</th>
-                        <th>Concurrency</th>
-                        <th>Queue</th>
-                        <th>Crawled</th>
-                        <th>Attempts/h</th>
-                        <th>Indexed/h</th>
-                        <th>Success</th>
-                        <th>Errors/h</th>
-                        <th>Uptime</th>
+                        <th class="admin-head-num" title="Concurrency">Conc.</th>
+                        <th class="admin-head-num" title="Queue">Queue</th>
+                        <th class="admin-head-num" title="Crawled">Crawled</th>
+                        <th class="admin-head-num" title="Attempts/h">Att/h</th>
+                        <th class="admin-head-num" title="Indexed/h">Idx/h</th>
+                        <th class="admin-head-num" title="Success rate (last 1h)">OK%</th>
+                        <th class="admin-head-num" title="Errors/h">Err/h</th>
+                        <th class="admin-head-num" title="Uptime">Uptime</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -41,7 +41,7 @@
                     {% for inst in instances %}
                     <tr>
                         <td>{{ inst.name }}</td>
-                        <td class="admin-cell-url admin-cell-url--narrow muted" title="{{ inst.url }}">{{ inst.url }}</td>
+                        <td class="admin-cell-url admin-cell-url--narrow admin-cell-url--clamp2 muted" title="{{ inst.url }}"><span class="admin-text-clamp2">{{ inst.url }}</span></td>
                         <td>
                             {% if inst.state == "running" %}
                                 <span style="color: #22c55e; font-weight: bold;">● Running</span>
@@ -51,14 +51,14 @@
                                 <span style="color: #f59e0b;">● {{ inst.state }}</span>
                             {% endif %}
                         </td>
-                        <td>{{ inst.concurrency if inst.concurrency is not none else "-" }}</td>
-                        <td>{{ "{:,}".format(inst.queue_size) }}</td>
-                        <td>{{ "{:,}".format(inst.active_seen) }}</td>
-                        <td>{{ "{:,}".format(inst.attempts_1h) if inst.attempts_1h is not none else "-" }}</td>
-                        <td>{{ "{:,}".format(inst.indexed_1h) if inst.indexed_1h is not none else "-" }}</td>
-                        <td>{{ "{:.1f}%".format(inst.success_rate_1h) if inst.success_rate_1h is not none else "-" }}</td>
-                        <td>{{ "{:,}".format(inst.error_1h) if inst.error_1h is not none else "-" }}</td>
-                        <td>{{ inst.uptime or "-" }}</td>
+                        <td class="admin-cell-num">{{ inst.concurrency if inst.concurrency is not none else "-" }}</td>
+                        <td class="admin-cell-num">{{ "{:,}".format(inst.queue_size) }}</td>
+                        <td class="admin-cell-num">{{ "{:,}".format(inst.active_seen) }}</td>
+                        <td class="admin-cell-num">{{ "{:,}".format(inst.attempts_1h) if inst.attempts_1h is not none else "-" }}</td>
+                        <td class="admin-cell-num">{{ "{:,}".format(inst.indexed_1h) if inst.indexed_1h is not none else "-" }}</td>
+                        <td class="admin-cell-num">{{ "{:.1f}%".format(inst.success_rate_1h) if inst.success_rate_1h is not none else "-" }}</td>
+                        <td class="admin-cell-num">{{ "{:,}".format(inst.error_1h) if inst.error_1h is not none else "-" }}</td>
+                        <td class="admin-cell-num">{{ inst.uptime or "-" }}</td>
                         <td>
                             {% if inst.state == "running" %}
                                 <form action="/admin/crawlers/{{ inst.name }}/stop" method="post" style="display: inline;">
@@ -66,7 +66,7 @@
                                     <button type="submit" class="danger" style="padding: 6px 12px; font-size: 0.9em;">Stop</button>
                                 </form>
                             {% elif inst.state != "unreachable" %}
-                                <form action="/admin/crawlers/{{ inst.name }}/start" method="post" style="display: inline-flex; gap: 6px; align-items: center;">
+                                <form action="/admin/crawlers/{{ inst.name }}/start" method="post" class="admin-action-stack">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                                     <input type="number" name="concurrency" value="1" min="1" max="10" style="width: 50px; padding: 6px; font-size: 0.9em;">
                                     <button type="submit" style="background-color: #22c55e; padding: 6px 12px; font-size: 0.9em;">Start</button>
