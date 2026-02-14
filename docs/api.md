@@ -66,7 +66,7 @@ View Search Analytics (Admin only).
 ## Indexer Service (`:8081`)
 
 ### `POST /api/v1/indexer/page`
-Submit a crawled page for indexing.
+Queue a crawled page for asynchronous indexing.
 
 **Headers:**
 *   `X-API-Key`: (Required)
@@ -77,9 +77,23 @@ Submit a crawled page for indexing.
   "url": "http://example.com",
   "title": "Page Title",
   "content": "Full page text content...",
-  "raw_html": "<html>...</html>" // Optional
+  "outlinks": ["http://example.com/about"]
 }
 ```
+
+**Response (`202 Accepted`):**
+```json
+{
+  "ok": true,
+  "queued": true,
+  "job_id": "uuid",
+  "deduplicated": false,
+  "url": "http://example.com/"
+}
+```
+
+### `GET /api/v1/indexer/jobs/{job_id}`
+Get asynchronous indexing job status.
 
 ### `GET /health` (recommended) or `GET /api/v1/health`
 Health check. Root-level `/health` is preferred; `/api/v1/health` is for backward compatibility.
