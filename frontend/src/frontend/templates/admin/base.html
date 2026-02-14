@@ -58,6 +58,21 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
         th { color: #64b5f6; }
+        .admin-table { width: 100%; border-collapse: collapse; }
+        .table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .admin-table--wide { min-width: 960px; }
+        .admin-table--xwide { min-width: 1240px; }
+        td.admin-cell-url {
+            max-width: 420px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        td.admin-cell-url--narrow { max-width: 280px; }
         table.wrap-table {
             table-layout: fixed;
         }
@@ -67,6 +82,11 @@
             word-break: break-word;
             overflow-wrap: anywhere;
             vertical-align: top;
+        }
+        table.wrap-table td.admin-cell-url {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         .login-box {
             max-width: 400px; margin: 100px auto;
@@ -200,19 +220,6 @@
                 flex-wrap: wrap;
                 gap: 8px;
                 justify-content: center;
-            }
-
-            /* Tables: horizontal scroll */
-            table {
-                display: block;
-                overflow-x: auto;
-                white-space: nowrap;
-            }
-            table.wrap-table {
-                display: table;
-                width: 100%;
-                overflow-x: visible;
-                white-space: normal;
             }
 
             /* Form rows: stack vertically */

@@ -38,24 +38,26 @@
     <div class="card">
         <h2>Top Queries</h2>
         {% if analytics.top_queries %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Query</th>
-                    <th>Count</th>
-                    <th>Avg Results</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in analytics.top_queries %}
-                <tr>
-                    <td>{{ item.query }}</td>
-                    <td>{{ item.count }}</td>
-                    <td>{{ item.avg_results }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th>Count</th>
+                        <th>Avg Results</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in analytics.top_queries %}
+                    <tr>
+                        <td>{{ item.query }}</td>
+                        <td>{{ item.count }}</td>
+                        <td>{{ item.avg_results }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
         <p style="color: #999;">No search data available yet.</p>
         {% endif %}
@@ -65,22 +67,24 @@
         <h2>Zero-Hit Queries (Content Gaps)</h2>
         <p style="color: #999; margin-bottom: 16px;">These queries returned no results. Consider adding content for these topics.</p>
         {% if analytics.zero_hit_queries %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Query</th>
-                    <th>Times Searched</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in analytics.zero_hit_queries %}
-                <tr>
-                    <td>{{ item.query }}</td>
-                    <td>{{ item.count }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th>Times Searched</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in analytics.zero_hit_queries %}
+                    <tr>
+                        <td>{{ item.query }}</td>
+                        <td>{{ item.count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
         {% else %}
         <p style="color: #66bb6a;">No zero-hit queries. All searches are finding results!</p>
         {% endif %}

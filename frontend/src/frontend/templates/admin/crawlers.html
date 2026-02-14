@@ -19,65 +19,67 @@
 
     <div class="card">
         <h2>Crawler Instances</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>URL</th>
-                    <th>Status</th>
-                    <th>Concurrency</th>
-                    <th>Queue</th>
-                    <th>Crawled</th>
-                    <th>Attempts/h</th>
-                    <th>Indexed/h</th>
-                    <th>Success</th>
-                    <th>Errors/h</th>
-                    <th>Uptime</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for inst in instances %}
-                <tr>
-                    <td>{{ inst.name }}</td>
-                    <td style="font-size: 0.9em; color: #999;">{{ inst.url }}</td>
-                    <td>
-                        {% if inst.state == "running" %}
-                            <span style="color: #22c55e; font-weight: bold;">● Running</span>
-                        {% elif inst.state == "stopped" %}
-                            <span style="color: #ef4444; font-weight: bold;">● Stopped</span>
-                        {% else %}
-                            <span style="color: #f59e0b;">● {{ inst.state }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ inst.concurrency if inst.concurrency is not none else "-" }}</td>
-                    <td>{{ "{:,}".format(inst.queue_size) }}</td>
-                    <td>{{ "{:,}".format(inst.active_seen) }}</td>
-                    <td>{{ "{:,}".format(inst.attempts_1h) if inst.attempts_1h is not none else "-" }}</td>
-                    <td>{{ "{:,}".format(inst.indexed_1h) if inst.indexed_1h is not none else "-" }}</td>
-                    <td>{{ "{:.1f}%".format(inst.success_rate_1h) if inst.success_rate_1h is not none else "-" }}</td>
-                    <td>{{ "{:,}".format(inst.error_1h) if inst.error_1h is not none else "-" }}</td>
-                    <td>{{ inst.uptime or "-" }}</td>
-                    <td>
-                        {% if inst.state == "running" %}
-                            <form action="/admin/crawlers/{{ inst.name }}/stop" method="post" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <button type="submit" class="danger" style="padding: 6px 12px; font-size: 0.9em;">Stop</button>
-                            </form>
-                        {% elif inst.state != "unreachable" %}
-                            <form action="/admin/crawlers/{{ inst.name }}/start" method="post" style="display: inline-flex; gap: 6px; align-items: center;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <input type="number" name="concurrency" value="1" min="1" max="10" style="width: 50px; padding: 6px; font-size: 0.9em;">
-                                <button type="submit" style="background-color: #22c55e; padding: 6px 12px; font-size: 0.9em;">Start</button>
-                            </form>
-                        {% else %}
-                            <span style="color: #666;">-</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="admin-table admin-table--xwide">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>URL</th>
+                        <th>Status</th>
+                        <th>Concurrency</th>
+                        <th>Queue</th>
+                        <th>Crawled</th>
+                        <th>Attempts/h</th>
+                        <th>Indexed/h</th>
+                        <th>Success</th>
+                        <th>Errors/h</th>
+                        <th>Uptime</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inst in instances %}
+                    <tr>
+                        <td>{{ inst.name }}</td>
+                        <td class="admin-cell-url admin-cell-url--narrow muted" title="{{ inst.url }}">{{ inst.url }}</td>
+                        <td>
+                            {% if inst.state == "running" %}
+                                <span style="color: #22c55e; font-weight: bold;">● Running</span>
+                            {% elif inst.state == "stopped" %}
+                                <span style="color: #ef4444; font-weight: bold;">● Stopped</span>
+                            {% else %}
+                                <span style="color: #f59e0b;">● {{ inst.state }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ inst.concurrency if inst.concurrency is not none else "-" }}</td>
+                        <td>{{ "{:,}".format(inst.queue_size) }}</td>
+                        <td>{{ "{:,}".format(inst.active_seen) }}</td>
+                        <td>{{ "{:,}".format(inst.attempts_1h) if inst.attempts_1h is not none else "-" }}</td>
+                        <td>{{ "{:,}".format(inst.indexed_1h) if inst.indexed_1h is not none else "-" }}</td>
+                        <td>{{ "{:.1f}%".format(inst.success_rate_1h) if inst.success_rate_1h is not none else "-" }}</td>
+                        <td>{{ "{:,}".format(inst.error_1h) if inst.error_1h is not none else "-" }}</td>
+                        <td>{{ inst.uptime or "-" }}</td>
+                        <td>
+                            {% if inst.state == "running" %}
+                                <form action="/admin/crawlers/{{ inst.name }}/stop" method="post" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <button type="submit" class="danger" style="padding: 6px 12px; font-size: 0.9em;">Stop</button>
+                                </form>
+                            {% elif inst.state != "unreachable" %}
+                                <form action="/admin/crawlers/{{ inst.name }}/start" method="post" style="display: inline-flex; gap: 6px; align-items: center;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="number" name="concurrency" value="1" min="1" max="10" style="width: 50px; padding: 6px; font-size: 0.9em;">
+                                    <button type="submit" style="background-color: #22c55e; padding: 6px 12px; font-size: 0.9em;">Start</button>
+                                </form>
+                            {% else %}
+                                <span style="color: #666;">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div class="card">

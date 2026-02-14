@@ -42,38 +42,40 @@
 
     <div class="card">
         <h2>Registered Seeds</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>URL</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Last Crawled</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if seeds %}
-                    {% for seed in seeds %}
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead>
                     <tr>
-                        <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ seed.url }}">{{ seed.url }}</td>
-                        <td>{{ seed.status }}</td>
-                        <td>{{ seed.created_at[:10] if seed.created_at else '-' }}</td>
-                        <td>{{ seed.last_crawled_at[:10] if seed.last_crawled_at else '-' }}</td>
-                        <td>
-                            <form method="post" action="/admin/seeds/delete" style="display: inline;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <input type="hidden" name="url" value="{{ seed.url }}">
-                                <button type="submit" class="danger" style="padding: 4px 8px; font-size: 0.8rem;">Delete</button>
-                            </form>
-                        </td>
+                        <th>URL</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Last Crawled</th>
+                        <th>Action</th>
                     </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr><td colspan="5">No seeds registered</td></tr>
-                {% endif %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% if seeds %}
+                        {% for seed in seeds %}
+                        <tr>
+                            <td class="admin-cell-url" title="{{ seed.url }}">{{ seed.url }}</td>
+                            <td>{{ seed.status }}</td>
+                            <td>{{ seed.created_at[:10] if seed.created_at else '-' }}</td>
+                            <td>{{ seed.last_crawled_at[:10] if seed.last_crawled_at else '-' }}</td>
+                            <td>
+                                <form method="post" action="/admin/seeds/delete" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                    <input type="hidden" name="url" value="{{ seed.url }}">
+                                    <button type="submit" class="danger" style="padding: 4px 8px; font-size: 0.8rem;">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="5">No seeds registered</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

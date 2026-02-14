@@ -64,53 +64,57 @@
                 </span>
                 {% endif %}
             </div>
-            <table class="compact">
-                <tr>
-                    <th>Active Tasks</th>
-                    <td>{{ data.active_tasks or 0 }}</td>
-                </tr>
-                <tr>
-                    <th>Crawl Rate</th>
-                    <td>{{ data.crawl_rate }} pages/hour</td>
-                </tr>
-                <tr>
-                    <th>Recent Errors</th>
-                    <td>{{ data.recent_error_count }} in last batch</td>
-                </tr>
-                <tr>
-                    <th>Total Crawled</th>
-                    <td>{{ "{:,}".format(data.visited_count) }}</td>
-                </tr>
-                <tr>
-                    <th>Last Indexed</th>
-                    <td>{{ data.last_crawl or "Never" }}</td>
-                </tr>
-            </table>
+            <div class="table-scroll">
+                <table class="admin-table compact">
+                    <tr>
+                        <th>Active Tasks</th>
+                        <td>{{ data.active_tasks or 0 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Crawl Rate</th>
+                        <td>{{ data.crawl_rate }} pages/hour</td>
+                    </tr>
+                    <tr>
+                        <th>Recent Errors</th>
+                        <td>{{ data.recent_error_count }} in last batch</td>
+                    </tr>
+                    <tr>
+                        <th>Total Crawled</th>
+                        <td>{{ "{:,}".format(data.visited_count) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Last Indexed</th>
+                        <td>{{ data.last_crawl or "Never" }}</td>
+                    </tr>
+                </table>
+            </div>
             <a href="/admin/crawlers" class="link">Manage Instances &rarr;</a>
         </div>
 
         <div class="card">
             <h2>Search Analytics (Today)</h2>
-            <table class="compact">
-                <tr>
-                    <th>Total Searches</th>
-                    <td>{{ "{:,}".format(data.today_searches) }}</td>
-                </tr>
-                <tr>
-                    <th>Unique Queries</th>
-                    <td>{{ "{:,}".format(data.today_unique_queries) }}</td>
-                </tr>
-                <tr>
-                    <th>Zero-hit Queries</th>
-                    <td>{{ data.today_zero_hits }}</td>
-                </tr>
-                {% if data.top_query %}
-                <tr>
-                    <th>Top Query</th>
-                    <td>"{{ data.top_query.query }}" ({{ data.top_query.count }}x)</td>
-                </tr>
-                {% endif %}
-            </table>
+            <div class="table-scroll">
+                <table class="admin-table compact">
+                    <tr>
+                        <th>Total Searches</th>
+                        <td>{{ "{:,}".format(data.today_searches) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Unique Queries</th>
+                        <td>{{ "{:,}".format(data.today_unique_queries) }}</td>
+                    </tr>
+                    <tr>
+                        <th>Zero-hit Queries</th>
+                        <td>{{ data.today_zero_hits }}</td>
+                    </tr>
+                    {% if data.top_query %}
+                    <tr>
+                        <th>Top Query</th>
+                        <td>"{{ data.top_query.query }}" ({{ data.top_query.count }}x)</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
             <a href="/admin/analytics" class="link">View Full Analytics &rarr;</a>
         </div>
     </div>

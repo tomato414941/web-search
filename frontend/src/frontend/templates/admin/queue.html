@@ -37,21 +37,23 @@
 
     <div class="card">
         <h2>Crawl Queue (Top 50)</h2>
-        <table>
-            <thead><tr><th>URL</th><th>Score</th></tr></thead>
-            <tbody>
-                {% if queue_urls %}
-                    {% for url, score in queue_urls %}
-                    <tr>
-                        <td style="max-width: 600px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ url }}">{{ url }}</td>
-                        <td>{{ "%.2f"|format(score) }}</td>
-                    </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr><td colspan="2">Queue is empty or Crawler unavailable</td></tr>
-                {% endif %}
-            </tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="admin-table">
+                <thead><tr><th>URL</th><th>Score</th></tr></thead>
+                <tbody>
+                    {% if queue_urls %}
+                        {% for url, score in queue_urls %}
+                        <tr>
+                            <td class="admin-cell-url" title="{{ url }}">{{ url }}</td>
+                            <td>{{ "%.2f"|format(score) }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="2">Queue is empty or Crawler unavailable</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}

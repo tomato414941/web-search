@@ -24,40 +24,42 @@
             <button type="submit">Filter</button>
         </form>
 
-        <table class="wrap-table">
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Status</th>
-                    <th>Code</th>
-                    <th>URL</th>
-                    <th>Message</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if history_logs %}
-                    {% for log in history_logs %}
+        <div class="table-scroll">
+            <table class="admin-table admin-table--wide wrap-table">
+                <thead>
                     <tr>
-                        <td>{{ log.created_at }}</td>
-                        <td>
-                            {% if log.status == "indexed" %}
-                            <span style="color: #66bb6a">{{ log.status }}</span>
-                            {% elif log.status == "blocked" %}
-                            <span style="color: #ffa726">{{ log.status }}</span>
-                            {% else %}
-                            <span style="color: #ef5350">{{ log.status }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ log.http_code or "-" }}</td>
-                        <td>{{ log.url }}</td>
-                        <td>{{ log.error_message or "" }}</td>
+                        <th>Time</th>
+                        <th>Status</th>
+                        <th>Code</th>
+                        <th>URL</th>
+                        <th>Message</th>
                     </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr><td colspan="5">No logs found</td></tr>
-                {% endif %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% if history_logs %}
+                        {% for log in history_logs %}
+                        <tr>
+                            <td>{{ log.created_at }}</td>
+                            <td>
+                                {% if log.status == "indexed" %}
+                                <span style="color: #66bb6a">{{ log.status }}</span>
+                                {% elif log.status == "blocked" %}
+                                <span style="color: #ffa726">{{ log.status }}</span>
+                                {% else %}
+                                <span style="color: #ef5350">{{ log.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.http_code or "-" }}</td>
+                            <td class="admin-cell-url" title="{{ log.url }}">{{ log.url }}</td>
+                            <td>{{ log.error_message or "" }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr><td colspan="5">No logs found</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 {% endblock %}
