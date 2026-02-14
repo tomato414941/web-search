@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, HttpUrl, Field
 from app.core.config import settings
 from app.services.indexer import indexer_service
+from app.services.index_jobs import IndexJobService
 from shared.pagerank import calculate_pagerank, calculate_domain_pagerank
 
 logger = logging.getLogger(__name__)
@@ -26,27 +27,33 @@ class PageSubmission(BaseModel):
     outlinks: list[str] = Field(default_factory=list, max_length=500)
 
 
+index_job_service = IndexJobService(
+    settings.DB_PATH,
+    max_retries=settings.INDEXER_JOB_MAX_RETRIES,
+    retry_base_seconds=settings.INDEXER_JOB_RETRY_BASE_SEC,
+    retry_max_seconds=settings.INDEXER_JOB_RETRY_MAX_SEC,
+)
+
+
 def verify_api_key(x_api_key: str) -> None:
     """Verify API key from header."""
     if not secrets.compare_digest(x_api_key, settings.INDEXER_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
-@router.post("/page")
+@router.post("/page", status_code=202)
 async def submit_page(
     page: PageSubmission, x_api_key: str = Header(..., alias="X-API-Key")
 ) -> dict:
     """
-    Submit a crawled page for indexing.
+    Queue a crawled page for asynchronous indexing.
 
     Requires X-API-Key header for authentication.
     """
-    # Verify API key
     verify_api_key(x_api_key)
 
-    # Index the page (async)
     try:
-        await indexer_service.index_page(
+        job_id, created = index_job_service.enqueue(
             url=str(page.url),
             title=page.title,
             content=page.content,
@@ -54,14 +61,29 @@ async def submit_page(
         )
         return {
             "ok": True,
-            "message": "Page indexed successfully",
+            "queued": True,
+            "job_id": job_id,
+            "deduplicated": not created,
+            "message": "Page queued for indexing",
             "url": str(page.url),
         }
     except Exception as e:
-        # Log full error details internally
-        logger.error(f"Indexing failed for {page.url}: {e}", exc_info=True)
-        # Return generic error to client (no internal details)
-        raise HTTPException(status_code=500, detail="Indexing failed")
+        logger.error(f"Queueing failed for {page.url}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Queueing failed")
+
+
+@router.get("/jobs/{job_id}")
+async def get_job_status(
+    job_id: str, x_api_key: str = Header(..., alias="X-API-Key")
+) -> dict:
+    """Get asynchronous indexing job status."""
+    verify_api_key(x_api_key)
+
+    job = index_job_service.get_job_status(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return {"ok": True, **job}
 
 
 @router.post("/pagerank")
@@ -88,5 +110,11 @@ async def health_check(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
 
     # Get index stats
     stats = indexer_service.get_index_stats()
+    queue_stats = index_job_service.get_queue_stats()
 
-    return {"ok": True, "service": "indexer", "indexed_pages": stats.get("total", 0)}
+    return {
+        "ok": True,
+        "service": "indexer",
+        "indexed_pages": stats.get("total", 0),
+        **queue_stats,
+    }

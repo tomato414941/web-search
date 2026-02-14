@@ -25,6 +25,17 @@ class IndexerSettings(InfrastructureSettings):
     # OpenAI Embeddings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
+    # Async index job worker
+    INDEXER_JOB_WORKERS: int = int(os.getenv("INDEXER_JOB_WORKERS", "4"))
+    INDEXER_JOB_BATCH_SIZE: int = int(os.getenv("INDEXER_JOB_BATCH_SIZE", "20"))
+    INDEXER_JOB_LEASE_SEC: int = int(os.getenv("INDEXER_JOB_LEASE_SEC", "120"))
+    INDEXER_JOB_MAX_RETRIES: int = int(os.getenv("INDEXER_JOB_MAX_RETRIES", "5"))
+    INDEXER_JOB_POLL_INTERVAL_MS: int = int(
+        os.getenv("INDEXER_JOB_POLL_INTERVAL_MS", "200")
+    )
+    INDEXER_JOB_RETRY_BASE_SEC: int = int(os.getenv("INDEXER_JOB_RETRY_BASE_SEC", "5"))
+    INDEXER_JOB_RETRY_MAX_SEC: int = int(os.getenv("INDEXER_JOB_RETRY_MAX_SEC", "1800"))
+
     # PageRank scheduling
     PAGERANK_INTERVAL_HOURS: int = int(os.getenv("PAGERANK_INTERVAL_HOURS", "24"))
     DOMAIN_RANK_INTERVAL_HOURS: int = int(os.getenv("DOMAIN_RANK_INTERVAL_HOURS", "6"))

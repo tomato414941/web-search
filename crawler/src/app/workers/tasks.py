@@ -140,7 +140,7 @@ async def process_url(
                     discovered = discovered[: settings.CRAWL_OUTLINKS_PER_PAGE]
 
                 if content:
-                    # 4. Submit to Indexer API (with outlinks)
+                    # 4. Submit to Indexer queue API (with outlinks)
                     indexer_result = await submit_page_to_indexer(
                         session,
                         settings.INDEXER_API_URL,
@@ -154,7 +154,16 @@ async def process_url(
                     if indexer_result.ok:
                         # Clear retry count on success
                         state.retry_counts.pop(url, None)
-                        history_log.log_crawl_attempt(url, "indexed", 200)
+                        history_log.log_crawl_attempt(
+                            url,
+                            "queued_for_index",
+                            indexer_result.status_code or 202,
+                            (
+                                f"job_id={indexer_result.job_id}"
+                                if indexer_result.job_id
+                                else None
+                            ),
+                        )
                         url_store.record(url, status="done")
                     else:
                         http_code = indexer_result.status_code or 500

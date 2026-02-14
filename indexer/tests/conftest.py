@@ -46,13 +46,17 @@ def setup_test_env():
     with patch("app.core.config.settings.DB_PATH", TEST_DB_PATH):
         # Also patch the instantiated indexer_service's db_path
         from app.services.indexer import indexer_service
+        from app.api.routes.indexer import index_job_service
 
         original_indexer_path = indexer_service.db_path
+        original_job_db_path = index_job_service.db_path
         indexer_service.db_path = TEST_DB_PATH
+        index_job_service.db_path = TEST_DB_PATH
 
         yield
 
         indexer_service.db_path = original_indexer_path
+        index_job_service.db_path = original_job_db_path
 
     # Cleanup with retry
     if os.path.exists(TEST_DB_PATH):

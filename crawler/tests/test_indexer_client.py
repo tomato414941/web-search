@@ -13,7 +13,8 @@ from app.services.indexer import submit_page_to_indexer
 async def test_submit_page_success():
     """Test successful page submission to indexer"""
     mock_response = AsyncMock()
-    mock_response.status = 200
+    mock_response.status = 202
+    mock_response.json = AsyncMock(return_value={"job_id": "job-123"})
 
     mock_session = MagicMock()
     mock_session.post.return_value.__aenter__.return_value = mock_response
@@ -28,7 +29,8 @@ async def test_submit_page_success():
     )
 
     assert result.ok is True
-    assert result.status_code == 200
+    assert result.status_code == 202
+    assert result.job_id == "job-123"
 
     # Verify POST was called with correct parameters
     mock_session.post.assert_called_once()
@@ -111,7 +113,8 @@ async def test_submit_page_timeout():
 async def test_submit_page_authentication():
     """Test API key is correctly included"""
     mock_response = AsyncMock()
-    mock_response.status = 200
+    mock_response.status = 202
+    mock_response.json = AsyncMock(return_value={"job_id": "job-xyz"})
 
     mock_session = MagicMock()
     mock_session.post.return_value.__aenter__.return_value = mock_response

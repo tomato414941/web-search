@@ -26,7 +26,9 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
     worker_status = await worker_manager.get_status()
     status_counts = get_status_counts(hours=1)
     attempts_count = sum(status_counts.values())
-    indexed_count = status_counts.get("indexed", 0)
+    indexed_count = status_counts.get("indexed", 0) + status_counts.get(
+        "queued_for_index", 0
+    )
     success_rate = (
         round((indexed_count / attempts_count) * 100, 1) if attempts_count > 0 else 0.0
     )

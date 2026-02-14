@@ -105,6 +105,32 @@ CREATE INDEX IF NOT EXISTS idx_search_events_created ON search_events(created_at
 CREATE INDEX IF NOT EXISTS idx_search_events_type_created ON search_events(event_type, created_at);
 CREATE INDEX IF NOT EXISTS idx_search_events_query_created ON search_events(query_norm, created_at);
 CREATE INDEX IF NOT EXISTS idx_search_events_request_id ON search_events(request_id);
+
+-- ============================================
+-- Indexer Async Job Queue
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS index_jobs (
+  job_id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  outlinks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status TEXT NOT NULL,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  max_retries INTEGER NOT NULL DEFAULT 5,
+  available_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+  lease_until BIGINT,
+  worker_id TEXT,
+  last_error TEXT,
+  created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+  updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
+  content_hash TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL UNIQUE
+);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_status_available ON index_jobs(status, available_at);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_status_lease ON index_jobs(status, lease_until);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at);
 """
 
 # SQLite schema for local development
@@ -196,6 +222,29 @@ CREATE INDEX IF NOT EXISTS idx_search_events_created ON search_events(created_at
 CREATE INDEX IF NOT EXISTS idx_search_events_type_created ON search_events(event_type, created_at);
 CREATE INDEX IF NOT EXISTS idx_search_events_query_created ON search_events(query_norm, created_at);
 CREATE INDEX IF NOT EXISTS idx_search_events_request_id ON search_events(request_id);
+
+-- Indexer Async Job Queue
+CREATE TABLE IF NOT EXISTS index_jobs (
+  job_id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  outlinks TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  max_retries INTEGER NOT NULL DEFAULT 5,
+  available_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  lease_until INTEGER,
+  worker_id TEXT,
+  last_error TEXT,
+  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  content_hash TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL UNIQUE
+);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_status_available ON index_jobs(status, available_at);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_status_lease ON index_jobs(status, lease_until);
+CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at);
 """
 
 

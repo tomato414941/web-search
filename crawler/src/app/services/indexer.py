@@ -19,6 +19,7 @@ class IndexerSubmitResult:
     ok: bool
     status_code: int | None = None
     detail: str | None = None
+    job_id: str | None = None
 
 
 def _normalize_error_text(text: str) -> str:
@@ -91,9 +92,15 @@ async def submit_page_to_indexer(
         async with session.post(
             api_url, json=payload, headers=headers, timeout=60
         ) as resp:
-            if resp.status == 200:
-                logger.info(f"✅ Indexed: {url}")
-                return IndexerSubmitResult(ok=True, status_code=resp.status)
+            if resp.status == 202:
+                response_body = await resp.json()
+                job_id = response_body.get("job_id")
+                logger.info(f"✅ Queued for indexing: {url} (job_id={job_id})")
+                return IndexerSubmitResult(
+                    ok=True,
+                    status_code=resp.status,
+                    job_id=str(job_id) if job_id else None,
+                )
 
             error_text = await resp.text()
             detail = _summarize_indexer_error(resp.status, error_text)
