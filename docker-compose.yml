@@ -96,6 +96,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from shared.db.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.execute('SELECT 1 FROM index_jobs LIMIT 1'); cur.close(); c.close()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   crawler:
     build:
