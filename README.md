@@ -11,7 +11,7 @@ with SudachiPy tokenization, and a modern UI.
     - **Search Service (Frontend)**: Read-only, scalable, serving UI & API.
     - **Indexer Service**: Dedicated Write-node for heavy processing (Tokenization, Embedding).
     - **Crawler Service**: Distributed worker nodes.
-- **CQRS-lite**: Read (`:8080`) and Write (`:8081`) paths are split by service with a shared DB.
+- **CQRS-lite**: Read (`:8083`) and Write (`:8081`) paths are split by service with a shared DB.
 - **Parallel Crawler**: SQLite-based URL frontier/history for crawl state.
 - **Internationalization (i18n)**: UI supports both English and Japanese.
 - **API First**: Provides JSON endpoints for search, stats, and crawling.
@@ -37,9 +37,10 @@ docker compose up --build -d
 
 Once running, access the following:
 
-- **Search UI**: [http://localhost:8080/](http://localhost:8080/)
-- **API Docs**: [http://localhost:8080/docs](http://localhost:8080/docs)
+- **Search UI**: [http://localhost:8083/](http://localhost:8083/)
+- **API Docs**: [http://localhost:8083/docs](http://localhost:8083/docs)
 - **Indexer API**: [http://localhost:8081/docs](http://localhost:8081/docs)
+- **Crawler API**: [http://localhost:8082/docs](http://localhost:8082/docs)
 
 ## Architecture
 

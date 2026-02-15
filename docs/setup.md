@@ -13,7 +13,7 @@ docker compose up --build -d
 ```
 
 Services and ports:
-- Frontend (UI + Search API): http://localhost:8080
+- Frontend (UI + Search API): http://localhost:8083
 - Indexer (Write API): http://localhost:8081
 - Crawler (API): http://localhost:8082
 - PostgreSQL: internal to the compose network
@@ -55,7 +55,7 @@ Use separate terminals:
 
 ```bash
 export PYTHONPATH=frontend/src
-uvicorn frontend.api.main:app --reload --port 8080
+uvicorn frontend.api.main:app --reload --port 8083
 ```
 
 ```bash

@@ -15,7 +15,7 @@ Run commands from the repo root unless noted:
 - `python3 -m venv .venv && source .venv/bin/activate` to create and activate the venv.
 - `pip install -e shared/` then `pip install -r frontend/requirements.txt` (repeat for `indexer/`, `crawler/`).
 - `cp .env.example .env && set -a && source .env && set +a` to load env vars.
-- `export PYTHONPATH=frontend/src && uvicorn frontend.api.main:app --reload --port 8080` to run the frontend API.
+- `export PYTHONPATH=frontend/src && uvicorn frontend.api.main:app --reload --port 8083` to run the frontend API.
 - `export PYTHONPATH=indexer/src && uvicorn app.main:app --reload --port 8081` to run the indexer.
 - `export PYTHONPATH=crawler/src && uvicorn app.main:app --reload --port 8082` to run the crawler.
 - `docker compose up --build -d` to start the full stack (frontend, indexer, crawler).

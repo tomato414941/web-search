@@ -5,13 +5,13 @@ The `web-search` project provides a RESTful JSON API across multiple services.
 **Global API Prefix**: `/api/v1`
 
 ## Services
-*   **Frontend Service**: `http://localhost:8080` (Search, Admin, Proxy)
+*   **Frontend Service**: `http://localhost:8083` (Search, Admin, Proxy)
 *   **Indexer Service**: `http://localhost:8081` (Write-only)
-*   **Crawler Service**: `http://localhost:8000` (Worker Control)
+*   **Crawler Service**: `http://localhost:8082` (Worker Control)
 
 ---
 
-## Frontend Service (`:8080`)
+## Frontend Service (`:8083`)
 
 ### `GET /api/v1/search`
 Perform a search.
@@ -100,7 +100,7 @@ Health check. Root-level `/health` is preferred; `/api/v1/health` is for backwar
 
 ---
 
-## Crawler Service (`:8000`)
+## Crawler Service (`:8082`)
 
 ### `POST /api/v1/urls`
 Directly enqueue URLs.

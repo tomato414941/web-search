@@ -9,7 +9,7 @@ The system consists of three independent services managed in a Monorepo:
 1.  **Frontend Service (Search Cluster)**:
     -   **Role**: UI, Search API (Read-Only), Admin Dashboard (Crawler Control, Analytics).
     -   **Stack**: FastAPI + PostgreSQL (production) or SQLite (local dev).
-    -   **Port**: `8080`.
+    -   **Port**: `8083`.
     -   **Scaling**: Can scale horizontally; shared DB in production.
     -   **Dependencies**: Depends on `shared` for DB models/Analyzer.
 2.  **Indexer Service (Write Cluster)**:
@@ -25,7 +25,7 @@ The system consists of three independent services managed in a Monorepo:
 
 ```mermaid
 graph TD
-    Client[User / Browser] --> Frontend[Frontend Service (8080)]
+    Client[User / Browser] --> Frontend[Frontend Service (8083)]
 
     subgraph Data Layer
         DB[(PostgreSQL (prod) / SQLite (dev))]
