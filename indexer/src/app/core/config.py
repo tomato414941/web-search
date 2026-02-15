@@ -24,6 +24,7 @@ class IndexerSettings(InfrastructureSettings):
 
     # OpenAI Embeddings
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_EMBED_TIMEOUT_SEC: int = int(os.getenv("OPENAI_EMBED_TIMEOUT_SEC", "30"))
 
     # Async index job worker
     INDEXER_JOB_WORKERS: int = int(os.getenv("INDEXER_JOB_WORKERS", "4"))

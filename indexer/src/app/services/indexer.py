@@ -1,5 +1,6 @@
 """Indexer Service - handles page indexing with custom search engine and embeddings."""
 
+import asyncio
 import logging
 
 from app.core.config import settings
@@ -38,12 +39,12 @@ class IndexerService:
         outlinks: list[str] | None = None,
     ):
         """Index a single page into the database (async for embedding)."""
+        safe_title = _sanitize_text(title)
+        safe_content = _sanitize_text(content)
+        safe_outlinks = _sanitize_outlinks(outlinks)
+
         conn = get_connection(self.db_path)
         try:
-            safe_title = _sanitize_text(title)
-            safe_content = _sanitize_text(content)
-            safe_outlinks = _sanitize_outlinks(outlinks)
-
             # Index using custom search engine (inverted index)
             self.search_indexer.index_document(url, safe_title, safe_content, conn)
 
@@ -51,32 +52,9 @@ class IndexerService:
             if safe_outlinks:
                 self._save_links(conn, url, safe_outlinks)
 
-            # Generate and store embedding (skip if no OpenAI key)
-            if settings.OPENAI_API_KEY:
-                try:
-                    vector_blob = await embedding_service.embed(safe_content)
-                    if vector_blob:
-                        ph = sql_placeholder()
-                        cur = conn.cursor()
-                        try:
-                            cur.execute(
-                                f"DELETE FROM page_embeddings WHERE url={ph}", (url,)
-                            )
-                            cur.execute(
-                                f"INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})",
-                                (url, vector_blob),
-                            )
-                        finally:
-                            cur.close()
-                except Exception as embed_error:
-                    # Don't fail indexing if embedding fails
-                    logger.warning(f"Embedding failed for {url}: {embed_error}")
-
             # Update global stats periodically (every index for now, optimize later)
             self.search_indexer.update_global_stats(conn)
             conn.commit()
-
-            logger.info(f"Indexed: {url}")
         except Exception as e:
             conn.rollback()
             logger.error(f"DB Error indexing {url}: {e}")
@@ -84,11 +62,28 @@ class IndexerService:
         finally:
             conn.close()
 
+        if settings.OPENAI_API_KEY:
+            try:
+                vector_blob = await asyncio.wait_for(
+                    embedding_service.embed(safe_content),
+                    timeout=max(1, settings.OPENAI_EMBED_TIMEOUT_SEC),
+                )
+                if vector_blob:
+                    self._save_embedding(url, vector_blob)
+            except asyncio.TimeoutError:
+                logger.warning("Embedding timed out for %s", url)
+            except Exception as embed_error:
+                logger.warning("Embedding failed for %s: %s", url, embed_error)
+
+        logger.info("Indexed: %s", url)
+
     def _save_links(self, conn, src_url: str, outlinks: list[str]) -> None:
         """Save outlinks to the links table."""
         ph = sql_placeholder()
         cur = conn.cursor()
+        savepoint = "sp_save_links"
         try:
+            cur.execute(f"SAVEPOINT {savepoint}")
             # Remove old links from this page
             cur.execute(f"DELETE FROM links WHERE src = {ph}", (src_url,))
             # Insert new links (skip self-links)
@@ -105,10 +100,37 @@ class IndexerService:
                             f"INSERT OR IGNORE INTO links (src, dst) VALUES ({ph}, {ph})",
                             (src_url, dst),
                         )
+            cur.execute(f"RELEASE SAVEPOINT {savepoint}")
         except Exception as e:
             logger.warning(f"Failed to save links for {src_url}: {e}")
+            try:
+                cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                cur.execute(f"RELEASE SAVEPOINT {savepoint}")
+            except Exception:
+                logger.exception("Failed to rollback savepoint for links: %s", src_url)
+                raise
         finally:
             cur.close()
+
+    def _save_embedding(self, url: str, vector_blob: bytes) -> None:
+        ph = sql_placeholder()
+        conn = get_connection(self.db_path)
+        try:
+            cur = conn.cursor()
+            try:
+                cur.execute(f"DELETE FROM page_embeddings WHERE url={ph}", (url,))
+                cur.execute(
+                    f"INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})",
+                    (url, vector_blob),
+                )
+            finally:
+                cur.close()
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            logger.warning("Failed to store embedding for %s: %s", url, e)
+        finally:
+            conn.close()
 
     def get_index_stats(self):
         """Get indexing statistics."""
