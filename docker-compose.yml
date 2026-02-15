@@ -72,6 +72,31 @@ services:
       retries: 3
       start_period: 20s
 
+  indexer-worker:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    container_name: web-search-indexer-worker
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - INDEXER_JOB_WORKERS=${INDEXER_JOB_WORKERS:-4}
+      - INDEXER_JOB_BATCH_SIZE=${INDEXER_JOB_BATCH_SIZE:-20}
+      - INDEXER_JOB_LEASE_SEC=${INDEXER_JOB_LEASE_SEC:-120}
+      - INDEXER_JOB_MAX_RETRIES=${INDEXER_JOB_MAX_RETRIES:-5}
+      - INDEXER_JOB_POLL_INTERVAL_MS=${INDEXER_JOB_POLL_INTERVAL_MS:-200}
+      - INDEXER_JOB_RETRY_BASE_SEC=${INDEXER_JOB_RETRY_BASE_SEC:-5}
+      - INDEXER_JOB_RETRY_MAX_SEC=${INDEXER_JOB_RETRY_MAX_SEC:-1800}
+      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
+      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-6}
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   crawler:
     build:
       context: .
