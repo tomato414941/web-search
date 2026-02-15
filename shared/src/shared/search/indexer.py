@@ -231,31 +231,46 @@ class SearchIndexer:
         tokens: list[str],
     ) -> None:
         """Update document frequency for tokens."""
-        unique_tokens = set(tokens)
+        unique_tokens = sorted(set(tokens))
+        if not unique_tokens:
+            return
         ph = sql_placeholder()
 
         cur = conn.cursor()
-        for token in unique_tokens:
-            # Count how many documents contain this token
-            cur.execute(
-                f"""
-                SELECT COUNT(DISTINCT url) FROM inverted_index WHERE token = {ph}
-                """,
-                (token,),
-            )
-            doc_freq = cur.fetchone()[0]
-
+        try:
             if is_postgres_mode():
+                # Batch doc_freq calculation to avoid per-token COUNT queries.
                 cur.execute(
                     f"""
-                    INSERT INTO token_stats (token, doc_freq) VALUES ({ph}, {ph})
-                    ON CONFLICT (token) DO UPDATE SET doc_freq = EXCLUDED.doc_freq
+                    SELECT token, COUNT(DISTINCT url) AS doc_freq
+                    FROM inverted_index
+                    WHERE token = ANY({ph})
+                    GROUP BY token
                     """,
-                    (token, doc_freq),
+                    (unique_tokens,),
                 )
-            else:
+                rows = [
+                    (str(token), int(doc_freq)) for token, doc_freq in cur.fetchall()
+                ]
+                if rows:
+                    cur.executemany(
+                        f"""
+                        INSERT INTO token_stats (token, doc_freq) VALUES ({ph}, {ph})
+                        ON CONFLICT (token) DO UPDATE SET doc_freq = EXCLUDED.doc_freq
+                        """,
+                        rows,
+                    )
+                return
+
+            for token in unique_tokens:
+                cur.execute(
+                    f"SELECT COUNT(DISTINCT url) FROM inverted_index WHERE token = {ph}",
+                    (token,),
+                )
+                doc_freq = cur.fetchone()[0]
                 cur.execute(
                     f"INSERT OR REPLACE INTO token_stats (token, doc_freq) VALUES ({ph}, {ph})",
                     (token, doc_freq),
                 )
-        cur.close()
+        finally:
+            cur.close()
