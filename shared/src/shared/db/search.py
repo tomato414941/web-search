@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS inverted_index (
   PRIMARY KEY (token, url, field)
 );
 CREATE INDEX IF NOT EXISTS idx_inverted_token ON inverted_index(token);
+CREATE INDEX IF NOT EXISTS idx_inverted_url ON inverted_index(url);
 
 -- Global index statistics (for BM25)
 CREATE TABLE IF NOT EXISTS index_stats (
@@ -180,6 +181,7 @@ CREATE TABLE IF NOT EXISTS inverted_index (
   PRIMARY KEY (token, url, field)
 );
 CREATE INDEX IF NOT EXISTS idx_inverted_token ON inverted_index(token);
+CREATE INDEX IF NOT EXISTS idx_inverted_url ON inverted_index(url);
 
 -- Global index statistics
 CREATE TABLE IF NOT EXISTS index_stats (
