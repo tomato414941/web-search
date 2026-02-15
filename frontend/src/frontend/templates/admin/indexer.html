@@ -1,0 +1,95 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Indexer{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Pale Blue Search Admin</h1>
+        <div class="nav">
+            <a href="/admin/">Dashboard</a>
+            <a href="/admin/crawlers">Crawlers</a>
+            <a href="/admin/indexer" class="active">Indexer</a>
+            <a href="/admin/seeds">Seeds</a>
+            <a href="/admin/queue">Queue</a>
+            <a href="/admin/history">Crawl History</a>
+            <a href="/admin/analytics">Analytics</a>
+            <a href="/admin/logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Indexer Status</h2>
+        {% if health.reachable %}
+        <div class="status-row">
+            <span class="status-indicator running"></span>
+            <span>Reachable</span>
+            {% if health.http_status %}
+            <span class="muted">(HTTP {{ health.http_status }})</span>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="status-row">
+            <span class="status-indicator stopped"></span>
+            <span>Unreachable</span>
+            {% if health.error %}
+            <span class="muted">({{ health.error }})</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <p class="muted">Service URL: {{ indexer_url }}</p>
+    </div>
+
+    <div class="card">
+        <h2>Job Queue</h2>
+        <div class="table-scroll">
+            <table class="admin-table compact">
+                <tr>
+                    <th>Indexed Pages</th>
+                    <td>{{ "{:,}".format(health.indexed_pages or 0) }}</td>
+                </tr>
+                <tr>
+                    <th>Pending Jobs</th>
+                    <td>{{ "{:,}".format(health.pending_jobs or 0) }}</td>
+                </tr>
+                <tr>
+                    <th>Processing Jobs</th>
+                    <td>{{ "{:,}".format(health.processing_jobs or 0) }}</td>
+                </tr>
+                <tr>
+                    <th>Failed (Permanent)</th>
+                    <td>{{ "{:,}".format(health.failed_permanent_jobs or 0) }}</td>
+                </tr>
+                <tr>
+                    <th>Done Jobs</th>
+                    <td>{{ "{:,}".format(health.done_jobs or 0) }}</td>
+                </tr>
+                <tr>
+                    <th>Total Jobs</th>
+                    <td>{{ "{:,}".format(health.total_jobs or 0) }}</td>
+                </tr>
+                <tr>
+                    <th>Oldest Pending</th>
+                    <td>
+                        {% set s = health.oldest_pending_seconds or 0 %}
+                        {% set h = s // 3600 %}
+                        {% set m = (s % 3600) // 60 %}
+                        {% set sec = s % 60 %}
+                        {% if h > 0 %}
+                            {{ h }}h {{ m }}m
+                        {% elif m > 0 %}
+                            {{ m }}m {{ sec }}s
+                        {% else %}
+                            {{ sec }}s
+                        {% endif %}
+                    </td>
+                </tr>
+            </table>
+        </div>
+        <p class="muted" style="margin-top: 12px;">
+            Stats are fetched server-side from <code>/api/v1/indexer/health</code> (requires <code>X-API-Key</code>).
+        </p>
+    </div>
+</div>
+{% endblock %}

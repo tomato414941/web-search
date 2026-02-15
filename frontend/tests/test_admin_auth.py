@@ -162,6 +162,13 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
+    def test_indexer_page_requires_auth(self):
+        """Indexer page should require authentication."""
+        client.cookies.clear()
+        response = client.get("/admin/indexer", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/login"
+
     def test_crawlers_page_with_valid_session(self):
         """Crawlers page should be accessible with valid session."""
         client.cookies.clear()
@@ -182,6 +189,23 @@ class TestAdminAuthentication:
         assert "Indexed/h" in response.text
         assert "Success" in response.text
         assert "Errors/h" in response.text
+
+    def test_indexer_page_with_valid_session(self):
+        """Indexer page should be accessible with valid session."""
+        client.cookies.clear()
+        csrf_token = get_csrf_token_from_login_page()
+        client.post(
+            "/admin/login",
+            data={
+                "username": settings.ADMIN_USERNAME,
+                "password": settings.ADMIN_PASSWORD,
+                "csrf_token": csrf_token,
+            },
+        )
+        response = client.get("/admin/indexer")
+        assert response.status_code == 200
+        assert "Indexer Status" in response.text
+        assert "Job Queue" in response.text
 
     def test_crawler_start_requires_auth(self):
         """Starting a crawler instance should require authentication."""

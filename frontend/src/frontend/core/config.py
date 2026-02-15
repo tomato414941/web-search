@@ -21,6 +21,9 @@ class Settings(InfrastructureSettings):
     # Crawler Service Integration
     CRAWLER_SERVICE_URL: str = os.getenv("CRAWLER_SERVICE_URL", "http://localhost:8000")
 
+    # Indexer Service Integration (Admin stats UI, internal-only in docker)
+    INDEXER_SERVICE_URL: str = os.getenv("INDEXER_SERVICE_URL", "http://localhost:8081")
+
     @property
     def CRAWLER_INSTANCES(self) -> list[dict[str, str]]:
         """Parse CRAWLER_INSTANCES env var: 'name1|url1,name2|url2'"""

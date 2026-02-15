@@ -7,6 +7,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
 from frontend.api.routers.admin_crawlers import router as crawlers_router
+from frontend.api.routers.admin_indexer import router as indexer_router
 from frontend.api.templates import templates
 from frontend.core.config import settings
 from frontend.services.admin_analytics import get_analytics_data
@@ -309,3 +310,4 @@ async def analytics_page(request: Request):
 
 
 router.include_router(crawlers_router)
+router.include_router(indexer_router)
