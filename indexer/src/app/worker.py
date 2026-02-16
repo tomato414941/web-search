@@ -23,6 +23,18 @@ async def _pagerank_loop() -> None:
             logger.exception("Page PageRank calculation failed")
 
 
+async def _job_cleanup_loop() -> None:
+    cleanup_interval = int(os.getenv("JOB_CLEANUP_INTERVAL_HOURS", "6")) * 3600
+    max_age = int(os.getenv("JOB_CLEANUP_MAX_AGE_DAYS", "7")) * 86400
+    while True:
+        await asyncio.sleep(cleanup_interval)
+        try:
+            deleted = indexer.index_job_service.cleanup_old_done_jobs(max_age)
+            logger.info("Job cleanup: deleted %d old done jobs", deleted)
+        except Exception:
+            logger.exception("Job cleanup failed")
+
+
 async def _domain_rank_loop() -> None:
     interval = settings.DOMAIN_RANK_INTERVAL_HOURS * 3600
     while True:
@@ -36,6 +48,7 @@ async def _domain_rank_loop() -> None:
 
 async def _index_job_worker_loop(worker_name: str) -> None:
     poll_interval = max(settings.INDEXER_JOB_POLL_INTERVAL_MS, 50) / 1000.0
+    use_batch_embed = bool(settings.OPENAI_API_KEY)
 
     while True:
         try:
@@ -53,6 +66,9 @@ async def _index_job_worker_loop(worker_name: str) -> None:
             await asyncio.sleep(poll_interval)
             continue
 
+        # Collect (url, content) for batch embedding
+        embed_items: list[tuple[str, str]] = []
+
         for job in jobs:
             try:
                 await indexer_service.index_page(
@@ -60,8 +76,11 @@ async def _index_job_worker_loop(worker_name: str) -> None:
                     title=job.title,
                     content=job.content,
                     outlinks=job.outlinks,
+                    skip_embedding=use_batch_embed,
                 )
                 indexer.index_job_service.mark_done(job.job_id)
+                if use_batch_embed and job.content:
+                    embed_items.append((job.url, job.content))
             except Exception as exc:
                 error_text = str(exc)
                 logger.exception(
@@ -72,6 +91,17 @@ async def _index_job_worker_loop(worker_name: str) -> None:
                     error_text,
                 )
                 indexer.index_job_service.mark_failure(job.job_id, error_text)
+
+        # Batch embed all successful pages at once
+        if embed_items:
+            try:
+                await indexer_service.embed_and_save_batch(embed_items)
+            except Exception:
+                logger.exception(
+                    "%s batch embedding failed for %d items",
+                    worker_name,
+                    len(embed_items),
+                )
 
 
 async def main() -> None:
@@ -90,6 +120,7 @@ async def main() -> None:
 
     pr_task = asyncio.create_task(_pagerank_loop())
     dr_task = asyncio.create_task(_domain_rank_loop())
+    cleanup_task = asyncio.create_task(_job_cleanup_loop())
     job_workers = [
         asyncio.create_task(_index_job_worker_loop(f"indexer-worker-{i + 1}"))
         for i in range(max(1, settings.INDEXER_JOB_WORKERS))
@@ -108,10 +139,13 @@ async def main() -> None:
     logger.info("Shutting down indexer worker")
     pr_task.cancel()
     dr_task.cancel()
+    cleanup_task.cancel()
     for worker_task in job_workers:
         worker_task.cancel()
 
-    await asyncio.gather(pr_task, dr_task, *job_workers, return_exceptions=True)
+    await asyncio.gather(
+        pr_task, dr_task, cleanup_task, *job_workers, return_exceptions=True
+    )
 
 
 if __name__ == "__main__":

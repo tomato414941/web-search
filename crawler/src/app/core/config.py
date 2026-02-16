@@ -34,6 +34,19 @@ class CrawlerSettings(InfrastructureSettings):
         s.strip() for s in os.getenv("CRAWL_SEEDS", "").split() if s.strip()
     ]
 
+    # Scheduler
+    SCHEDULER_BATCH_SIZE: int = int(os.getenv("SCHEDULER_BATCH_SIZE", "500"))
+    SCHEDULER_DOMAIN_MIN_INTERVAL: float = float(
+        os.getenv("SCHEDULER_DOMAIN_MIN_INTERVAL", "1.0")
+    )
+    SCHEDULER_DOMAIN_MAX_CONCURRENT: int = int(
+        os.getenv("SCHEDULER_DOMAIN_MAX_CONCURRENT", "2")
+    )
+
+    # TCP / networking
+    CRAWL_TCP_LIMIT: int = int(os.getenv("CRAWL_TCP_LIMIT", "200"))
+    ROBOTS_CACHE_SIZE: int = int(os.getenv("ROBOTS_CACHE_SIZE", "50000"))
+
     # Indexer API (for submitting crawled pages)
     INDEXER_API_URL: str = os.getenv(
         "INDEXER_API_URL", "http://localhost:8000/api/v1/indexer/page"

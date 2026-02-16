@@ -23,10 +23,11 @@ BLOCKED_DOMAIN_TTL = 3600
 class AsyncRobotsCache:
     """Async wrapper for robots.txt parsing with LRU eviction"""
 
-    def __init__(self, session: aiohttp.ClientSession):
+    def __init__(self, session: aiohttp.ClientSession, cache_size: int = 0):
         self._session = session
+        effective_size = cache_size if cache_size > 0 else MAX_CACHED_DOMAINS
         self._parsers: LRUCache[str, urllib.robotparser.RobotFileParser] = LRUCache(
-            maxsize=MAX_CACHED_DOMAINS
+            maxsize=effective_size
         )
         # TTL cache for blocked domains (expires after 1 hour)
         self._blocked_domains: TTLCache[str, bool] = TTLCache(

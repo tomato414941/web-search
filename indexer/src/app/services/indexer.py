@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 
 from app.core.config import settings
 from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
@@ -9,6 +10,8 @@ from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
 
 logger = logging.getLogger(__name__)
+
+STATS_UPDATE_INTERVAL = int(os.getenv("STATS_UPDATE_INTERVAL", "1000"))
 
 
 def _sanitize_text(value: str) -> str:
@@ -30,6 +33,8 @@ class IndexerService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
         self.search_indexer = SearchIndexer(db_path)
+        self._pages_since_stats_update = 0
+        self._stats_update_interval = STATS_UPDATE_INTERVAL
 
     async def index_page(
         self,
@@ -37,8 +42,14 @@ class IndexerService:
         title: str,
         content: str,
         outlinks: list[str] | None = None,
+        *,
+        skip_embedding: bool = False,
     ):
-        """Index a single page into the database (async for embedding)."""
+        """Index a single page into the database.
+
+        Args:
+            skip_embedding: If True, skip per-page embedding (for batch mode).
+        """
         safe_title = _sanitize_text(title)
         safe_content = _sanitize_text(content)
         safe_outlinks = _sanitize_outlinks(outlinks)
@@ -52,8 +63,11 @@ class IndexerService:
             if safe_outlinks:
                 self._save_links(conn, url, safe_outlinks)
 
-            # Update global stats periodically (every index for now, optimize later)
-            self.search_indexer.update_global_stats(conn)
+            # Update global stats periodically (every N pages)
+            self._pages_since_stats_update += 1
+            if self._pages_since_stats_update >= self._stats_update_interval:
+                self.search_indexer.update_global_stats(conn)
+                self._pages_since_stats_update = 0
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -62,7 +76,7 @@ class IndexerService:
         finally:
             conn.close()
 
-        if settings.OPENAI_API_KEY:
+        if not skip_embedding and settings.OPENAI_API_KEY:
             try:
                 vector_blob = await asyncio.wait_for(
                     embedding_service.embed(safe_content),
@@ -76,6 +90,40 @@ class IndexerService:
                 logger.warning("Embedding failed for %s: %s", url, embed_error)
 
         logger.info("Indexed: %s", url)
+
+    async def embed_and_save_batch(self, items: list[tuple[str, str]]) -> int:
+        """Embed multiple (url, content) pairs in batch and save to DB.
+
+        Returns number of embeddings saved.
+        """
+        if not items or not settings.OPENAI_API_KEY:
+            return 0
+
+        texts = [content for _, content in items]
+        urls = [url for url, _ in items]
+
+        try:
+            blobs = await asyncio.wait_for(
+                embedding_service.embed_batch(texts),
+                timeout=max(10, settings.OPENAI_EMBED_TIMEOUT_SEC * 2),
+            )
+        except asyncio.TimeoutError:
+            logger.warning("Batch embedding timed out for %d items", len(items))
+            return 0
+        except Exception as e:
+            logger.warning("Batch embedding failed: %s", e)
+            return 0
+
+        saved = 0
+        for url, blob in zip(urls, blobs):
+            try:
+                self._save_embedding(url, blob)
+                saved += 1
+            except Exception as e:
+                logger.warning("Failed to save embedding for %s: %s", url, e)
+
+        logger.info("Batch embedded %d/%d pages", saved, len(items))
+        return saved
 
     def _save_links(self, conn, src_url: str, outlinks: list[str]) -> None:
         """Save outlinks to the links table."""

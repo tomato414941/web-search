@@ -355,6 +355,47 @@ class UrlStore:
         finally:
             con.close()
 
+    def add_batch_scored(
+        self,
+        items: list[tuple[str, float]],
+    ) -> int:
+        """
+        Add multiple (url, priority) pairs as pending in a single transaction.
+
+        Returns:
+            Number of URLs added
+        """
+        if not items:
+            return 0
+
+        added = 0
+        now = int(time.time())
+        cutoff = now - self.recrawl_threshold
+        postgres_mode = is_postgres_mode()
+
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            for url, priority in items:
+                h = url_hash(url)
+                domain = get_domain(url)
+                if self._upsert_pending_url(
+                    cur,
+                    url_hash_value=h,
+                    url=url,
+                    domain=domain,
+                    priority=priority,
+                    now=now,
+                    cutoff=cutoff,
+                    postgres_mode=postgres_mode,
+                ):
+                    added += 1
+            con.commit()
+            cur.close()
+            return added
+        finally:
+            con.close()
+
     def pop_batch(self, count: int, max_per_domain: int = 3) -> list[UrlItem]:
         """
         Get pending URLs and mark them as crawling.

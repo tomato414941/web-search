@@ -345,19 +345,40 @@ class IndexJobService:
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            cur.execute(
-                f"""
-                UPDATE index_jobs
-                SET
-                    status = {ph},
-                    lease_until = NULL,
-                    worker_id = NULL,
-                    last_error = NULL,
-                    updated_at = {ph}
-                WHERE job_id = {ph}
-                """,
-                (STATUS_DONE, now_ts, job_id),
-            )
+            if is_postgres_mode():
+                cur.execute(
+                    f"""
+                    UPDATE index_jobs
+                    SET
+                        status = {ph},
+                        content = '',
+                        title = '',
+                        outlinks = '[]'::jsonb,
+                        lease_until = NULL,
+                        worker_id = NULL,
+                        last_error = NULL,
+                        updated_at = {ph}
+                    WHERE job_id = {ph}
+                    """,
+                    (STATUS_DONE, now_ts, job_id),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    UPDATE index_jobs
+                    SET
+                        status = {ph},
+                        content = '',
+                        title = '',
+                        outlinks = '[]',
+                        lease_until = NULL,
+                        worker_id = NULL,
+                        last_error = NULL,
+                        updated_at = {ph}
+                    WHERE job_id = {ph}
+                    """,
+                    (STATUS_DONE, now_ts, job_id),
+                )
             con.commit()
             cur.close()
         finally:
@@ -480,6 +501,26 @@ class IndexJobService:
                 "total_jobs": int(row[5] or 0),
                 "oldest_pending_seconds": oldest_pending_seconds,
             }
+        finally:
+            con.close()
+
+    def cleanup_old_done_jobs(self, max_age_seconds: int = 7 * 86400) -> int:
+        """Delete completed jobs older than max_age_seconds. Returns deleted count."""
+        cutoff = self._now_ts() - max_age_seconds
+        ph = sql_placeholder()
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"DELETE FROM index_jobs WHERE status = {ph} AND updated_at < {ph}",
+                (STATUS_DONE, cutoff),
+            )
+            deleted = cur.rowcount
+            con.commit()
+            cur.close()
+            if deleted > 0:
+                logger.info("Cleaned up %d old done jobs", deleted)
+            return deleted
         finally:
             con.close()
 

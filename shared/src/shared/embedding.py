@@ -85,6 +85,9 @@ class EmbeddingService:
         return deserialize(blob, self.dimensions)
 
 
+BATCH_SIZE = 100
+
+
 class AsyncEmbeddingService:
     """Asynchronous embedding service using OpenAI."""
 
@@ -104,6 +107,18 @@ class AsyncEmbeddingService:
         )
         return response.data[0].embedding
 
+    @retry(
+        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10)
+    )
+    async def _get_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
+        """Call OpenAI API with a batch of texts (async)."""
+        prepared = [_prepare_text(t) for t in texts]
+        response = await self.client.embeddings.create(
+            input=prepared, model=self.model_name
+        )
+        sorted_data = sorted(response.data, key=lambda x: x.index)
+        return [d.embedding for d in sorted_data]
+
     async def embed(self, text: str) -> bytes:
         """Embed text and return bytes for storage (async)."""
         if not text:
@@ -117,6 +132,33 @@ class AsyncEmbeddingService:
         except Exception as e:
             logger.error(f"Failed to generate embedding: {e}")
             raise
+
+    async def embed_batch(self, texts: list[str]) -> list[bytes]:
+        """Embed multiple texts in batches and return list of bytes for storage."""
+        results: list[bytes] = []
+        zero_blob = serialize(np.zeros(self.dimensions, dtype=np.float32))
+
+        # Process in chunks of BATCH_SIZE
+        for i in range(0, len(texts), BATCH_SIZE):
+            chunk = texts[i : i + BATCH_SIZE]
+            non_empty_indices = [j for j, t in enumerate(chunk) if t]
+            non_empty_texts = [chunk[j] for j in non_empty_indices]
+
+            chunk_results = [zero_blob] * len(chunk)
+
+            if non_empty_texts:
+                try:
+                    vectors = await self._get_embeddings_batch(non_empty_texts)
+                    for idx, vec_list in zip(non_empty_indices, vectors):
+                        vec = np.array(vec_list, dtype=np.float32)
+                        chunk_results[idx] = serialize(vec)
+                except Exception as e:
+                    logger.error("Batch embedding failed for chunk %d: %s", i, e)
+                    raise
+
+            results.extend(chunk_results)
+
+        return results
 
     async def embed_query(self, query: str) -> np.ndarray:
         """Embed search query (async)."""

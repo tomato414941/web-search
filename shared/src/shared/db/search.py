@@ -9,9 +9,14 @@ Supports both:
 - Local SQLite (development): Uses SEARCH_DB path or default
 """
 
+import atexit
+import logging
 import os
+import threading
 from typing import Any
 from shared.core.infrastructure_config import settings, Environment
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS links (
@@ -268,6 +273,82 @@ def sql_placeholders(count: int) -> str:
     return ",".join([ph] * count)
 
 
+_pg_pool = None
+_pg_pool_lock = threading.Lock()
+
+DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "2"))
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
+
+
+class _PooledConnection:
+    """Wrapper that returns connection to pool on .close()."""
+
+    def __init__(self, conn: Any, pool: Any):
+        self._conn = conn
+        self._pool = pool
+
+    def close(self) -> None:
+        if self._conn is not None:
+            try:
+                self._pool.putconn(self._conn)
+            except Exception:
+                pass
+            self._conn = None
+
+    def cursor(self, *args: Any, **kwargs: Any) -> Any:
+        return self._conn.cursor(*args, **kwargs)
+
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        self._conn.rollback()
+
+    def __enter__(self) -> "_PooledConnection":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
+
+
+def _get_pg_pool() -> Any:
+    """Get or create the PostgreSQL connection pool (singleton)."""
+    global _pg_pool
+    if _pg_pool is not None:
+        return _pg_pool
+
+    with _pg_pool_lock:
+        if _pg_pool is not None:
+            return _pg_pool
+
+        import psycopg2.pool
+
+        database_url = os.getenv("DATABASE_URL")
+        _pg_pool = psycopg2.pool.ThreadedConnectionPool(
+            DB_POOL_MIN, DB_POOL_MAX, database_url
+        )
+        logger.info(
+            "PostgreSQL connection pool created (min=%d, max=%d)",
+            DB_POOL_MIN,
+            DB_POOL_MAX,
+        )
+        atexit.register(_close_pg_pool)
+        return _pg_pool
+
+
+def _close_pg_pool() -> None:
+    global _pg_pool
+    if _pg_pool is not None:
+        try:
+            _pg_pool.closeall()
+        except Exception:
+            pass
+        _pg_pool = None
+
+
 def get_connection(db_path: str | None = None) -> Any:
     """Get database connection (PostgreSQL or local SQLite).
 
@@ -275,7 +356,7 @@ def get_connection(db_path: str | None = None) -> Any:
         db_path: Optional path to SQLite database. Ignored if DATABASE_URL is set.
 
     Returns a connection object.
-    - If DATABASE_URL is set: connects to PostgreSQL (production)
+    - If DATABASE_URL is set: connects via PostgreSQL pool (production)
     - Otherwise: connects to local SQLite (development/test only)
 
     Raises:
@@ -290,10 +371,9 @@ def get_connection(db_path: str | None = None) -> Any:
         )
 
     if database_url:
-        # PostgreSQL (production)
-        import psycopg2
-
-        return psycopg2.connect(database_url)
+        pool = _get_pg_pool()
+        conn = pool.getconn()
+        return _PooledConnection(conn, pool)
     else:
         # Local SQLite (development)
         import sqlite3

@@ -184,8 +184,9 @@ async def process_url(
                     )
                     url_store.record(url, status="done")
 
-                # 6. Enqueue discovered links
+                # 6. Enqueue discovered links (batch insert)
                 if discovered:
+                    scored_items: list[tuple[str, float]] = []
                     for new_url in discovered:
                         new_domain = get_domain(new_url)
                         if new_domain not in state.domain_cache:
@@ -197,8 +198,9 @@ async def process_url(
                         score = calculate_url_score(
                             new_url, priority, domain_visits, domain_pagerank=dr
                         )
-                        url_store.add(new_url, priority=score)
+                        scored_items.append((new_url, score))
 
+                    url_store.add_batch_scored(scored_items)
                     logger.debug(
                         f"Enqueued links from {url} ({len(discovered)} discovered)"
                     )
@@ -308,9 +310,9 @@ async def worker_loop(concurrency: int = 1):
 
     # Initialize Scheduler with rate limiting
     scheduler_config = SchedulerConfig(
-        domain_min_interval=1.0,  # 1 second between requests to same domain
-        domain_max_concurrent=2,  # Max 2 concurrent per domain
-        batch_size=100,
+        domain_min_interval=settings.SCHEDULER_DOMAIN_MIN_INTERVAL,
+        domain_max_concurrent=settings.SCHEDULER_DOMAIN_MAX_CONCURRENT,
+        batch_size=settings.SCHEDULER_BATCH_SIZE,
     )
     scheduler = Scheduler(url_store, scheduler_config)
 
@@ -319,6 +321,7 @@ async def worker_loop(concurrency: int = 1):
     in_flight_tasks: set[asyncio.Task[None]] = set()
 
     connector = aiohttp.TCPConnector(
+        limit=settings.CRAWL_TCP_LIMIT,
         limit_per_host=5,
         ttl_dns_cache=300,
         enable_cleanup_closed=True,
@@ -327,7 +330,7 @@ async def worker_loop(concurrency: int = 1):
     async with aiohttp.ClientSession(
         headers={"User-Agent": settings.CRAWL_USER_AGENT}, connector=connector
     ) as session:
-        robots = AsyncRobotsCache(session)
+        robots = AsyncRobotsCache(session, cache_size=settings.ROBOTS_CACHE_SIZE)
 
         logger.info(f"Crawler started with concurrency={concurrency}")
         logger.info(f"Submitting pages to: {settings.INDEXER_API_URL}")

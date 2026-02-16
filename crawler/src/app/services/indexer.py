@@ -2,16 +2,23 @@
 Indexer Service
 
 Submits crawled pages to the Indexer API.
+Includes circuit breaker to skip submissions during prolonged indexer outages.
 """
 
 import json
 import logging
+import os
+import time
 from dataclasses import dataclass
 import aiohttp
 
 logger = logging.getLogger(__name__)
 
 MAX_ERROR_DETAIL_LENGTH = 240
+
+INDEXER_TIMEOUT_SEC = int(os.getenv("INDEXER_SUBMIT_TIMEOUT_SEC", "10"))
+CIRCUIT_BREAKER_THRESHOLD = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "5"))
+CIRCUIT_BREAKER_RESET_SEC = int(os.getenv("CIRCUIT_BREAKER_RESET_SEC", "60"))
 
 
 @dataclass(frozen=True)
@@ -20,6 +27,38 @@ class IndexerSubmitResult:
     status_code: int | None = None
     detail: str | None = None
     job_id: str | None = None
+
+
+class _CircuitBreaker:
+    """Simple circuit breaker for indexer API calls."""
+
+    def __init__(self, threshold: int, reset_seconds: int):
+        self._threshold = threshold
+        self._reset_seconds = reset_seconds
+        self._consecutive_failures = 0
+        self._open_until: float = 0.0
+
+    def is_open(self) -> bool:
+        if self._consecutive_failures < self._threshold:
+            return False
+        return time.monotonic() < self._open_until
+
+    def record_success(self) -> None:
+        self._consecutive_failures = 0
+
+    def record_failure(self) -> None:
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= self._threshold:
+            self._open_until = time.monotonic() + self._reset_seconds
+            logger.warning(
+                "Circuit breaker OPEN: %d consecutive failures, "
+                "skipping indexer for %ds",
+                self._consecutive_failures,
+                self._reset_seconds,
+            )
+
+
+_circuit_breaker = _CircuitBreaker(CIRCUIT_BREAKER_THRESHOLD, CIRCUIT_BREAKER_RESET_SEC)
 
 
 def _normalize_error_text(text: str) -> str:
@@ -76,6 +115,11 @@ async def submit_page_to_indexer(
     Returns:
         IndexerSubmitResult containing success, status code, and error details.
     """
+    if _circuit_breaker.is_open():
+        return IndexerSubmitResult(
+            ok=False, detail="Circuit breaker open, indexer skipped"
+        )
+
     try:
         headers = {
             "X-API-Key": api_key,
@@ -90,12 +134,13 @@ async def submit_page_to_indexer(
             payload["outlinks"] = outlinks
 
         async with session.post(
-            api_url, json=payload, headers=headers, timeout=60
+            api_url, json=payload, headers=headers, timeout=INDEXER_TIMEOUT_SEC
         ) as resp:
             if resp.status == 202:
                 response_body = await resp.json()
                 job_id = response_body.get("job_id")
                 logger.info(f"✅ Queued for indexing: {url} (job_id={job_id})")
+                _circuit_breaker.record_success()
                 return IndexerSubmitResult(
                     ok=True,
                     status_code=resp.status,
@@ -105,6 +150,7 @@ async def submit_page_to_indexer(
             error_text = await resp.text()
             detail = _summarize_indexer_error(resp.status, error_text)
             logger.error(f"❌ API error {resp.status} for {url}: {detail}")
+            _circuit_breaker.record_failure()
             return IndexerSubmitResult(
                 ok=False,
                 status_code=resp.status,
@@ -114,4 +160,5 @@ async def submit_page_to_indexer(
     except Exception as e:
         detail = _normalize_error_text(f"Indexer request failed: {e}")
         logger.error(f"❌ Failed to submit {url} to API: {e}")
+        _circuit_breaker.record_failure()
         return IndexerSubmitResult(ok=False, detail=detail)
