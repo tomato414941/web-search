@@ -103,9 +103,9 @@ async def trigger_pagerank(x_api_key: str = Header(..., alias="X-API-Key")) -> d
         raise HTTPException(status_code=500, detail="PageRank calculation failed")
 
 
-@router.get("/health")
-async def health_check(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
-    """Health check endpoint for crawler."""
+@router.get("/stats")
+async def indexer_stats(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
+    """Indexer statistics: page count and job queue metrics."""
     verify_api_key(x_api_key)
 
     # Get index stats

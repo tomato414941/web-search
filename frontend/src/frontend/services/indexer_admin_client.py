@@ -8,7 +8,7 @@ from frontend.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _default_health() -> dict[str, Any]:
+def _default_stats() -> dict[str, Any]:
     return {
         "reachable": False,
         "ok": False,
@@ -24,13 +24,13 @@ def _default_health() -> dict[str, Any]:
     }
 
 
-async def fetch_indexer_health() -> dict[str, Any]:
+async def fetch_indexer_stats() -> dict[str, Any]:
     """
-    Fetch indexer health/stats from the internal indexer service.
+    Fetch indexer stats from the internal indexer service.
 
     This call is server-side only to avoid exposing API keys in the browser.
     """
-    result = _default_health()
+    result = _default_stats()
 
     if not settings.INDEXER_API_KEY:
         result["error"] = "missing INDEXER_API_KEY"
@@ -41,7 +41,7 @@ async def fetch_indexer_health() -> dict[str, Any]:
         result["error"] = "missing INDEXER_SERVICE_URL"
         return result
 
-    url = f"{base_url}/api/v1/indexer/health"
+    url = f"{base_url}/api/v1/indexer/stats"
     headers = {"X-API-Key": settings.INDEXER_API_KEY}
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
@@ -66,7 +66,7 @@ async def fetch_indexer_health() -> dict[str, Any]:
                 if key in data and data.get(key) is not None:
                     result[key] = data[key]
     except Exception as exc:
-        logger.warning("Failed to fetch indexer health: %s", exc)
+        logger.warning("Failed to fetch indexer stats: %s", exc)
         result["error"] = str(exc)
 
     return result

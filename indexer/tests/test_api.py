@@ -246,9 +246,9 @@ class TestHealthEndpoint:
         data = response.json()
         assert data["status"] == "ok"
 
-    def test_indexer_health_contains_job_stats(self, test_client):
+    def test_indexer_stats_contains_job_stats(self, test_client):
         response = test_client.get(
-            "/api/v1/indexer/health",
+            "/api/v1/indexer/stats",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
         )
         assert response.status_code == 200

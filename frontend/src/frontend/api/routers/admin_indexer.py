@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 from frontend.api.templates import templates
 from frontend.core.config import settings
 from frontend.services import admin_auth
-from frontend.services.indexer_admin_client import fetch_indexer_health
+from frontend.services.indexer_admin_client import fetch_indexer_stats
 
 router = APIRouter()
 
@@ -23,7 +23,7 @@ async def indexer_page(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
-    health = await fetch_indexer_health()
+    health = await fetch_indexer_stats()
     return templates.TemplateResponse(
         request,
         "admin/indexer.html",
