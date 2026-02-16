@@ -28,6 +28,23 @@ async def fetch_stats() -> dict[str, Any] | None:
     return None
 
 
+async def fetch_status_breakdown(
+    hours: int | None = None,
+) -> dict[str, Any] | None:
+    try:
+        params = {"hours": hours} if hours is not None else {}
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats/breakdown",
+                params=params,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as exc:
+        logger.warning(f"Failed to get status breakdown: {exc}")
+    return None
+
+
 async def fetch_seeds() -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:

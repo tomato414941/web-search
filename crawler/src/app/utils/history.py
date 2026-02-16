@@ -198,26 +198,36 @@ def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
         return 0
 
 
-def get_status_counts(hours: int = 1, db_path: str | None = None) -> Dict[str, int]:
-    """Get crawl attempt counts grouped by status in the last N hours."""
+def get_status_counts(
+    hours: int | None = 1, db_path: str | None = None
+) -> Dict[str, int]:
+    """Get crawl attempt counts grouped by status.
+
+    Args:
+        hours: Time window in hours. None means all-time.
+        db_path: Optional database path override.
+    """
     try:
         path = db_path or get_db_path()
         ph = sql_placeholder()
         con = get_connection(path)
         try:
-            import time
-
-            cutoff = int(time.time()) - (hours * 3600)
             cur = con.cursor()
-            cur.execute(
-                f"""
-                SELECT status, COUNT(*)
-                FROM crawl_logs
-                WHERE created_at >= {ph}
-                GROUP BY status
-                """,
-                (cutoff,),
-            )
+            if hours is None:
+                cur.execute("SELECT status, COUNT(*) FROM crawl_logs GROUP BY status")
+            else:
+                import time
+
+                cutoff = int(time.time()) - (hours * 3600)
+                cur.execute(
+                    f"""
+                    SELECT status, COUNT(*)
+                    FROM crawl_logs
+                    WHERE created_at >= {ph}
+                    GROUP BY status
+                    """,
+                    (cutoff,),
+                )
             status_counts = {
                 str(status): int(count) for status, count in cur.fetchall()
             }

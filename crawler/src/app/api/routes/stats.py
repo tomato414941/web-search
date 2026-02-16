@@ -4,7 +4,9 @@ Stats Router
 Aggregated crawler statistics endpoint for dashboard consumption.
 """
 
-from fastapi import APIRouter, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
 from app.workers.manager import worker_manager
 from app.services.queue import QueueService
 from app.api.deps import get_queue_service
@@ -46,4 +48,41 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
         "uptime_seconds": worker_status.uptime_seconds,
         "active_tasks": worker_status.active_tasks,
         "concurrency": worker_status.concurrency,
+    }
+
+
+@router.get("/stats/breakdown")
+async def get_status_breakdown(
+    hours: Optional[int] = Query(
+        None, ge=1, description="Time window in hours. Omit for all-time."
+    ),
+):
+    """Status breakdown of crawl attempts."""
+    from app.utils.history import get_status_counts
+
+    status_counts = get_status_counts(hours=hours)
+    total = sum(status_counts.values())
+
+    indexed = status_counts.get("indexed", 0) + status_counts.get("queued_for_index", 0)
+    index_rate_pct = round((indexed / total) * 100, 2) if total > 0 else 0.0
+
+    breakdown = sorted(
+        [
+            {
+                "status": status,
+                "count": count,
+                "pct": round((count / total) * 100, 2) if total > 0 else 0.0,
+            }
+            for status, count in status_counts.items()
+        ],
+        key=lambda x: x["count"],
+        reverse=True,
+    )
+
+    return {
+        "total": total,
+        "indexed": indexed,
+        "index_rate_pct": index_rate_pct,
+        "hours": hours,
+        "breakdown": breakdown,
     }

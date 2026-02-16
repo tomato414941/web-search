@@ -120,6 +120,48 @@
         </div>
     </div>
 
+    {% if data.status_breakdown %}
+    <div class="card">
+        <h2>Crawl Status Breakdown (All Time)</h2>
+        <div class="stats-grid-4">
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(data.status_breakdown.total) }}</div>
+                <div class="label">Total Visited</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(data.status_breakdown.indexed) }}</div>
+                <div class="label">Indexed</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ data.status_breakdown.index_rate_pct }}%</div>
+                <div class="label">Index Rate</div>
+            </div>
+        </div>
+        {% if data.status_breakdown.breakdown %}
+        <div class="table-scroll" style="margin-top: 16px;">
+            <table class="admin-table compact">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th style="text-align: right;">Count</th>
+                        <th style="text-align: right;">%</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data.status_breakdown.breakdown %}
+                    <tr>
+                        <td>{{ row.status }}</td>
+                        <td style="text-align: right;">{{ "{:,}".format(row.count) }}</td>
+                        <td style="text-align: right;">{{ row.pct }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% if data.zero_hit_queries or data.recent_errors %}
     <div class="card attention">
         <h2>Attention Required</h2>

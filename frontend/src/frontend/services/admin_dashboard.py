@@ -6,7 +6,7 @@ from frontend.services.admin_analytics import (
     build_analytics_exclusion_filters,
     time_boundaries,
 )
-from frontend.services.crawler_admin_client import fetch_stats
+from frontend.services.crawler_admin_client import fetch_stats, fetch_status_breakdown
 from frontend.services.db_helpers import db_cursor
 from shared.db.search import is_postgres_mode, sql_placeholder
 
@@ -32,6 +32,7 @@ async def get_dashboard_data() -> dict[str, Any]:
         "top_query": None,
         "zero_hit_queries": [],
         "recent_errors": [],
+        "status_breakdown": None,
         "health": {"level": "ok", "messages": []},
     }
 
@@ -157,6 +158,8 @@ async def get_dashboard_data() -> dict[str, Any]:
             ]
     except Exception as exc:
         logger.warning(f"Failed to get DB stats: {exc}")
+
+    data["status_breakdown"] = await fetch_status_breakdown()
 
     crawler_reachable = False
     stats = await fetch_stats()
