@@ -1,13 +1,13 @@
 # Indexer Service Requirements
 
 # Web Framework
-fastapi
-uvicorn[standard]
+fastapi>=0.128
+uvicorn[standard]>=0.40
 
 # Japanese Tokenization
-sudachipy
+sudachipy>=0.6.10
 sudachidict_core
 
 # Test dependencies
-pytest
-pytest-asyncio
+pytest>=9.0
+pytest-asyncio>=1.3

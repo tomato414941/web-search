@@ -1,23 +1,23 @@
 # Frontend Service Requirements
 
 # Web Framework
-fastapi
-uvicorn[standard]
-jinja2
-python-multipart
-itsdangerous
+fastapi>=0.128
+uvicorn[standard]>=0.40
+jinja2>=3.1
+python-multipart>=0.0.21
+itsdangerous>=2.2
 
 # HTTP Client (for calling Crawler API)
-httpx
+httpx>=0.28
 
 # Rate Limiting & Monitoring
-slowapi
-prometheus-client
+slowapi>=0.1.9
+prometheus-client>=0.24
 
 # Search & Indexing
-sudachipy
+sudachipy>=0.6.10
 sudachidict_core
 
 # Test dependencies
-pytest
-pytest-asyncio
+pytest>=9.0
+pytest-asyncio>=1.3

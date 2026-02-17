@@ -40,3 +40,19 @@ repos:
         pass_filenames: false
         always_run: false
         files: ^crawler/
+      - id: pytest-indexer
+        name: pytest (indexer)
+        entry: bash -c "export INDEXER_API_KEY=test && cd indexer && ../.venv/bin/pytest tests/ -v --tb=short"
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^indexer/
+      - id: pytest-shared
+        name: pytest (shared)
+        entry: bash -c "cd shared && ../.venv/bin/pytest tests/ -v --tb=short"
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^shared/

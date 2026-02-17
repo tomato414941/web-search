@@ -122,6 +122,7 @@ services:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
       - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
       - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY:-10}
     depends_on:
       postgres:
         condition: service_healthy

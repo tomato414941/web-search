@@ -1,21 +1,21 @@
 # Crawler Service Requirements
 
 # Web Framework
-fastapi
-uvicorn[standard]
+fastapi>=0.128
+uvicorn[standard]>=0.40
 
 # Async HTTP
-aiohttp
+aiohttp>=3.13
 
 # Caching
-cachetools
+cachetools>=6.2
 
 # Parsing
-beautifulsoup4
+beautifulsoup4>=4.14
 
 # HTTP Client (for calling Web Server API)
-httpx
+httpx>=0.28
 
 # Test dependencies
-pytest
-pytest-asyncio
+pytest>=9.0
+pytest-asyncio>=1.3

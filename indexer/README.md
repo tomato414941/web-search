@@ -39,5 +39,5 @@ uvicorn app.main:app --reload --port 8081
 
 *   `POST /api/v1/indexer/page`: Queue a page for asynchronous indexing (`202 Accepted` + `job_id`).
 *   `GET /api/v1/indexer/jobs/{job_id}`: Get async indexing job status.
-*   `GET /health`: Health check (recommended).
-*   `GET /api/v1/health`: Health check (backward compatible).
+*   `GET /health`: Health check.
+*   `GET /api/v1/indexer/stats`: Indexer statistics (requires `X-API-Key`).

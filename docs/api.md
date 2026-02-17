@@ -95,8 +95,11 @@ Queue a crawled page for asynchronous indexing.
 ### `GET /api/v1/indexer/jobs/{job_id}`
 Get asynchronous indexing job status.
 
-### `GET /health` (recommended) or `GET /api/v1/health`
-Health check. Root-level `/health` is preferred; `/api/v1/health` is for backward compatibility.
+### `GET /health`
+Health check.
+
+### `GET /api/v1/indexer/stats`
+Indexer statistics: page count and job queue metrics. Requires `X-API-Key` header.
 
 ---
 
