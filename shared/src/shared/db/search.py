@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 SCHEMA_SQL = """
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- ============================================
+-- Link Graph
+-- ============================================
+
 CREATE TABLE IF NOT EXISTS links (
   src TEXT NOT NULL,
   dst TEXT NOT NULL,
@@ -26,28 +30,15 @@ CREATE TABLE IF NOT EXISTS links (
 CREATE INDEX IF NOT EXISTS idx_links_src ON links(src);
 CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
 
-CREATE TABLE IF NOT EXISTS page_ranks (
-  url TEXT PRIMARY KEY,
-  score REAL
-);
-
 CREATE TABLE IF NOT EXISTS domain_ranks (
   domain TEXT PRIMARY KEY,
   score REAL NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS page_embeddings (
-  url TEXT PRIMARY KEY,
-  embedding vector(1536)
-);
-CREATE INDEX IF NOT EXISTS idx_page_embeddings_hnsw
-  ON page_embeddings USING hnsw (embedding vector_cosine_ops);
-
 -- ============================================
--- Custom Full-Text Search Tables
+-- Document & Search Index
 -- ============================================
 
--- Document metadata
 CREATE TABLE IF NOT EXISTS documents (
   url TEXT PRIMARY KEY,
   title TEXT,
@@ -56,10 +47,21 @@ CREATE TABLE IF NOT EXISTS documents (
   indexed_at TIMESTAMP
 );
 
--- Inverted index (heart of the search engine)
+CREATE TABLE IF NOT EXISTS page_ranks (
+  url TEXT PRIMARY KEY REFERENCES documents(url) ON DELETE CASCADE,
+  score REAL
+);
+
+CREATE TABLE IF NOT EXISTS page_embeddings (
+  url TEXT PRIMARY KEY REFERENCES documents(url) ON DELETE CASCADE,
+  embedding vector(1536)
+);
+CREATE INDEX IF NOT EXISTS idx_page_embeddings_hnsw
+  ON page_embeddings USING hnsw (embedding vector_cosine_ops);
+
 CREATE TABLE IF NOT EXISTS inverted_index (
   token TEXT NOT NULL,
-  url TEXT NOT NULL,
+  url TEXT NOT NULL REFERENCES documents(url) ON DELETE CASCADE,
   field TEXT NOT NULL,        -- 'title' or 'content'
   term_freq INTEGER DEFAULT 1,
   positions TEXT,             -- JSON array of positions
