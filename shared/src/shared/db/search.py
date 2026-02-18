@@ -391,28 +391,23 @@ def _execute_schema_statements(con: Any, schema: str, is_postgres: bool) -> None
     if is_postgres:
         cur = con.cursor()
         statements = [s.strip() for s in schema.split(";") if s.strip()]
+
+        # Separate vector index statements (may fail on pre-migration BYTEA columns)
+        core_stmts = []
+        vector_idx_stmts = []
+        for s in statements:
+            if "hnsw" in s.lower() or "vector_cosine_ops" in s.lower():
+                vector_idx_stmts.append(s)
+            else:
+                core_stmts.append(s)
+
         # Serialize schema initialization across multi-worker startup.
-        # Without this lock, concurrent CREATE TABLE IF NOT EXISTS can still race
-        # on PostgreSQL catalogs and raise duplicate key errors.
         lock_id = 906115423
         error: Exception | None = None
         cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
         try:
-            for stmt in statements:
-                try:
-                    cur.execute(stmt)
-                except Exception as stmt_err:
-                    # Allow HNSW index creation to fail gracefully when
-                    # embedding column is still BYTEA (pre-migration).
-                    if "hnsw" in stmt.lower() or "vector_cosine_ops" in stmt.lower():
-                        logger.warning(
-                            "Skipping vector index (run migration first): %s",
-                            stmt_err,
-                        )
-                        con.rollback()
-                        cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
-                        continue
-                    raise
+            for stmt in core_stmts:
+                cur.execute(stmt)
             con.commit()
         except Exception as e:
             error = e
@@ -430,6 +425,17 @@ def _execute_schema_statements(con: Any, schema: str, is_postgres: bool) -> None
 
         if error is not None:
             raise error
+
+        # Try vector index creation separately (fails gracefully pre-migration)
+        for stmt in vector_idx_stmts:
+            try:
+                cur2 = con.cursor()
+                cur2.execute(stmt)
+                con.commit()
+                cur2.close()
+            except Exception as e:
+                con.rollback()
+                logger.warning("Skipping vector index (run migration first): %s", e)
     else:
         con.executescript(schema)
 
