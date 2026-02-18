@@ -13,6 +13,7 @@ from shared.db.search import (
     is_postgres_mode,
     sql_placeholder,
     sql_placeholders,
+    _pg_schema_to_sqlite,
 )
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ DEFAULT_DB_PATH = "/data/crawler.db"
 
 
 # Note: seen_urls table is defined in shared/db/seen_store.py
-SCHEMA_PG = """
+SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS crawl_logs (
     id SERIAL PRIMARY KEY,
     url TEXT NOT NULL,
@@ -31,19 +32,6 @@ CREATE TABLE IF NOT EXISTS crawl_logs (
     http_code INTEGER,
     error_message TEXT,
     created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())::INTEGER
-);
-CREATE INDEX IF NOT EXISTS idx_crawl_logs_url ON crawl_logs(url);
-CREATE INDEX IF NOT EXISTS idx_crawl_logs_created ON crawl_logs(created_at);
-"""
-
-SCHEMA_SQLITE = """
-CREATE TABLE IF NOT EXISTS crawl_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    url TEXT NOT NULL,
-    status TEXT NOT NULL,
-    http_code INTEGER,
-    error_message TEXT,
-    created_at INTEGER DEFAULT (strftime('%s', 'now'))
 );
 CREATE INDEX IF NOT EXISTS idx_crawl_logs_url ON crawl_logs(url);
 CREATE INDEX IF NOT EXISTS idx_crawl_logs_created ON crawl_logs(created_at);
@@ -60,19 +48,18 @@ def get_db_path() -> str:
 
 
 def init_db(db_path: str | None = None):
-    """Initialize crawler database (PostgreSQL or local SQLite with WAL mode)"""
+    """Initialize crawler database."""
     path = db_path or get_db_path()
-    postgres_mode = is_postgres_mode()
+    pg = is_postgres_mode()
 
-    # Ensure directory exists (only for local SQLite)
-    if not postgres_mode:
+    if not pg:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
     con = get_connection(path)
     try:
-        if postgres_mode:
+        if pg:
             cur = con.cursor()
-            for stmt in SCHEMA_PG.split(";"):
+            for stmt in SCHEMA_SQL.split(";"):
                 stmt = stmt.strip()
                 if stmt:
                     cur.execute(stmt)
@@ -80,7 +67,7 @@ def init_db(db_path: str | None = None):
             cur.close()
         else:
             con.execute("PRAGMA journal_mode=WAL")
-            con.executescript(SCHEMA_SQLITE)
+            con.executescript(_pg_schema_to_sqlite(SCHEMA_SQL))
     finally:
         con.close()
 

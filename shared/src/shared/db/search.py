@@ -3,10 +3,7 @@ PostgreSQL Database Module (Shared Kernel)
 
 Schema definitions and database operations for the search index.
 Used by both Frontend (Read) and Indexer (Write) services.
-
-Supports both:
-- PostgreSQL (production): Set DATABASE_URL environment variable
-- Local SQLite (development): Uses SEARCH_DB path or default
+Requires DATABASE_URL environment variable (PostgreSQL only).
 """
 
 import atexit
@@ -14,7 +11,7 @@ import logging
 import os
 import threading
 from typing import Any
-from shared.core.infrastructure_config import settings, Environment
+from shared.core.infrastructure_config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -143,121 +140,6 @@ CREATE INDEX IF NOT EXISTS idx_index_jobs_status_lease ON index_jobs(status, lea
 CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at);
 """
 
-# SQLite schema for local development
-SQLITE_SCHEMA_SQL = """
-PRAGMA journal_mode=WAL;
-PRAGMA synchronous=NORMAL;
-
-CREATE TABLE IF NOT EXISTS links (
-  src TEXT NOT NULL,
-  dst TEXT NOT NULL,
-  PRIMARY KEY (src, dst)
-);
-CREATE INDEX IF NOT EXISTS idx_links_src ON links(src);
-CREATE INDEX IF NOT EXISTS idx_links_dst ON links(dst);
-
-CREATE TABLE IF NOT EXISTS page_ranks (
-  url TEXT PRIMARY KEY,
-  score REAL
-);
-
-CREATE TABLE IF NOT EXISTS domain_ranks (
-  domain TEXT PRIMARY KEY,
-  score REAL NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS page_embeddings (
-  url TEXT PRIMARY KEY,
-  embedding BLOB
-);
-
--- Document metadata
-CREATE TABLE IF NOT EXISTS documents (
-  url TEXT PRIMARY KEY,
-  title TEXT,
-  content TEXT,
-  word_count INTEGER DEFAULT 0,
-  indexed_at TEXT
-);
-
--- Inverted index
-CREATE TABLE IF NOT EXISTS inverted_index (
-  token TEXT NOT NULL,
-  url TEXT NOT NULL,
-  field TEXT NOT NULL,
-  term_freq INTEGER DEFAULT 1,
-  positions TEXT,
-  PRIMARY KEY (token, url, field)
-);
-CREATE INDEX IF NOT EXISTS idx_inverted_token ON inverted_index(token);
-CREATE INDEX IF NOT EXISTS idx_inverted_url ON inverted_index(url);
-
--- Global index statistics
-CREATE TABLE IF NOT EXISTS index_stats (
-  key TEXT PRIMARY KEY,
-  value REAL
-);
-
--- Per-token document frequency
-CREATE TABLE IF NOT EXISTS token_stats (
-  token TEXT PRIMARY KEY,
-  doc_freq INTEGER DEFAULT 0
-);
-
--- Search Analytics
-CREATE TABLE IF NOT EXISTS search_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  query TEXT NOT NULL,
-  result_count INTEGER DEFAULT 0,
-  search_mode TEXT DEFAULT 'default',
-  user_agent TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_search_logs_created ON search_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_search_logs_query ON search_logs(query);
-
-CREATE TABLE IF NOT EXISTS search_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  event_type TEXT NOT NULL,
-  query TEXT NOT NULL,
-  query_norm TEXT NOT NULL,
-  request_id TEXT,
-  session_hash TEXT,
-  result_count INTEGER,
-  clicked_url TEXT,
-  clicked_rank INTEGER,
-  latency_ms INTEGER,
-  created_at TEXT DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_search_events_created ON search_events(created_at);
-CREATE INDEX IF NOT EXISTS idx_search_events_type_created ON search_events(event_type, created_at);
-CREATE INDEX IF NOT EXISTS idx_search_events_query_created ON search_events(query_norm, created_at);
-CREATE INDEX IF NOT EXISTS idx_search_events_request_id ON search_events(request_id);
-
--- Indexer Async Job Queue
-CREATE TABLE IF NOT EXISTS index_jobs (
-  job_id TEXT PRIMARY KEY,
-  url TEXT NOT NULL,
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  outlinks TEXT NOT NULL DEFAULT '[]',
-  status TEXT NOT NULL,
-  retry_count INTEGER NOT NULL DEFAULT 0,
-  max_retries INTEGER NOT NULL DEFAULT 5,
-  available_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  lease_until INTEGER,
-  worker_id TEXT,
-  last_error TEXT,
-  created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-  content_hash TEXT NOT NULL,
-  dedupe_key TEXT NOT NULL UNIQUE
-);
-CREATE INDEX IF NOT EXISTS idx_index_jobs_status_available ON index_jobs(status, available_at);
-CREATE INDEX IF NOT EXISTS idx_index_jobs_status_lease ON index_jobs(status, lease_until);
-CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at);
-"""
-
 
 def is_postgres_mode() -> bool:
     """Check if we're using PostgreSQL."""
@@ -354,106 +236,128 @@ def _close_pg_pool() -> None:
 
 
 def get_connection(db_path: str | None = None) -> Any:
-    """Get database connection (PostgreSQL or local SQLite).
+    """Get database connection.
+
+    Production: PostgreSQL via connection pool (requires DATABASE_URL).
+    Test: SQLite fallback when DATABASE_URL is not set.
 
     Args:
-        db_path: Optional path to SQLite database. Ignored if DATABASE_URL is set.
-
-    Returns a connection object.
-    - If DATABASE_URL is set: connects via PostgreSQL pool (production)
-    - Otherwise: connects to local SQLite (development/test only)
-
-    Raises:
-        RuntimeError: If ENVIRONMENT is 'production' but DATABASE_URL is not set.
+        db_path: Path to SQLite database (test only, ignored when DATABASE_URL is set).
     """
     database_url = os.getenv("DATABASE_URL")
-
-    if settings.ENVIRONMENT == Environment.PRODUCTION and not database_url:
-        raise RuntimeError(
-            "DATABASE_URL is required in production environment. "
-            "Set DATABASE_URL environment variable."
-        )
 
     if database_url:
         pool = _get_pg_pool()
         conn = pool.getconn()
         return _PooledConnection(conn, pool)
-    else:
-        # Local SQLite (development)
-        import sqlite3
 
-        path = db_path or os.getenv("SEARCH_DB", settings.DB_PATH)
-        return sqlite3.connect(path)
+    # SQLite fallback for tests
+    import sqlite3
+
+    path = db_path or os.getenv("SEARCH_DB", settings.DB_PATH)
+    return sqlite3.connect(path)
 
 
-def _execute_schema_statements(con: Any, schema: str, is_postgres: bool) -> None:
-    """Execute schema statements one by one for PostgreSQL compatibility."""
-    if is_postgres:
-        cur = con.cursor()
-        statements = [s.strip() for s in schema.split(";") if s.strip()]
+def _execute_pg_schema(con: Any, schema: str) -> None:
+    """Execute PostgreSQL schema statements with advisory lock serialization."""
+    cur = con.cursor()
+    statements = [s.strip() for s in schema.split(";") if s.strip()]
 
-        # Separate vector index statements (may fail on pre-migration BYTEA columns)
-        core_stmts = []
-        vector_idx_stmts = []
-        for s in statements:
-            if "hnsw" in s.lower() or "vector_cosine_ops" in s.lower():
-                vector_idx_stmts.append(s)
-            else:
-                core_stmts.append(s)
+    # Separate vector index statements (may fail on pre-migration BYTEA columns)
+    core_stmts = []
+    vector_idx_stmts = []
+    for s in statements:
+        if "hnsw" in s.lower() or "vector_cosine_ops" in s.lower():
+            vector_idx_stmts.append(s)
+        else:
+            core_stmts.append(s)
 
-        # Serialize schema initialization across multi-worker startup.
-        lock_id = 906115423
-        error: Exception | None = None
-        cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
+    # Serialize schema initialization across multi-worker startup.
+    lock_id = 906115423
+    error: Exception | None = None
+    cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
+    try:
+        for stmt in core_stmts:
+            cur.execute(stmt)
+        con.commit()
+    except Exception as e:
+        error = e
+        con.rollback()
+    finally:
         try:
-            for stmt in core_stmts:
-                cur.execute(stmt)
+            cur.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
             con.commit()
-        except Exception as e:
-            error = e
+        except Exception:
             con.rollback()
+            if error is None:
+                raise
         finally:
-            try:
-                cur.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
-                con.commit()
-            except Exception:
-                con.rollback()
-                if error is None:
-                    raise
-            finally:
-                cur.close()
+            cur.close()
 
-        if error is not None:
-            raise error
+    if error is not None:
+        raise error
 
-        # Try vector index creation separately (fails gracefully pre-migration)
-        for stmt in vector_idx_stmts:
-            try:
-                cur2 = con.cursor()
-                cur2.execute(stmt)
-                con.commit()
-                cur2.close()
-            except Exception as e:
-                con.rollback()
-                logger.warning("Skipping vector index (run migration first): %s", e)
-    else:
-        con.executescript(schema)
+    # Try vector index creation separately (fails gracefully pre-migration)
+    for stmt in vector_idx_stmts:
+        try:
+            cur2 = con.cursor()
+            cur2.execute(stmt)
+            con.commit()
+            cur2.close()
+        except Exception as e:
+            con.rollback()
+            logger.warning("Skipping vector index (run migration first): %s", e)
+
+
+def _pg_schema_to_sqlite(schema: str) -> str:
+    """Convert PostgreSQL schema to SQLite-compatible DDL for tests."""
+    import re
+
+    # Process as full text first: remove multi-line HNSW index statements
+    text = re.sub(
+        r"CREATE INDEX[^;]*USING\s+hnsw[^;]*;",
+        "",
+        schema,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip().upper()
+        if stripped.startswith("CREATE EXTENSION"):
+            continue
+        # PG type casts: value::type
+        line = re.sub(r"::\w+", "", line)
+        # EXTRACT(EPOCH FROM NOW()) → strftime('%s', 'now')
+        line = re.sub(
+            r"EXTRACT\s*\(\s*EPOCH\s+FROM\s+NOW\(\)\s*\)",
+            "(strftime('%s', 'now'))",
+            line,
+            flags=re.IGNORECASE,
+        )
+        line = re.sub(r"SERIAL\b", "INTEGER", line, flags=re.IGNORECASE)
+        line = re.sub(
+            r"TIMESTAMP\s+DEFAULT\s+NOW\(\)",
+            "TEXT DEFAULT CURRENT_TIMESTAMP",
+            line,
+            flags=re.IGNORECASE,
+        )
+        line = re.sub(r"\bTIMESTAMP\b", "TEXT", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bJSONB\b", "TEXT", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bBIGINT\b", "INTEGER", line, flags=re.IGNORECASE)
+        line = re.sub(r"\bvector\(\d+\)", "BLOB", line, flags=re.IGNORECASE)
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def open_db(path: str = settings.DB_PATH) -> Any:
-    """Open database connection and ensure schema exists.
-
-    Note: If DATABASE_URL is set, the path parameter is ignored
-    and PostgreSQL connection is used instead.
-    """
+    """Open database connection and ensure schema exists."""
     con = get_connection(path)
-    postgres_mode = is_postgres_mode()
-
-    if postgres_mode:
-        _execute_schema_statements(con, SCHEMA_SQL, is_postgres=True)
+    if is_postgres_mode():
+        _execute_pg_schema(con, SCHEMA_SQL)
     else:
-        con.executescript(SQLITE_SCHEMA_SQL)
-
+        # SQLite (tests): convert PG schema to SQLite-compatible DDL
+        con.executescript(_pg_schema_to_sqlite(SCHEMA_SQL))
     return con
 
 

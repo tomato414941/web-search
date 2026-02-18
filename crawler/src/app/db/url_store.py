@@ -41,7 +41,7 @@ class UrlItem:
     created_at: int
 
 
-SCHEMA_PG = """
+SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS urls (
     url_hash TEXT PRIMARY KEY,
     url TEXT NOT NULL,
@@ -58,23 +58,6 @@ CREATE INDEX IF NOT EXISTS idx_urls_pending ON urls(priority DESC) WHERE status 
 CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
 CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status);
 CREATE INDEX IF NOT EXISTS idx_urls_recrawl ON urls(last_crawled_at) WHERE status IN ('done', 'failed');
-"""
-
-SCHEMA_SQLITE = """
-CREATE TABLE IF NOT EXISTS urls (
-    url_hash TEXT PRIMARY KEY,
-    url TEXT NOT NULL,
-    domain TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    priority REAL NOT NULL DEFAULT 0,
-    crawl_count INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    last_crawled_at INTEGER,
-    is_seed BOOLEAN NOT NULL DEFAULT FALSE
-) WITHOUT ROWID;
-
-CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
-CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status);
 """
 
 
@@ -95,16 +78,16 @@ class UrlStore:
         self._init_db()
 
     def _init_db(self):
-        postgres_mode = is_postgres_mode()
+        pg = is_postgres_mode()
 
-        if not postgres_mode:
+        if not pg:
             Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
 
         con = get_connection(self.db_path)
         try:
-            if postgres_mode:
+            if pg:
                 cur = con.cursor()
-                for stmt in SCHEMA_PG.split(";"):
+                for stmt in SCHEMA_SQL.split(";"):
                     stmt = stmt.strip()
                     if stmt:
                         cur.execute(stmt)
@@ -124,7 +107,6 @@ class UrlStore:
                         "UPDATE urls SET is_seed = TRUE"
                         " WHERE url IN (SELECT url FROM seeds)"
                     )
-                # Create seed index after column exists
                 cur.execute(
                     "CREATE INDEX IF NOT EXISTS idx_urls_seed"
                     " ON urls(url_hash) WHERE is_seed = TRUE"
@@ -133,28 +115,7 @@ class UrlStore:
                 cur.close()
             else:
                 con.execute("PRAGMA journal_mode=WAL")
-                con.executescript(SCHEMA_SQLITE)
-                # Migration: add is_seed column if missing (SQLite)
-                cur = con.cursor()
-                cur.execute("PRAGMA table_info(urls)")
-                columns = [row[1] for row in cur.fetchall()]
-                if "is_seed" not in columns:
-                    cur.execute(
-                        "ALTER TABLE urls ADD COLUMN"
-                        " is_seed BOOLEAN NOT NULL DEFAULT FALSE"
-                    )
-                    # Migrate seeds table data if it exists
-                    cur.execute(
-                        "SELECT name FROM sqlite_master"
-                        " WHERE type='table' AND name='seeds'"
-                    )
-                    if cur.fetchone():
-                        cur.execute(
-                            "UPDATE urls SET is_seed = TRUE"
-                            " WHERE url IN (SELECT url FROM seeds)"
-                        )
-                    con.commit()
-                cur.close()
+                con.executescript(SCHEMA_SQL)
         finally:
             con.close()
 
