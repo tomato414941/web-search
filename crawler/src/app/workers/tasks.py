@@ -8,6 +8,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 import aiohttp
+from cachetools import TTLCache
 
 from app.db.url_store import UrlStore, get_domain
 from app.scheduler import Scheduler, SchedulerConfig
@@ -32,10 +33,16 @@ MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 MAX_RETRIES = 3
 
 
+DOMAIN_CACHE_MAX = 50000
+DOMAIN_CACHE_TTL = 3600  # 1 hour
+
+
 @dataclass
 class WorkerRuntimeState:
     retry_counts: dict[str, int] = field(default_factory=dict)
-    domain_cache: dict[str, int] = field(default_factory=dict)
+    domain_cache: TTLCache = field(
+        default_factory=lambda: TTLCache(maxsize=DOMAIN_CACHE_MAX, ttl=DOMAIN_CACHE_TTL)
+    )
 
 
 def _is_html_content_type(content_type: str) -> bool:
@@ -337,11 +344,6 @@ async def worker_loop(concurrency: int = 1):
 
         try:
             while True:
-                # Clear domain cache periodically and refresh PageRank cache
-                if len(runtime_state.domain_cache) > 1000:
-                    runtime_state.domain_cache.clear()
-                    load_domain_rank_cache(settings.DB_PATH)
-
                 # Get next URL from scheduler
                 item = scheduler.get_next()
 
