@@ -5,9 +5,8 @@ Manages crawl queue operations using UrlStore.
 """
 
 import logging
-from urllib.parse import urlparse
 
-from app.db.url_store import UrlStore
+from app.db.url_store import UrlStore, get_domain
 from app.core.config import settings
 from app.domain.scoring import MANUAL_CRAWL_BOOST, get_domain_rank, seed_score
 
@@ -52,8 +51,7 @@ class QueueService:
 
         scored = []
         for url in urls:
-            domain = urlparse(url).netloc
-            dr = get_domain_rank(domain)
+            dr = get_domain_rank(get_domain(url))
             scored.append(
                 (url, seed_score(domain_pagerank=dr, boost=MANUAL_CRAWL_BOOST))
             )

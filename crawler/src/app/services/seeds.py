@@ -6,9 +6,8 @@ Manages seed URL operations via the unified urls table (is_seed flag).
 
 import logging
 from datetime import datetime
-from urllib.parse import urlparse
 
-from app.db.url_store import UrlStore
+from app.db.url_store import UrlStore, get_domain
 from app.domain.scoring import (
     SEED_BOOST,
     get_domain_rank,
@@ -52,8 +51,7 @@ class SeedService:
         """
         scored = []
         for url in urls:
-            domain = urlparse(url).netloc
-            dr = get_domain_rank(domain)
+            dr = get_domain_rank(get_domain(url))
             scored.append((url, seed_score(domain_pagerank=dr, boost=boost)))
 
         added = self.url_store.add_batch_scored(scored)

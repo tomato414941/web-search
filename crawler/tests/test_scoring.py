@@ -25,7 +25,9 @@ class TestDomainBase:
     def test_none_returns_default(self):
         assert _domain_base(None) == DEFAULT_BASE
 
-    def test_zero_returns_low(self):
+    def test_zero_returns_near_zero(self):
+        # rank=0.0 is the lowest-ranked domain, not unknown
+        # log10(0*1000+1)/3*100 = 0.0
         assert _domain_base(0.0) == pytest.approx(0.0, abs=0.1)
 
     def test_high_rank(self):
@@ -45,6 +47,9 @@ class TestDomainBase:
 
     def test_capped_at_100(self):
         assert _domain_base(10.0) == 100.0
+
+    def test_negative_returns_default(self):
+        assert _domain_base(-0.5) == DEFAULT_BASE
 
 
 # ---- _base_score ----
@@ -233,6 +238,33 @@ class TestCalculateUrlScore:
             domain_pagerank=None,
         )
         assert score >= 0
+
+    def test_boost_path_capped_at_100(self, monkeypatch):
+        """path_factor=1.2 should not push score over 100."""
+        import app.domain.scoring as scoring_mod
+
+        monkeypatch.setattr(scoring_mod, "_domain_rank_cache", {"twitter.com": 1.0})
+        score = calculate_url_score(
+            "https://twitter.com/wiki",
+            parent_score=0,
+            domain_visits=0,
+            domain_pagerank=1.0,
+        )
+        assert score <= 100.0
+
+    def test_domain_rank_used_when_cache_empty(self, monkeypatch):
+        """domain_pagerank should be used even if cache dict is empty."""
+        import app.domain.scoring as scoring_mod
+
+        monkeypatch.setattr(scoring_mod, "_domain_rank_cache", {})
+        score = calculate_url_score(
+            "https://example.com/page",
+            parent_score=10,
+            domain_visits=0,
+            domain_pagerank=0.5,
+        )
+        # Should use domain_base(0.5) ≈ 89, not parent inheritance
+        assert score > 50
 
 
 # ---- seed_score ----

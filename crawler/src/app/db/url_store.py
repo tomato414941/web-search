@@ -26,9 +26,9 @@ def url_hash(url: str) -> str:
 
 
 def get_domain(url: str) -> str:
-    """Extract domain from URL."""
+    """Extract domain hostname from URL (lowercase, no port)."""
     try:
-        return urlparse(url).netloc
+        return urlparse(url).hostname or ""
     except Exception:
         return ""
 

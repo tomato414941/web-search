@@ -66,14 +66,14 @@ def _domain_base(domain_pagerank: float | None) -> float:
 
     Examples: twitter(1.0)→100, github(0.39)→86, avg(0.003)→20
     """
-    if domain_pagerank is None:
+    if domain_pagerank is None or domain_pagerank < 0:
         return DEFAULT_BASE
     return min(100.0, (math.log10(domain_pagerank * 1000.0 + 1) / 3.0) * 100.0)
 
 
 def _base_score(domain_pagerank: float | None, parent_score: float) -> float:
     """Compute base score: domain_rank preferred, parent inheritance capped."""
-    if domain_pagerank is not None and _domain_rank_cache:
+    if domain_pagerank is not None:
         return _domain_base(domain_pagerank)
     inherited = min(parent_score * 0.8, MAX_INHERITED)
     return max(DEFAULT_BASE, inherited)
@@ -124,12 +124,15 @@ def calculate_url_score(
         Priority score (0-100, higher = more important)
     """
     base = _base_score(domain_pagerank, parent_score)
-    return round(
-        base
-        * _diversity_factor(domain_visits)
-        * _depth_factor(url)
-        * _path_factor(url),
-        2,
+    return min(
+        100.0,
+        round(
+            base
+            * _diversity_factor(domain_visits)
+            * _depth_factor(url)
+            * _path_factor(url),
+            2,
+        ),
     )
 
 
