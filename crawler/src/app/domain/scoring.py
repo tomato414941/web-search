@@ -75,9 +75,8 @@ def calculate_url_score(
     """
     # 1. Base score
     if domain_pagerank is not None and _domain_rank_cache:
-        # Normalize: domain_rank * N_domains * scale → average domain ≈ 100
-        n_domains = len(_domain_rank_cache)
-        base = domain_pagerank * n_domains * PAGERANK_SCALE * 0.9
+        # Scale PageRank (0-1) to score range (0-100)
+        base = domain_pagerank * PAGERANK_SCALE * 0.9
     else:
         # Fallback: inheritance from parent (bootstrap period)
         base = parent_score * 0.9
