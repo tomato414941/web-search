@@ -14,7 +14,7 @@ from app.models.seeds import (
 )
 from app.services.seeds import SeedService
 from app.services.tranco import download_tranco
-from app.domain.scoring import TRANCO_IMPORT_SCORE
+from app.domain.scoring import TRANCO_BOOST
 from app.api.deps import get_seed_service
 
 router = APIRouter()
@@ -66,7 +66,7 @@ async def import_tranco(
     """Import top domains from the Tranco list as seeds."""
     try:
         urls = download_tranco(count=request.count)
-        count = seed_service.add_seeds(urls=urls, score=TRANCO_IMPORT_SCORE)
+        count = seed_service.add_seeds(urls=urls, boost=TRANCO_BOOST)
         return SeedResponse(status="ok", count=count)
     except Exception as e:
         raise HTTPException(

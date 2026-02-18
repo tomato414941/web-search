@@ -5,10 +5,11 @@ Manages crawl queue operations using UrlStore.
 """
 
 import logging
+from urllib.parse import urlparse
 
 from app.db.url_store import UrlStore
 from app.core.config import settings
-from app.domain.scoring import MANUAL_CRAWL_SCORE
+from app.domain.scoring import MANUAL_CRAWL_BOOST, get_domain_rank, seed_score
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +34,15 @@ class QueueService:
     def __init__(self, url_store: UrlStore | None = None):
         self.url_store = url_store or _get_url_store()
 
-    async def enqueue_urls(
-        self, urls: list[str], priority: float = MANUAL_CRAWL_SCORE
-    ) -> int:
+    async def enqueue_urls(self, urls: list[str]) -> int:
         """
-        Add URLs to crawl queue.
+        Add URLs to crawl queue with manual-crawl priority.
+
+        Each URL's score is based on its domain_rank + MANUAL_CRAWL_BOOST,
+        capped at 100.
 
         Args:
             urls: List of URLs to add
-            priority: Priority score (higher = crawled sooner)
 
         Returns:
             Number of URLs added (excludes duplicates and recently crawled)
@@ -49,9 +50,16 @@ class QueueService:
         if not urls:
             return 0
 
-        # add_batch handles dedup + recrawl check internally
-        count = self.url_store.add_batch(urls, priority=priority)
-        logger.info(f"Queued {count}/{len(urls)} URLs (priority={priority})")
+        scored = []
+        for url in urls:
+            domain = urlparse(url).netloc
+            dr = get_domain_rank(domain)
+            scored.append(
+                (url, seed_score(domain_pagerank=dr, boost=MANUAL_CRAWL_BOOST))
+            )
+
+        count = self.url_store.add_batch_scored(scored)
+        logger.info(f"Queued {count}/{len(urls)} URLs (manual crawl)")
         return count
 
     def get_stats(self) -> dict:
