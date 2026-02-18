@@ -27,18 +27,29 @@ def _prepare_text(text: str) -> str:
 
 
 def serialize(vector: np.ndarray) -> bytes:
-    """Convert numpy array to bytes for storage."""
+    """Convert numpy array to bytes for BYTEA storage (SQLite/legacy)."""
     return struct.pack(f"{len(vector)}f", *vector)
 
 
 def deserialize(blob: bytes, dimensions: int = DEFAULT_DIMENSIONS) -> np.ndarray:
-    """Convert bytes back to numpy array."""
+    """Convert bytes back to numpy array (SQLite/legacy)."""
     expected_size = len(blob) // 4
     if expected_size != dimensions:
         raise ValueError(
             f"Invalid embedding size: expected {dimensions}, got {expected_size}"
         )
     return np.array(struct.unpack(f"{expected_size}f", blob), dtype=np.float32)
+
+
+def to_pgvector(vector: np.ndarray) -> str:
+    """Convert numpy array to pgvector string format: '[0.1,0.2,...]'."""
+    return "[" + ",".join(f"{v:.8g}" for v in vector) + "]"
+
+
+def from_pgvector(value: str) -> np.ndarray:
+    """Convert pgvector string format back to numpy array."""
+    cleaned = value.strip("[]")
+    return np.array([float(x) for x in cleaned.split(",")], dtype=np.float32)
 
 
 class EmbeddingService:

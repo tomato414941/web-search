@@ -13,7 +13,8 @@ from typing import Any, Callable
 import numpy as np
 
 from shared.analyzer import analyzer, STOP_WORDS
-from shared.db.search import get_connection, sql_placeholders
+from shared.db.search import get_connection, is_postgres_mode, sql_placeholders
+from shared.embedding import to_pgvector
 from shared.search.scoring import BM25Scorer, BM25Config
 
 
@@ -219,32 +220,93 @@ class SearchEngine:
         """
         Semantic search using vector embeddings.
 
-        Requires embed_query_func and deserialize_func to be set.
+        Uses pgvector HNSW index on PostgreSQL, falls back to in-memory
+        brute-force on SQLite.
 
         Args:
             query: Search query string
             limit: Number of results per page
             page: Page number (1-indexed)
-
-        Returns:
-            SearchResult with semantically similar documents
         """
         if not query or not query.strip():
             return self._empty_result(query, limit)
 
-        if self._embed_query is None or self._deserialize is None:
+        if self._embed_query is None:
             return self._empty_result(query, limit)
 
-        # 1. Embed query
         query_vec = self._embed_query(query)
 
-        # 2. Load vector cache
-        self._load_vector_cache()
+        if is_postgres_mode():
+            return self._vector_search_pgvector(query, query_vec, limit, page)
+        else:
+            return self._vector_search_memory(query, query_vec, limit, page)
 
+    def _vector_search_pgvector(
+        self,
+        query: str,
+        query_vec: np.ndarray,
+        limit: int,
+        page: int,
+    ) -> SearchResult:
+        """Vector search using pgvector <=> cosine distance operator."""
+        vec_str = to_pgvector(query_vec)
+        offset = (page - 1) * limit
+        # Fetch total count and results in a single connection
+        conn = get_connection(self.db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT COUNT(*) FROM page_embeddings WHERE embedding IS NOT NULL"
+            )
+            total = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                SELECT pe.url, d.title, d.content,
+                       1 - (pe.embedding <=> %s::vector) AS similarity
+                FROM page_embeddings pe
+                JOIN documents d ON d.url = pe.url
+                WHERE pe.embedding IS NOT NULL
+                ORDER BY pe.embedding <=> %s::vector
+                LIMIT %s OFFSET %s
+                """,
+                (vec_str, vec_str, limit, offset),
+            )
+            rows = cur.fetchall()
+            cur.close()
+
+            hits = [
+                SearchHit(url=row[0], title=row[1], content=row[2], score=float(row[3]))
+                for row in rows
+            ]
+
+            last_page = max((total + limit - 1) // limit, 1)
+            return SearchResult(
+                query=query,
+                total=total,
+                hits=hits,
+                page=page,
+                per_page=limit,
+                last_page=last_page,
+            )
+        finally:
+            conn.close()
+
+    def _vector_search_memory(
+        self,
+        query: str,
+        query_vec: np.ndarray,
+        limit: int,
+        page: int,
+    ) -> SearchResult:
+        """In-memory brute-force vector search (SQLite fallback)."""
+        if self._deserialize is None:
+            return self._empty_result(query, limit)
+
+        self._load_vector_cache()
         if not self._vector_cache:
             return self._empty_result(query, limit)
 
-        # 3. Compute cosine similarity
         urls = [item[0] for item in self._vector_cache]
         vectors = np.array([item[1] for item in self._vector_cache])
 
@@ -253,16 +315,12 @@ class SearchEngine:
         dots = np.dot(vectors, query_vec)
         sims = dots / (norm_docs * norm_q + 1e-9)
 
-        # 4. Sort by similarity (descending)
         top_indices = np.argsort(sims)[::-1]
-
-        # 5. Paginate
         total = len(urls)
         start = (page - 1) * limit
         end = start + limit
         slice_indices = top_indices[start:end]
 
-        # 6. Fetch document details (batch query to avoid N+1)
         hits = []
         if len(slice_indices) > 0:
             result_urls = [urls[idx] for idx in slice_indices]
@@ -279,7 +337,6 @@ class SearchEngine:
                 docs = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
                 cur.close()
 
-                # Preserve order from similarity ranking
                 for url in result_urls:
                     if url in docs:
                         hits.append(
@@ -294,7 +351,6 @@ class SearchEngine:
                 conn.close()
 
         last_page = max((total + limit - 1) // limit, 1)
-
         return SearchResult(
             query=query,
             total=total,

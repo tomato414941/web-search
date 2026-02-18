@@ -19,6 +19,8 @@ from shared.core.infrastructure_config import settings, Environment
 logger = logging.getLogger(__name__)
 
 SCHEMA_SQL = """
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE IF NOT EXISTS links (
   src TEXT NOT NULL,
   dst TEXT NOT NULL,
@@ -39,8 +41,10 @@ CREATE TABLE IF NOT EXISTS domain_ranks (
 
 CREATE TABLE IF NOT EXISTS page_embeddings (
   url TEXT PRIMARY KEY,
-  embedding BYTEA
+  embedding vector(1536)
 );
+CREATE INDEX IF NOT EXISTS idx_page_embeddings_hnsw
+  ON page_embeddings USING hnsw (embedding vector_cosine_ops);
 
 -- ============================================
 -- Custom Full-Text Search Tables

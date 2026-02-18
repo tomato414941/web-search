@@ -6,6 +6,7 @@ import os
 
 from app.core.config import settings
 from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
+from shared.embedding import deserialize, to_pgvector
 from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
 
@@ -173,10 +174,17 @@ class IndexerService:
         try:
             cur = conn.cursor()
             try:
+                # Convert BYTEA blob to pgvector string for PostgreSQL
+                if is_postgres_mode():
+                    vec = deserialize(vector_blob)
+                    embedding_value = to_pgvector(vec)
+                else:
+                    embedding_value = vector_blob
+
                 cur.execute(f"DELETE FROM page_embeddings WHERE url={ph}", (url,))
                 cur.execute(
                     f"INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})",
-                    (url, vector_blob),
+                    (url, embedding_value),
                 )
             finally:
                 cur.close()
