@@ -67,15 +67,18 @@ def main() -> None:
     conn.commit()
     print("Added temporary embedding_vec column")
 
-    # 5. Migrate in batches
+    # 5. Migrate in batches using offset/limit to avoid cursor invalidation
     batch_size = 500
     migrated = 0
-    cur.execute(
-        "SELECT url, embedding FROM page_embeddings WHERE embedding IS NOT NULL"
-    )
 
-    while True:
-        rows = cur.fetchmany(batch_size)
+    while migrated < total:
+        cur.execute(
+            "SELECT url, embedding FROM page_embeddings "
+            "WHERE embedding IS NOT NULL AND embedding_vec IS NULL "
+            "LIMIT %s",
+            (batch_size,),
+        )
+        rows = cur.fetchall()
         if not rows:
             break
 
