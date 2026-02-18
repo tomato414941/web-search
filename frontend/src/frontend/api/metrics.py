@@ -32,6 +32,26 @@ REQUEST_LATENCY = Histogram(
 # Active requests gauge
 ACTIVE_REQUESTS = Gauge("http_requests_active", "Number of active HTTP requests")
 
+# --- Search-specific Metrics ---
+
+SEARCH_QUERY_TOTAL = Counter(
+    "search_queries_total",
+    "Total search queries",
+    ["mode"],
+)
+
+SEARCH_RESULT_COUNT = Histogram(
+    "search_result_count",
+    "Number of results returned per search",
+    buckets=[0, 1, 5, 10, 25, 50, 100, 500, 1000],
+)
+
+SEARCH_SCORING_DURATION = Histogram(
+    "search_scoring_duration_seconds",
+    "Time spent scoring search results",
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to collect request metrics."""

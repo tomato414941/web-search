@@ -6,8 +6,14 @@ Vector/hybrid search is disabled until index scale justifies the latency cost.
 """
 
 import os
+import time
 from typing import Any
 
+from frontend.api.metrics import (
+    SEARCH_QUERY_TOTAL,
+    SEARCH_RESULT_COUNT,
+    SEARCH_SCORING_DURATION,
+)
 from frontend.core.config import settings
 from shared.db.search import get_connection
 from shared.search import SearchEngine, BM25Config
@@ -45,7 +51,11 @@ class SearchService:
         return self._bm25_search(q, k, page)
 
     def _bm25_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
+        SEARCH_QUERY_TOTAL.labels(mode="bm25").inc()
+        t0 = time.monotonic()
         result = self._engine.search(q, limit=k, page=page)
+        SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
+        SEARCH_RESULT_COUNT.observe(result.total)
 
         # Tokenize for snippet highlighting
         analyzed_q = analyzer.tokenize(q)
