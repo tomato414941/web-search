@@ -5,6 +5,7 @@ Provides search functionality using the inverted index.
 Supports BM25, Vector (Semantic), and Hybrid (RRF) search modes.
 """
 
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -54,6 +55,7 @@ class SearchEngine:
 
     RRF_K = 60  # Standard RRF constant
     CACHE_TTL_SECONDS = 300  # 5 minutes
+    CANDIDATE_LIMIT = int(os.getenv("SEARCH_CANDIDATE_LIMIT", "1000"))
 
     def __init__(
         self,
@@ -190,7 +192,7 @@ class SearchEngine:
             WHERE token IN ({placeholders})
             GROUP BY url
             ORDER BY COUNT(DISTINCT token) DESC, SUM(term_freq) DESC
-            LIMIT 1000
+            LIMIT {self.CANDIDATE_LIMIT}
             """,
             tuple(tokens),
         )
