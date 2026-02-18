@@ -399,7 +399,20 @@ def _execute_schema_statements(con: Any, schema: str, is_postgres: bool) -> None
         cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
         try:
             for stmt in statements:
-                cur.execute(stmt)
+                try:
+                    cur.execute(stmt)
+                except Exception as stmt_err:
+                    # Allow HNSW index creation to fail gracefully when
+                    # embedding column is still BYTEA (pre-migration).
+                    if "hnsw" in stmt.lower() or "vector_cosine_ops" in stmt.lower():
+                        logger.warning(
+                            "Skipping vector index (run migration first): %s",
+                            stmt_err,
+                        )
+                        con.rollback()
+                        cur.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
+                        continue
+                    raise
             con.commit()
         except Exception as e:
             error = e
