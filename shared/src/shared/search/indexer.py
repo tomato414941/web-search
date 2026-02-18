@@ -265,22 +265,23 @@ class SearchIndexer:
                 removed = sorted(old_tokens - new_tokens)
 
                 if added:
-                    cur.executemany(
-                        f"""
-                        INSERT INTO token_stats (token, doc_freq) VALUES ({ph}, 1)
+                    cur.execute(
+                        """
+                        INSERT INTO token_stats (token, doc_freq)
+                        SELECT unnest(%s::text[]), 1
                         ON CONFLICT (token) DO UPDATE SET
                             doc_freq = token_stats.doc_freq + 1
                         """,
-                        [(t,) for t in added],
+                        (added,),
                     )
 
                 if removed:
-                    cur.executemany(
-                        f"""
+                    cur.execute(
+                        """
                         UPDATE token_stats SET doc_freq = GREATEST(doc_freq - 1, 0)
-                        WHERE token = {ph}
+                        WHERE token = ANY(%s::text[])
                         """,
-                        [(t,) for t in removed],
+                        (removed,),
                     )
                 return
 
