@@ -31,7 +31,7 @@ class AsyncRobotsCache:
         )
         # TTL cache for blocked domains (expires after 1 hour)
         self._blocked_domains: TTLCache[str, bool] = TTLCache(
-            maxsize=MAX_CACHED_DOMAINS, ttl=BLOCKED_DOMAIN_TTL
+            maxsize=effective_size, ttl=BLOCKED_DOMAIN_TTL
         )
         self._fetch_failures: dict[str, int] = {}
 

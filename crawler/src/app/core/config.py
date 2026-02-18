@@ -45,7 +45,7 @@ class CrawlerSettings(InfrastructureSettings):
 
     # TCP / networking
     CRAWL_TCP_LIMIT: int = int(os.getenv("CRAWL_TCP_LIMIT", "200"))
-    ROBOTS_CACHE_SIZE: int = int(os.getenv("ROBOTS_CACHE_SIZE", "50000"))
+    ROBOTS_CACHE_SIZE: int = int(os.getenv("ROBOTS_CACHE_SIZE", "500000"))
 
     # Indexer API (for submitting crawled pages)
     INDEXER_API_URL: str = os.getenv(
