@@ -163,31 +163,36 @@ class IndexerService:
             cur.close()
 
     def _save_embedding(self, url: str, vector_blob: bytes) -> None:
-        ph = sql_placeholder()
         conn = get_connection(self.db_path)
         try:
-            cur = conn.cursor()
-            try:
-                # Convert BYTEA blob to pgvector string for PostgreSQL
-                if is_postgres_mode():
-                    vec = deserialize(vector_blob)
-                    embedding_value = to_pgvector(vec)
-                else:
-                    embedding_value = vector_blob
-
-                cur.execute(f"DELETE FROM page_embeddings WHERE url={ph}", (url,))
-                cur.execute(
-                    f"INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})",
-                    (url, embedding_value),
-                )
-            finally:
-                cur.close()
+            self._upsert_embedding(conn, url, vector_blob)
             conn.commit()
         except Exception as e:
             conn.rollback()
             logger.warning("Failed to store embedding for %s: %s", url, e)
         finally:
             conn.close()
+
+    @staticmethod
+    def _upsert_embedding(conn, url: str, vector_blob: bytes) -> None:
+        ph = sql_placeholder()
+        if is_postgres_mode():
+            vec = deserialize(vector_blob)
+            embedding_value = to_pgvector(vec)
+        else:
+            embedding_value = vector_blob
+
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                f"""
+                INSERT INTO page_embeddings (url, embedding) VALUES ({ph}, {ph})
+                ON CONFLICT (url) DO UPDATE SET embedding = EXCLUDED.embedding
+                """,
+                (url, embedding_value),
+            )
+        finally:
+            cur.close()
 
     def get_index_stats(self):
         """Get indexing statistics."""
