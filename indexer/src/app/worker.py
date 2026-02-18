@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import signal
+from typing import Any
 
 from app.api.routes import indexer
 from app.core.config import settings
@@ -46,9 +47,42 @@ async def _domain_rank_loop() -> None:
             logger.exception("Domain PageRank calculation failed")
 
 
+async def _process_single_job(
+    job: Any,
+    worker_name: str,
+    use_batch_embed: bool,
+    semaphore: asyncio.Semaphore,
+) -> tuple[str, str] | None:
+    """Process a single index job. Returns (url, content) for batch embedding on success."""
+    async with semaphore:
+        try:
+            await indexer_service.index_page(
+                url=job.url,
+                title=job.title,
+                content=job.content,
+                outlinks=job.outlinks,
+                skip_embedding=use_batch_embed,
+            )
+            indexer.index_job_service.mark_done(job.job_id)
+            if use_batch_embed and job.content:
+                return (job.url, job.content)
+        except Exception as exc:
+            error_text = str(exc)
+            logger.exception(
+                "%s failed job %s (%s): %s",
+                worker_name,
+                job.job_id,
+                job.url,
+                error_text,
+            )
+            indexer.index_job_service.mark_failure(job.job_id, error_text)
+    return None
+
+
 async def _index_job_worker_loop(worker_name: str) -> None:
     poll_interval = max(settings.INDEXER_JOB_POLL_INTERVAL_MS, 50) / 1000.0
     use_batch_embed = bool(settings.OPENAI_API_KEY)
+    semaphore = asyncio.Semaphore(settings.INDEXER_JOB_CONCURRENCY)
 
     while True:
         try:
@@ -66,31 +100,14 @@ async def _index_job_worker_loop(worker_name: str) -> None:
             await asyncio.sleep(poll_interval)
             continue
 
-        # Collect (url, content) for batch embedding
-        embed_items: list[tuple[str, str]] = []
-
-        for job in jobs:
-            try:
-                await indexer_service.index_page(
-                    url=job.url,
-                    title=job.title,
-                    content=job.content,
-                    outlinks=job.outlinks,
-                    skip_embedding=use_batch_embed,
-                )
-                indexer.index_job_service.mark_done(job.job_id)
-                if use_batch_embed and job.content:
-                    embed_items.append((job.url, job.content))
-            except Exception as exc:
-                error_text = str(exc)
-                logger.exception(
-                    "%s failed job %s (%s): %s",
-                    worker_name,
-                    job.job_id,
-                    job.url,
-                    error_text,
-                )
-                indexer.index_job_service.mark_failure(job.job_id, error_text)
+        # Process jobs concurrently with semaphore-limited parallelism
+        results = await asyncio.gather(
+            *[
+                _process_single_job(job, worker_name, use_batch_embed, semaphore)
+                for job in jobs
+            ]
+        )
+        embed_items = [r for r in results if r is not None]
 
         # Batch embed all successful pages at once
         if embed_items:

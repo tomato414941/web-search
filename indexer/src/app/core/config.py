@@ -36,6 +36,7 @@ class IndexerSettings(InfrastructureSettings):
     )
     INDEXER_JOB_RETRY_BASE_SEC: int = int(os.getenv("INDEXER_JOB_RETRY_BASE_SEC", "5"))
     INDEXER_JOB_RETRY_MAX_SEC: int = int(os.getenv("INDEXER_JOB_RETRY_MAX_SEC", "1800"))
+    INDEXER_JOB_CONCURRENCY: int = int(os.getenv("INDEXER_JOB_CONCURRENCY", "5"))
 
     # PageRank scheduling
     PAGERANK_INTERVAL_HOURS: int = int(os.getenv("PAGERANK_INTERVAL_HOURS", "24"))
