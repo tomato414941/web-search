@@ -190,11 +190,7 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
         cur = conn.cursor()
 
         if _table_exists(conn, "search_events"):
-            time_filter = (
-                f"created_at >= {ph}"
-                if postgres_mode
-                else f"datetime(created_at) >= datetime({ph})"
-            )
+            time_filter = f"created_at >= {ph}"
 
             cur.execute(
                 f"""
@@ -250,11 +246,7 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
             search_data["p95_ms"] = _percentile(latencies, 0.95)
 
         if _table_exists(conn, "documents"):
-            indexed_filter = (
-                f"indexed_at >= {ph}"
-                if postgres_mode
-                else f"datetime(indexed_at) >= datetime({ph})"
-            )
+            indexed_filter = f"indexed_at >= {ph}"
 
             cur.execute(
                 f"SELECT COUNT(*) FROM documents WHERE indexed_at IS NOT NULL AND {indexed_filter}",

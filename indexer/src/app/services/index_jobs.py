@@ -103,71 +103,27 @@ class IndexJobService:
         max_retries = self.max_retries
         ph = sql_placeholder()
 
+        # PG needs explicit JSONB cast for parameterized values
+        jsonb_ph = f"{ph}::jsonb" if is_postgres_mode() else ph
+
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    INSERT INTO index_jobs (
-                        job_id, url, title, content, outlinks,
-                        status, retry_count, max_retries,
-                        available_at, lease_until, worker_id, last_error,
-                        created_at, updated_at, content_hash, dedupe_key
-                    ) VALUES (
-                        {ph}, {ph}, {ph}, {ph}, {ph}::jsonb,
-                        {ph}, 0, {ph},
-                        {ph}, NULL, NULL, NULL,
-                        {ph}, {ph}, {ph}, {ph}
-                    )
-                    ON CONFLICT (dedupe_key) DO NOTHING
-                    RETURNING job_id
-                    """,
-                    (
-                        job_id,
-                        url,
-                        title,
-                        content,
-                        outlinks_json,
-                        STATUS_PENDING,
-                        max_retries,
-                        now_ts,
-                        now_ts,
-                        now_ts,
-                        content_hash,
-                        dedupe_key,
-                    ),
-                )
-                row = cur.fetchone()
-                if row:
-                    con.commit()
-                    cur.close()
-                    return str(row[0]), True
-
-                cur.execute(
-                    f"SELECT job_id FROM index_jobs WHERE dedupe_key = {ph}",
-                    (dedupe_key,),
-                )
-                existing = cur.fetchone()
-                con.commit()
-                cur.close()
-                if not existing:
-                    raise RuntimeError("Failed to resolve deduplicated index job")
-                return str(existing[0]), False
-
             cur.execute(
                 f"""
-                INSERT OR IGNORE INTO index_jobs (
+                INSERT INTO index_jobs (
                     job_id, url, title, content, outlinks,
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
                     created_at, updated_at, content_hash, dedupe_key
                 ) VALUES (
-                    {ph}, {ph}, {ph}, {ph}, {ph},
+                    {ph}, {ph}, {ph}, {ph}, {jsonb_ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
                     {ph}, {ph}, {ph}, {ph}
                 )
+                ON CONFLICT (dedupe_key) DO NOTHING
+                RETURNING job_id
                 """,
                 (
                     job_id,
@@ -184,11 +140,11 @@ class IndexJobService:
                     dedupe_key,
                 ),
             )
-            inserted = cur.rowcount > 0
-            if inserted:
+            row = cur.fetchone()
+            if row:
                 con.commit()
                 cur.close()
-                return job_id, True
+                return str(row[0]), True
 
             cur.execute(
                 f"SELECT job_id FROM index_jobs WHERE dedupe_key = {ph}",
@@ -345,40 +301,22 @@ class IndexJobService:
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    UPDATE index_jobs
-                    SET
-                        status = {ph},
-                        content = '',
-                        title = '',
-                        outlinks = '[]'::jsonb,
-                        lease_until = NULL,
-                        worker_id = NULL,
-                        last_error = NULL,
-                        updated_at = {ph}
-                    WHERE job_id = {ph}
-                    """,
-                    (STATUS_DONE, now_ts, job_id),
-                )
-            else:
-                cur.execute(
-                    f"""
-                    UPDATE index_jobs
-                    SET
-                        status = {ph},
-                        content = '',
-                        title = '',
-                        outlinks = '[]',
-                        lease_until = NULL,
-                        worker_id = NULL,
-                        last_error = NULL,
-                        updated_at = {ph}
-                    WHERE job_id = {ph}
-                    """,
-                    (STATUS_DONE, now_ts, job_id),
-                )
+            cur.execute(
+                f"""
+                UPDATE index_jobs
+                SET
+                    status = {ph},
+                    content = '',
+                    title = '',
+                    outlinks = {ph},
+                    lease_until = NULL,
+                    worker_id = NULL,
+                    last_error = NULL,
+                    updated_at = {ph}
+                WHERE job_id = {ph}
+                """,
+                (STATUS_DONE, "[]", now_ts, job_id),
+            )
             con.commit()
             cur.close()
         finally:

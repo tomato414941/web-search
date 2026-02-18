@@ -145,17 +145,11 @@ class IndexerService:
             # Insert new links (skip self-links)
             for dst in outlinks:
                 if dst != src_url:
-                    if is_postgres_mode():
-                        cur.execute(
-                            f"INSERT INTO links (src, dst) VALUES ({ph}, {ph}) "
-                            "ON CONFLICT DO NOTHING",
-                            (src_url, dst),
-                        )
-                    else:
-                        cur.execute(
-                            f"INSERT OR IGNORE INTO links (src, dst) VALUES ({ph}, {ph})",
-                            (src_url, dst),
-                        )
+                    cur.execute(
+                        f"INSERT INTO links (src, dst) VALUES ({ph}, {ph}) "
+                        "ON CONFLICT DO NOTHING",
+                        (src_url, dst),
+                    )
             cur.execute(f"RELEASE SAVEPOINT {savepoint}")
         except Exception as e:
             logger.warning(f"Failed to save links for {src_url}: {e}")

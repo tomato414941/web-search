@@ -47,16 +47,10 @@ async def get_dashboard_data() -> dict[str, Any]:
             cursor.execute("SELECT COUNT(*) FROM documents")
             data["indexed_pages"] = cursor.fetchone()[0]
 
-            if is_postgres:
-                cursor.execute(
-                    f"SELECT COUNT(*) FROM documents WHERE indexed_at >= {ph}",
-                    (day_ago,),
-                )
-            else:
-                cursor.execute(
-                    f"SELECT COUNT(*) FROM documents WHERE datetime(indexed_at) >= datetime({ph})",
-                    (day_ago,),
-                )
+            cursor.execute(
+                f"SELECT COUNT(*) FROM documents WHERE indexed_at >= {ph}",
+                (day_ago,),
+            )
             data["indexed_delta"] = cursor.fetchone()[0]
 
             cursor.execute(
@@ -66,30 +60,17 @@ async def get_dashboard_data() -> dict[str, Any]:
             if result and result[0]:
                 data["last_crawl"] = result[0]
 
-            if is_postgres:
-                cursor.execute(
-                    f"""
-                    SELECT
-                        COUNT(*) as total,
-                        COUNT(DISTINCT query) as unique_queries,
-                        SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
-                    FROM search_logs
-                    WHERE created_at >= {ph}{search_filter_sql}
-                    """,
-                    (today_start, *search_filter_params),
-                )
-            else:
-                cursor.execute(
-                    f"""
-                    SELECT
-                        COUNT(*) as total,
-                        COUNT(DISTINCT query) as unique_queries,
-                        SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
-                    FROM search_logs
-                    WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                    """,
-                    (today_start, *search_filter_params),
-                )
+            cursor.execute(
+                f"""
+                SELECT
+                    COUNT(*) as total,
+                    COUNT(DISTINCT query) as unique_queries,
+                    SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
+                FROM search_logs
+                WHERE created_at >= {ph}{search_filter_sql}
+                """,
+                (today_start, *search_filter_params),
+            )
             row = cursor.fetchone()
             if row:
                 data["today_searches"] = row[0] or 0
@@ -101,58 +82,32 @@ async def get_dashboard_data() -> dict[str, Any]:
                         1,
                     )
 
-            if is_postgres:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE created_at >= {ph}{search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 1
-                    """,
-                    (today_start, *search_filter_params),
-                )
-            else:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 1
-                    """,
-                    (today_start, *search_filter_params),
-                )
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE created_at >= {ph}{search_filter_sql}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 1
+                """,
+                (today_start, *search_filter_params),
+            )
             row = cursor.fetchone()
             if row and row[0]:
                 data["top_query"] = {"query": row[0], "count": row[1]}
 
-            if is_postgres:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 5
-                    """,
-                    (today_start, *search_filter_params),
-                )
-            else:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE result_count = 0 AND datetime(created_at) >= datetime({ph}){search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 5
-                    """,
-                    (today_start, *search_filter_params),
-                )
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 5
+                """,
+                (today_start, *search_filter_params),
+            )
             data["zero_hit_queries"] = [
                 {"query": row[0], "count": row[1]} for row in cursor.fetchall()
             ]

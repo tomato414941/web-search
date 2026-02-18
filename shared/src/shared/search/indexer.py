@@ -49,27 +49,18 @@ class SearchIndexer:
             # 2. Store document metadata
             now = datetime.now(timezone.utc).isoformat()
             cur = conn.cursor()
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    INSERT INTO documents (url, title, content, word_count, indexed_at)
-                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
-                    ON CONFLICT (url) DO UPDATE SET
-                        title = EXCLUDED.title,
-                        content = EXCLUDED.content,
-                        word_count = EXCLUDED.word_count,
-                        indexed_at = EXCLUDED.indexed_at
-                    """,
-                    (url, title, content, len(content_tokens), now),
-                )
-            else:
-                cur.execute(
-                    f"""
-                    INSERT OR REPLACE INTO documents (url, title, content, word_count, indexed_at)
-                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
-                    """,
-                    (url, title, content, len(content_tokens), now),
-                )
+            cur.execute(
+                f"""
+                INSERT INTO documents (url, title, content, word_count, indexed_at)
+                VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
+                ON CONFLICT (url) DO UPDATE SET
+                    title = EXCLUDED.title,
+                    content = EXCLUDED.content,
+                    word_count = EXCLUDED.word_count,
+                    indexed_at = EXCLUDED.indexed_at
+                """,
+                (url, title, content, len(content_tokens), now),
+            )
             cur.close()
 
             # 3. Get tokens from old version (for incremental stats update)
@@ -136,30 +127,20 @@ class SearchIndexer:
                 avg_length = cur.fetchone()[0] or 0.0
 
             # Upsert stats
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    INSERT INTO index_stats (key, value) VALUES ({ph}, {ph})
-                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-                    """,
-                    ("total_docs", float(total_docs)),
-                )
-                cur.execute(
-                    f"""
-                    INSERT INTO index_stats (key, value) VALUES ({ph}, {ph})
-                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-                    """,
-                    ("avg_doc_length", avg_length),
-                )
-            else:
-                cur.execute(
-                    f"INSERT OR REPLACE INTO index_stats (key, value) VALUES ({ph}, {ph})",
-                    ("total_docs", float(total_docs)),
-                )
-                cur.execute(
-                    f"INSERT OR REPLACE INTO index_stats (key, value) VALUES ({ph}, {ph})",
-                    ("avg_doc_length", avg_length),
-                )
+            cur.execute(
+                f"""
+                INSERT INTO index_stats (key, value) VALUES ({ph}, {ph})
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                """,
+                ("total_docs", float(total_docs)),
+            )
+            cur.execute(
+                f"""
+                INSERT INTO index_stats (key, value) VALUES ({ph}, {ph})
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                """,
+                ("avg_doc_length", avg_length),
+            )
 
             cur.close()
 
@@ -223,25 +204,16 @@ class SearchIndexer:
         # Insert into inverted index
         cur = conn.cursor()
         for token, freq in freq_map.items():
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    INSERT INTO inverted_index (token, url, field, term_freq, positions)
-                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
-                    ON CONFLICT (token, url, field) DO UPDATE SET
-                        term_freq = EXCLUDED.term_freq,
-                        positions = EXCLUDED.positions
-                    """,
-                    (token, url, field, freq, json.dumps(pos_map[token])),
-                )
-            else:
-                cur.execute(
-                    f"""
-                    INSERT OR REPLACE INTO inverted_index (token, url, field, term_freq, positions)
-                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
-                    """,
-                    (token, url, field, freq, json.dumps(pos_map[token])),
-                )
+            cur.execute(
+                f"""
+                INSERT INTO inverted_index (token, url, field, term_freq, positions)
+                VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
+                ON CONFLICT (token, url, field) DO UPDATE SET
+                    term_freq = EXCLUDED.term_freq,
+                    positions = EXCLUDED.positions
+                """,
+                (token, url, field, freq, json.dumps(pos_map[token])),
+            )
         cur.close()
 
     def _update_token_stats_incremental(
@@ -293,7 +265,10 @@ class SearchIndexer:
                 )
                 doc_freq = cur.fetchone()[0]
                 cur.execute(
-                    f"INSERT OR REPLACE INTO token_stats (token, doc_freq) VALUES ({ph}, {ph})",
+                    f"""
+                    INSERT INTO token_stats (token, doc_freq) VALUES ({ph}, {ph})
+                    ON CONFLICT (token) DO UPDATE SET doc_freq = EXCLUDED.doc_freq
+                    """,
                     (token, doc_freq),
                 )
         finally:

@@ -61,77 +61,42 @@ def get_analytics_data() -> dict[str, Any]:
             is_postgres
         )
         with db_cursor(settings.DB_PATH) as (_, cursor):
-            if is_postgres:
-                cursor.execute(
-                    f"""
-                    SELECT COUNT(*) FROM search_logs
-                    WHERE created_at >= {ph}{search_filter_sql}
-                    """,
-                    (week_ago, *search_filter_params),
-                )
-            else:
-                cursor.execute(
-                    f"""
-                    SELECT COUNT(*) FROM search_logs
-                    WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                    """,
-                    (week_ago, *search_filter_params),
-                )
+            cursor.execute(
+                f"""
+                SELECT COUNT(*) FROM search_logs
+                WHERE created_at >= {ph}{search_filter_sql}
+                """,
+                (week_ago, *search_filter_params),
+            )
             data["total_searches"] = cursor.fetchone()[0]
 
-            if is_postgres:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-                    FROM search_logs
-                    WHERE created_at >= {ph}{search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 20
-                    """,
-                    (week_ago, *search_filter_params),
-                )
-            else:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-                    FROM search_logs
-                    WHERE datetime(created_at) >= datetime({ph}){search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 20
-                    """,
-                    (week_ago, *search_filter_params),
-                )
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
+                FROM search_logs
+                WHERE created_at >= {ph}{search_filter_sql}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """,
+                (week_ago, *search_filter_params),
+            )
             data["top_queries"] = [
                 {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
                 for row in cursor.fetchall()
             ]
 
-            if is_postgres:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 20
-                    """,
-                    (week_ago, *search_filter_params),
-                )
-            else:
-                cursor.execute(
-                    f"""
-                    SELECT query, COUNT(*) as count
-                    FROM search_logs
-                    WHERE result_count = 0 AND datetime(created_at) >= datetime({ph}){search_filter_sql}
-                    GROUP BY query
-                    ORDER BY count DESC
-                    LIMIT 20
-                    """,
-                    (week_ago, *search_filter_params),
-                )
+            cursor.execute(
+                f"""
+                SELECT query, COUNT(*) as count
+                FROM search_logs
+                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
+                GROUP BY query
+                ORDER BY count DESC
+                LIMIT 20
+                """,
+                (week_ago, *search_filter_params),
+            )
             data["zero_hit_queries"] = [
                 {"query": row[0], "count": row[1]} for row in cursor.fetchall()
             ]
