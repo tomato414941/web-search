@@ -11,7 +11,7 @@ from app.services.embedding import embedding_service
 
 logger = logging.getLogger(__name__)
 
-STATS_UPDATE_INTERVAL = int(os.getenv("STATS_UPDATE_INTERVAL", "1000"))
+STATS_UPDATE_INTERVAL = int(os.getenv("STATS_UPDATE_INTERVAL", "10000"))
 
 
 def _sanitize_text(value: str) -> str:
