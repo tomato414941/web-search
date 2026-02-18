@@ -6,6 +6,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
+from frontend.api.middleware.rate_limiter import limiter
 from frontend.api.routers.admin_crawlers import router as crawlers_router
 from frontend.api.routers.admin_indexer import router as indexer_router
 from frontend.api.templates import templates
@@ -66,6 +67,7 @@ async def login_page(request: Request, error: str = ""):
 
 
 @router.post("/login")
+@limiter.limit("5/minute")
 async def login(
     request: Request,
     username: str = Form(...),
