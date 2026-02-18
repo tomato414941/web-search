@@ -276,8 +276,8 @@ def sql_placeholders(count: int) -> str:
 _pg_pool = None
 _pg_pool_lock = threading.Lock()
 
-DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "2"))
-DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
+DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "4"))
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "50"))
 
 
 class _PooledConnection:
