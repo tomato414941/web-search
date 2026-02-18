@@ -1,16 +1,15 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: web-search-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: websearch
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-websearch_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: websearch
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U websearch']
+      test: ["CMD-SHELL", "pg_isready -U websearch"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -19,20 +18,19 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    container_name: web-search-frontend
     restart: unless-stopped
-    ports:
-      - "8083:8000"
+    expose:
+      - "8000"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - PORT=8000
       - HOST=0.0.0.0
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      - ANALYTICS_SALT=${ANALYTICS_SALT:-}
+      - ANALYTICS_SALT=${ANALYTICS_SALT}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CRAWLER_SERVICE_URL=http://crawler:8000
       - INDEXER_SERVICE_URL=http://indexer:8000
@@ -51,15 +49,14 @@ services:
     build:
       context: .
       dockerfile: indexer/Dockerfile
-    container_name: web-search-indexer
     restart: unless-stopped
-    ports:
-      - "8081:8000"
+    expose:
+      - "8000"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - PORT=8000
       - HOST=0.0.0.0
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
@@ -76,11 +73,10 @@ services:
     build:
       context: .
       dockerfile: indexer/Dockerfile
-    container_name: web-search-indexer-worker
     restart: unless-stopped
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - INDEXER_JOB_WORKERS=${INDEXER_JOB_WORKERS:-4}
@@ -113,13 +109,12 @@ services:
     build:
       context: .
       dockerfile: crawler/Dockerfile
-    container_name: web-search-crawler
     restart: unless-stopped
-    ports:
-      - "8082:8000"
+    expose:
+      - "8000"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY:-10}

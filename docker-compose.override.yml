@@ -1,0 +1,36 @@
+# Local development overrides
+# Automatically merged by `docker compose` when present.
+# Adds host port mappings, container names, and default passwords.
+services:
+  postgres:
+    container_name: web-search-postgres
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-websearch_password}
+
+  frontend:
+    container_name: web-search-frontend
+    ports:
+      - "8083:8000"
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ANALYTICS_SALT=${ANALYTICS_SALT:-}
+
+  indexer:
+    container_name: web-search-indexer
+    ports:
+      - "8081:8000"
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
+
+  indexer-worker:
+    container_name: web-search-indexer-worker
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
+
+  crawler:
+    container_name: web-search-crawler
+    ports:
+      - "8082:8000"
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
