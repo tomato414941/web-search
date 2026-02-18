@@ -5,6 +5,7 @@ Uses BM25 keyword search with PageRank boosting.
 Vector/hybrid search is disabled until index scale justifies the latency cost.
 """
 
+import os
 from typing import Any
 
 from frontend.core.config import settings
@@ -14,18 +15,22 @@ from shared.search.snippet import generate_snippet
 from shared.analyzer import analyzer
 
 
+def _bm25_config_from_env() -> BM25Config:
+    return BM25Config(
+        k1=float(os.getenv("BM25_K1", "1.2")),
+        b=float(os.getenv("BM25_B", "0.75")),
+        title_boost=float(os.getenv("BM25_TITLE_BOOST", "3.0")),
+        pagerank_weight=float(os.getenv("BM25_PAGERANK_WEIGHT", "0.5")),
+    )
+
+
 class SearchService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
 
         self._engine = SearchEngine(
             db_path=db_path,
-            bm25_config=BM25Config(
-                k1=1.2,
-                b=0.75,
-                title_boost=3.0,
-                pagerank_weight=0.5,
-            ),
+            bm25_config=_bm25_config_from_env(),
         )
 
     def search(
