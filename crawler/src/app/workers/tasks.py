@@ -193,14 +193,23 @@ async def process_url(
 
                 # 6. Enqueue discovered links (batch insert)
                 if discovered:
+                    # Batch-fetch domain done counts for uncached domains
+                    uncached_domains = {
+                        get_domain(u)
+                        for u in discovered
+                        if get_domain(u) not in state.domain_cache
+                    }
+                    if uncached_domains:
+                        counts = url_store.domain_done_count_batch(
+                            list(uncached_domains)
+                        )
+                        for d in uncached_domains:
+                            state.domain_cache[d] = counts.get(d, 0)
+
                     scored_items: list[tuple[str, float]] = []
                     for new_url in discovered:
                         new_domain = get_domain(new_url)
-                        if new_domain not in state.domain_cache:
-                            state.domain_cache[new_domain] = (
-                                url_store.domain_done_count(new_domain)
-                            )
-                        domain_visits = max(state.domain_cache[new_domain], 1)
+                        domain_visits = max(state.domain_cache.get(new_domain, 0), 1)
                         dr = get_domain_rank(new_domain)
                         score = calculate_url_score(
                             new_url, priority, domain_visits, domain_pagerank=dr

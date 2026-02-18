@@ -697,6 +697,26 @@ class UrlStore:
         finally:
             con.close()
 
+    def domain_done_count_batch(self, domains: list[str]) -> dict[str, int]:
+        """Return done-URL counts for multiple domains in a single query."""
+        if not domains:
+            return {}
+        phs = sql_placeholders(len(domains))
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT domain, COUNT(*) FROM urls "
+                f"WHERE domain IN ({phs}) AND status = 'done' "
+                f"GROUP BY domain",
+                tuple(domains),
+            )
+            result = {row[0]: row[1] for row in cur.fetchall()}
+            cur.close()
+            return result
+        finally:
+            con.close()
+
     def size(self) -> int:
         """Return total number of URLs (all statuses). For health checks."""
         con = get_connection(self.db_path)
