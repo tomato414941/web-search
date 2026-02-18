@@ -37,15 +37,16 @@ def _get_environment() -> Environment:
 class InfrastructureSettings:
     """Infrastructure-level configuration (database, paths)"""
 
-    # Project Paths
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent.parent
-    DATA_DIR: Path = BASE_DIR / "data"
-
     # Database
     # PostgreSQL (production): Set DATABASE_URL environment variable
-    # SQLite (development): Uses SEARCH_DB path or default
+    # SQLite (test): Uses SEARCH_DB env var or default path
     DATABASE_URL: str | None = os.getenv("DATABASE_URL")
-    DB_PATH: str = os.getenv("SEARCH_DB", str(DATA_DIR / "search.db"))
+    DB_PATH: str = os.getenv(
+        "SEARCH_DB",
+        str(
+            Path(__file__).resolve().parent.parent.parent.parent / "data" / "search.db"
+        ),
+    )
 
     # Environment
     ENVIRONMENT: Environment = _get_environment()

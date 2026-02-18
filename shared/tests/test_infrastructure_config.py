@@ -8,10 +8,6 @@ class TestInfrastructureSettings:
         """InfrastructureSettings should have all required infrastructure fields."""
         from shared.core.infrastructure_config import settings
 
-        # Paths
-        assert hasattr(settings, "BASE_DIR")
-        assert hasattr(settings, "DATA_DIR")
-
         # Database
         assert hasattr(settings, "DB_PATH")
 
