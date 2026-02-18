@@ -76,6 +76,7 @@ class IndexerService:
         finally:
             conn.close()
 
+        embedded = False
         if not skip_embedding and settings.OPENAI_API_KEY:
             try:
                 vector_blob = await asyncio.wait_for(
@@ -84,12 +85,18 @@ class IndexerService:
                 )
                 if vector_blob:
                     self._save_embedding(url, vector_blob)
+                    embedded = True
             except asyncio.TimeoutError:
                 logger.warning("Embedding timed out for %s", url)
             except Exception as embed_error:
                 logger.warning("Embedding failed for %s: %s", url, embed_error)
 
-        logger.info("Indexed: %s", url)
+        if skip_embedding:
+            logger.info("Indexed (no embed): %s", url)
+        elif embedded:
+            logger.info("Indexed (embedded): %s", url)
+        else:
+            logger.info("Indexed (embed failed): %s", url)
 
     async def embed_and_save_batch(self, items: list[tuple[str, str]]) -> int:
         """Embed multiple (url, content) pairs in batch and save to DB.
