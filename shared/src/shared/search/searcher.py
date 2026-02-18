@@ -180,6 +180,7 @@ class SearchEngine:
         """
         Find documents containing ANY token (OR logic).
         Results are capped at 1000 and ordered by token coverage + term frequency.
+        Only returns URLs that exist in the documents table.
         """
         if not tokens:
             return set()
@@ -189,10 +190,11 @@ class SearchEngine:
         cur = conn.cursor()
         cur.execute(
             f"""
-            SELECT url FROM inverted_index
-            WHERE token IN ({placeholders})
-            GROUP BY url
-            ORDER BY COUNT(DISTINCT token) DESC, SUM(term_freq) DESC
+            SELECT ii.url FROM inverted_index ii
+            JOIN documents d ON d.url = ii.url
+            WHERE ii.token IN ({placeholders})
+            GROUP BY ii.url
+            ORDER BY COUNT(DISTINCT ii.token) DESC, SUM(ii.term_freq) DESC
             LIMIT {self.CANDIDATE_LIMIT}
             """,
             tuple(tokens),
