@@ -5,6 +5,7 @@ Implements the Okapi BM25 ranking function for full-text search.
 """
 
 import math
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,10 +38,14 @@ class BM25Scorer:
     - avgdl = average document length
     """
 
+    IDF_CACHE_TTL = 300  # 5 minutes
+
     def __init__(self, db_path: str, config: BM25Config | None = None):
         self.db_path = db_path
         self.config = config or BM25Config()
         self._stats_cache: dict[str, float] = {}
+        self._idf_cache: dict[str, float] = {}
+        self._idf_cache_loaded_at: float = 0.0
 
     def score(
         self,
@@ -172,13 +177,20 @@ class BM25Scorer:
         total_docs: float,
     ) -> float:
         """
-        Calculate Inverse Document Frequency.
+        Calculate Inverse Document Frequency (cached with TTL).
 
         IDF = log((N - df + 0.5) / (df + 0.5) + 1)
 
         Using the "+1" variant to avoid negative IDF for common terms.
         """
-        # Get document frequency
+        now = time.monotonic()
+        if now - self._idf_cache_loaded_at > self.IDF_CACHE_TTL:
+            self._idf_cache.clear()
+            self._idf_cache_loaded_at = now
+
+        if token in self._idf_cache:
+            return self._idf_cache[token]
+
         ph = sql_placeholder()
         cur = conn.cursor()
         cur.execute(
@@ -191,11 +203,11 @@ class BM25Scorer:
         df = row[0] if row else 0
 
         if df == 0:
+            self._idf_cache[token] = 0.0
             return 0.0
 
-        # IDF formula (BM25 variant with +1 to avoid negative values)
         idf = math.log((total_docs - df + 0.5) / (df + 0.5) + 1)
-
+        self._idf_cache[token] = idf
         return idf
 
     def score_batch(
@@ -290,5 +302,7 @@ class BM25Scorer:
         return results
 
     def clear_cache(self) -> None:
-        """Clear the stats cache."""
+        """Clear all caches."""
         self._stats_cache.clear()
+        self._idf_cache.clear()
+        self._idf_cache_loaded_at = 0.0
