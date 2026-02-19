@@ -131,8 +131,8 @@ class TestSearchEngine:
         # 京都 should not match 東京
         assert "http://example.com/kyoto" not in urls
 
-    def test_or_search(self, temp_search_db):
-        """Test OR logic - documents with any token match, full match ranks higher."""
+    def test_and_first_search(self, temp_search_db):
+        """Test AND-first: 2-token query requires both tokens to match."""
         indexer = SearchIndexer(temp_search_db)
         engine = SearchEngine(temp_search_db)
 
@@ -148,11 +148,10 @@ class TestSearchEngine:
         )
         indexer.update_global_stats()
 
-        # Search for "Python JavaScript" should match both docs (OR logic)
+        # 2-token query: AND-first requires both tokens
         result = engine.search("Python JavaScript")
 
-        assert result.total == 2
-        # Doc with both tokens should rank higher
+        assert result.total == 1
         assert result.hits[0].url == "http://example.com/1"
 
     def test_empty_query(self, temp_search_db):
@@ -254,8 +253,8 @@ class TestSearchEngine:
         assert result2.total >= 1
         assert result2.hits[0].url == "http://example.com/claude"
 
-    def test_or_search_ranking(self, temp_search_db):
-        """Test that documents matching more tokens rank higher."""
+    def test_or_fallback_ranking(self, temp_search_db):
+        """Test min_should_match fallback for 3+ tokens."""
         indexer = SearchIndexer(temp_search_db)
         engine = SearchEngine(temp_search_db)
 
@@ -271,10 +270,28 @@ class TestSearchEngine:
         )
         indexer.update_global_stats()
 
+        # 3 tokens: min_should_match = max(2, int(3*0.6)) = 2
+        # "both" has Python + JavaScript = 2 matches (>= 2, OK)
+        # "one" has Ruby = 1 match (< 2, excluded)
         result = engine.search("Python JavaScript Ruby")
-        assert result.total == 2
-        # Document with more token matches should rank first
+        assert result.total == 1
         assert result.hits[0].url == "http://example.com/both"
+
+    def test_single_token_always_matches(self, temp_search_db):
+        """Test that single-token query matches any doc with that token."""
+        indexer = SearchIndexer(temp_search_db)
+        engine = SearchEngine(temp_search_db)
+
+        indexer.index_document(
+            url="http://example.com/py",
+            title="Python guide",
+            content="Learn Python programming.",
+        )
+        indexer.update_global_stats()
+
+        result = engine.search("Python")
+        assert result.total == 1
+        assert result.hits[0].url == "http://example.com/py"
 
     def test_stop_words_filtered(self, temp_search_db):
         """Test that stop words are filtered from indexing and search."""

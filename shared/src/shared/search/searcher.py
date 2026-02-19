@@ -13,7 +13,12 @@ from typing import Any, Callable
 import numpy as np
 
 from shared.analyzer import analyzer, STOP_WORDS
-from shared.db.search import get_connection, is_postgres_mode, sql_placeholders
+from shared.db.search import (
+    get_connection,
+    is_postgres_mode,
+    sql_placeholder,
+    sql_placeholders,
+)
 from shared.embedding import to_pgvector
 from shared.search.scoring import BM25Scorer, BM25Config
 
@@ -172,36 +177,69 @@ class SearchEngine:
         tokenized = analyzer.tokenize(text)
         return [t for t in tokenized.split() if len(t) > 1 and t not in STOP_WORDS]
 
+    @staticmethod
+    def _min_should_match(token_count: int) -> int:
+        """Calculate minimum token match threshold for OR fallback."""
+        if token_count <= 2:
+            return token_count
+        if token_count <= 5:
+            return max(2, int(token_count * 0.6))
+        return max(2, int(token_count * 0.5))
+
     def _find_candidates(
         self,
         conn: Any,
         tokens: list[str],
     ) -> set[str]:
         """
-        Find documents containing ANY token (OR logic).
-        Results are capped at 1000 and ordered by token coverage + term frequency.
+        Find documents using AND-first strategy with OR fallback.
+
+        1. Try requiring ALL tokens (AND).
+        2. If results < CANDIDATE_LIMIT, relax to min_should_match threshold.
         Only returns URLs that exist in the documents table.
         """
         if not tokens:
             return set()
 
         placeholders = sql_placeholders(len(tokens))
+        token_count = len(tokens)
+        ph = sql_placeholder()
 
         cur = conn.cursor()
+
+        # AND-first: require all tokens
         cur.execute(
             f"""
             SELECT ii.url FROM inverted_index ii
             JOIN documents d ON d.url = ii.url
             WHERE ii.token IN ({placeholders})
             GROUP BY ii.url
-            ORDER BY COUNT(DISTINCT ii.token) DESC, SUM(ii.term_freq) DESC
+            HAVING COUNT(DISTINCT ii.token) = {ph}
+            ORDER BY SUM(ii.term_freq) DESC
             LIMIT {self.CANDIDATE_LIMIT}
             """,
-            tuple(tokens),
+            (*tokens, token_count),
         )
         candidates = set(row[0] for row in cur.fetchall())
-        cur.close()
 
+        # OR fallback if AND yields insufficient results
+        min_match = self._min_should_match(token_count)
+        if len(candidates) < self.CANDIDATE_LIMIT and min_match < token_count:
+            cur.execute(
+                f"""
+                SELECT ii.url FROM inverted_index ii
+                JOIN documents d ON d.url = ii.url
+                WHERE ii.token IN ({placeholders})
+                GROUP BY ii.url
+                HAVING COUNT(DISTINCT ii.token) >= {ph}
+                ORDER BY COUNT(DISTINCT ii.token) DESC, SUM(ii.term_freq) DESC
+                LIMIT {self.CANDIDATE_LIMIT}
+                """,
+                (*tokens, min_match),
+            )
+            candidates.update(row[0] for row in cur.fetchall())
+
+        cur.close()
         return candidates
 
     def _score_candidates(
