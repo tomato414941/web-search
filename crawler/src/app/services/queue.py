@@ -9,6 +9,7 @@ import logging
 from app.db.url_store import UrlStore, get_domain
 from app.core.config import settings
 from app.domain.scoring import MANUAL_CRAWL_BOOST, get_domain_rank, seed_score
+from shared.core.utils import is_private_ip
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,11 @@ class QueueService:
 
         scored = []
         for url in urls:
-            dr = get_domain_rank(get_domain(url))
+            domain = get_domain(url)
+            if is_private_ip(domain):
+                logger.warning("SSRF blocked at enqueue: %s", url)
+                continue
+            dr = get_domain_rank(domain)
             scored.append(
                 (url, seed_score(domain_pagerank=dr, boost=MANUAL_CRAWL_BOOST))
             )

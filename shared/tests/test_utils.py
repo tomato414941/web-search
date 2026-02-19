@@ -1,6 +1,6 @@
 """Test utility functions."""
 
-from shared.core.utils import normalize_url
+from shared.core.utils import is_private_ip, normalize_url
 
 
 class TestNormalizeURL:
@@ -53,3 +53,61 @@ class TestNormalizeURL:
         """Should reject mailto: URLs."""
         result = normalize_url("http://example.com", "mailto:test@example.com")
         assert result is None
+
+
+class TestSSRFPrevention:
+    """Test SSRF prevention utilities."""
+
+    def test_block_localhost_ipv4(self):
+        assert is_private_ip("127.0.0.1") is True
+
+    def test_block_localhost_ipv6(self):
+        assert is_private_ip("::1") is True
+
+    def test_block_10_network(self):
+        assert is_private_ip("10.0.0.1") is True
+
+    def test_block_172_16_network(self):
+        assert is_private_ip("172.16.0.1") is True
+
+    def test_block_192_168_network(self):
+        assert is_private_ip("192.168.1.1") is True
+
+    def test_block_metadata_ip(self):
+        assert is_private_ip("169.254.169.254") is True
+
+    def test_block_zero_ip(self):
+        assert is_private_ip("0.0.0.0") is True
+
+    def test_allow_public_ip(self):
+        assert is_private_ip("8.8.8.8") is False
+
+    def test_allow_hostname(self):
+        assert is_private_ip("example.com") is False
+
+    def test_block_empty(self):
+        assert is_private_ip("") is True
+
+    def test_normalize_url_blocks_private_ip(self):
+        result = normalize_url(
+            "http://example.com", "http://127.0.0.1:5432/", block_private=True
+        )
+        assert result is None
+
+    def test_normalize_url_blocks_metadata(self):
+        result = normalize_url(
+            "http://example.com",
+            "http://169.254.169.254/latest/meta-data/",
+            block_private=True,
+        )
+        assert result is None
+
+    def test_normalize_url_allows_public_without_flag(self):
+        result = normalize_url("http://example.com", "http://127.0.0.1/")
+        assert result is not None  # block_private=False by default
+
+    def test_normalize_url_allows_public_ip(self):
+        result = normalize_url(
+            "http://example.com", "http://8.8.8.8/page", block_private=True
+        )
+        assert result == "http://8.8.8.8/page"

@@ -67,7 +67,7 @@ def extract_links(base_url: str, html: str, limit: int = 100) -> list[str]:
         href = a.get("href")
         if isinstance(href, list):
             href = href[0] if href else None
-        u = normalize_url(base_url, href)
+        u = normalize_url(base_url, href, block_private=True)
         if u:
             urls.append(u)
         if len(urls) >= limit:

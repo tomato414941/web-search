@@ -1,7 +1,67 @@
+import ipaddress
+import socket
 from urllib.parse import parse_qsl, urldefrag, urlencode, urljoin, urlsplit, urlunsplit
 from typing import Optional
 
 MAX_URL_LENGTH = 2083
+
+# Cloud metadata endpoint
+_METADATA_IPS = {"169.254.169.254"}
+
+
+def is_private_ip(hostname: str) -> bool:
+    """Check if hostname is an IP literal pointing to a private/reserved address.
+
+    Does NOT perform DNS resolution — use resolve_is_private() for that.
+    Returns True if the IP should be blocked.
+    """
+    if not hostname:
+        return True
+    if hostname in _METADATA_IPS:
+        return True
+    try:
+        addr = ipaddress.ip_address(hostname)
+        return (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+        )
+    except ValueError:
+        return False  # Not an IP literal
+
+
+def resolve_is_private(hostname: str) -> bool:
+    """Resolve hostname via DNS and check if any resolved IP is private/reserved.
+
+    Returns True if the hostname resolves to a private IP (should be blocked).
+    Returns True if DNS resolution fails (fail-closed).
+    """
+    if is_private_ip(hostname):
+        return True
+    try:
+        results = socket.getaddrinfo(
+            hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
+        )
+    except socket.gaierror:
+        return True  # Cannot resolve → block (fail-closed)
+    for _family, _type, _proto, _canonname, sockaddr in results:
+        ip_str = sockaddr[0]
+        if ip_str in _METADATA_IPS:
+            return True
+        try:
+            addr = ipaddress.ip_address(ip_str)
+            if (
+                addr.is_private
+                or addr.is_loopback
+                or addr.is_link_local
+                or addr.is_reserved
+            ):
+                return True
+        except ValueError:
+            return True
+    return False
+
 
 TRACKING_KEYS = {
     "utm_source",
@@ -14,7 +74,9 @@ TRACKING_KEYS = {
 }
 
 
-def normalize_url(base: str, link: str | None) -> Optional[str]:
+def normalize_url(
+    base: str, link: str | None, *, block_private: bool = False
+) -> Optional[str]:
     if not link:
         return None
     href = urljoin(base, link)
@@ -26,6 +88,8 @@ def normalize_url(base: str, link: str | None) -> Optional[str]:
     # lower scheme/host & strip common tracking params
     parts = urlsplit(href)
     host = (parts.hostname or "").lower()
+    if block_private and host and is_private_ip(host):
+        return None
     port = f":{parts.port}" if parts.port else ""
     query = urlencode(
         [

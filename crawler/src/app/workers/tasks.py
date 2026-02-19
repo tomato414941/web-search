@@ -22,7 +22,7 @@ from app.utils.parser import html_to_doc, extract_links
 from app.utils.robots import AsyncRobotsCache
 from app.services.indexer import submit_page_to_indexer
 from app.utils import history as history_log
-from shared.core.utils import MAX_URL_LENGTH
+from shared.core.utils import MAX_URL_LENGTH, resolve_is_private
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,15 @@ async def process_url(
             logger.info(f"Blocked by robots.txt: {url}")
             history_log.log_crawl_attempt(
                 url, "blocked", error_message="Blocked by robots.txt"
+            )
+            url_store.record(url, status="failed")
+            return
+
+        # SSRF check: resolve hostname and block private IPs
+        if resolve_is_private(domain):
+            logger.warning(f"SSRF blocked: {url} resolves to private IP")
+            history_log.log_crawl_attempt(
+                url, "blocked", error_message="SSRF: private IP"
             )
             url_store.record(url, status="failed")
             return
