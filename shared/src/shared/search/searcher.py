@@ -6,6 +6,7 @@ Supports BM25, Vector (Semantic), and Hybrid (RRF) search modes.
 """
 
 import os
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -47,6 +48,27 @@ class SearchResult:
     page: int
     per_page: int
     last_page: int
+
+
+@dataclass
+class ParsedQuery:
+    """Parsed query with operators extracted."""
+
+    text: str  # Remaining text after extracting operators
+    site_filter: str | None = None
+
+
+_SITE_RE = re.compile(r"\bsite:(\S+)", re.IGNORECASE)
+
+
+def parse_query(raw: str) -> ParsedQuery:
+    """Extract query operators (site:) from raw query string."""
+    site_filter = None
+    match = _SITE_RE.search(raw)
+    if match:
+        site_filter = match.group(1).lower()
+        raw = raw[: match.start()] + raw[match.end() :]
+    return ParsedQuery(text=raw.strip(), site_filter=site_filter)
 
 
 class SearchEngine:
@@ -106,15 +128,20 @@ class SearchEngine:
         if not query or not query.strip():
             return self._empty_result(query, limit)
 
-        # 1. Tokenize query
-        tokens = self._tokenize(query)
+        # 1. Parse query operators (site: etc.)
+        parsed = parse_query(query)
+
+        # 2. Tokenize remaining text
+        tokens = self._tokenize(parsed.text)
         if not tokens:
             return self._empty_result(query, limit)
 
         conn = get_connection(self.db_path)
         try:
-            # 2. Find candidate documents (OR logic, ranked by coverage)
-            candidates = self._find_candidates(conn, tokens)
+            # 3. Find candidate documents (AND-first with site filter)
+            candidates = self._find_candidates(
+                conn, tokens, site_filter=parsed.site_filter
+            )
             if not candidates:
                 return self._empty_result(query, limit)
 
@@ -190,12 +217,15 @@ class SearchEngine:
         self,
         conn: Any,
         tokens: list[str],
+        *,
+        site_filter: str | None = None,
     ) -> set[str]:
         """
         Find documents using AND-first strategy with OR fallback.
 
         1. Try requiring ALL tokens (AND).
         2. If results < CANDIDATE_LIMIT, relax to min_should_match threshold.
+        Optionally filters by site (URL LIKE '%site%').
         Only returns URLs that exist in the documents table.
         """
         if not tokens:
@@ -205,6 +235,13 @@ class SearchEngine:
         token_count = len(tokens)
         ph = sql_placeholder()
 
+        # Build optional site filter clause
+        site_clause = ""
+        site_params: tuple = ()
+        if site_filter:
+            site_clause = f" AND d.url LIKE {ph}"
+            site_params = (f"%{site_filter}%",)
+
         cur = conn.cursor()
 
         # AND-first: require all tokens
@@ -212,13 +249,13 @@ class SearchEngine:
             f"""
             SELECT ii.url FROM inverted_index ii
             JOIN documents d ON d.url = ii.url
-            WHERE ii.token IN ({placeholders})
+            WHERE ii.token IN ({placeholders}){site_clause}
             GROUP BY ii.url
             HAVING COUNT(DISTINCT ii.token) = {ph}
             ORDER BY SUM(ii.term_freq) DESC
             LIMIT {self.CANDIDATE_LIMIT}
             """,
-            (*tokens, token_count),
+            (*tokens, *site_params, token_count),
         )
         candidates = set(row[0] for row in cur.fetchall())
 
@@ -229,13 +266,13 @@ class SearchEngine:
                 f"""
                 SELECT ii.url FROM inverted_index ii
                 JOIN documents d ON d.url = ii.url
-                WHERE ii.token IN ({placeholders})
+                WHERE ii.token IN ({placeholders}){site_clause}
                 GROUP BY ii.url
                 HAVING COUNT(DISTINCT ii.token) >= {ph}
                 ORDER BY COUNT(DISTINCT ii.token) DESC, SUM(ii.term_freq) DESC
                 LIMIT {self.CANDIDATE_LIMIT}
                 """,
-                (*tokens, min_match),
+                (*tokens, *site_params, min_match),
             )
             candidates.update(row[0] for row in cur.fetchall())
 

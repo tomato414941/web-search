@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 from shared.db.search import open_db
 from shared.search.indexer import SearchIndexer
-from shared.search.searcher import SearchEngine
+from shared.search.searcher import SearchEngine, parse_query
 from shared.search.scoring import BM25Config
 
 
@@ -292,6 +292,43 @@ class TestSearchEngine:
         result = engine.search("Python")
         assert result.total == 1
         assert result.hits[0].url == "http://example.com/py"
+
+    def test_site_filter(self, temp_search_db):
+        """Test site: operator restricts results to matching URLs."""
+        indexer = SearchIndexer(temp_search_db)
+        engine = SearchEngine(temp_search_db)
+
+        indexer.index_document(
+            url="http://github.com/python",
+            title="Python on GitHub",
+            content="Python repositories on GitHub.",
+        )
+        indexer.index_document(
+            url="http://example.com/python",
+            title="Python on Example",
+            content="Python resources on example site.",
+        )
+        indexer.update_global_stats()
+
+        # site: filter should restrict to github.com only
+        result = engine.search("Python site:github.com")
+        assert result.total == 1
+        assert result.hits[0].url == "http://github.com/python"
+
+    def test_site_filter_no_results(self, temp_search_db):
+        """Test site: filter with non-matching domain returns no results."""
+        indexer = SearchIndexer(temp_search_db)
+        engine = SearchEngine(temp_search_db)
+
+        indexer.index_document(
+            url="http://example.com/python",
+            title="Python guide",
+            content="Learn Python programming.",
+        )
+        indexer.update_global_stats()
+
+        result = engine.search("Python site:nonexistent.com")
+        assert result.total == 0
 
     def test_stop_words_filtered(self, temp_search_db):
         """Test that stop words are filtered from indexing and search."""
@@ -782,3 +819,31 @@ class TestSnippetGeneration:
 
         assert "<mark>A&amp;B</mark>" in snippet.text
         assert "A&B" in snippet.plain_text
+
+
+class TestParseQuery:
+    """Test query parser for operators."""
+
+    def test_no_operators(self):
+        parsed = parse_query("Python tutorial")
+        assert parsed.text == "Python tutorial"
+        assert parsed.site_filter is None
+
+    def test_site_operator(self):
+        parsed = parse_query("Python site:github.com")
+        assert parsed.text == "Python"
+        assert parsed.site_filter == "github.com"
+
+    def test_site_operator_at_start(self):
+        parsed = parse_query("site:example.com Python")
+        assert parsed.text == "Python"
+        assert parsed.site_filter == "example.com"
+
+    def test_site_operator_case_insensitive(self):
+        parsed = parse_query("Python SITE:GitHub.COM")
+        assert parsed.site_filter == "github.com"
+
+    def test_site_operator_only(self):
+        parsed = parse_query("site:example.com")
+        assert parsed.text == ""
+        assert parsed.site_filter == "example.com"
