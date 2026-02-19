@@ -165,7 +165,7 @@ _pg_pool = None
 _pg_pool_lock = threading.Lock()
 
 DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "4"))
-DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "50"))
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "10"))
 
 
 class _PooledConnection:

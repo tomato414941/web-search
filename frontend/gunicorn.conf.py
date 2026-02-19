@@ -9,7 +9,7 @@ bind = os.getenv("GUNICORN_BIND", "0.0.0.0:8000")
 
 # Worker configuration
 # Rule of thumb: (2 * CPU cores) + 1
-default_workers = multiprocessing.cpu_count() * 2 + 1
+default_workers = min(multiprocessing.cpu_count() * 2 + 1, 4)
 workers = int(
     os.getenv("GUNICORN_WORKERS", os.getenv("WEB_CONCURRENCY", default_workers))
 )
