@@ -183,42 +183,71 @@ class UrlStore:
         postgres_mode: bool,
     ) -> list[tuple[Any, ...]]:
         ph = sql_placeholder()
-        ranked_query = """
-            SELECT url_hash, url, domain, priority, created_at,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY domain ORDER BY priority DESC
-                   ) AS rn
-            FROM urls WHERE status = 'pending'
-        """
 
         if postgres_mode:
+            # Overscan to ensure enough domain diversity after per-domain cap
+            overscan = count * max_per_domain * 3
             cur.execute(
                 f"""
-                WITH ranked AS (
-                    {ranked_query}
+                WITH top_candidates AS (
+                    SELECT url_hash, url, domain, priority, created_at,
+                           priority + LEAST(20.0,
+                               (EXTRACT(EPOCH FROM NOW())::BIGINT - created_at)
+                               / 86400.0 * 0.5
+                           ) AS eff_pri
+                    FROM urls
+                    WHERE status = 'pending'
+                    ORDER BY priority DESC
+                    LIMIT {ph}
+                    FOR UPDATE SKIP LOCKED
+                ),
+                per_domain AS (
+                    SELECT url_hash, url, domain, priority, created_at, eff_pri,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY domain ORDER BY eff_pri DESC
+                           ) AS rn
+                    FROM top_candidates
                 ),
                 selected AS (
                     SELECT url_hash
-                    FROM ranked
+                    FROM per_domain
                     WHERE rn <= {ph}
-                    ORDER BY rn ASC, priority DESC
+                    ORDER BY eff_pri DESC
                     LIMIT {ph}
                 )
                 UPDATE urls
                 SET status = 'crawling'
-                WHERE url_hash IN (SELECT url_hash FROM selected)
-                RETURNING url_hash, url, domain, priority, created_at
+                FROM selected s
+                WHERE urls.url_hash = s.url_hash
+                RETURNING urls.url_hash, urls.url, urls.domain,
+                          urls.priority, urls.created_at
                 """,
-                (max_per_domain, count),
+                (overscan, max_per_domain, count),
             )
             return cur.fetchall()
 
+        # SQLite path: no SKIP LOCKED (single-worker only), with aging
+        ranked_query = """
+            SELECT url_hash, url, domain, priority, created_at,
+                   priority + MIN(20.0,
+                       (CAST(strftime('%s', 'now') AS INTEGER) - created_at)
+                       / 86400.0 * 0.5
+                   ) AS eff_pri,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY domain ORDER BY
+                       priority + MIN(20.0,
+                           (CAST(strftime('%s', 'now') AS INTEGER) - created_at)
+                           / 86400.0 * 0.5
+                       ) DESC
+                   ) AS rn
+            FROM urls WHERE status = 'pending'
+        """
         cur.execute(
             f"""
             SELECT url_hash, url, domain, priority, created_at
             FROM ({ranked_query}) ranked
             WHERE rn <= {ph}
-            ORDER BY priority DESC
+            ORDER BY eff_pri DESC
             LIMIT {ph}
             """,
             (max_per_domain, count),
