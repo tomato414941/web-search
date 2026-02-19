@@ -61,6 +61,11 @@ def get_domain_rank(domain: str) -> float | None:
     return _domain_rank_cache.get(domain)
 
 
+def domain_rank_cache_size() -> int:
+    """Return number of entries in the domain rank cache."""
+    return len(_domain_rank_cache)
+
+
 def _domain_base(domain_pagerank: float | None) -> float:
     """Map domain PageRank (0-1) to score (0-100) on a log scale.
 
