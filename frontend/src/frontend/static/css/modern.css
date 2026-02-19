@@ -93,27 +93,97 @@ button:hover {
   box-shadow: var(--shadow-sm);
 }
 
-/* Results */
-.meta-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+/* Settings Gear */
+.settings-gear {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 100;
 }
 
-.mode-switch a {
+.gear-btn {
+  background: var(--surface-bg);
+  border: none;
+  padding: 8px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-sm);
+  transition: color 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gear-btn:hover {
+  color: var(--accent-color);
+  box-shadow: var(--shadow-md);
+}
+
+.gear-dropdown {
+  display: none;
+  position: absolute;
+  top: 44px;
+  right: 0;
+  background: var(--surface-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  padding: 12px 16px;
+  min-width: 160px;
+}
+
+.gear-dropdown.open {
+  display: block;
+}
+
+.gear-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.gear-section + .gear-section {
+  border-top: 1px solid var(--accent-light);
+}
+
+.gear-label {
+  width: 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gear-section a {
+  font-size: 0.85rem;
   color: var(--accent-color);
   text-decoration: none;
-  font-weight: 500;
-  padding: 8px 12px;
-  border-radius: 16px;
+  padding: 4px 10px;
+  border-radius: 12px;
   transition: background 0.2s;
 }
 
-.mode-switch a:hover {
+.gear-section a:hover {
   background: var(--accent-light);
+}
+
+.gear-active {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--accent-light);
+}
+
+/* Results */
+.meta-info {
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .results-list {
