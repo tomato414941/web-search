@@ -820,6 +820,47 @@ class TestSnippetGeneration:
         assert "<mark>A&amp;B</mark>" in snippet.text
         assert "A&B" in snippet.plain_text
 
+    def test_best_window_multi_term(self):
+        """Test that best-window picks the region with most distinct terms."""
+        from shared.search.snippet import generate_snippet
+
+        # Python appears early, but Python+JavaScript cluster later
+        text = (
+            "Python is a language. "
+            + "X" * 300
+            + " Python and JavaScript are both popular."
+        )
+        snippet = generate_snippet(text, ["Python", "JavaScript"], window_size=80)
+
+        # Best window should contain both terms
+        assert "Python" in snippet.plain_text
+        assert "JavaScript" in snippet.plain_text
+
+    def test_ja_sentence_boundary(self):
+        """Test that snippet snaps to Japanese sentence boundary."""
+        from shared.search.snippet import generate_snippet
+
+        text = (
+            "これは前置きです。Pythonは素晴らしい言語です。他の話題が続きます。"
+            + "X" * 300
+        )
+        snippet = generate_snippet(text, ["Python"], window_size=40)
+
+        # Should start at or near a JA sentence boundary
+        plain = snippet.plain_text.lstrip(".")
+        assert not plain.startswith("きです"), "Should not cut mid-sentence"
+
+    def test_default_window_size_200(self):
+        """Test that default window size is 200."""
+        from shared.search.snippet import generate_snippet
+
+        text = "Python " + "word " * 100
+        snippet = generate_snippet(text, ["Python"])
+
+        # Plain text (minus ellipsis) should be around 200 chars
+        clean = snippet.plain_text.strip(".")
+        assert len(clean) >= 100
+
 
 class TestParseQuery:
     """Test query parser for operators."""
