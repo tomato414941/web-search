@@ -13,7 +13,7 @@
     {% endif %}
 </head>
 
-<body>
+<body{% if q is none %} class="home"{% endif %}>
 
     <div class="settings-gear">
         <button type="button" class="gear-btn" aria-label="Settings" id="gear-btn">

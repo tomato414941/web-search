@@ -235,4 +235,8 @@ mark {
         background: #f7f7f7;
         border: 1px solid #ddd;
     }
+
+    body.home {
+        margin-top: 30vh;
+    }
 }
