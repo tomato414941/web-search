@@ -173,7 +173,9 @@ button:hover {
 .url {
     color: #006621;
     font-size: .9rem;
-    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     margin-bottom: 4px;
 }
 
@@ -202,4 +204,35 @@ mark {
 .pagination span {
     margin: 0 .5rem;
     color: #555;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    body {
+        margin: 20px auto;
+    }
+
+    h1 {
+        font-size: 1.4em;
+        margin-block-end: 0.4em;
+    }
+
+    .gear-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .snippet {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .pagination a {
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: #f7f7f7;
+        border: 1px solid #ddd;
+    }
 }

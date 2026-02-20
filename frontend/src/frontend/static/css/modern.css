@@ -293,3 +293,44 @@ mark {
 .hit {
   animation: fadeIn 0.3s ease-out;
 }
+
+/* Mobile */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 16px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 1.2rem;
+  }
+
+  form {
+    margin-bottom: 1.5rem;
+  }
+
+  .gear-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .hit {
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  .hit:hover {
+    transform: none;
+  }
+
+  .snippet {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .pagination {
+    margin-top: 2rem;
+  }
+}
