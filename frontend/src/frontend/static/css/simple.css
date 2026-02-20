@@ -27,7 +27,7 @@ form {
 
 input[type=text] {
     flex: 1;
-    min-width: 300px;
+    min-width: 0;
     padding: .6rem;
     border: 1px solid #ddd;
     border-radius: 999px;
