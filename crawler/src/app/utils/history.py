@@ -5,8 +5,10 @@ PostgreSQL/SQLite-based crawl attempt logging.
 """
 
 import logging
-from typing import Optional, List, Dict, Any
+import time
+from typing import Optional, List, Dict, Any, Set
 from pathlib import Path
+from urllib.parse import urlparse
 
 from shared.db.search import (
     get_connection,
@@ -138,8 +140,6 @@ def get_crawl_rate(hours: int = 1, db_path: str | None = None) -> int:
         ph = sql_placeholder()
         con = get_connection(path)
         try:
-            import time
-
             cutoff = int(time.time()) - (hours * 3600)
             cur = con.cursor()
             cur.execute(
@@ -164,8 +164,6 @@ def get_error_count(hours: int = 1, db_path: str | None = None) -> int:
         status_ph = sql_placeholders(len(ERROR_STATUSES))
         con = get_connection(path)
         try:
-            import time
-
             cutoff = int(time.time()) - (hours * 3600)
             cur = con.cursor()
             cur.execute(
@@ -203,8 +201,6 @@ def get_status_counts(
             if hours is None:
                 cur.execute("SELECT status, COUNT(*) FROM crawl_logs GROUP BY status")
             else:
-                import time
-
                 cutoff = int(time.time()) - (hours * 3600)
                 cur.execute(
                     f"""
@@ -296,3 +292,37 @@ def get_url_history(
     except Exception as exc:
         logger.warning(f"Failed to fetch crawl history for {url}: {exc}")
         return []
+
+
+def get_robots_blocked_domains(
+    hours: int = 24,
+    min_count: int = 3,
+    db_path: str | None = None,
+) -> Set[str]:
+    """Return domains with >= min_count robots.txt blocks in the last N hours."""
+    try:
+        path = db_path or get_db_path()
+        ph = sql_placeholder()
+        cutoff = int(time.time()) - hours * 3600
+        con = get_connection(path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT url FROM crawl_logs "
+                f"WHERE status = 'blocked' "
+                f"AND error_message = 'Blocked by robots.txt' "
+                f"AND created_at >= {ph}",
+                (cutoff,),
+            )
+            domain_counts: dict[str, int] = {}
+            for (url_val,) in cur.fetchall():
+                d = urlparse(url_val).hostname
+                if d:
+                    domain_counts[d] = domain_counts.get(d, 0) + 1
+            cur.close()
+            return {d for d, c in domain_counts.items() if c >= min_count}
+        finally:
+            con.close()
+    except Exception as exc:
+        logger.warning(f"Failed to fetch robots blocked domains: {exc}")
+        return set()

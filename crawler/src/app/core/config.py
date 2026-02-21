@@ -47,6 +47,14 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_TCP_LIMIT: int = int(os.getenv("CRAWL_TCP_LIMIT", "200"))
     ROBOTS_CACHE_SIZE: int = int(os.getenv("ROBOTS_CACHE_SIZE", "500000"))
 
+    # Robots block filter (skip enqueue for frequently blocked domains)
+    CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = int(
+        os.getenv("CRAWL_ROBOTS_BLOCK_WINDOW_HOURS", "24")
+    )
+    CRAWL_ROBOTS_BLOCK_MIN_COUNT: int = int(
+        os.getenv("CRAWL_ROBOTS_BLOCK_MIN_COUNT", "3")
+    )
+
     # Indexer API (for submitting crawled pages)
     INDEXER_API_URL: str = os.getenv(
         "INDEXER_API_URL", "http://localhost:8000/api/v1/indexer/page"

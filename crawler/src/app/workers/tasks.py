@@ -37,6 +37,9 @@ DOMAIN_RANK_REFRESH_SECS = 1800
 # Maximum retries for failed URLs
 MAX_RETRIES = 3
 
+# Robots block filter refresh interval (10 minutes)
+ROBOTS_BLOCK_REFRESH_SECS = 600
+
 
 DOMAIN_CACHE_MAX = 50000
 DOMAIN_CACHE_TTL = 3600  # 1 hour
@@ -48,6 +51,7 @@ class WorkerRuntimeState:
     domain_cache: TTLCache = field(
         default_factory=lambda: TTLCache(maxsize=DOMAIN_CACHE_MAX, ttl=DOMAIN_CACHE_TTL)
     )
+    robots_blocked_domains: set[str] = field(default_factory=set)
 
 
 def _is_html_content_type(content_type: str) -> bool:
@@ -223,6 +227,8 @@ async def process_url(
                     scored_items: list[tuple[str, float]] = []
                     for new_url in discovered:
                         new_domain = get_domain(new_url)
+                        if new_domain in state.robots_blocked_domains:
+                            continue
                         domain_visits = max(state.domain_cache.get(new_domain, 0), 1)
                         dr = get_domain_rank(new_domain)
                         score = calculate_url_score(
@@ -349,6 +355,7 @@ async def worker_loop(concurrency: int = 1):
 
     sem = asyncio.Semaphore(concurrency)
     runtime_state = WorkerRuntimeState()
+    robots_block_refreshed_at = 0.0  # Force immediate first load
     in_flight_tasks: set[asyncio.Task[None]] = set()
 
     connector = aiohttp.TCPConnector(
@@ -381,6 +388,24 @@ async def worker_loop(concurrency: int = 1):
                         old_count,
                         domain_rank_cache_size(),
                     )
+
+                # Periodic robots block filter refresh
+                if (
+                    time.monotonic() - robots_block_refreshed_at
+                    > ROBOTS_BLOCK_REFRESH_SECS
+                ):
+                    runtime_state.robots_blocked_domains = (
+                        history_log.get_robots_blocked_domains(
+                            hours=settings.CRAWL_ROBOTS_BLOCK_WINDOW_HOURS,
+                            min_count=settings.CRAWL_ROBOTS_BLOCK_MIN_COUNT,
+                        )
+                    )
+                    robots_block_refreshed_at = time.monotonic()
+                    if runtime_state.robots_blocked_domains:
+                        logger.info(
+                            "Robots block filter: %d domains",
+                            len(runtime_state.robots_blocked_domains),
+                        )
 
                 # Get next URL from scheduler
                 item = scheduler.get_next()
