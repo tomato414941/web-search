@@ -72,6 +72,19 @@ async def submit_page(
         raise HTTPException(status_code=500, detail="Queueing failed")
 
 
+@router.get("/jobs/failed")
+async def get_failed_jobs(
+    x_api_key: str = Header(..., alias="X-API-Key"),
+    limit: int = 100,
+    offset: int = 0,
+) -> dict:
+    """List permanently failed indexing jobs."""
+    verify_api_key(x_api_key)
+    limit = min(limit, 500)
+    jobs = index_job_service.get_failed_permanent_jobs(limit=limit, offset=offset)
+    return {"ok": True, "jobs": jobs, "count": len(jobs)}
+
+
 @router.get("/jobs/{job_id}")
 async def get_job_status(
     job_id: str, x_api_key: str = Header(..., alias="X-API-Key")
@@ -84,6 +97,22 @@ async def get_job_status(
         raise HTTPException(status_code=404, detail="Job not found")
 
     return {"ok": True, **job}
+
+
+@router.post("/jobs/{job_id}/retry")
+async def retry_failed_job(
+    job_id: str,
+    x_api_key: str = Header(..., alias="X-API-Key"),
+) -> dict:
+    """Reset a permanently failed job back to pending for re-processing."""
+    verify_api_key(x_api_key)
+    success = index_job_service.retry_failed_job(job_id)
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found or not in failed_permanent status",
+        )
+    return {"ok": True, "job_id": job_id, "message": "Job reset to pending"}
 
 
 @router.post("/pagerank")

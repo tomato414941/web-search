@@ -70,3 +70,47 @@ async def fetch_indexer_stats() -> dict[str, Any]:
         result["error"] = str(exc)
 
     return result
+
+
+async def fetch_failed_jobs(limit: int = 50) -> list[dict[str, Any]]:
+    """Fetch permanently failed indexing jobs from the indexer service."""
+    if not settings.INDEXER_API_KEY:
+        return []
+
+    base_url = (settings.INDEXER_SERVICE_URL or "").rstrip("/")
+    if not base_url:
+        return []
+
+    url = f"{base_url}/api/v1/indexer/jobs/failed?limit={limit}"
+    headers = {"X-API-Key": settings.INDEXER_API_KEY}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("jobs", [])
+    except Exception as exc:
+        logger.warning("Failed to fetch failed jobs: %s", exc)
+
+    return []
+
+
+async def retry_failed_job(job_id: str) -> bool:
+    """Retry a permanently failed job via the indexer service."""
+    if not settings.INDEXER_API_KEY:
+        return False
+
+    base_url = (settings.INDEXER_SERVICE_URL or "").rstrip("/")
+    if not base_url:
+        return False
+
+    url = f"{base_url}/api/v1/indexer/jobs/{job_id}/retry"
+    headers = {"X-API-Key": settings.INDEXER_API_KEY}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(url, headers=headers)
+            return resp.status_code == 200
+    except Exception as exc:
+        logger.warning("Failed to retry job %s: %s", job_id, exc)
+
+    return False

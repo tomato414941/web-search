@@ -467,6 +467,68 @@ class IndexJobService:
         finally:
             con.close()
 
+    def get_failed_permanent_jobs(
+        self, *, limit: int = 100, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """Return failed_permanent jobs for admin visibility."""
+        ph = sql_placeholder()
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"""
+                SELECT job_id, url, last_error, retry_count, created_at, updated_at
+                FROM index_jobs
+                WHERE status = {ph}
+                ORDER BY updated_at DESC
+                LIMIT {ph} OFFSET {ph}
+                """,
+                (STATUS_FAILED_PERMANENT, limit, offset),
+            )
+            rows = cur.fetchall()
+            cur.close()
+            return [
+                {
+                    "job_id": str(row[0]),
+                    "url": str(row[1]),
+                    "last_error": row[2],
+                    "retry_count": int(row[3]),
+                    "created_at": row[4],
+                    "updated_at": row[5],
+                }
+                for row in rows
+            ]
+        finally:
+            con.close()
+
+    def retry_failed_job(self, job_id: str) -> bool:
+        """Reset a failed_permanent job back to pending. Returns True if reset."""
+        now_ts = self._now_ts()
+        ph = sql_placeholder()
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"""
+                UPDATE index_jobs
+                SET status = {ph},
+                    retry_count = 0,
+                    available_at = {ph},
+                    lease_until = NULL,
+                    worker_id = NULL,
+                    last_error = NULL,
+                    updated_at = {ph}
+                WHERE job_id = {ph} AND status = {ph}
+                """,
+                (STATUS_PENDING, now_ts, now_ts, job_id, STATUS_FAILED_PERMANENT),
+            )
+            affected = cur.rowcount
+            con.commit()
+            cur.close()
+            return affected > 0
+        finally:
+            con.close()
+
     def _retry_delay_seconds(self, retry_count: int) -> int:
         # retry_count is already incremented (1, 2, 3...).
         raw = self.retry_base_seconds * (2 ** (retry_count - 1))
