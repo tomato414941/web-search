@@ -40,6 +40,7 @@ class BM25Scorer:
     """
 
     IDF_CACHE_TTL = 300  # 5 minutes
+    STATS_CACHE_TTL = 600  # 10 minutes
 
     def __init__(self, db_path: str, config: BM25Config | None = None):
         self.db_path = db_path
@@ -47,6 +48,7 @@ class BM25Scorer:
         self._stats_cache: dict[str, float] = {}
         self._idf_cache: dict[str, float] = {}
         self._idf_cache_loaded_at: float = 0.0
+        self._stats_cache_loaded_at: float = 0.0
 
     def score(
         self,
@@ -167,7 +169,12 @@ class BM25Scorer:
         self,
         conn: Any,
     ) -> tuple[float, float]:
-        """Get total docs and average doc length (cached)."""
+        """Get total docs and average doc length (cached with TTL)."""
+        now = time.monotonic()
+        if now - self._stats_cache_loaded_at > self.STATS_CACHE_TTL:
+            self._stats_cache.clear()
+            self._stats_cache_loaded_at = now
+
         if "total_docs" not in self._stats_cache:
             cur = conn.cursor()
             cur.execute(
@@ -354,3 +361,4 @@ class BM25Scorer:
         self._stats_cache.clear()
         self._idf_cache.clear()
         self._idf_cache_loaded_at = 0.0
+        self._stats_cache_loaded_at = 0.0
