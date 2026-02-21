@@ -60,9 +60,8 @@ class IndexerService:
             # Index using custom search engine (inverted index)
             self.search_indexer.index_document(url, safe_title, safe_content, conn)
 
-            # Save outlinks to link graph
-            if safe_outlinks:
-                self._save_links(conn, url, safe_outlinks)
+            # Save outlinks to link graph (always call to clear stale links)
+            self._save_links(conn, url, safe_outlinks)
 
             # Update global stats periodically (every N pages)
             self._pages_since_stats_update += 1

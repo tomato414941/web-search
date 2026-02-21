@@ -56,8 +56,10 @@ class IndexJobService:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     @classmethod
-    def _build_dedupe_key(cls, url: str, content_hash: str) -> str:
-        return cls._hash_text(f"{url}\n{content_hash}")
+    def _build_dedupe_key(
+        cls, url: str, content_hash: str, outlinks_hash: str = ""
+    ) -> str:
+        return cls._hash_text(f"{url}\n{content_hash}\n{outlinks_hash}")
 
     @staticmethod
     def _normalize_outlinks(outlinks: list[str] | None) -> list[str]:
@@ -95,10 +97,13 @@ class IndexJobService:
     ) -> tuple[str, bool]:
         """Queue a new indexing job (idempotent by dedupe_key)."""
         content_hash = self._hash_text(content)
-        dedupe_key = self._build_dedupe_key(url, content_hash)
+        clean_outlinks = self._normalize_outlinks(outlinks)
+        outlinks_hash = (
+            self._hash_text("\n".join(sorted(clean_outlinks))) if clean_outlinks else ""
+        )
+        dedupe_key = self._build_dedupe_key(url, content_hash, outlinks_hash)
         job_id = str(uuid.uuid4())
         now_ts = self._now_ts()
-        clean_outlinks = self._normalize_outlinks(outlinks)
         outlinks_json = json.dumps(clean_outlinks)
         max_retries = self.max_retries
         ph = sql_placeholder()
