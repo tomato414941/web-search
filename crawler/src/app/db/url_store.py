@@ -589,6 +589,28 @@ class UrlStore:
         finally:
             con.close()
 
+    def get_stale_url_count(self) -> int:
+        """Count URLs ready for re-crawl (done and past threshold)."""
+        now = int(time.time())
+        cutoff = now - self.recrawl_threshold
+        ph = sql_placeholder()
+
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"""
+                SELECT COUNT(*) FROM urls
+                WHERE last_crawled_at < {ph} AND status = 'done'
+                """,
+                (cutoff,),
+            )
+            count = cur.fetchone()[0]
+            cur.close()
+            return count
+        finally:
+            con.close()
+
     def recover_stale_crawling(self) -> int:
         """
         Reset stale 'crawling' URLs back to 'pending'.
@@ -659,6 +681,29 @@ class UrlStore:
                 SELECT domain, COUNT(*) as cnt
                 FROM urls
                 WHERE status = 'done'
+                GROUP BY domain
+                ORDER BY cnt DESC
+                LIMIT {ph}
+                """,
+                (limit,),
+            )
+            result = [(row[0], row[1]) for row in cur.fetchall()]
+            cur.close()
+            return result
+        finally:
+            con.close()
+
+    def get_pending_domains(self, limit: int = 15) -> list[tuple[str, int]]:
+        """Get top domains by pending URL count."""
+        ph = sql_placeholder()
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"""
+                SELECT domain, COUNT(*) as cnt
+                FROM urls
+                WHERE status = 'pending'
                 GROUP BY domain
                 ORDER BY cnt DESC
                 LIMIT {ph}

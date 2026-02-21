@@ -326,3 +326,99 @@ def get_robots_blocked_domains(
     except Exception as exc:
         logger.warning(f"Failed to fetch robots blocked domains: {exc}")
         return set()
+
+
+def get_robots_blocked_domains_with_counts(
+    hours: int = 24,
+    min_count: int = 3,
+    db_path: str | None = None,
+) -> List[Dict[str, Any]]:
+    """Return domains with >= min_count robots.txt blocks and their counts."""
+    try:
+        path = db_path or get_db_path()
+        ph = sql_placeholder()
+        cutoff = int(time.time()) - hours * 3600
+        con = get_connection(path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT url FROM crawl_logs "
+                f"WHERE status = 'blocked' "
+                f"AND error_message = 'Blocked by robots.txt' "
+                f"AND created_at >= {ph}",
+                (cutoff,),
+            )
+            domain_counts: dict[str, int] = {}
+            for (url_val,) in cur.fetchall():
+                d = urlparse(url_val).hostname
+                if d:
+                    domain_counts[d] = domain_counts.get(d, 0) + 1
+            cur.close()
+            return sorted(
+                [
+                    {"domain": d, "count": c}
+                    for d, c in domain_counts.items()
+                    if c >= min_count
+                ],
+                key=lambda x: x["count"],
+                reverse=True,
+            )
+        finally:
+            con.close()
+    except Exception as exc:
+        logger.warning(f"Failed to fetch robots blocked domains with counts: {exc}")
+        return []
+
+
+def get_high_failure_domains(
+    hours: int = 24,
+    min_count: int = 5,
+    db_path: str | None = None,
+) -> List[Dict[str, Any]]:
+    """Return domains with high crawl failure rates in the given time window."""
+    error_statuses = {
+        "http_error",
+        "indexer_error",
+        "unknown_error",
+        "dead_letter",
+        "blocked",
+    }
+    try:
+        path = db_path or get_db_path()
+        ph = sql_placeholder()
+        cutoff = int(time.time()) - hours * 3600
+        con = get_connection(path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"SELECT url, status FROM crawl_logs WHERE created_at >= {ph}",
+                (cutoff,),
+            )
+            domain_errors: dict[str, int] = {}
+            domain_totals: dict[str, int] = {}
+            for url_val, status in cur.fetchall():
+                d = urlparse(url_val).hostname
+                if not d:
+                    continue
+                domain_totals[d] = domain_totals.get(d, 0) + 1
+                if status in error_statuses:
+                    domain_errors[d] = domain_errors.get(d, 0) + 1
+            cur.close()
+            result = []
+            for d, err_count in domain_errors.items():
+                total = domain_totals.get(d, 0)
+                if err_count >= min_count and total > 0:
+                    result.append(
+                        {
+                            "domain": d,
+                            "error_count": err_count,
+                            "total_count": total,
+                            "error_rate": round((err_count / total) * 100, 1),
+                        }
+                    )
+            return sorted(result, key=lambda x: x["error_count"], reverse=True)[:20]
+        finally:
+            con.close()
+    except Exception as exc:
+        logger.warning(f"Failed to fetch high failure domains: {exc}")
+        return []

@@ -56,6 +56,20 @@ async def fetch_seeds() -> list[dict[str, Any]]:
     return []
 
 
+async def fetch_frontier_stats() -> dict[str, Any] | None:
+    """Fetch frontier health data from crawler."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats/frontier"
+            )
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as exc:
+        logger.warning(f"Failed to get frontier stats: {exc}")
+    return None
+
+
 async def fetch_queue(limit: int = 50) -> list[tuple[str, float]]:
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:

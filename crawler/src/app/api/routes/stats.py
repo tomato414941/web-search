@@ -51,6 +51,29 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
     }
 
 
+@router.get("/stats/frontier")
+async def get_frontier_stats(
+    queue_service: QueueService = Depends(get_queue_service),
+):
+    """Frontier health data for admin dashboard."""
+    from app.utils.history import (
+        get_robots_blocked_domains_with_counts,
+        get_high_failure_domains,
+    )
+
+    url_store = queue_service.url_store
+    stats = url_store.get_stats()
+
+    return {
+        "url_stats": stats,
+        "pending_domains": url_store.get_pending_domains(15),
+        "done_domains": url_store.get_domains(15),
+        "robots_blocked": get_robots_blocked_domains_with_counts(hours=24, min_count=3),
+        "failure_domains": get_high_failure_domains(hours=24, min_count=5),
+        "stale_count": url_store.get_stale_url_count(),
+    }
+
+
 @router.get("/stats/breakdown")
 async def get_status_breakdown(
     hours: Optional[int] = Query(

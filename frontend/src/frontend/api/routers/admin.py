@@ -15,8 +15,8 @@ from frontend.services.admin_analytics import get_analytics_data
 from frontend.services import admin_auth
 from frontend.services.admin_dashboard import get_dashboard_data
 from frontend.services.crawler_admin_client import (
+    fetch_frontier_stats,
     fetch_history,
-    fetch_queue,
     fetch_seeds,
     import_tranco as import_tranco_seeds,
     add_seed as crawler_add_seed,
@@ -143,14 +143,14 @@ async def queue_page(request: Request, success: str = "", error: str = ""):
     if not _is_authenticated(request):
         return RedirectResponse(url="/admin/login", status_code=303)
 
-    queue_urls = await fetch_queue(limit=50)
+    frontier = await fetch_frontier_stats()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         request,
         "admin/queue.html",
         {
             "request": request,
-            "queue_urls": queue_urls,
+            "frontier": frontier,
             "success": success,
             "error": error,
             "csrf_token": csrf_token,

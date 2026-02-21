@@ -1,6 +1,6 @@
 {% extends "admin/base.html" %}
 
-{% block title %}Crawl Queue{% endblock %}
+{% block title %}Frontier Health{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -11,12 +11,162 @@
             <a href="/admin/crawlers">Crawlers</a>
             <a href="/admin/indexer">Indexer</a>
             <a href="/admin/seeds">Seeds</a>
-            <a href="/admin/queue" class="active">Queue</a>
+            <a href="/admin/queue" class="active">Frontier</a>
             <a href="/admin/history">Crawl History</a>
             <a href="/admin/analytics">Analytics</a>
             <a href="/admin/logout">Logout</a>
         </div>
     </div>
+
+    {% if not frontier %}
+    <div class="health-banner error">
+        <p>Crawler service is unreachable. Frontier data unavailable.</p>
+    </div>
+    {% else %}
+
+    <div class="card">
+        <h2>Frontier Overview</h2>
+        <div class="stats-grid-4">
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(frontier.url_stats.pending) }}</div>
+                <div class="label">Pending</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(frontier.url_stats.crawling) }}</div>
+                <div class="label">Crawling</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(frontier.url_stats.done) }}</div>
+                <div class="label">Done</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(frontier.url_stats.failed) }}</div>
+                <div class="label">Failed</div>
+            </div>
+        </div>
+        <p class="muted" style="margin-top: 12px;">
+            Total: {{ "{:,}".format(frontier.url_stats.total) }} URLs
+            {% if frontier.stale_count > 0 %}
+            &middot; {{ "{:,}".format(frontier.stale_count) }} stale (past recrawl threshold)
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="grid-2col">
+        <div class="card">
+            <h2>Top Domains in Queue</h2>
+            {% if frontier.pending_domains %}
+            <div class="table-scroll">
+                <table class="admin-table compact">
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th style="text-align: right;">Pending</th>
+                            <th style="text-align: right;">%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for domain, count in frontier.pending_domains %}
+                        <tr>
+                            <td>{{ domain }}</td>
+                            <td style="text-align: right;">{{ "{:,}".format(count) }}</td>
+                            <td style="text-align: right;">{{ "%.1f"|format(count / frontier.url_stats.pending * 100) }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="muted">No pending URLs</p>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>Top Domains Crawled</h2>
+            {% if frontier.done_domains %}
+            <div class="table-scroll">
+                <table class="admin-table compact">
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th style="text-align: right;">Done</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for domain, count in frontier.done_domains %}
+                        <tr>
+                            <td>{{ domain }}</td>
+                            <td style="text-align: right;">{{ "{:,}".format(count) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="muted">No crawled URLs yet</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if frontier.robots_blocked or frontier.failure_domains %}
+    <div class="card attention">
+        <h2>Problem Domains (24h)</h2>
+
+        {% if frontier.robots_blocked %}
+        <div class="attention-section">
+            <h3>Robots.txt Blocked</h3>
+            <div class="table-scroll">
+                <table class="admin-table compact">
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th style="text-align: right;">Blocks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in frontier.robots_blocked[:10] %}
+                        <tr>
+                            <td>{{ item.domain }}</td>
+                            <td style="text-align: right;">{{ "{:,}".format(item.count) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if frontier.failure_domains %}
+        <div class="attention-section">
+            <h3>High Failure Rate</h3>
+            <div class="table-scroll">
+                <table class="admin-table compact">
+                    <thead>
+                        <tr>
+                            <th>Domain</th>
+                            <th style="text-align: right;">Errors</th>
+                            <th style="text-align: right;">Total</th>
+                            <th style="text-align: right;">Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in frontier.failure_domains[:10] %}
+                        <tr>
+                            <td>{{ item.domain }}</td>
+                            <td style="text-align: right;">{{ "{:,}".format(item.error_count) }}</td>
+                            <td style="text-align: right;">{{ "{:,}".format(item.total_count) }}</td>
+                            <td style="text-align: right;">{{ item.error_rate }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% endif %}
 
     <div class="card">
         <h2>Quick Add URL</h2>
@@ -34,27 +184,6 @@
             <input type="url" name="url" placeholder="https://example.com/page" required>
             <button type="submit">Add to Queue</button>
         </form>
-    </div>
-
-    <div class="card">
-        <h2>Crawl Queue (Top 50)</h2>
-        <div class="table-scroll">
-            <table class="admin-table">
-                <thead><tr><th>URL</th><th>Score</th></tr></thead>
-                <tbody>
-                    {% if queue_urls %}
-                        {% for url, score in queue_urls %}
-                        <tr>
-                            <td class="admin-cell-url" title="{{ url }}">{{ url }}</td>
-                            <td>{{ "%.2f"|format(score) }}</td>
-                        </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr><td colspan="2">Queue is empty or Crawler unavailable</td></tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
     </div>
 </div>
 {% endblock %}
