@@ -1,8 +1,9 @@
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from frontend.api.middleware.rate_limiter import limiter
 from frontend.core.config import settings
 
 router = APIRouter()
@@ -13,7 +14,8 @@ class CrawlRequest(BaseModel):
 
 
 @router.post("/crawl")
-async def api_crawl(req: CrawlRequest):
+@limiter.limit("10/minute")
+async def api_crawl(request: Request, req: CrawlRequest):
     """Manually enqueue a URL via Crawler Service API."""
     url = req.url.strip()
     if not url:
