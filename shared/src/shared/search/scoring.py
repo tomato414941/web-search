@@ -8,6 +8,7 @@ import math
 import time
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 from shared.db.search import sql_placeholder, sql_placeholders
 
@@ -66,12 +67,12 @@ class BM25Scorer:
         """
         bm25_score = self._calculate_bm25(conn, url, tokens)
 
-        # Add PageRank contribution if enabled
+        # Add authority contribution if enabled
         if self.config.pagerank_weight > 0:
             pagerank = self._get_pagerank(conn, url)
-            # Multiplicative: PageRank boosts BM25 score by up to (weight * 100)%
-            # e.g. weight=0.5, pagerank=1.0 → 50% boost
-            return bm25_score * (1 + self.config.pagerank_weight * pagerank)
+            domain_rank = self._get_domain_rank(conn, url)
+            authority = max(pagerank, domain_rank)
+            return bm25_score * (1 + self.config.pagerank_weight * authority)
 
         return bm25_score
 
@@ -138,6 +139,29 @@ class BM25Scorer:
         row = cur.fetchone()
         cur.close()
         return row[0] if row else 0.0
+
+    def _get_domain_rank(self, conn: Any, url: str) -> float:
+        """Get domain rank score for a URL's domain (0.0 if not found)."""
+        domain = self._extract_domain(url)
+        if not domain:
+            return 0.0
+        ph = sql_placeholder()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT score FROM domain_ranks WHERE domain = {ph}",
+            (domain,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        return row[0] if row else 0.0
+
+    @staticmethod
+    def _extract_domain(url: str) -> str | None:
+        """Extract hostname from URL."""
+        try:
+            return urlparse(url).hostname or None
+        except Exception:
+            return None
 
     def _get_global_stats(
         self,
@@ -262,12 +286,34 @@ class BM25Scorer:
 
         # Batch 4: page_ranks for all candidate URLs
         pr_map: dict[str, float] = {}
+        dr_map: dict[str, float] = {}
         if self.config.pagerank_weight > 0:
             cur.execute(
                 f"SELECT url, score FROM page_ranks WHERE url IN ({url_phs})",
                 tuple(url_list),
             )
             pr_map = {url: score for url, score in cur.fetchall()}
+
+            # Batch 5: domain_ranks for candidate URL domains
+            url_domain_map: dict[str, str] = {}
+            domains: set[str] = set()
+            for url in url_list:
+                domain = self._extract_domain(url)
+                if domain:
+                    url_domain_map[url] = domain
+                    domains.add(domain)
+            if domains:
+                domain_list = list(domains)
+                domain_phs = sql_placeholders(len(domain_list))
+                cur.execute(
+                    f"SELECT domain, score FROM domain_ranks WHERE domain IN ({domain_phs})",
+                    tuple(domain_list),
+                )
+                domain_score_map = {d: s for d, s in cur.fetchall()}
+                for url in url_list:
+                    domain = url_domain_map.get(url)
+                    if domain and domain in domain_score_map:
+                        dr_map[url] = domain_score_map[domain]
 
         cur.close()
 
@@ -292,10 +338,12 @@ class BM25Scorer:
                     tf_saturated = (tf * (k1 + 1)) / (tf + k1 * length_norm)
                     bm25_score += idf * tf_saturated * boost
 
-            # Apply PageRank boost
+            # Apply authority boost (max of page_rank and domain_rank)
             if self.config.pagerank_weight > 0:
                 pagerank = pr_map.get(url, 0.0)
-                bm25_score *= 1 + self.config.pagerank_weight * pagerank
+                domain_rank = dr_map.get(url, 0.0)
+                authority = max(pagerank, domain_rank)
+                bm25_score *= 1 + self.config.pagerank_weight * authority
 
             results.append((url, bm25_score))
 

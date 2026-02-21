@@ -888,3 +888,96 @@ class TestParseQuery:
         parsed = parse_query("site:example.com")
         assert parsed.text == ""
         assert parsed.site_filter == "example.com"
+
+
+class TestDomainRankBoost:
+    """Tests for domain_ranks integration in search ranking."""
+
+    def test_domain_rank_boosts_score(self, temp_search_db):
+        """Domain rank should boost pages without page-level PageRank."""
+        indexer = SearchIndexer(temp_search_db)
+
+        indexer.index_document(
+            url="https://docs.python.org/tutorial",
+            title="Python Tutorial",
+            content="Learn Python programming basics and fundamentals.",
+        )
+        indexer.index_document(
+            url="https://obscure-forum.example.com/python-macros",
+            title="Python Tutorial",
+            content="Learn Python programming basics and fundamentals.",
+        )
+        indexer.update_global_stats()
+
+        # Set domain rank only for python.org
+        conn = sqlite3.connect(temp_search_db)
+        conn.execute(
+            "INSERT INTO domain_ranks (domain, score) VALUES (?, ?)",
+            ("docs.python.org", 0.8),
+        )
+        conn.commit()
+        conn.close()
+
+        engine = SearchEngine(temp_search_db)
+        result = engine.search("Python Tutorial")
+
+        assert result.total == 2
+        assert result.hits[0].url == "https://docs.python.org/tutorial"
+
+    def test_page_rank_takes_precedence(self, temp_search_db):
+        """max(page_rank, domain_rank) should use whichever is higher."""
+        indexer = SearchIndexer(temp_search_db)
+
+        indexer.index_document(
+            url="https://highpr.example.com/page",
+            title="Python Guide",
+            content="Complete Python programming guide.",
+        )
+        indexer.index_document(
+            url="https://highdr.example.com/page",
+            title="Python Guide",
+            content="Complete Python programming guide.",
+        )
+        indexer.update_global_stats()
+
+        conn = sqlite3.connect(temp_search_db)
+        # highpr: high page_rank, low domain_rank
+        conn.execute(
+            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
+            ("https://highpr.example.com/page", 0.9),
+        )
+        conn.execute(
+            "INSERT INTO domain_ranks (domain, score) VALUES (?, ?)",
+            ("highpr.example.com", 0.1),
+        )
+        # highdr: no page_rank, high domain_rank
+        conn.execute(
+            "INSERT INTO domain_ranks (domain, score) VALUES (?, ?)",
+            ("highdr.example.com", 0.7),
+        )
+        conn.commit()
+        conn.close()
+
+        engine = SearchEngine(temp_search_db)
+        result = engine.search("Python Guide")
+
+        assert result.total == 2
+        # page_rank=0.9 > domain_rank=0.7, so highpr wins
+        assert result.hits[0].url == "https://highpr.example.com/page"
+
+    def test_no_effect_when_empty(self, temp_search_db):
+        """When domain_ranks is empty, behavior is unchanged."""
+        indexer = SearchIndexer(temp_search_db)
+
+        indexer.index_document(
+            url="https://a.example.com/page",
+            title="Search Engine",
+            content="How search engines work and rank pages.",
+        )
+        indexer.update_global_stats()
+
+        engine = SearchEngine(temp_search_db)
+        result = engine.search("search engine")
+
+        assert result.total >= 1
+        assert result.hits[0].score > 0
