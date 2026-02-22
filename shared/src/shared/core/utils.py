@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 import socket
 from urllib.parse import parse_qsl, urldefrag, urlencode, urljoin, urlsplit, urlunsplit
@@ -45,6 +46,35 @@ def resolve_is_private(hostname: str) -> bool:
         )
     except socket.gaierror:
         return True  # Cannot resolve → block (fail-closed)
+    for _family, _type, _proto, _canonname, sockaddr in results:
+        ip_str = sockaddr[0]
+        if ip_str in _METADATA_IPS:
+            return True
+        try:
+            addr = ipaddress.ip_address(ip_str)
+            if (
+                addr.is_private
+                or addr.is_loopback
+                or addr.is_link_local
+                or addr.is_reserved
+            ):
+                return True
+        except ValueError:
+            return True
+    return False
+
+
+async def resolve_is_private_async(hostname: str) -> bool:
+    """Async version of resolve_is_private using non-blocking DNS resolution."""
+    if is_private_ip(hostname):
+        return True
+    try:
+        loop = asyncio.get_running_loop()
+        results = await loop.getaddrinfo(
+            hostname, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM
+        )
+    except socket.gaierror:
+        return True
     for _family, _type, _proto, _canonname, sockaddr in results:
         ip_str = sockaddr[0]
         if ip_str in _METADATA_IPS:

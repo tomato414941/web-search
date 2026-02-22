@@ -24,7 +24,7 @@ from app.utils.parser import html_to_doc, extract_links
 from app.utils.robots import AsyncRobotsCache
 from app.services.indexer import submit_page_to_indexer
 from app.utils import history as history_log
-from shared.core.utils import MAX_URL_LENGTH, resolve_is_private
+from shared.core.utils import MAX_URL_LENGTH, resolve_is_private_async
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ async def process_url(
             return
 
         # SSRF check: resolve hostname and block private IPs
-        if resolve_is_private(domain):
+        if await resolve_is_private_async(domain):
             logger.warning(f"SSRF blocked: {url} resolves to private IP")
             history_log.log_crawl_attempt(
                 url, "blocked", error_message="SSRF: private IP"

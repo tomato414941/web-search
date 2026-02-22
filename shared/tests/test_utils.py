@@ -1,6 +1,8 @@
 """Test utility functions."""
 
-from shared.core.utils import is_private_ip, normalize_url
+import pytest
+
+from shared.core.utils import is_private_ip, normalize_url, resolve_is_private_async
 
 
 class TestNormalizeURL:
@@ -111,3 +113,25 @@ class TestSSRFPrevention:
             "http://example.com", "http://8.8.8.8/page", block_private=True
         )
         assert result == "http://8.8.8.8/page"
+
+
+class TestResolveIsPrivateAsync:
+    """Test async DNS resolution SSRF check."""
+
+    @pytest.mark.asyncio
+    async def test_block_private_ip_literal(self):
+        assert await resolve_is_private_async("127.0.0.1") is True
+
+    @pytest.mark.asyncio
+    async def test_block_metadata_ip(self):
+        assert await resolve_is_private_async("169.254.169.254") is True
+
+    @pytest.mark.asyncio
+    async def test_block_unresolvable_host(self):
+        assert (
+            await resolve_is_private_async("this.host.does.not.exist.invalid") is True
+        )
+
+    @pytest.mark.asyncio
+    async def test_allow_public_host(self):
+        assert await resolve_is_private_async("example.com") is False
