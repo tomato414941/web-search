@@ -83,6 +83,8 @@ class SearchEngine:
 
     RRF_K = 60  # Standard RRF constant
     CACHE_TTL_SECONDS = 300  # 5 minutes
+    RESULT_CACHE_TTL = 300  # 5 minutes
+    RESULT_CACHE_MAX = 1000
     CANDIDATE_LIMIT = int(os.getenv("SEARCH_CANDIDATE_LIMIT", "1000"))
 
     def __init__(
@@ -107,6 +109,7 @@ class SearchEngine:
         self._deserialize = deserialize_func
         self._vector_cache: list[tuple[str, np.ndarray]] | None = None
         self._vector_cache_loaded_at: float | None = None
+        self._result_cache: dict[str, tuple[float, SearchResult]] = {}
 
     def search(
         self,
@@ -127,6 +130,15 @@ class SearchEngine:
         """
         if not query or not query.strip():
             return self._empty_result(query, limit)
+
+        # Check result cache
+        cache_key = f"{query}:{limit}:{page}"
+        now = time.monotonic()
+        cached = self._result_cache.get(cache_key)
+        if cached is not None:
+            cached_at, cached_result = cached
+            if now - cached_at < self.RESULT_CACHE_TTL:
+                return cached_result
 
         # 1. Parse query operators (site: etc.)
         parsed = parse_query(query)
@@ -185,7 +197,7 @@ class SearchEngine:
 
             last_page = max((total + limit - 1) // limit, 1)
 
-            return SearchResult(
+            result = SearchResult(
                 query=query,
                 total=total,
                 hits=hits,
@@ -193,6 +205,16 @@ class SearchEngine:
                 per_page=limit,
                 last_page=last_page,
             )
+
+            # Store in result cache
+            if len(self._result_cache) >= self.RESULT_CACHE_MAX:
+                oldest_key = min(
+                    self._result_cache, key=lambda k: self._result_cache[k][0]
+                )
+                del self._result_cache[oldest_key]
+            self._result_cache[cache_key] = (now, result)
+
+            return result
 
         finally:
             conn.close()
@@ -570,6 +592,10 @@ class SearchEngine:
         """Clear the vector cache (call after indexing new documents)."""
         self._vector_cache = None
         self._vector_cache_loaded_at = None
+
+    def clear_result_cache(self) -> None:
+        """Clear the search result cache."""
+        self._result_cache.clear()
 
     def _empty_result(self, query: str, limit: int) -> SearchResult:
         """Return empty search result."""
