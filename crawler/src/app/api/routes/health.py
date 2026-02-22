@@ -21,14 +21,19 @@ logger = logging.getLogger(__name__)
 root_router = APIRouter()
 
 
+_cached_url_store: UrlStore | None = None
+
+
 def _check_db() -> bool:
     """Check PostgreSQL/SQLite connectivity."""
+    global _cached_url_store
     try:
-        url_store = UrlStore(settings.CRAWLER_DB_PATH)
-        url_store.size()
+        if _cached_url_store is None:
+            _cached_url_store = UrlStore(settings.CRAWLER_DB_PATH)
+        _cached_url_store.size()
         return True
-    except Exception as e:
-        logger.warning(f"Database health check failed: {e}")
+    except Exception:
+        _cached_url_store = None
         return False
 
 
