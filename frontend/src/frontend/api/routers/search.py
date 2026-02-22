@@ -1,5 +1,6 @@
 """Search UI Router - HTML search page."""
 
+import asyncio
 import time
 import uuid
 
@@ -75,7 +76,11 @@ async def search_page(
     request_id = uuid.uuid4().hex if query else None
 
     # Use Service
-    result = search_service.search(query, per_page, page_number) if query else None
+    result = (
+        await asyncio.to_thread(search_service.search, query, per_page, page_number)
+        if query
+        else None
+    )
 
     resp = templates.TemplateResponse(
         request,

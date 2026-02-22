@@ -1,5 +1,6 @@
 """Search API Router - JSON endpoints for search and prediction."""
 
+import asyncio
 import logging
 import time
 import uuid
@@ -57,7 +58,7 @@ async def api_search(
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
 
     data = (
-        search_service.search(query, per_page, page_number)
+        await asyncio.to_thread(search_service.search, query, per_page, page_number)
         if query
         else search_service._empty_result(per_page)
     )
