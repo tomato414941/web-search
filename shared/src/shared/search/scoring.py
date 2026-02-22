@@ -7,6 +7,7 @@ Implements the Okapi BM25 ranking function for full-text search.
 import math
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse
 
@@ -21,6 +22,8 @@ class BM25Config:
     b: float = 0.75  # Length normalization
     title_boost: float = 3.0  # Boost for title matches
     pagerank_weight: float = 0.5  # Weight for PageRank score (0 to disable)
+    freshness_weight: float = 0.1  # Weight for freshness boost (0 to disable)
+    freshness_half_life_days: float = 180.0  # Half-life for freshness decay
 
 
 class BM25Scorer:
@@ -284,12 +287,23 @@ class BM25Scorer:
         for url, token, field, tf in cur.fetchall():
             inv_map.setdefault((url, token), []).append((field, tf))
 
-        # Batch 3: word_count for all candidate URLs
+        # Batch 3: word_count and indexed_at for all candidate URLs
         cur.execute(
-            f"SELECT url, word_count FROM documents WHERE url IN ({url_phs})",
+            f"SELECT url, word_count, indexed_at FROM documents WHERE url IN ({url_phs})",
             tuple(url_list),
         )
-        wc_map: dict[str, int] = {url: wc for url, wc in cur.fetchall()}
+        wc_map: dict[str, int] = {}
+        ts_map: dict[str, datetime | None] = {}
+        for url, wc, indexed_at in cur.fetchall():
+            wc_map[url] = wc
+            if indexed_at is not None:
+                if isinstance(indexed_at, str):
+                    try:
+                        ts_map[url] = datetime.fromisoformat(indexed_at)
+                    except ValueError:
+                        pass
+                elif isinstance(indexed_at, datetime):
+                    ts_map[url] = indexed_at
 
         # Batch 4: page_ranks for all candidate URLs
         pr_map: dict[str, float] = {}
@@ -324,6 +338,16 @@ class BM25Scorer:
 
         cur.close()
 
+        # Precompute freshness decay constant
+        freshness_lambda = 0.0
+        now_utc = None
+        if (
+            self.config.freshness_weight > 0
+            and self.config.freshness_half_life_days > 0
+        ):
+            freshness_lambda = math.log(2) / self.config.freshness_half_life_days
+            now_utc = datetime.now(timezone.utc)
+
         # Compute BM25 scores in-memory
         k1 = self.config.k1
         b = self.config.b
@@ -351,6 +375,15 @@ class BM25Scorer:
                 domain_rank = dr_map.get(url, 0.0)
                 authority = max(pagerank, domain_rank)
                 bm25_score *= 1 + self.config.pagerank_weight * authority
+
+            # Apply freshness boost
+            if now_utc is not None and url in ts_map:
+                indexed_at = ts_map[url]
+                if indexed_at.tzinfo is None:
+                    indexed_at = indexed_at.replace(tzinfo=timezone.utc)
+                age_days = (now_utc - indexed_at).total_seconds() / 86400
+                freshness = math.exp(-freshness_lambda * age_days)
+                bm25_score *= 1 + self.config.freshness_weight * freshness
 
             results.append((url, bm25_score))
 
