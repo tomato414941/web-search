@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS search_logs (
   result_count INTEGER DEFAULT 0,
   search_mode TEXT DEFAULT 'default',
   user_agent TEXT,
+  api_key_id TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_search_logs_created ON search_logs(created_at);

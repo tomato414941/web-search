@@ -5,7 +5,7 @@ import logging
 import time
 import uuid
 import httpx
-from fastapi import APIRouter, Request, BackgroundTasks, Response
+from fastapi import APIRouter, Depends, Request, BackgroundTasks, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -18,6 +18,7 @@ from frontend.services.analytics import (
     log_impression_event,
     log_click_event,
 )
+from frontend.api.deps import optional_api_key
 from frontend.api.middleware.rate_limiter import limiter
 
 logger = logging.getLogger(__name__)
@@ -30,10 +31,16 @@ VALID_SEARCH_MODES = {"bm25", "hybrid", "semantic"}
 
 
 def log_search(
-    query: str, result_count: int, user_agent: str | None, search_mode: str = "bm25"
+    query: str,
+    result_count: int,
+    user_agent: str | None,
+    search_mode: str = "bm25",
+    api_key_id: str | None = None,
 ):
     """Compatibility wrapper used by existing tests."""
-    analytics_log_search(query, result_count, user_agent, search_mode=search_mode)
+    analytics_log_search(
+        query, result_count, user_agent, search_mode=search_mode, api_key_id=api_key_id
+    )
 
 
 def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
@@ -53,6 +60,7 @@ async def api_search(
     limit: str | None = None,
     page: str | None = None,
     mode: str | None = None,
+    api_key_info: dict | None = Depends(optional_api_key),
 ):
     """Search API (JSON) - supports bm25, hybrid, and semantic search modes."""
     started_at = time.perf_counter()
@@ -77,7 +85,15 @@ async def api_search(
         request_id = uuid.uuid4().hex
         data["request_id"] = request_id
 
+    if api_key_info:
+        data["usage"] = {
+            "daily_used": api_key_info.get("daily_used", 0) + (1 if query else 0),
+            "daily_limit": api_key_info["rate_limit_daily"],
+        }
+
     response = JSONResponse(data)
+
+    api_key_id = api_key_info["id"] if api_key_info else None
 
     if query:
         latency_ms = int((time.perf_counter() - started_at) * 1000)
@@ -86,7 +102,7 @@ async def api_search(
         session_hash = hash_session_id(session_id)
 
         background_tasks.add_task(
-            log_search, query, data["total"], user_agent, search_mode
+            log_search, query, data["total"], user_agent, search_mode, api_key_id
         )
         background_tasks.add_task(
             log_impression_event,

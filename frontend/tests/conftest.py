@@ -8,16 +8,42 @@ os.environ.setdefault("ADMIN_USERNAME", "test_admin")
 os.environ.setdefault("ADMIN_PASSWORD", "test_password")
 os.environ.setdefault("ADMIN_SESSION_SECRET", "test-secret-key-for-testing")
 
+import sqlite3
+
 import pytest
 from unittest.mock import patch
 from shared.db.search import ensure_db
 from shared.search import SearchEngine, BM25Config
 
 
+def _apply_sqlite_extras(db_path: str) -> None:
+    """Apply columns/tables that are pg_only in migrations but needed for tests."""
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("ALTER TABLE search_logs ADD COLUMN api_key_id TEXT")
+    except sqlite3.OperationalError:
+        pass
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS api_keys (
+            id TEXT PRIMARY KEY,
+            key_hash TEXT NOT NULL UNIQUE,
+            key_prefix TEXT NOT NULL,
+            name TEXT NOT NULL,
+            rate_limit_daily INTEGER NOT NULL DEFAULT 1000,
+            status TEXT NOT NULL DEFAULT 'active',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            last_used_at TEXT
+        )"""
+    )
+    conn.commit()
+    conn.close()
+
+
 @pytest.fixture(autouse=True)
 def setup_test_env(tmp_path):
     test_db_path = str(tmp_path / "test_search.db")
     ensure_db(test_db_path)
+    _apply_sqlite_extras(test_db_path)
 
     with patch("frontend.core.config.settings.DB_PATH", test_db_path):
         from frontend.services.search import search_service

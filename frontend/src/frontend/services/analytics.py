@@ -63,6 +63,7 @@ def log_search(
     result_count: int,
     user_agent: str | None,
     search_mode: str = "bm25",
+    api_key_id: str | None = None,
 ) -> None:
     conn = None
     try:
@@ -70,8 +71,9 @@ def log_search(
         conn = get_connection(settings.DB_PATH)
         cur = conn.cursor()
         cur.execute(
-            f"INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES ({ph}, {ph}, {ph}, {ph})",
-            (query, result_count, search_mode, user_agent),
+            f"INSERT INTO search_logs (query, result_count, search_mode, user_agent, api_key_id)"
+            f" VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
+            (query, result_count, search_mode, user_agent, api_key_id),
         )
         conn.commit()
         cur.close()

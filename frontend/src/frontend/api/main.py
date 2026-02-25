@@ -87,13 +87,13 @@ cors_origins_env = os.getenv("CORS_ORIGINS")
 if cors_origins_env:
     cors_origins = cors_origins_env.split(",")
 else:
-    # Development only - production must set CORS_ORIGINS
-    cors_origins = ["http://localhost:8080"] if settings.DEBUG else []
+    # Public API: allow all origins by default (API key auth via header, not cookies)
+    cors_origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 

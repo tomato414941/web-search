@@ -4,7 +4,7 @@ import logging
 from urllib.parse import quote
 
 from fastapi import APIRouter, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from frontend.api.middleware.rate_limiter import limiter
 from frontend.api.routers.admin_crawlers import router as crawlers_router
@@ -14,6 +14,11 @@ from frontend.core.config import settings
 from frontend.services.admin_analytics import get_analytics_data
 from frontend.services import admin_auth
 from frontend.services.admin_dashboard import get_dashboard_data
+from frontend.services.api_key import (
+    create_api_key,
+    list_api_keys,
+    revoke_api_key,
+)
 from frontend.services.crawler_admin_client import (
     fetch_frontier_stats,
     fetch_history,
@@ -309,6 +314,38 @@ async def analytics_page(request: Request):
             "csrf_token": csrf_token,
         },
     )
+
+
+@router.get("/api-keys")
+async def api_keys_list(request: Request):
+    if not _is_authenticated(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    return JSONResponse({"keys": list_api_keys()})
+
+
+@router.post("/api-keys")
+async def api_keys_create(request: Request):
+    if not _is_authenticated(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    body = await request.json()
+    name = body.get("name", "").strip()
+    if not name:
+        return JSONResponse({"error": "name is required"}, status_code=400)
+
+    rate_limit = body.get("rate_limit_daily")
+    key_info = create_api_key(name, rate_limit)
+    return JSONResponse(key_info, status_code=201)
+
+
+@router.delete("/api-keys/{key_id}")
+async def api_keys_revoke(request: Request, key_id: str):
+    if not _is_authenticated(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    if revoke_api_key(key_id):
+        return JSONResponse({"status": "revoked"})
+    return JSONResponse({"error": "Key not found or already revoked"}, status_code=404)
 
 
 router.include_router(crawlers_router)

@@ -51,6 +51,9 @@ class Settings(InfrastructureSettings):
     # Indexer API (required - no default for security)
     INDEXER_API_KEY: str | None = os.getenv("INDEXER_API_KEY")
 
+    # Public API Key Settings
+    API_KEY_DAILY_LIMIT: int = int(os.getenv("API_KEY_DAILY_LIMIT", "1000"))
+
     # OpenAI (for embeddings)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 
