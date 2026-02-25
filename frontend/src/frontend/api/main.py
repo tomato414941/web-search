@@ -32,9 +32,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Content Security Policy (adjust as needed for your assets)
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "script-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https://www.google.com https://*.gstatic.com;"
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "img-src 'self' data: https://www.google.com https://*.gstatic.com https://fastapi.tiangolo.com;"
         )
         return response
 
@@ -50,17 +50,35 @@ async def lifespan(app: FastAPI):
 
 
 # --- OpenAPI Metadata ---
+API_DESCRIPTION = """\
+Web search API powered by a custom crawler with BM25 ranking and PageRank boosting.
+
+## Authentication
+
+API keys are **optional**. Anonymous requests work but don't include usage tracking.
+
+| Method | Example |
+|---|---|
+| Header | `X-API-Key: pbs_...` |
+| Query param | `?api_key=pbs_...` |
+
+Request an API key via the [admin dashboard](/admin/).
+
+## Rate Limits
+
+| Scope | Limit |
+|---|---|
+| IP-based (anonymous) | 100 req/min |
+| API key (authenticated) | 1,000 req/day |
+"""
+
 app = FastAPI(
     lifespan=lifespan,
-    title="Web Search API",
+    title="PaleBluSearch API",
     version="1.0.0",
-    description="A custom full-text search engine with BM25 ranking and PageRank boosting.",
+    description=API_DESCRIPTION,
     openapi_tags=[
-        {"name": "search", "description": "Search and discovery endpoints"},
-        {"name": "system", "description": "Health checks and system info"},
-        {"name": "crawler", "description": "URL submission and crawl control"},
-        {"name": "metrics", "description": "Prometheus metrics"},
-        {"name": "ui", "description": "Web UI endpoints"},
+        {"name": "search", "description": "Search and click tracking"},
     ],
     license_info={"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
 )
@@ -132,18 +150,26 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Include Routers
 # Root-level health endpoints (Kubernetes probes)
-app.include_router(health_root_router, tags=["health"])
+app.include_router(health_root_router, tags=["health"], include_in_schema=False)
 
 # UI routes (no /api/v1 prefix)
-app.include_router(search.router, tags=["ui"])
-app.include_router(admin.router)
+app.include_router(search.router, tags=["ui"], include_in_schema=False)
+app.include_router(admin.router, include_in_schema=False)
 
 # API routes with /api/v1 prefix
 app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
-app.include_router(stats.router, prefix="/api/v1", tags=["system"])
-app.include_router(crawler.router, prefix="/api/v1", tags=["crawler"])
-app.include_router(quality.router, prefix="/api/v1", tags=["system"])
-app.include_router(metrics_router, prefix="/api/v1", tags=["metrics"])
+app.include_router(
+    stats.router, prefix="/api/v1", tags=["system"], include_in_schema=False
+)
+app.include_router(
+    crawler.router, prefix="/api/v1", tags=["crawler"], include_in_schema=False
+)
+app.include_router(
+    quality.router, prefix="/api/v1", tags=["system"], include_in_schema=False
+)
+app.include_router(
+    metrics_router, prefix="/api/v1", tags=["metrics"], include_in_schema=False
+)
 
 
 if __name__ == "__main__":

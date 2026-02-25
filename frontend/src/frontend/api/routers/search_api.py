@@ -30,6 +30,45 @@ router = APIRouter()
 VALID_SEARCH_MODES = {"bm25", "hybrid", "semantic"}
 
 
+# --- Response Models ---
+
+
+class SearchHit(BaseModel):
+    url: str = Field(description="Page URL")
+    title: str | None = Field(description="Page title")
+    snip: str = Field(description="HTML snippet with `<mark>` highlights")
+    snip_plain: str = Field(description="Plain text snippet")
+    rank: float = Field(description="Relevance score")
+
+
+class UsageInfo(BaseModel):
+    daily_used: int = Field(description="Requests used today")
+    daily_limit: int = Field(description="Daily request limit")
+
+
+class SearchResponse(BaseModel):
+    query: str = Field(description="Normalized search query")
+    total: int = Field(description="Total matching documents")
+    page: int = Field(description="Current page number")
+    per_page: int = Field(description="Results per page")
+    last_page: int = Field(description="Last available page")
+    hits: list[SearchHit] = Field(description="Search results")
+    mode: str = Field(description="Search mode used (bm25, hybrid, semantic, auto)")
+    request_id: str | None = Field(
+        default=None, description="Request ID for click tracking"
+    )
+    usage: UsageInfo | None = Field(
+        default=None, description="API key usage info (only present with valid key)"
+    )
+
+
+class SearchClickRequest(BaseModel):
+    request_id: str = Field(min_length=8, max_length=128)
+    query: str = Field(min_length=1, max_length=500)
+    url: HttpUrl
+    rank: int = Field(ge=1, le=1000)
+
+
 def log_search(
     query: str,
     result_count: int,
@@ -51,7 +90,12 @@ def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
     return max(x, min_v)
 
 
-@router.get("/search")
+@router.get(
+    "/search",
+    response_model=SearchResponse,
+    response_model_exclude_none=True,
+    summary="Search the web",
+)
 @limiter.limit("100/minute")
 async def api_search(
     request: Request,
@@ -62,7 +106,21 @@ async def api_search(
     mode: str | None = None,
     api_key_info: dict | None = Depends(optional_api_key),
 ):
-    """Search API (JSON) - supports bm25, hybrid, and semantic search modes."""
+    """Full-text web search with BM25 ranking and PageRank boosting.
+
+    **Authentication** (optional):
+    - Header: `X-API-Key: pbs_...`
+    - Query param: `?api_key=pbs_...`
+
+    Anonymous requests are allowed but do not include usage info.
+
+    **Search modes**:
+    - `bm25` — keyword-based (default)
+    - `hybrid` — BM25 + vector semantic search via RRF
+    - `semantic` — pure vector similarity search
+
+    **Rate limits**: 100 requests/minute (IP-based), 1000 requests/day (per API key).
+    """
     started_at = time.perf_counter()
     query = (q or "").strip()
     if len(query) > settings.MAX_QUERY_LEN:
@@ -116,16 +174,14 @@ async def api_search(
     return response
 
 
-class SearchClickRequest(BaseModel):
-    request_id: str = Field(min_length=8, max_length=128)
-    query: str = Field(min_length=1, max_length=500)
-    url: HttpUrl
-    rank: int = Field(ge=1, le=1000)
-
-
-@router.post("/search/click", status_code=204)
+@router.post(
+    "/search/click",
+    status_code=204,
+    summary="Log a click event",
+)
 @limiter.limit("300/minute")
 async def api_search_click(request: Request, payload: SearchClickRequest):
+    """Record that a user clicked a search result. Used for relevance feedback."""
     response = Response(status_code=204)
     session_id = get_or_set_anon_session_id(request, response)
     session_hash = hash_session_id(session_id)
@@ -140,7 +196,7 @@ async def api_search_click(request: Request, payload: SearchClickRequest):
     return response
 
 
-@router.get("/predict")
+@router.get("/predict", include_in_schema=False)
 @limiter.limit("30/minute")
 async def api_predict(
     request: Request, url: str, parent_score: float = 100.0, visits: int = 0
