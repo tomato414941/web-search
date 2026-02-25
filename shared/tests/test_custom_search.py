@@ -776,16 +776,6 @@ class TestSnippetGeneration:
         # Should return beginning of text
         assert snippet.text.startswith("This text")
 
-    def test_highlight_snippet_function(self):
-        """Test the convenience highlight_snippet function."""
-        from shared.search.snippet import highlight_snippet
-
-        text = "Learn Python today"
-        result = highlight_snippet(text, ["Python"])
-
-        assert "<mark>Python</mark>" in result
-        assert isinstance(result, str)
-
     def test_html_escape_in_snippet(self):
         """Test that HTML entities in content are escaped."""
         from shared.search.snippet import generate_snippet

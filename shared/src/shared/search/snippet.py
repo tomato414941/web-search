@@ -152,13 +152,3 @@ def generate_snippet(
         return Snippet(text=highlighted, plain_text=plain_text)
 
     return Snippet(text=plain_text, plain_text=plain_text)
-
-
-def highlight_snippet(text: str, terms: list[str], window_size: int = 200) -> str:
-    """
-    Convenience function that returns just the highlighted HTML string.
-
-    This is a drop-in replacement for the original frontend function.
-    """
-    snippet = generate_snippet(text, terms, window_size, highlight=True)
-    return snippet.text

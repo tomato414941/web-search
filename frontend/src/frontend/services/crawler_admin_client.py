@@ -70,20 +70,6 @@ async def fetch_frontier_stats() -> dict[str, Any] | None:
     return None
 
 
-async def fetch_queue(limit: int = 50) -> list[tuple[str, float]]:
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/queue?limit={limit}"
-            )
-            if resp.status_code == 200:
-                items = resp.json()
-                return [(item["url"], item["score"]) for item in items]
-    except httpx.RequestError as exc:
-        logger.warning(f"Failed to fetch queue from crawler: {exc}")
-    return []
-
-
 async def fetch_history(url_filter: str = "") -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:

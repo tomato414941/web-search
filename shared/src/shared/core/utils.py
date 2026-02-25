@@ -22,7 +22,7 @@ _ssrf_cache: TTLCache[str, bool] = TTLCache(
 def is_private_ip(hostname: str) -> bool:
     """Check if hostname is an IP literal pointing to a private/reserved address.
 
-    Does NOT perform DNS resolution — use resolve_is_private() for that.
+    Does NOT perform DNS resolution — use resolve_is_private_async() for that.
     Returns True if the IP should be blocked.
     """
     if not hostname:
@@ -39,38 +39,6 @@ def is_private_ip(hostname: str) -> bool:
         )
     except ValueError:
         return False  # Not an IP literal
-
-
-def resolve_is_private(hostname: str) -> bool:
-    """Resolve hostname via DNS and check if any resolved IP is private/reserved.
-
-    Returns True if the hostname resolves to a private IP (should be blocked).
-    Returns True if DNS resolution fails (fail-closed).
-    """
-    if is_private_ip(hostname):
-        return True
-    try:
-        results = socket.getaddrinfo(
-            hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
-        )
-    except socket.gaierror:
-        return True  # Cannot resolve → block (fail-closed)
-    for _family, _type, _proto, _canonname, sockaddr in results:
-        ip_str = sockaddr[0]
-        if ip_str in _METADATA_IPS:
-            return True
-        try:
-            addr = ipaddress.ip_address(ip_str)
-            if (
-                addr.is_private
-                or addr.is_loopback
-                or addr.is_link_local
-                or addr.is_reserved
-            ):
-                return True
-        except ValueError:
-            return True
-    return False
 
 
 async def resolve_is_private_async(hostname: str) -> bool:

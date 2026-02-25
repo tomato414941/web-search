@@ -46,12 +46,6 @@ def to_pgvector(vector: np.ndarray) -> str:
     return "[" + ",".join(f"{v:.8g}" for v in vector) + "]"
 
 
-def from_pgvector(value: str) -> np.ndarray:
-    """Convert pgvector string format back to numpy array."""
-    cleaned = value.strip("[]")
-    return np.array([float(x) for x in cleaned.split(",")], dtype=np.float32)
-
-
 class EmbeddingService:
     """Synchronous embedding service using OpenAI."""
 
