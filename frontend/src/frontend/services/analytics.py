@@ -58,7 +58,12 @@ def hash_session_id(session_id: str | None) -> str | None:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def log_search(query: str, result_count: int, user_agent: str | None) -> None:
+def log_search(
+    query: str,
+    result_count: int,
+    user_agent: str | None,
+    search_mode: str = "bm25",
+) -> None:
     conn = None
     try:
         ph = sql_placeholder()
@@ -66,7 +71,7 @@ def log_search(query: str, result_count: int, user_agent: str | None) -> None:
         cur = conn.cursor()
         cur.execute(
             f"INSERT INTO search_logs (query, result_count, search_mode, user_agent) VALUES ({ph}, {ph}, {ph}, {ph})",
-            (query, result_count, "bm25", user_agent),
+            (query, result_count, search_mode, user_agent),
         )
         conn.commit()
         cur.close()

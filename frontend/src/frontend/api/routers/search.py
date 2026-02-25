@@ -52,6 +52,7 @@ async def search_page(
     q: str | None = None,
     page: str | None = None,
     mode: str | None = None,
+    search_mode: str | None = None,
     ui_mode: str | None = Cookie(default="modern"),
     lang: str | None = None,
     user_lang: str | None = Cookie(default=None, alias="lang"),
@@ -75,9 +76,13 @@ async def search_page(
     per_page = min(settings.RESULTS_LIMIT, settings.MAX_PER_PAGE)
     request_id = uuid.uuid4().hex if query else None
 
-    # Use Service
+    valid_search_modes = {"bm25", "hybrid", "semantic"}
+    effective_search_mode = search_mode if search_mode in valid_search_modes else "auto"
+
     result = (
-        await asyncio.to_thread(search_service.search, query, per_page, page_number)
+        await asyncio.to_thread(
+            search_service.search, query, per_page, page_number, effective_search_mode
+        )
         if query
         else None
     )
@@ -101,7 +106,9 @@ async def search_page(
         latency_ms = int((time.perf_counter() - started_at) * 1000)
         session_id = get_or_set_anon_session_id(request, resp)
         session_hash = hash_session_id(session_id)
-        background_tasks.add_task(log_search, query, result["total"], user_agent)
+        background_tasks.add_task(
+            log_search, query, result["total"], user_agent, effective_search_mode
+        )
         background_tasks.add_task(
             log_impression_event,
             query=query,

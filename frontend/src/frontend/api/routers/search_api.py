@@ -26,9 +26,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def log_search(query: str, result_count: int, user_agent: str | None):
+VALID_SEARCH_MODES = {"bm25", "hybrid", "semantic"}
+
+
+def log_search(
+    query: str, result_count: int, user_agent: str | None, search_mode: str = "bm25"
+):
     """Compatibility wrapper used by existing tests."""
-    analytics_log_search(query, result_count, user_agent)
+    analytics_log_search(query, result_count, user_agent, search_mode=search_mode)
 
 
 def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
@@ -47,8 +52,9 @@ async def api_search(
     q: str | None = None,
     limit: str | None = None,
     page: str | None = None,
+    mode: str | None = None,
 ):
-    """Search API (JSON) - uses BM25 + PageRank search."""
+    """Search API (JSON) - supports bm25, hybrid, and semantic search modes."""
     started_at = time.perf_counter()
     query = (q or "").strip()
     if len(query) > settings.MAX_QUERY_LEN:
@@ -56,12 +62,16 @@ async def api_search(
 
     per_page = min(_parse_pos_int(limit, settings.RESULTS_LIMIT), settings.MAX_PER_PAGE)
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
+    search_mode = mode if mode in VALID_SEARCH_MODES else "auto"
 
     data = (
-        await asyncio.to_thread(search_service.search, query, per_page, page_number)
+        await asyncio.to_thread(
+            search_service.search, query, per_page, page_number, search_mode
+        )
         if query
         else search_service._empty_result(per_page)
     )
+    data["mode"] = search_mode
 
     if query:
         request_id = uuid.uuid4().hex
@@ -75,7 +85,9 @@ async def api_search(
         session_id = get_or_set_anon_session_id(request, response)
         session_hash = hash_session_id(session_id)
 
-        background_tasks.add_task(log_search, query, data["total"], user_agent)
+        background_tasks.add_task(
+            log_search, query, data["total"], user_agent, search_mode
+        )
         background_tasks.add_task(
             log_impression_event,
             query=query,
