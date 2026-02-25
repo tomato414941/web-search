@@ -1,3 +1,4 @@
+import logging
 import os
 import uvicorn
 from contextlib import asynccontextmanager
@@ -47,7 +48,10 @@ async def lifespan(app: FastAPI):
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
     ensure_db(settings.DB_PATH)
-    migrate()
+    try:
+        migrate()
+    except Exception:
+        logging.getLogger(__name__).warning("Migration failed (may already be applied)")
     yield
 
 
