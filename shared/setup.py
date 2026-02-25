@@ -15,5 +15,6 @@ setup(
         "sudachidict-core",
         "openai",
         "tenacity",
+        "cachetools>=5.3",
     ],
 )

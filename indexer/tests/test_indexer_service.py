@@ -10,6 +10,9 @@ class _FakeCursor:
     def execute(self, _sql, _params=None):
         return None
 
+    def executemany(self, _sql, _params_seq):
+        return None
+
     def close(self):
         self.closed = True
 

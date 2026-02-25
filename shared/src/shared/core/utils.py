@@ -4,10 +4,19 @@ import socket
 from urllib.parse import parse_qsl, urldefrag, urlencode, urljoin, urlsplit, urlunsplit
 from typing import Optional
 
+from cachetools import TTLCache
+
 MAX_URL_LENGTH = 2083
 
 # Cloud metadata endpoint
 _METADATA_IPS = {"169.254.169.254"}
+
+# SSRF DNS result cache: domain -> is_private (bool)
+_SSRF_CACHE_MAX = 50_000
+_SSRF_CACHE_TTL = 3600  # 1 hour
+_ssrf_cache: TTLCache[str, bool] = TTLCache(
+    maxsize=_SSRF_CACHE_MAX, ttl=_SSRF_CACHE_TTL
+)
 
 
 def is_private_ip(hostname: str) -> bool:
@@ -68,16 +77,21 @@ async def resolve_is_private_async(hostname: str) -> bool:
     """Async version of resolve_is_private using non-blocking DNS resolution."""
     if is_private_ip(hostname):
         return True
+    cached = _ssrf_cache.get(hostname)
+    if cached is not None:
+        return cached
     try:
         loop = asyncio.get_running_loop()
         results = await loop.getaddrinfo(
             hostname, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM
         )
     except socket.gaierror:
+        _ssrf_cache[hostname] = True
         return True
     for _family, _type, _proto, _canonname, sockaddr in results:
         ip_str = sockaddr[0]
         if ip_str in _METADATA_IPS:
+            _ssrf_cache[hostname] = True
             return True
         try:
             addr = ipaddress.ip_address(ip_str)
@@ -87,9 +101,12 @@ async def resolve_is_private_async(hostname: str) -> bool:
                 or addr.is_link_local
                 or addr.is_reserved
             ):
+                _ssrf_cache[hostname] = True
                 return True
         except ValueError:
+            _ssrf_cache[hostname] = True
             return True
+    _ssrf_cache[hostname] = False
     return False
 
 

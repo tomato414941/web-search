@@ -141,14 +141,14 @@ class IndexerService:
             cur.execute(f"SAVEPOINT {savepoint}")
             # Remove old links from this page
             cur.execute(f"DELETE FROM links WHERE src = {ph}", (src_url,))
-            # Insert new links (skip self-links)
-            for dst in outlinks:
-                if dst != src_url:
-                    cur.execute(
-                        f"INSERT INTO links (src, dst) VALUES ({ph}, {ph}) "
-                        "ON CONFLICT DO NOTHING",
-                        (src_url, dst),
-                    )
+            # Batch insert new links (skip self-links)
+            pairs = [(src_url, dst) for dst in outlinks if dst != src_url]
+            if pairs:
+                cur.executemany(
+                    f"INSERT INTO links (src, dst) VALUES ({ph}, {ph}) "
+                    "ON CONFLICT DO NOTHING",
+                    pairs,
+                )
             cur.execute(f"RELEASE SAVEPOINT {savepoint}")
         except Exception as e:
             logger.warning(f"Failed to save links for {src_url}: {e}")

@@ -2,6 +2,7 @@
 
 import pytest
 
+from shared.core import utils
 from shared.core.utils import is_private_ip, normalize_url, resolve_is_private_async
 
 
@@ -135,3 +136,28 @@ class TestResolveIsPrivateAsync:
     @pytest.mark.asyncio
     async def test_allow_public_host(self):
         assert await resolve_is_private_async("example.com") is False
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_avoids_dns(self, monkeypatch):
+        utils._ssrf_cache.clear()
+        utils._ssrf_cache["cached.example.com"] = False
+        call_count = 0
+        original = utils.asyncio.get_running_loop
+
+        def patched_loop():
+            loop = original()
+            orig_getaddrinfo = loop.getaddrinfo
+
+            async def counting_getaddrinfo(*args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                return await orig_getaddrinfo(*args, **kwargs)
+
+            loop.getaddrinfo = counting_getaddrinfo
+            return loop
+
+        monkeypatch.setattr(utils.asyncio, "get_running_loop", patched_loop)
+        result = await resolve_is_private_async("cached.example.com")
+        assert result is False
+        assert call_count == 0
+        utils._ssrf_cache.clear()

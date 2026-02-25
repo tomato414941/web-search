@@ -36,6 +36,7 @@ services:
       - CRAWLER_SERVICE_URL=http://crawler:8000
       - INDEXER_SERVICE_URL=http://indexer:8000
       - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-10}
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,6 +61,7 @@ services:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-15}
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,6 +91,7 @@ services:
       - INDEXER_JOB_RETRY_MAX_SEC=${INDEXER_JOB_RETRY_MAX_SEC:-1800}
       - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
       - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-6}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_WORKER:-30}
     command: ["python", "-m", "app.worker"]
     depends_on:
       postgres:
@@ -119,6 +122,7 @@ services:
       - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY:-10}
+      - DB_POOL_MAX=${DB_POOL_MAX_CRAWLER:-20}
     depends_on:
       postgres:
         condition: service_healthy
