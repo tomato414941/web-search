@@ -1,4 +1,3 @@
-import logging
 import os
 import uvicorn
 from contextlib import asynccontextmanager
@@ -13,7 +12,6 @@ from slowapi.errors import RateLimitExceeded
 
 from frontend.core.config import settings
 from shared.db.search import ensure_db
-from shared.db.migrate import migrate
 from frontend.api.routers import search, search_api, stats, crawler, admin, quality
 from frontend.api.routers.system import root_router as health_root_router
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
@@ -48,10 +46,6 @@ async def lifespan(app: FastAPI):
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
     ensure_db(settings.DB_PATH)
-    try:
-        migrate()
-    except Exception:
-        logging.getLogger(__name__).warning("Migration failed (may already be applied)")
     yield
 
 

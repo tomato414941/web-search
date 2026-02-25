@@ -317,11 +317,13 @@ class TestSessionSecurity:
         # Create an almost-correct token by flipping one character.
         invalid_token = valid_token[:-1] + ("a" if valid_token[-1] != "a" else "b")
 
-        client.cookies.clear()
-        client.cookies.set("admin_session", invalid_token)
-        response = client.get("/admin/", follow_redirects=False)
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/login"
+        # Use a fresh client to avoid dependency-override contamination
+        # from other test modules (e.g. api_key tests).
+        with TestClient(app) as fresh_client:
+            fresh_client.cookies.set("admin_session", invalid_token)
+            response = fresh_client.get("/admin/", follow_redirects=False)
+            assert response.status_code == 303
+            assert response.headers["location"] == "/admin/login"
 
 
 class TestCrawlerInstancesConfig:
