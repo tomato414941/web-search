@@ -4,7 +4,8 @@ Main Application Entry Point
 FastAPI application factory and router registration.
 """
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from app.api.deps import verify_api_key
 from app.api.routes import crawl, worker, queue, history, scoring, seeds, stats
 from app.api.routes.health import root_router as health_root_router
 from app.core.events import lifespan
@@ -24,17 +25,32 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Root-level health endpoints (Kubernetes probes)
+    # Root-level health endpoints (Kubernetes probes) — no auth
     app.include_router(health_root_router, tags=["health"])
 
-    # Register routers with /api/v1 prefix
-    app.include_router(crawl.router, prefix="/api/v1", tags=["crawl"])
-    app.include_router(worker.router, prefix="/api/v1/worker", tags=["worker"])
-    app.include_router(queue.router, prefix="/api/v1", tags=["queue"])
-    app.include_router(history.router, prefix="/api/v1", tags=["history"])
-    app.include_router(scoring.router, prefix="/api/v1", tags=["scoring"])
-    app.include_router(seeds.router, prefix="/api/v1", tags=["seeds"])
-    app.include_router(stats.router, prefix="/api/v1", tags=["stats"])
+    # Register routers with /api/v1 prefix — require API key
+    api_deps = [Depends(verify_api_key)]
+    app.include_router(
+        crawl.router, prefix="/api/v1", tags=["crawl"], dependencies=api_deps
+    )
+    app.include_router(
+        worker.router, prefix="/api/v1/worker", tags=["worker"], dependencies=api_deps
+    )
+    app.include_router(
+        queue.router, prefix="/api/v1", tags=["queue"], dependencies=api_deps
+    )
+    app.include_router(
+        history.router, prefix="/api/v1", tags=["history"], dependencies=api_deps
+    )
+    app.include_router(
+        scoring.router, prefix="/api/v1", tags=["scoring"], dependencies=api_deps
+    )
+    app.include_router(
+        seeds.router, prefix="/api/v1", tags=["seeds"], dependencies=api_deps
+    )
+    app.include_router(
+        stats.router, prefix="/api/v1", tags=["stats"], dependencies=api_deps
+    )
 
     return app
 

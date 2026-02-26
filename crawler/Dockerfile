@@ -25,14 +25,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
 
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser -d /home/appuser -m appuser
+
 WORKDIR /app
 
 # Copy installed packages from builder
-COPY --from=builder /root/.local /root/.local
+COPY --from=builder /root/.local /home/appuser/.local
 COPY --from=builder /app/shared ./shared
 
 # Ensure scripts in .local are usable
-ENV PATH=/root/.local/bin:$PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
 
 # Copy application code
 COPY crawler/src/ ./src/
@@ -40,8 +43,11 @@ COPY crawler/src/ ./src/
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src
 
+RUN mkdir -p /data && chown appuser:appuser /data
+
 # Expose API port
 EXPOSE 8000
 
+USER appuser
 # Run FastAPI application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

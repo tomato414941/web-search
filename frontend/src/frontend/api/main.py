@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi.errors import RateLimitExceeded
 
 from frontend.core.config import settings
+from shared.core.infrastructure_config import Environment
 from shared.db.search import ensure_db
 from frontend.api.routers import search, search_api, stats, crawler, admin, quality
 from frontend.api.routers.system import root_router as health_root_router
@@ -104,9 +105,13 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 cors_origins_env = os.getenv("CORS_ORIGINS")
 if cors_origins_env:
     cors_origins = cors_origins_env.split(",")
-else:
-    # Public API: allow all origins by default (API key auth via header, not cookies)
+elif settings.DEBUG or settings.ENVIRONMENT == Environment.TEST:
     cors_origins = ["*"]
+else:
+    cors_origins = [
+        "https://palebluesearch.com",
+        "https://www.palebluesearch.com",
+    ]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

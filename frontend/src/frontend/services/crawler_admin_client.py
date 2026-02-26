@@ -9,6 +9,13 @@ from frontend.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _auth_headers() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if settings.INDEXER_API_KEY:
+        headers["X-API-Key"] = settings.INDEXER_API_KEY
+    return headers
+
+
 class CrawlerApiError(Exception):
     pass
 
@@ -20,7 +27,9 @@ def _api_error(resp: httpx.Response) -> CrawlerApiError:
 async def fetch_stats() -> dict[str, Any] | None:
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats")
+            resp = await client.get(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats", headers=_auth_headers()
+            )
             if resp.status_code == 200:
                 return resp.json()
     except Exception as exc:
@@ -37,6 +46,7 @@ async def fetch_status_breakdown(
             resp = await client.get(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats/breakdown",
                 params=params,
+                headers=_auth_headers(),
             )
             if resp.status_code == 200:
                 return resp.json()
@@ -48,7 +58,9 @@ async def fetch_status_breakdown(
 async def fetch_seeds() -> list[dict[str, Any]]:
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds")
+            resp = await client.get(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds", headers=_auth_headers()
+            )
             if resp.status_code == 200:
                 return resp.json()
     except httpx.RequestError as exc:
@@ -61,7 +73,8 @@ async def fetch_frontier_stats() -> dict[str, Any] | None:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats/frontier"
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats/frontier",
+                headers=_auth_headers(),
             )
             if resp.status_code == 200:
                 return resp.json()
@@ -77,6 +90,7 @@ async def fetch_history(url_filter: str = "") -> list[dict[str, Any]]:
             resp = await client.get(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/history",
                 params=params,
+                headers=_auth_headers(),
             )
             if resp.status_code == 200:
                 return resp.json()
@@ -91,6 +105,7 @@ async def add_seed(url: str) -> None:
         resp = await client.post(
             f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds",
             json=payload,
+            headers=_auth_headers(),
         )
         if resp.status_code != 200:
             raise _api_error(resp)
@@ -103,6 +118,7 @@ async def delete_seed(url: str) -> None:
             "DELETE",
             f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds",
             json=payload,
+            headers=_auth_headers(),
         )
         if resp.status_code != 200:
             raise _api_error(resp)
@@ -114,6 +130,7 @@ async def import_tranco(count: int) -> int:
         resp = await client.post(
             f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds/import-tranco",
             json=payload,
+            headers=_auth_headers(),
         )
         if resp.status_code != 200:
             raise _api_error(resp)
@@ -127,6 +144,7 @@ async def enqueue_url(url: str) -> None:
         resp = await client.post(
             f"{settings.CRAWLER_SERVICE_URL}/api/v1/urls",
             json=payload,
+            headers=_auth_headers(),
         )
         if resp.status_code != 200:
             raise _api_error(resp)
@@ -136,7 +154,8 @@ async def start_worker() -> None:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/start"
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/start",
+                headers=_auth_headers(),
             )
             if resp.status_code != 200:
                 logger.warning(f"Failed to start crawler: {resp.text}")
@@ -150,6 +169,7 @@ async def stop_worker() -> None:
             resp = await client.post(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/stop",
                 json={},
+                headers=_auth_headers(),
             )
             if resp.status_code != 200:
                 logger.warning(f"Failed to stop crawler: {resp.text}")
@@ -170,21 +190,22 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
         "error_1h": None,
     }
     try:
+        headers = _auth_headers()
         async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{url}/api/v1/status")
+            resp = await client.get(f"{url}/api/v1/status", headers=headers)
             if resp.status_code == 200:
                 data = resp.json()
                 status["queue_size"] = data.get("queue_size", 0)
                 status["active_seen"] = data.get("active_seen", 0)
 
-            resp = await client.get(f"{url}/api/v1/worker/status")
+            resp = await client.get(f"{url}/api/v1/worker/status", headers=headers)
             if resp.status_code == 200:
                 worker = resp.json()
                 status["state"] = worker.get("status", "unknown")
                 status["uptime"] = worker.get("uptime", worker.get("uptime_seconds"))
                 status["concurrency"] = worker.get("concurrency")
 
-            resp = await client.get(f"{url}/api/v1/stats")
+            resp = await client.get(f"{url}/api/v1/stats", headers=headers)
             if resp.status_code == 200:
                 stats = resp.json()
                 status["attempts_1h"] = stats.get(
@@ -234,7 +255,9 @@ async def start_crawler_instance(url: str, concurrency: int) -> None:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             await client.post(
-                f"{url}/api/v1/worker/start", json={"concurrency": concurrency}
+                f"{url}/api/v1/worker/start",
+                json={"concurrency": concurrency},
+                headers=_auth_headers(),
             )
     except httpx.RequestError as exc:
         logger.warning(f"Failed to start crawler instance at {url}: {exc}")
@@ -243,6 +266,8 @@ async def start_crawler_instance(url: str, concurrency: int) -> None:
 async def stop_crawler_instance(url: str) -> None:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(f"{url}/api/v1/worker/stop", json={})
+            await client.post(
+                f"{url}/api/v1/worker/stop", json={}, headers=_auth_headers()
+            )
     except httpx.RequestError as exc:
         logger.warning(f"Failed to stop crawler instance at {url}: {exc}")

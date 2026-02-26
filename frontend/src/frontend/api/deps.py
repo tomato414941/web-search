@@ -1,5 +1,7 @@
 """FastAPI dependencies for API authentication."""
 
+import asyncio
+
 from fastapi import HTTPException, Request
 
 from frontend.services.api_key import get_daily_usage, validate_api_key
@@ -15,11 +17,11 @@ async def optional_api_key(request: Request) -> dict | None:
     if not key:
         return None
 
-    key_info = validate_api_key(key)
+    key_info = await asyncio.to_thread(validate_api_key, key)
     if key_info is None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    usage = get_daily_usage(key_info["id"])
+    usage = await asyncio.to_thread(get_daily_usage, key_info["id"])
     if usage >= key_info["rate_limit_daily"]:
         raise HTTPException(
             status_code=429,

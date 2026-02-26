@@ -47,9 +47,14 @@ def test_client(temp_db_path):
     # Set the database path before importing app
     os.environ["CRAWLER_DB_PATH"] = temp_db_path
 
+    from app.api.deps import verify_api_key
     from app.main import app
 
-    return TestClient(app)
+    app.dependency_overrides[verify_api_key] = lambda: None
+
+    yield TestClient(app)
+
+    app.dependency_overrides.pop(verify_api_key, None)
 
 
 @pytest.fixture

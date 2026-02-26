@@ -4,6 +4,10 @@ API Dependencies
 Dependency injection for FastAPI routes.
 """
 
+import secrets
+
+from fastapi import Header, HTTPException
+
 from app.db.url_store import UrlStore
 from app.services.queue import QueueService
 from app.services.seeds import SeedService
@@ -32,3 +36,11 @@ def get_queue_service() -> QueueService:
 def get_seed_service() -> SeedService:
     """Get seed service instance"""
     return SeedService(_get_url_store())
+
+
+def verify_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> None:
+    """Verify service-to-service API key."""
+    if not settings.INDEXER_API_KEY or not secrets.compare_digest(
+        x_api_key, settings.INDEXER_API_KEY
+    ):
+        raise HTTPException(status_code=401, detail="Invalid API key")
