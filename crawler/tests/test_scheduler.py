@@ -7,6 +7,7 @@ Tests for HostGate, rate limiting, backoff, and crawl-delay.
 import time
 from unittest.mock import MagicMock
 
+from app.db.url_store import UrlItem
 from app.scheduler import HostGate, Scheduler, SchedulerConfig, MAX_BACKOFF
 
 
@@ -201,3 +202,84 @@ class TestCrawlDelay:
 
         gate = s._get_gate("example.com")
         assert gate.next_fetch_at >= now + 9.0  # 10s with tolerance
+
+
+class TestGetReadyUrls:
+    def _make_scheduler(self, buffer_items=None, **kwargs):
+        url_store = MagicMock()
+        url_store.pop_batch.return_value = []
+        url_store.pending_count.return_value = 0
+        config = SchedulerConfig(**kwargs)
+        s = Scheduler(url_store, config)
+        if buffer_items:
+            s._buffer = list(buffer_items)
+        return s
+
+    def _make_item(self, url, domain, priority=10.0):
+        return UrlItem(url=url, domain=domain, priority=priority, created_at=0)
+
+    def test_returns_urls_from_different_domains(self):
+        items = [
+            self._make_item("http://a.com/1", "a.com"),
+            self._make_item("http://b.com/1", "b.com"),
+            self._make_item("http://c.com/1", "c.com"),
+        ]
+        s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
+        result = s.get_ready_urls(3)
+        assert len(result) == 3
+        domains = {item.domain for item in result}
+        assert domains == {"a.com", "b.com", "c.com"}
+
+    def test_respects_domain_concurrency_limit(self):
+        items = [
+            self._make_item("http://a.com/1", "a.com", 10),
+            self._make_item("http://a.com/2", "a.com", 9),
+            self._make_item("http://a.com/3", "a.com", 8),
+        ]
+        s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
+        result = s.get_ready_urls(3)
+        assert len(result) == 2
+        assert all(item.domain == "a.com" for item in result)
+        assert s.buffer_size() == 1
+
+    def test_respects_existing_inflight(self):
+        items = [
+            self._make_item("http://a.com/1", "a.com"),
+            self._make_item("http://a.com/2", "a.com"),
+        ]
+        s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
+        s.record_start("a.com")
+        result = s.get_ready_urls(2)
+        assert len(result) == 1
+
+    def test_returns_empty_when_all_rate_limited(self):
+        items = [
+            self._make_item("http://a.com/1", "a.com"),
+        ]
+        s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
+        s.record_start("a.com")
+        s.record_complete("a.com", success=True)
+        result = s.get_ready_urls(1)
+        assert len(result) == 0
+
+    def test_mixed_domains_fills_to_count(self):
+        items = [
+            self._make_item("http://a.com/1", "a.com", 10),
+            self._make_item("http://a.com/2", "a.com", 9),
+            self._make_item("http://a.com/3", "a.com", 8),
+            self._make_item("http://b.com/1", "b.com", 7),
+            self._make_item("http://b.com/2", "b.com", 6),
+        ]
+        s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
+        result = s.get_ready_urls(4)
+        assert len(result) == 4
+        a_count = sum(1 for item in result if item.domain == "a.com")
+        b_count = sum(1 for item in result if item.domain == "b.com")
+        assert a_count == 2
+        assert b_count == 2
+
+    def test_zero_count_returns_empty(self):
+        items = [self._make_item("http://a.com/1", "a.com")]
+        s = self._make_scheduler(buffer_items=items)
+        assert s.get_ready_urls(0) == []
+        assert s.buffer_size() == 1

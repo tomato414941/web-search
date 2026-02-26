@@ -11,6 +11,13 @@ from datetime import datetime, UTC
 logger = logging.getLogger(__name__)
 
 
+class ActiveTaskCounter:
+    """Shared counter for active crawl tasks between WorkerService and worker_loop."""
+
+    def __init__(self):
+        self.value: int = 0
+
+
 class WorkerService:
     """Background crawler worker management"""
 
@@ -18,8 +25,12 @@ class WorkerService:
         self.task: asyncio.Task | None = None
         self.is_running: bool = False
         self.started_at: datetime | None = None
-        self.active_tasks: int = 0
-        self.concurrency: int | None = None  # Current concurrency setting
+        self._active_counter = ActiveTaskCounter()
+        self.concurrency: int | None = None
+
+    @property
+    def active_tasks(self) -> int:
+        return self._active_counter.value
 
     async def start(self, concurrency: int = 1):
         """Start worker with specified concurrency"""
@@ -30,10 +41,12 @@ class WorkerService:
         from app.workers.tasks import worker_loop
 
         self.concurrency = concurrency
-        self.task = asyncio.create_task(worker_loop(concurrency=concurrency))
+        self.task = asyncio.create_task(
+            worker_loop(concurrency=concurrency, active_counter=self._active_counter)
+        )
         self.is_running = True
         self.started_at = datetime.now(UTC)
-        logger.info(f"✅ Worker started with concurrency={concurrency}")
+        logger.info(f"Worker started with concurrency={concurrency}")
 
     async def stop(self, graceful: bool = True):
         """Stop background worker"""
@@ -54,9 +67,9 @@ class WorkerService:
 
         self.is_running = False
         self.started_at = None
-        self.active_tasks = 0
+        self._active_counter.value = 0
         self.concurrency = None
-        logger.info("✅ Background worker stopped")
+        logger.info("Background worker stopped")
 
     def get_uptime(self) -> float | None:
         """Get worker uptime in seconds"""

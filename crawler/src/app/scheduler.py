@@ -96,6 +96,9 @@ class Scheduler:
         """
         Get multiple URLs that are ready to crawl.
 
+        Tracks per-domain selection count to avoid exceeding concurrency_limit
+        within a single batch.
+
         Args:
             count: Maximum number of URLs to return
 
@@ -108,14 +111,25 @@ class Scheduler:
         now = time.time()
         result = []
         to_remove = []
+        selected_per_domain: dict[str, int] = {}
+
+        def _can_select(domain: str) -> bool:
+            gate = self._get_gate(domain)
+            if now < gate.next_fetch_at:
+                return False
+            effective_inflight = gate.inflight + selected_per_domain.get(domain, 0)
+            return effective_inflight < gate.concurrency_limit
 
         # Check buffer
         for i, item in enumerate(self._buffer):
             if len(result) >= count:
                 break
-            if self._can_fetch(item.domain, now):
+            if _can_select(item.domain):
                 result.append(item)
                 to_remove.append(i)
+                selected_per_domain[item.domain] = (
+                    selected_per_domain.get(item.domain, 0) + 1
+                )
 
         # Remove selected items from buffer (reverse order to preserve indices)
         for i in reversed(to_remove):
@@ -131,13 +145,17 @@ class Scheduler:
             for i, item in enumerate(items):
                 if len(result) >= count:
                     break
-                if self._can_fetch(item.domain, now):
+                if _can_select(item.domain):
                     result.append(item)
                     to_remove.append(i)
+                    selected_per_domain[item.domain] = (
+                        selected_per_domain.get(item.domain, 0) + 1
+                    )
 
             # Add remaining to buffer
+            to_remove_set = set(to_remove)
             for i, item in enumerate(items):
-                if i not in to_remove:
+                if i not in to_remove_set:
                     self._buffer.append(item)
 
         return result

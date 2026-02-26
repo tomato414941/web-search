@@ -317,15 +317,22 @@ async def _handle_retry(
         )
 
 
-async def worker_loop(concurrency: int = 1):
+async def worker_loop(concurrency: int = 1, active_counter=None):
     """
-    Main crawler worker loop.
+    Main crawler worker loop with domain-parallel batch dispatch.
 
     Args:
         concurrency: Number of concurrent crawl tasks
+        active_counter: Optional ActiveTaskCounter shared with WorkerService
 
-    Continuously fetches URLs from UrlStore via Scheduler and processes them.
+    Fetches batches of URLs from different domains via Scheduler and
+    dispatches them concurrently, maximising throughput across domains.
     """
+    from app.services.worker import ActiveTaskCounter
+
+    if active_counter is not None and not isinstance(active_counter, ActiveTaskCounter):
+        active_counter = None
+
     logger.info(f"Worker loop started with concurrency={concurrency}")
 
     # Initialize history log database
@@ -353,10 +360,17 @@ async def worker_loop(concurrency: int = 1):
     )
     scheduler = Scheduler(url_store, scheduler_config)
 
-    sem = asyncio.Semaphore(concurrency)
     runtime_state = WorkerRuntimeState()
     robots_block_refreshed_at = 0.0  # Force immediate first load
     in_flight_tasks: set[asyncio.Task[None]] = set()
+
+    def _update_counter():
+        if active_counter is not None:
+            active_counter.value = len(in_flight_tasks)
+
+    def _on_task_done(t: asyncio.Task) -> None:
+        in_flight_tasks.discard(t)
+        _update_counter()
 
     connector = aiohttp.TCPConnector(
         limit=settings.CRAWL_TCP_LIMIT,
@@ -372,6 +386,24 @@ async def worker_loop(concurrency: int = 1):
 
         logger.info(f"Crawler started with concurrency={concurrency}")
         logger.info(f"Submitting pages to: {settings.INDEXER_API_URL}")
+
+        async def process_task(
+            url: str, priority: float, state: WorkerRuntimeState
+        ) -> None:
+            try:
+                await process_url(
+                    session,
+                    robots,
+                    url_store,
+                    scheduler,
+                    url,
+                    priority,
+                    runtime_state=state,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.error(f"Error processing {url}: {e}")
 
         try:
             while True:
@@ -407,58 +439,51 @@ async def worker_loop(concurrency: int = 1):
                             len(runtime_state.robots_blocked_domains),
                         )
 
-                # Get next URL from scheduler
-                item = scheduler.get_next()
+                # Calculate available concurrency slots
+                available_slots = concurrency - len(in_flight_tasks)
 
-                if not item:
-                    # No URLs ready, wait before checking again
-                    await asyncio.sleep(1)
+                if available_slots <= 0:
+                    # All slots occupied — wait for any task to finish
+                    if in_flight_tasks:
+                        await asyncio.wait(
+                            in_flight_tasks,
+                            return_when=asyncio.FIRST_COMPLETED,
+                        )
                     continue
 
-                url = item.url
-                priority = item.priority
-                domain = item.domain
+                # Batch-fetch ready URLs from different domains
+                ready_items = scheduler.get_ready_urls(available_slots)
 
-                logger.info(f"Processing: {url} (priority={priority:.1f})")
-
-                # Process URL with semaphore concurrency control
-                async def process_with_semaphore(
-                    url: str, priority: float, state: WorkerRuntimeState
-                ) -> None:
-                    try:
-                        await process_url(
-                            session,
-                            robots,
-                            url_store,
-                            scheduler,
-                            url,
-                            priority,
-                            runtime_state=state,
+                if not ready_items:
+                    # No domains ready right now
+                    if in_flight_tasks:
+                        await asyncio.wait(
+                            in_flight_tasks,
+                            timeout=0.5,
+                            return_when=asyncio.FIRST_COMPLETED,
                         )
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception as e:
-                        logger.error(f"Error processing {url}: {e}")
-                    finally:
-                        sem.release()
+                    else:
+                        await asyncio.sleep(0.5)
+                    continue
 
-                # Acquire semaphore for concurrency control
-                await sem.acquire()
-
-                # Record start for rate limiting only after acquiring crawl slot
-                scheduler.record_start(domain)
-
-                # Create task for concurrent processing
-                try:
-                    task = asyncio.create_task(
-                        process_with_semaphore(url, priority, runtime_state)
+                # Dispatch all ready URLs concurrently
+                for item in ready_items:
+                    logger.info(
+                        f"Processing: {item.url} (priority={item.priority:.1f})"
                     )
-                    in_flight_tasks.add(task)
-                    task.add_done_callback(in_flight_tasks.discard)
-                except Exception as e:
-                    sem.release()
-                    scheduler.record_complete(domain, success=False)
-                    logger.error(f"Failed to create task for {url}: {e}")
+                    scheduler.record_start(item.domain)
+
+                    try:
+                        task = asyncio.create_task(
+                            process_task(item.url, item.priority, runtime_state)
+                        )
+                        in_flight_tasks.add(task)
+                        task.add_done_callback(_on_task_done)
+                    except Exception as e:
+                        scheduler.record_complete(item.domain, success=False)
+                        logger.error(f"Failed to create task for {item.url}: {e}")
+
+                _update_counter()
 
         except asyncio.CancelledError:
             logger.info("Worker loop cancelled")
@@ -477,5 +502,6 @@ async def worker_loop(concurrency: int = 1):
                     task.cancel()
                 await asyncio.gather(*in_flight_tasks, return_exceptions=True)
                 in_flight_tasks.clear()
+            _update_counter()
 
     logger.info("Worker loop stopped")
