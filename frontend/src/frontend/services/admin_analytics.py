@@ -24,7 +24,7 @@ def build_analytics_exclusion_filters() -> tuple[str, tuple[Any, ...]]:
     clauses: list[str] = []
     params: list[Any] = []
 
-    excluded_user_agents = settings.ANALYTICS_EXCLUDED_USER_AGENTS
+    excluded_user_agents = settings.get_excluded_user_agents()
     if excluded_user_agents:
         ua_clauses: list[str] = []
         for user_agent in excluded_user_agents:
@@ -33,7 +33,7 @@ def build_analytics_exclusion_filters() -> tuple[str, tuple[Any, ...]]:
             params.append(pattern)
         clauses.append("NOT (" + " OR ".join(ua_clauses) + ")")
 
-    excluded_queries = settings.ANALYTICS_EXCLUDED_QUERIES
+    excluded_queries = settings.get_excluded_queries()
     if excluded_queries:
         query_placeholders = sql_placeholders(len(excluded_queries))
         clauses.append(f"query NOT IN ({query_placeholders})")

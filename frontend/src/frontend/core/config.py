@@ -6,9 +6,8 @@ Inherits infrastructure settings from shared library.
 """
 
 import os
-from typing import Any
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field
 
 from shared.core.infrastructure_config import Environment, InfrastructureSettings
 
@@ -65,35 +64,35 @@ class Settings(InfrastructureSettings):
 
     # Analytics
     ANALYTICS_SALT: str = ""
-    ANALYTICS_EXCLUDED_USER_AGENTS: list[str] = ["curl/"]
-    ANALYTICS_EXCLUDED_QUERIES: list[str] = ["deploy-check", "bm25", "sudachipy"]
+    ANALYTICS_EXCLUDED_USER_AGENTS: str = "curl/"
+    ANALYTICS_EXCLUDED_QUERIES: str = "deploy-check,bm25,sudachipy"
 
     # Security
-    ALLOWED_HOSTS: list[str] = [
-        "localhost",
-        "127.0.0.1",
-        "testclient",
-        "testserver",
-    ]
-    CORS_ORIGINS: list[str] = []
+    ALLOWED_HOSTS: str = "localhost,127.0.0.1,testclient,testserver"
+    CORS_ORIGINS: str = ""
 
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     DEBUG: bool = False
 
-    @field_validator(
-        "ANALYTICS_EXCLUDED_USER_AGENTS",
-        "ANALYTICS_EXCLUDED_QUERIES",
-        "ALLOWED_HOSTS",
-        "CORS_ORIGINS",
-        mode="before",
-    )
-    @classmethod
-    def _parse_comma_list(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            return [s.strip() for s in v.split(",") if s.strip()]
-        return v
+    def get_allowed_hosts(self) -> list[str]:
+        return [s.strip() for s in self.ALLOWED_HOSTS.split(",") if s.strip()]
+
+    def get_cors_origins(self) -> list[str]:
+        return [s.strip() for s in self.CORS_ORIGINS.split(",") if s.strip()]
+
+    def get_excluded_user_agents(self) -> list[str]:
+        return [
+            s.strip()
+            for s in self.ANALYTICS_EXCLUDED_USER_AGENTS.split(",")
+            if s.strip()
+        ]
+
+    def get_excluded_queries(self) -> list[str]:
+        return [
+            s.strip() for s in self.ANALYTICS_EXCLUDED_QUERIES.split(",") if s.strip()
+        ]
 
 
 settings = Settings()

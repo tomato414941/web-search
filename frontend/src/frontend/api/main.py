@@ -94,7 +94,7 @@ app.add_middleware(MetricsMiddleware)
 if settings.DEBUG:
     allowed_hosts = ["*"]
 else:
-    allowed_hosts = settings.ALLOWED_HOSTS
+    allowed_hosts = settings.get_allowed_hosts()
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
 # --- CORS ---
