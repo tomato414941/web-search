@@ -20,6 +20,7 @@ pytest-cache-files*/
 
 # Local database and data (data directory outside container)
 data/
+!crawler/data/
 *.db
 
 # OS / Misc

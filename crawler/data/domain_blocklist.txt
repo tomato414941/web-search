@@ -1,0 +1,35 @@
+# Domain Blocklist for PaleblueSearch Crawler
+# One domain per line. Subdomains are automatically matched.
+# Lines starting with # are comments.
+
+# Social media / login walls
+facebook.com
+instagram.com
+linkedin.com
+twitter.com
+x.com
+
+# URL shorteners (redirect-only, no content)
+t.co
+bit.ly
+goo.gl
+lin.ee
+amzn.to
+amzn.asia
+ow.ly
+tinyurl.com
+is.gd
+buff.ly
+
+# Non-content Wikimedia subdomains
+donate.wikimedia.org
+commons.wikimedia.org
+wikidata.org
+www.mediawiki.org
+
+# App stores (not crawlable)
+play.google.com
+apps.apple.com
+
+# Other non-crawlable
+accounts.google.com
