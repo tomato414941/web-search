@@ -19,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    restart: "no"
     environment:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
     command: ["python", "-c", "from shared.postgres.migrate import migrate; migrate()"]
