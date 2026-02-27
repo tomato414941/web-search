@@ -20,6 +20,7 @@ from frontend.services.analytics import (
 )
 from frontend.api.deps import optional_api_key
 from frontend.api.middleware.rate_limiter import limiter
+from shared.contracts.enums import SearchMode
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-VALID_SEARCH_MODES = {"bm25", "hybrid", "semantic"}
+VALID_SEARCH_MODES = {SearchMode.BM25, SearchMode.HYBRID, SearchMode.SEMANTIC}
 
 
 # --- Response Models ---

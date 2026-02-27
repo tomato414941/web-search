@@ -18,6 +18,7 @@ from frontend.api.metrics import (
 from frontend.core.config import settings
 from frontend.services.embedding import deserialize_func, embed_query_func
 from shared.analyzer import analyzer
+from shared.contracts.enums import SearchMode
 from shared.db.search import get_connection
 from shared.search import BM25Config, SearchEngine
 from shared.search.snippet import generate_snippet
@@ -54,16 +55,16 @@ class SearchService:
         q: str | None,
         k: int = 10,
         page: int = 1,
-        mode: str = "auto",
+        mode: str = SearchMode.AUTO,
     ) -> dict[str, Any]:
         if not q:
             return self._empty_result(k)
 
-        if mode == "hybrid" and self.hybrid_available:
+        if mode == SearchMode.HYBRID and self.hybrid_available:
             return self._hybrid_search(q, k, page)
-        elif mode == "semantic" and self.hybrid_available:
+        elif mode == SearchMode.SEMANTIC and self.hybrid_available:
             return self._vector_search(q, k, page)
-        elif mode == "auto" and self.hybrid_available:
+        elif mode == SearchMode.AUTO and self.hybrid_available:
             return self._hybrid_search(q, k, page)
         else:
             return self._bm25_search(q, k, page)

@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any, Set
 from pathlib import Path
 from urllib.parse import urlparse
 
+from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
 from shared.db.search import (
     get_connection,
     is_postgres_mode,
@@ -39,7 +40,7 @@ CREATE INDEX IF NOT EXISTS idx_crawl_logs_url ON crawl_logs(url);
 CREATE INDEX IF NOT EXISTS idx_crawl_logs_created ON crawl_logs(created_at);
 """
 
-ERROR_STATUSES = ("indexer_error", "http_error", "unknown_error", "dead_letter")
+ERROR_STATUSES = CRAWL_ERROR_STATUSES
 
 
 def get_db_path() -> str:
@@ -377,11 +378,11 @@ def get_high_failure_domains(
 ) -> List[Dict[str, Any]]:
     """Return domains with high crawl failure rates in the given time window."""
     error_statuses = {
-        "http_error",
-        "indexer_error",
-        "unknown_error",
-        "dead_letter",
-        "blocked",
+        CrawlAttemptStatus.HTTP_ERROR,
+        CrawlAttemptStatus.INDEXER_ERROR,
+        CrawlAttemptStatus.UNKNOWN_ERROR,
+        CrawlAttemptStatus.DEAD_LETTER,
+        CrawlAttemptStatus.BLOCKED,
     }
     try:
         path = db_path or get_db_path()

@@ -8,17 +8,19 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from shared.contracts.enums import CLAIMABLE_JOB_STATUSES, IndexJobStatus
 from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
 
 logger = logging.getLogger(__name__)
 
-STATUS_PENDING = "pending"
-STATUS_PROCESSING = "processing"
-STATUS_DONE = "done"
-STATUS_FAILED_RETRY = "failed_retry"
-STATUS_FAILED_PERMANENT = "failed_permanent"
+# Re-export for backward compatibility
+STATUS_PENDING = IndexJobStatus.PENDING
+STATUS_PROCESSING = IndexJobStatus.PROCESSING
+STATUS_DONE = IndexJobStatus.DONE
+STATUS_FAILED_RETRY = IndexJobStatus.FAILED_RETRY
+STATUS_FAILED_PERMANENT = IndexJobStatus.FAILED_PERMANENT
 
-CLAIMABLE_STATUSES = (STATUS_PENDING, STATUS_FAILED_RETRY)
+CLAIMABLE_STATUSES = CLAIMABLE_JOB_STATUSES
 
 
 @dataclass(frozen=True)

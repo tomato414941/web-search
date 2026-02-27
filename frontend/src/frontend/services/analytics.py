@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import Request, Response
 
 from frontend.core.config import settings
+from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
 from shared.core.infrastructure_config import Environment
 from shared.db.search import (
     get_connection,
@@ -21,13 +22,10 @@ logger = logging.getLogger(__name__)
 ANON_SESSION_COOKIE = "anon_sid"
 ANON_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 
-CRAWL_ERROR_STATUSES = (
-    "indexer_error",
-    "http_error",
-    "unknown_error",
-    "dead_letter",
+CRAWL_ATTEMPT_STATUSES = CRAWL_ERROR_STATUSES + (
+    CrawlAttemptStatus.BLOCKED,
+    CrawlAttemptStatus.SKIPPED,
 )
-CRAWL_ATTEMPT_STATUSES = CRAWL_ERROR_STATUSES + ("indexed", "blocked", "skipped")
 
 
 def normalize_query(query: str) -> str:

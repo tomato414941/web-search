@@ -3,28 +3,18 @@
 import logging
 import secrets
 from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel, HttpUrl, Field
 from app.core.config import settings
 from app.services.indexer import indexer_service
 from app.services.index_jobs import IndexJobService
+from shared.contracts.indexer_api import IndexPageRequest
 from shared.pagerank import calculate_pagerank, calculate_domain_pagerank
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/indexer")
 
-# Content limits
-MAX_TITLE_LENGTH = 1000
-MAX_CONTENT_LENGTH = 1_000_000  # 1MB text
-
-
-class PageSubmission(BaseModel):
-    """Page data submitted by crawler."""
-
-    url: HttpUrl
-    title: str = Field(max_length=MAX_TITLE_LENGTH)
-    content: str = Field(max_length=MAX_CONTENT_LENGTH)
-    outlinks: list[str] = Field(default_factory=list, max_length=500)
+# Backward-compatible alias
+PageSubmission = IndexPageRequest
 
 
 index_job_service = IndexJobService(

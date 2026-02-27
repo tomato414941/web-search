@@ -18,6 +18,7 @@ from frontend.services.analytics import (
 )
 from frontend.api.templates import templates
 from frontend.api.middleware.rate_limiter import limiter
+from shared.contracts.enums import SearchMode
 
 router = APIRouter()
 
@@ -76,8 +77,10 @@ async def search_page(
     per_page = min(settings.RESULTS_LIMIT, settings.MAX_PER_PAGE)
     request_id = uuid.uuid4().hex if query else None
 
-    valid_search_modes = {"bm25", "hybrid", "semantic"}
-    effective_search_mode = search_mode if search_mode in valid_search_modes else "auto"
+    valid_search_modes = {SearchMode.BM25, SearchMode.HYBRID, SearchMode.SEMANTIC}
+    effective_search_mode = (
+        search_mode if search_mode in valid_search_modes else SearchMode.AUTO
+    )
 
     result = (
         await asyncio.to_thread(

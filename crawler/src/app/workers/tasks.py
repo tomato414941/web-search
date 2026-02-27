@@ -25,6 +25,7 @@ from app.utils.parser import html_to_doc, extract_links
 from app.utils.robots import AsyncRobotsCache
 from app.services.indexer import submit_page_to_indexer
 from app.utils import history as history_log
+from shared.contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
 from shared.core.utils import MAX_URL_LENGTH, resolve_is_private_async
 
 logger = logging.getLogger(__name__)
@@ -85,36 +86,36 @@ async def process_url(
         # 0. Check static + dynamic blocklist (skip before any network I/O)
         if is_domain_blocked(domain, state.blocked_domains):
             history_log.log_crawl_attempt(
-                url, "blocked", error_message="Domain blocklisted"
+                url, CrawlAttemptStatus.BLOCKED, error_message="Domain blocklisted"
             )
-            url_store.record(url, status="failed")
+            url_store.record(url, status=CrawlUrlStatus.FAILED)
             return
 
         if len(url) > MAX_URL_LENGTH:
             history_log.log_crawl_attempt(
                 url,
-                "skipped",
+                CrawlAttemptStatus.SKIPPED,
                 error_message=f"URL too long: {len(url)} > {MAX_URL_LENGTH}",
             )
-            url_store.record(url, status="failed")
+            url_store.record(url, status=CrawlUrlStatus.FAILED)
             return
 
         # 1. Check robots.txt
         if not await robots.can_fetch(url, settings.CRAWL_USER_AGENT):
             logger.info(f"Blocked by robots.txt: {url}")
             history_log.log_crawl_attempt(
-                url, "blocked", error_message="Blocked by robots.txt"
+                url, CrawlAttemptStatus.BLOCKED, error_message="Blocked by robots.txt"
             )
-            url_store.record(url, status="failed")
+            url_store.record(url, status=CrawlUrlStatus.FAILED)
             return
 
         # SSRF check: resolve hostname and block private IPs
         if await resolve_is_private_async(domain):
             logger.warning(f"SSRF blocked: {url} resolves to private IP")
             history_log.log_crawl_attempt(
-                url, "blocked", error_message="SSRF: private IP"
+                url, CrawlAttemptStatus.BLOCKED, error_message="SSRF: private IP"
             )
-            url_store.record(url, status="failed")
+            url_store.record(url, status=CrawlUrlStatus.FAILED)
             return
 
         # Apply Crawl-delay from robots.txt
@@ -138,11 +139,11 @@ async def process_url(
                         )
                         history_log.log_crawl_attempt(
                             url,
-                            "skipped",
+                            CrawlAttemptStatus.SKIPPED,
                             resp.status,
                             f"Response too large: {content_length} bytes",
                         )
-                        url_store.record(url, status="failed")
+                        url_store.record(url, status=CrawlUrlStatus.FAILED)
                         return
                 except ValueError:
                     pass
@@ -156,11 +157,11 @@ async def process_url(
                     )
                     history_log.log_crawl_attempt(
                         url,
-                        "skipped",
+                        CrawlAttemptStatus.SKIPPED,
                         resp.status,
                         f"Response truncated at {MAX_RESPONSE_SIZE} bytes",
                     )
-                    url_store.record(url, status="failed")
+                    url_store.record(url, status=CrawlUrlStatus.FAILED)
                     return
 
                 html = body.decode("utf-8", errors="replace")
@@ -191,7 +192,7 @@ async def process_url(
                         state.retry_counts.pop(url, None)
                         history_log.log_crawl_attempt(
                             url,
-                            "queued_for_index",
+                            CrawlAttemptStatus.QUEUED_FOR_INDEX,
                             indexer_result.status_code or 202,
                             (
                                 f"job_id={indexer_result.job_id}"
@@ -199,7 +200,7 @@ async def process_url(
                                 else None
                             ),
                         )
-                        url_store.record(url, status="done")
+                        url_store.record(url, status=CrawlUrlStatus.DONE)
                     else:
                         http_code = indexer_result.status_code or 500
                         error_message = (
@@ -208,16 +209,16 @@ async def process_url(
                         )
                         history_log.log_crawl_attempt(
                             url,
-                            "indexer_error",
+                            CrawlAttemptStatus.INDEXER_ERROR,
                             http_code,
                             error_message,
                         )
-                        url_store.record(url, status="failed")
+                        url_store.record(url, status=CrawlUrlStatus.FAILED)
                 else:
                     history_log.log_crawl_attempt(
-                        url, "skipped", 200, "No main content found"
+                        url, CrawlAttemptStatus.SKIPPED, 200, "No main content found"
                     )
-                    url_store.record(url, status="done")
+                    url_store.record(url, status=CrawlUrlStatus.DONE)
 
                 # 6. Enqueue discovered links (batch insert)
                 if discovered:
@@ -254,11 +255,11 @@ async def process_url(
             elif resp.status == 200:
                 history_log.log_crawl_attempt(
                     url,
-                    "skipped",
+                    CrawlAttemptStatus.SKIPPED,
                     resp.status,
                     _non_html_reason(ct),
                 )
-                url_store.record(url, status="done")
+                url_store.record(url, status=CrawlUrlStatus.DONE)
 
             elif resp.status in (429, 500, 502, 503, 504):
                 # Retryable errors
@@ -276,9 +277,9 @@ async def process_url(
                 # Other HTTP errors (404, etc)
                 logger.warning(f"HTTP error {resp.status} for {url}")
                 history_log.log_crawl_attempt(
-                    url, "http_error", resp.status, "HTTP Error"
+                    url, CrawlAttemptStatus.HTTP_ERROR, resp.status, "HTTP Error"
                 )
-                url_store.record(url, status="failed")
+                url_store.record(url, status=CrawlUrlStatus.FAILED)
 
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         host_error = True
@@ -288,8 +289,10 @@ async def process_url(
     except Exception as e:
         host_error = True
         logger.error(f"Unexpected error processing {url}: {e}", exc_info=True)
-        history_log.log_crawl_attempt(url, "unknown_error", error_message=str(e))
-        url_store.record(url, status="failed")
+        history_log.log_crawl_attempt(
+            url, CrawlAttemptStatus.UNKNOWN_ERROR, error_message=str(e)
+        )
+        url_store.record(url, status=CrawlUrlStatus.FAILED)
 
     finally:
         # Always record completion for rate limiting
@@ -311,10 +314,10 @@ async def _handle_retry(
         logger.warning(f"Moving to failed after {retry_count} retries: {url}")
         history_log.log_crawl_attempt(
             url,
-            "dead_letter",
+            CrawlAttemptStatus.DEAD_LETTER,
             error_message=f"Max retries ({MAX_RETRIES}) exceeded: {error}",
         )
-        url_store.record(url, status="failed")
+        url_store.record(url, status=CrawlUrlStatus.FAILED)
         runtime_state.retry_counts.pop(url, None)
     else:
         # Re-add to url_store as pending with lower priority
@@ -322,7 +325,7 @@ async def _handle_retry(
         url_store.add(url, priority=new_priority)
         history_log.log_crawl_attempt(
             url,
-            "retry_later",
+            CrawlAttemptStatus.RETRY_LATER,
             error_message=f"{error} (retry {retry_count}/{MAX_RETRIES})",
         )
 
