@@ -5,7 +5,7 @@ import logging
 import secrets
 
 from frontend.core.config import settings
-from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
+from shared.db.search import get_connection, sql_placeholder
 
 logger = logging.getLogger(__name__)
 
@@ -81,16 +81,10 @@ def validate_api_key(raw_key: str, db_path: str | None = None) -> dict | None:
 
         # Update last_used_at
         cur = conn.cursor()
-        if is_postgres_mode():
-            cur.execute(
-                f"UPDATE api_keys SET last_used_at = NOW() WHERE id = {ph}",
-                (row[0],),
-            )
-        else:
-            cur.execute(
-                f"UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = {ph}",
-                (row[0],),
-            )
+        cur.execute(
+            f"UPDATE api_keys SET last_used_at = NOW() WHERE id = {ph}",
+            (row[0],),
+        )
         conn.commit()
         cur.close()
 
@@ -155,18 +149,11 @@ def get_daily_usage(key_id: str, db_path: str | None = None) -> int:
     ph = sql_placeholder()
     try:
         cur = conn.cursor()
-        if is_postgres_mode():
-            cur.execute(
-                f"SELECT COUNT(*) FROM search_logs"
-                f" WHERE api_key_id = {ph} AND created_at >= CURRENT_DATE",
-                (key_id,),
-            )
-        else:
-            cur.execute(
-                f"SELECT COUNT(*) FROM search_logs"
-                f" WHERE api_key_id = {ph} AND created_at >= date('now')",
-                (key_id,),
-            )
+        cur.execute(
+            f"SELECT COUNT(*) FROM search_logs"
+            f" WHERE api_key_id = {ph} AND created_at >= CURRENT_DATE",
+            (key_id,),
+        )
         count = cur.fetchone()[0]
         cur.close()
         return count

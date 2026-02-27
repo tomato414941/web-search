@@ -12,7 +12,6 @@ from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
 from shared.core.infrastructure_config import Environment
 from shared.db.search import (
     get_connection,
-    is_postgres_mode,
     sql_placeholder,
     sql_placeholders,
 )
@@ -171,7 +170,6 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
     cutoff_dt = now - timedelta(hours=window_hours)
     cutoff_str = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
     cutoff_epoch = int(time.time()) - window_hours * 3600
-    postgres_mode = is_postgres_mode()
     ph = sql_placeholder()
 
     search_data = {
@@ -272,30 +270,17 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
                 short_count, indexed_count
             )
 
-            if postgres_mode:
-                cur.execute(
-                    f"""
-                    SELECT COUNT(*), COUNT(DISTINCT md5(content))
-                    FROM documents
-                    WHERE indexed_at IS NOT NULL
-                      AND content IS NOT NULL
-                      AND content <> ''
-                      AND {indexed_filter}
-                    """,
-                    (cutoff_str,),
-                )
-            else:
-                cur.execute(
-                    f"""
-                    SELECT COUNT(*), COUNT(DISTINCT content)
-                    FROM documents
-                    WHERE indexed_at IS NOT NULL
-                      AND content IS NOT NULL
-                      AND content <> ''
-                      AND {indexed_filter}
-                    """,
-                    (cutoff_str,),
-                )
+            cur.execute(
+                f"""
+                SELECT COUNT(*), COUNT(DISTINCT md5(content))
+                FROM documents
+                WHERE indexed_at IS NOT NULL
+                  AND content IS NOT NULL
+                  AND content <> ''
+                  AND {indexed_filter}
+                """,
+                (cutoff_str,),
+            )
             total_with_content, unique_contents = cur.fetchone()
             total_with_content = int(total_with_content or 0)
             unique_contents = int(unique_contents or 0)
@@ -341,23 +326,16 @@ def _table_exists(conn: Any, table_name: str) -> bool:
     cur = conn.cursor()
     try:
         ph = sql_placeholder()
-        if is_postgres_mode():
-            cur.execute(
-                f"""
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.tables
-                    WHERE table_schema = 'public' AND table_name = {ph}
-                )
-                """,
-                (table_name,),
-            )
-            return bool(cur.fetchone()[0])
-
         cur.execute(
-            f"SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = {ph}",
+            f"""
+            SELECT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = {ph}
+            )
+            """,
             (table_name,),
         )
-        return cur.fetchone() is not None
+        return bool(cur.fetchone()[0])
     finally:
         cur.close()
 

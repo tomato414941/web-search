@@ -1,26 +1,27 @@
-"""Test SQLite database operations."""
+"""Test PostgreSQL database operations."""
 
-import sqlite3
-from shared.db.search import ensure_db, open_db
+from shared.postgres.search import ensure_db, get_connection
 
 
 class TestDatabaseInitialization:
     """Test database initialization."""
 
-    def test_ensure_db_creates_file(self, test_db_path):
-        """ensure_db should create database file."""
-        ensure_db(test_db_path)
-        import os
-
-        assert os.path.exists(test_db_path)
-
-    def test_ensure_db_creates_tables(self, test_db_path):
+    def test_ensure_db_creates_tables(self):
         """ensure_db should create required tables."""
-        ensure_db(test_db_path)
-        conn = sqlite3.connect(test_db_path)
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
-        tables = {row[0] for row in cursor.fetchall()}
-        conn.close()
+        ensure_db()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT table_name FROM information_schema.tables
+                WHERE table_schema = 'public'
+                """
+            )
+            tables = {row[0] for row in cur.fetchall()}
+            cur.close()
+        finally:
+            conn.close()
 
         # Custom search tables
         assert "documents" in tables
@@ -33,31 +34,40 @@ class TestDatabaseInitialization:
         assert "page_ranks" in tables
         assert "page_embeddings" in tables
 
-    def test_open_db_returns_connection(self, test_db_path):
-        """open_db should return a connection."""
-        conn = open_db(test_db_path)
-        assert isinstance(conn, sqlite3.Connection)
-        conn.close()
+    def test_get_connection_returns_connection(self):
+        """get_connection should return a usable connection."""
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            assert cur.fetchone()[0] == 1
+            cur.close()
+        finally:
+            conn.close()
 
 
 class TestDocumentOperations:
     """Test document table operations."""
 
-    def test_insert_document(self, test_db_path):
+    def test_insert_document(self):
         """Documents can be inserted."""
-        conn = open_db(test_db_path)
-        conn.execute(
-            "INSERT INTO documents (url, title, content, word_count) VALUES (?, ?, ?, ?)",
-            ("https://example.com", "Test Page", "This is test content", 4),
-        )
-        conn.commit()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO documents (url, title, content, word_count) VALUES (%s, %s, %s, %s)",
+                ("https://example.com", "Test Page", "This is test content", 4),
+            )
+            conn.commit()
 
-        cursor = conn.execute(
-            "SELECT url, title, content, word_count FROM documents WHERE url = ?",
-            ("https://example.com",),
-        )
-        result = cursor.fetchone()
-        conn.close()
+            cur.execute(
+                "SELECT url, title, content, word_count FROM documents WHERE url = %s",
+                ("https://example.com",),
+            )
+            result = cur.fetchone()
+            cur.close()
+        finally:
+            conn.close()
 
         assert result is not None
         assert result[0] == "https://example.com"
@@ -65,37 +75,44 @@ class TestDocumentOperations:
         assert result[2] == "This is test content"
         assert result[3] == 4
 
-    def test_update_document(self, test_db_path):
+    def test_update_document(self):
         """Documents can be updated via upsert pattern."""
-        conn = open_db(test_db_path)
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
 
-        # Insert first version
-        conn.execute(
-            "INSERT INTO documents (url, title, content) VALUES (?, ?, ?)",
-            ("https://example.com", "Original", "Original content"),
-        )
-        conn.commit()
+            # Insert first version
+            cur.execute(
+                "INSERT INTO documents (url, title, content) VALUES (%s, %s, %s)",
+                ("https://example.com", "Original", "Original content"),
+            )
+            conn.commit()
 
-        # Update using upsert pattern
-        conn.execute("DELETE FROM documents WHERE url = ?", ("https://example.com",))
-        conn.execute(
-            "INSERT INTO documents (url, title, content) VALUES (?, ?, ?)",
-            ("https://example.com", "Updated", "Updated content"),
-        )
-        conn.commit()
+            # Update using upsert pattern
+            cur.execute(
+                "DELETE FROM documents WHERE url = %s", ("https://example.com",)
+            )
+            cur.execute(
+                "INSERT INTO documents (url, title, content) VALUES (%s, %s, %s)",
+                ("https://example.com", "Updated", "Updated content"),
+            )
+            conn.commit()
 
-        # Should only have one row
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM documents WHERE url = ?", ("https://example.com",)
-        )
-        count = cursor.fetchone()[0]
+            # Should only have one row
+            cur.execute(
+                "SELECT COUNT(*) FROM documents WHERE url = %s",
+                ("https://example.com",),
+            )
+            count = cur.fetchone()[0]
 
-        # Get the title
-        cursor = conn.execute(
-            "SELECT title FROM documents WHERE url = ?", ("https://example.com",)
-        )
-        title = cursor.fetchone()[0]
-        conn.close()
+            # Get the title
+            cur.execute(
+                "SELECT title FROM documents WHERE url = %s", ("https://example.com",)
+            )
+            title = cur.fetchone()[0]
+            cur.close()
+        finally:
+            conn.close()
 
         assert count == 1
         assert title == "Updated"
@@ -104,49 +121,71 @@ class TestDocumentOperations:
 class TestInvertedIndexOperations:
     """Test inverted index operations."""
 
-    def test_insert_index_entry(self, test_db_path):
+    def test_insert_index_entry(self):
         """Index entries can be inserted."""
-        conn = open_db(test_db_path)
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
 
-        conn.execute(
-            "INSERT INTO inverted_index (token, url, field, term_freq, positions) VALUES (?, ?, ?, ?, ?)",
-            ("python", "https://example.com/python", "title", 2, "[0, 5]"),
-        )
-        conn.commit()
+            # Need a document first (foreign key)
+            cur.execute(
+                "INSERT INTO documents (url, title, content) VALUES (%s, %s, %s)",
+                ("https://example.com/python", "Python", "content"),
+            )
 
-        cursor = conn.execute(
-            "SELECT url, term_freq FROM inverted_index WHERE token = ?", ("python",)
-        )
-        result = cursor.fetchone()
-        conn.close()
+            cur.execute(
+                "INSERT INTO inverted_index (token, url, field, term_freq, positions) VALUES (%s, %s, %s, %s, %s)",
+                ("python", "https://example.com/python", "title", 2, "[0, 5]"),
+            )
+            conn.commit()
+
+            cur.execute(
+                "SELECT url, term_freq FROM inverted_index WHERE token = %s",
+                ("python",),
+            )
+            result = cur.fetchone()
+            cur.close()
+        finally:
+            conn.close()
 
         assert result is not None
         assert result[0] == "https://example.com/python"
         assert result[1] == 2
 
-    def test_multiple_documents_same_token(self, test_db_path):
+    def test_multiple_documents_same_token(self):
         """Multiple documents can share the same token."""
-        conn = open_db(test_db_path)
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
 
-        # Insert multiple entries for same token
-        conn.execute(
-            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
-            ("programming", "https://example.com/1", "content", 3),
-        )
-        conn.execute(
-            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
-            ("programming", "https://example.com/2", "content", 1),
-        )
-        conn.execute(
-            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (?, ?, ?, ?)",
-            ("programming", "https://example.com/3", "title", 1),
-        )
-        conn.commit()
+            # Insert parent documents first (foreign key)
+            for i in range(1, 4):
+                cur.execute(
+                    "INSERT INTO documents (url, title, content) VALUES (%s, %s, %s)",
+                    (f"https://example.com/{i}", "Test", "content"),
+                )
 
-        cursor = conn.execute(
-            "SELECT COUNT(*) FROM inverted_index WHERE token = ?", ("programming",)
-        )
-        count = cursor.fetchone()[0]
-        conn.close()
+            # Insert multiple entries for same token
+            cur.execute(
+                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
+                ("programming", "https://example.com/1", "content", 3),
+            )
+            cur.execute(
+                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
+                ("programming", "https://example.com/2", "content", 1),
+            )
+            cur.execute(
+                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
+                ("programming", "https://example.com/3", "title", 1),
+            )
+            conn.commit()
+
+            cur.execute(
+                "SELECT COUNT(*) FROM inverted_index WHERE token = %s", ("programming",)
+            )
+            count = cur.fetchone()[0]
+            cur.close()
+        finally:
+            conn.close()
 
         assert count == 3

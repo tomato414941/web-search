@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from shared.contracts.enums import CLAIMABLE_JOB_STATUSES, IndexJobStatus
-from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
+from shared.db.search import get_connection, sql_placeholder
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +111,7 @@ class IndexJobService:
         ph = sql_placeholder()
 
         # PG needs explicit JSONB cast for parameterized values
-        jsonb_ph = f"{ph}::jsonb" if is_postgres_mode() else ph
+        jsonb_ph = f"{ph}::jsonb"
 
         con = get_connection(self.db_path)
         try:
@@ -215,84 +215,38 @@ class IndexJobService:
             cur = con.cursor()
             self._recover_expired_locked(cur, now_ts)
 
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    WITH candidates AS (
-                        SELECT job_id
-                        FROM index_jobs
-                        WHERE status IN ({ph}, {ph}) AND available_at <= {ph}
-                        ORDER BY available_at ASC, created_at ASC
-                        LIMIT {ph}
-                        FOR UPDATE SKIP LOCKED
-                    )
-                    UPDATE index_jobs AS j
-                    SET
-                        status = {ph},
-                        lease_until = {ph},
-                        worker_id = {ph},
-                        updated_at = {ph}
-                    FROM candidates c
-                    WHERE j.job_id = c.job_id
-                    RETURNING
-                        j.job_id, j.url, j.title, j.content,
-                        j.outlinks, j.status, j.retry_count, j.max_retries
-                    """,
-                    (
-                        STATUS_PENDING,
-                        STATUS_FAILED_RETRY,
-                        now_ts,
-                        limit,
-                        STATUS_PROCESSING,
-                        lease_until,
-                        worker_id,
-                        now_ts,
-                    ),
+            cur.execute(
+                f"""
+                WITH candidates AS (
+                    SELECT job_id
+                    FROM index_jobs
+                    WHERE status IN ({ph}, {ph}) AND available_at <= {ph}
+                    ORDER BY available_at ASC, created_at ASC
+                    LIMIT {ph}
+                    FOR UPDATE SKIP LOCKED
                 )
-                rows = cur.fetchall()
-                con.commit()
-                cur.close()
-                return [self._row_to_job(row) for row in rows]
-
-            cur.execute(
-                f"""
-                SELECT job_id
-                FROM index_jobs
-                WHERE status IN ({ph}, {ph}) AND available_at <= {ph}
-                ORDER BY available_at ASC, created_at ASC
-                LIMIT {ph}
-                """,
-                (STATUS_PENDING, STATUS_FAILED_RETRY, now_ts, limit),
-            )
-            ids = [str(row[0]) for row in cur.fetchall()]
-            if not ids:
-                con.commit()
-                cur.close()
-                return []
-
-            id_placeholders = ",".join([ph] * len(ids))
-            cur.execute(
-                f"""
-                UPDATE index_jobs
+                UPDATE index_jobs AS j
                 SET
                     status = {ph},
                     lease_until = {ph},
                     worker_id = {ph},
                     updated_at = {ph}
-                WHERE job_id IN ({id_placeholders})
+                FROM candidates c
+                WHERE j.job_id = c.job_id
+                RETURNING
+                    j.job_id, j.url, j.title, j.content,
+                    j.outlinks, j.status, j.retry_count, j.max_retries
                 """,
-                (STATUS_PROCESSING, lease_until, worker_id, now_ts, *ids),
-            )
-
-            cur.execute(
-                f"""
-                SELECT
-                    job_id, url, title, content,
-                    outlinks, status, retry_count, max_retries
-                FROM index_jobs
-                WHERE job_id IN ({id_placeholders})
-                """,
-                tuple(ids),
+                (
+                    STATUS_PENDING,
+                    STATUS_FAILED_RETRY,
+                    now_ts,
+                    limit,
+                    STATUS_PROCESSING,
+                    lease_until,
+                    worker_id,
+                    now_ts,
+                ),
             )
             rows = cur.fetchall()
             con.commit()

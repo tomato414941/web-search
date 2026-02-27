@@ -1,22 +1,19 @@
 """
 Crawl Logs Database
 
-PostgreSQL/SQLite-based crawl attempt logging.
+PostgreSQL-based crawl attempt logging.
 """
 
 import logging
 import time
 from typing import Optional, List, Dict, Any, Set
-from pathlib import Path
 from urllib.parse import urlparse
 
 from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
 from shared.db.search import (
     get_connection,
-    is_postgres_mode,
     sql_placeholder,
     sql_placeholders,
-    _pg_schema_to_sqlite,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,24 +50,16 @@ def get_db_path() -> str:
 def init_db(db_path: str | None = None):
     """Initialize crawler database."""
     path = db_path or get_db_path()
-    pg = is_postgres_mode()
-
-    if not pg:
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
 
     con = get_connection(path)
     try:
-        if pg:
-            cur = con.cursor()
-            for stmt in SCHEMA_SQL.split(";"):
-                stmt = stmt.strip()
-                if stmt:
-                    cur.execute(stmt)
-            con.commit()
-            cur.close()
-        else:
-            con.execute("PRAGMA journal_mode=WAL")
-            con.executescript(_pg_schema_to_sqlite(SCHEMA_SQL))
+        cur = con.cursor()
+        for stmt in SCHEMA_SQL.split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                cur.execute(stmt)
+        con.commit()
+        cur.close()
     finally:
         con.close()
 

@@ -11,7 +11,6 @@ import logging
 import os
 import threading
 from typing import Any
-from shared.core.infrastructure_config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -144,22 +143,16 @@ CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at);
 """
 
 
-def is_postgres_mode() -> bool:
-    """Check if we're using PostgreSQL."""
-    return os.getenv("DATABASE_URL") is not None
-
-
 def sql_placeholder() -> str:
-    """Return parameter placeholder for current database driver."""
-    return "%s" if is_postgres_mode() else "?"
+    """Return PostgreSQL parameter placeholder."""
+    return "%s"
 
 
 def sql_placeholders(count: int) -> str:
     """Return comma-separated placeholders for IN clauses."""
     if count <= 0:
         raise ValueError("count must be greater than zero")
-    ph = sql_placeholder()
-    return ",".join([ph] * count)
+    return ",".join(["%s"] * count)
 
 
 _pg_pool = None
@@ -216,6 +209,11 @@ def _get_pg_pool() -> Any:
         import psycopg2.pool
 
         database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise RuntimeError(
+                "DATABASE_URL environment variable is required. "
+                "Set it to a PostgreSQL connection string."
+            )
         _pg_pool = psycopg2.pool.ThreadedConnectionPool(
             DB_POOL_MIN, DB_POOL_MAX, database_url
         )
@@ -239,26 +237,14 @@ def _close_pg_pool() -> None:
 
 
 def get_connection(db_path: str | None = None) -> Any:
-    """Get database connection.
-
-    Production: PostgreSQL via connection pool (requires DATABASE_URL).
-    Test: SQLite fallback when DATABASE_URL is not set.
+    """Get PostgreSQL database connection from the connection pool.
 
     Args:
-        db_path: Path to SQLite database (test only, ignored when DATABASE_URL is set).
+        db_path: Deprecated, ignored. Kept for backward compatibility.
     """
-    database_url = os.getenv("DATABASE_URL")
-
-    if database_url:
-        pool = _get_pg_pool()
-        conn = pool.getconn()
-        return _PooledConnection(conn, pool)
-
-    # SQLite fallback for tests
-    import sqlite3
-
-    path = db_path or os.getenv("SEARCH_DB", settings.DB_PATH)
-    return sqlite3.connect(path)
+    pool = _get_pg_pool()
+    conn = pool.getconn()
+    return _PooledConnection(conn, pool)
 
 
 def _execute_pg_schema(con: Any, schema: str) -> None:
@@ -312,59 +298,14 @@ def _execute_pg_schema(con: Any, schema: str) -> None:
             logger.warning("Skipping vector index (run migration first): %s", e)
 
 
-def _pg_schema_to_sqlite(schema: str) -> str:
-    """Convert PostgreSQL schema to SQLite-compatible DDL for tests."""
-    import re
-
-    # Process as full text first: remove multi-line HNSW index statements
-    text = re.sub(
-        r"CREATE INDEX[^;]*USING\s+hnsw[^;]*;",
-        "",
-        schema,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    lines = []
-    for line in text.splitlines():
-        stripped = line.strip().upper()
-        if stripped.startswith("CREATE EXTENSION"):
-            continue
-        # PG type casts: value::type
-        line = re.sub(r"::\w+", "", line)
-        # EXTRACT(EPOCH FROM NOW()) → strftime('%s', 'now')
-        line = re.sub(
-            r"EXTRACT\s*\(\s*EPOCH\s+FROM\s+NOW\(\)\s*\)",
-            "(strftime('%s', 'now'))",
-            line,
-            flags=re.IGNORECASE,
-        )
-        line = re.sub(r"SERIAL\b", "INTEGER", line, flags=re.IGNORECASE)
-        line = re.sub(
-            r"TIMESTAMP\s+DEFAULT\s+NOW\(\)",
-            "TEXT DEFAULT CURRENT_TIMESTAMP",
-            line,
-            flags=re.IGNORECASE,
-        )
-        line = re.sub(r"\bTIMESTAMP\b", "TEXT", line, flags=re.IGNORECASE)
-        line = re.sub(r"\bJSONB\b", "TEXT", line, flags=re.IGNORECASE)
-        line = re.sub(r"\bBIGINT\b", "INTEGER", line, flags=re.IGNORECASE)
-        line = re.sub(r"\bvector\(\d+\)", "BLOB", line, flags=re.IGNORECASE)
-        lines.append(line)
-    return "\n".join(lines)
-
-
-def open_db(path: str = settings.DB_PATH) -> Any:
+def open_db(path: str | None = None) -> Any:
     """Open database connection and ensure schema exists."""
     con = get_connection(path)
-    if is_postgres_mode():
-        _execute_pg_schema(con, SCHEMA_SQL)
-    else:
-        # SQLite (tests): convert PG schema to SQLite-compatible DDL
-        con.executescript(_pg_schema_to_sqlite(SCHEMA_SQL))
+    _execute_pg_schema(con, SCHEMA_SQL)
     return con
 
 
-def ensure_db(path: str = settings.DB_PATH) -> None:
-    """Ensure database file exists with correct schema."""
+def ensure_db(path: str | None = None) -> None:
+    """Ensure database schema exists."""
     con = open_db(path)
     con.close()

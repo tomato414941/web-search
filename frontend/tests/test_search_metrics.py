@@ -1,14 +1,9 @@
 from fastapi.testclient import TestClient
 
 from frontend.api.main import app
-from frontend.core.config import settings
-from shared.db.search import get_connection, is_postgres_mode
+from shared.postgres.search import get_connection
 
 client = TestClient(app)
-
-
-def _placeholder() -> str:
-    return "%s" if is_postgres_mode() else "?"
 
 
 def test_search_api_returns_request_id_and_logs_impression():
@@ -19,14 +14,13 @@ def test_search_api_returns_request_id_and_logs_impression():
     assert isinstance(data["request_id"], str)
     assert len(data["request_id"]) >= 8
 
-    ph = _placeholder()
-    conn = get_connection(settings.DB_PATH)
+    conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        f"""
+        """
         SELECT event_type, query, request_id
         FROM search_events
-        WHERE event_type = {ph}
+        WHERE event_type = %s
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -57,14 +51,13 @@ def test_search_click_endpoint_logs_click_event():
     )
     assert click_response.status_code == 204
 
-    ph = _placeholder()
-    conn = get_connection(settings.DB_PATH)
+    conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        f"""
+        """
         SELECT event_type, request_id, clicked_rank
         FROM search_events
-        WHERE event_type = {ph} AND request_id = {ph}
+        WHERE event_type = %s AND request_id = %s
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -81,30 +74,29 @@ def test_search_click_endpoint_logs_click_event():
 
 
 def test_quality_summary_endpoint_returns_metrics():
-    ph = _placeholder()
-    conn = get_connection(settings.DB_PATH)
+    conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        f"""
+        """
         INSERT INTO search_events (
             event_type, query, query_norm, request_id, result_count, latency_ms
-        ) VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+        ) VALUES (%s, %s, %s, %s, %s, %s)
         """,
         ("impression", "q1", "q1", "req-a", 0, 120),
     )
     cur.execute(
-        f"""
+        """
         INSERT INTO search_events (
             event_type, query, query_norm, request_id, result_count, latency_ms
-        ) VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+        ) VALUES (%s, %s, %s, %s, %s, %s)
         """,
         ("impression", "q2", "q2", "req-b", 3, 240),
     )
     cur.execute(
-        f"""
+        """
         INSERT INTO search_events (
             event_type, query, query_norm, request_id, clicked_url, clicked_rank
-        ) VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+        ) VALUES (%s, %s, %s, %s, %s, %s)
         """,
         ("click", "q2", "q2", "req-b", "https://example.com", 3),
     )

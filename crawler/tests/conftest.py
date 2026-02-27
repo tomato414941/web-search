@@ -7,62 +7,67 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-
-COMPILED_TEST_DB = "/tmp/test_crawler.db"
-
-
-# Environment defaults for crawler tests
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("INDEXER_API_KEY", "test-api-key")
 os.environ.setdefault("INDEXER_API_URL", "http://test:8000/api/indexer/page")
-os.environ.setdefault("CRAWLER_DB_PATH", COMPILED_TEST_DB)
+
+from shared.testing import ensure_test_pg
+
+ensure_test_pg()
+
+# Crawler tables to truncate
+_CRAWLER_TABLES = ["urls", "crawl_logs"]
 
 
-@pytest.fixture(scope="session", autouse=True)
-def setup_test_env():
-    """Set required environment variables for tests"""
-    os.environ["ENVIRONMENT"] = "test"
-    os.environ["INDEXER_API_URL"] = "http://test:8000/api/indexer/page"
-    os.environ["INDEXER_API_KEY"] = "test-api-key"
-    os.environ["CRAWLER_HISTORY_DB"] = "/tmp/test_crawler_history.db"
+@pytest.fixture(autouse=True)
+def _clean_crawler_tables():
+    yield
+    from shared.postgres.search import get_connection
+
+    conn = get_connection()
+    try:
+        conn.rollback()
+        cur = conn.cursor()
+        # Truncate each table separately so missing tables don't block others
+        for table in _CRAWLER_TABLES:
+            try:
+                cur.execute(f"TRUNCATE {table} CASCADE")
+                conn.commit()
+            except Exception:
+                conn.rollback()
+        cur.close()
+    finally:
+        conn.close()
 
 
 @pytest.fixture
-def temp_db_path(tmp_path):
-    """Create a temporary database path for testing"""
-    return str(tmp_path / "test_crawler.db")
+def temp_db_path():
+    """Kept for backward compatibility. Returns None."""
+    return None
 
 
 @pytest.fixture
-def test_url_store(temp_db_path):
-    """Create a test UrlStore instance"""
+def test_url_store():
     from app.db import UrlStore
 
-    return UrlStore(temp_db_path, recrawl_after_days=30)
+    store = UrlStore("/unused", recrawl_after_days=30)
+    return store
 
 
 @pytest.fixture
-def test_client(temp_db_path):
-    """FastAPI test client with temporary database"""
-    # Set the database path before importing app
-    os.environ["CRAWLER_DB_PATH"] = temp_db_path
-
+def test_client():
     from app.api.deps import verify_api_key
     from app.main import app
 
     app.dependency_overrides[verify_api_key] = lambda: None
-
     yield TestClient(app)
-
     app.dependency_overrides.pop(verify_api_key, None)
 
 
 @pytest.fixture
 def reset_worker_manager():
-    """Reset worker manager state between tests"""
     from app.workers.manager import worker_manager
 
-    # Stop worker if running
     if worker_manager.is_running:
         import asyncio
 
@@ -70,7 +75,6 @@ def reset_worker_manager():
 
     yield
 
-    # Cleanup after test
     if worker_manager.is_running:
         import asyncio
 

@@ -2,25 +2,19 @@
 Tests for Custom Full-Text Search Engine
 """
 
-import os
-import sqlite3
-import pytest
 import numpy as np
-from shared.db.search import open_db
-from shared.search.indexer import SearchIndexer
-from shared.search.searcher import SearchEngine, parse_query
-from shared.search.scoring import BM25Config
+import pytest
+
+from shared.postgres.search import get_connection
+from shared.search_kernel.indexer import SearchIndexer
+from shared.search_kernel.searcher import SearchEngine, parse_query
+from shared.search_kernel.scoring import BM25Config
 
 
 @pytest.fixture
-def temp_search_db(tmp_path):
-    """Create a temporary database for testing."""
-    db_path = str(tmp_path / "test_custom_search.db")
-    conn = open_db(db_path)
-    conn.close()
-    yield db_path
-    if os.path.exists(db_path):
-        os.remove(db_path)
+def temp_search_db():
+    """Return a dummy db_path; PG pool handles connections via DATABASE_URL."""
+    return None
 
 
 class TestSearchIndexer:
@@ -37,15 +31,17 @@ class TestSearchIndexer:
         )
         indexer.update_global_stats()
 
-        # Verify document is stored
-        import sqlite3
-
-        conn = sqlite3.connect(temp_search_db)
-        doc = conn.execute(
-            "SELECT title, word_count FROM documents WHERE url = ?",
-            ("http://example.com/1",),
-        ).fetchone()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT title, word_count FROM documents WHERE url = %s",
+                ("http://example.com/1",),
+            )
+            doc = cur.fetchone()
+            cur.close()
+        finally:
+            conn.close()
 
         assert doc is not None
         assert doc[0] == "東京観光ガイド"
@@ -61,15 +57,17 @@ class TestSearchIndexer:
             content="Pythonは人気のプログラミング言語です。",
         )
 
-        import sqlite3
-
-        conn = sqlite3.connect(temp_search_db)
-        # Check for token in inverted index
-        entries = conn.execute(
-            "SELECT token, field, term_freq FROM inverted_index WHERE url = ?",
-            ("http://example.com/1",),
-        ).fetchall()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT token, field, term_freq FROM inverted_index WHERE url = %s",
+                ("http://example.com/1",),
+            )
+            entries = cur.fetchall()
+            cur.close()
+        finally:
+            conn.close()
 
         assert len(entries) > 0
         tokens = [e[0] for e in entries]
@@ -88,14 +86,16 @@ class TestSearchIndexer:
         )
         indexer.delete_document(url)
 
-        import sqlite3
-
-        conn = sqlite3.connect(temp_search_db)
-        doc = conn.execute("SELECT * FROM documents WHERE url = ?", (url,)).fetchone()
-        index_entries = conn.execute(
-            "SELECT * FROM inverted_index WHERE url = ?", (url,)
-        ).fetchall()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT * FROM documents WHERE url = %s", (url,))
+            doc = cur.fetchone()
+            cur.execute("SELECT * FROM inverted_index WHERE url = %s", (url,))
+            index_entries = cur.fetchall()
+            cur.close()
+        finally:
+            conn.close()
 
         assert doc is None
         assert len(index_entries) == 0
@@ -342,13 +342,14 @@ class TestSearchEngine:
         indexer.update_global_stats()
 
         # Check that stop words like "is", "the" are not in the index
-        import sqlite3
-
-        conn = sqlite3.connect(temp_search_db)
-        stop_entries = conn.execute(
-            "SELECT token FROM inverted_index WHERE token IN ('is', 'the')"
-        ).fetchall()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT token FROM inverted_index WHERE token IN ('is', 'the')")
+            stop_entries = cur.fetchall()
+            cur.close()
+        finally:
+            conn.close()
 
         assert len(stop_entries) == 0
 
@@ -468,17 +469,21 @@ class TestBM25Scoring:
         indexer.update_global_stats()
 
         # Set PageRank scores (popular page has higher score)
-        conn = sqlite3.connect(temp_search_db)
-        conn.execute(
-            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
-            ("http://example.com/popular", 0.8),
-        )
-        conn.execute(
-            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
-            ("http://example.com/unpopular", 0.1),
-        )
-        conn.commit()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO page_ranks (url, score) VALUES (%s, %s)",
+                ("http://example.com/popular", 0.8),
+            )
+            cur.execute(
+                "INSERT INTO page_ranks (url, score) VALUES (%s, %s)",
+                ("http://example.com/unpopular", 0.1),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            conn.close()
 
         # Search with PageRank enabled (default)
         engine = SearchEngine(temp_search_db)
@@ -500,13 +505,17 @@ class TestBM25Scoring:
         indexer.update_global_stats()
 
         # Set high PageRank (normalized 0-1 scale)
-        conn = sqlite3.connect(temp_search_db)
-        conn.execute(
-            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
-            ("http://example.com/a", 1.0),
-        )
-        conn.commit()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO page_ranks (url, score) VALUES (%s, %s)",
+                ("http://example.com/a", 1.0),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            conn.close()
 
         # Score with PageRank enabled (weight=0.5)
         engine_with_pr = SearchEngine(
@@ -542,17 +551,21 @@ class TestBM25Scoring:
         indexer.update_global_stats()
 
         # Set PageRank (unpopular has high PR but we'll disable it)
-        conn = sqlite3.connect(temp_search_db)
-        conn.execute(
-            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
-            ("http://example.com/popular", 0.1),
-        )
-        conn.execute(
-            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
-            ("http://example.com/unpopular", 0.9),
-        )
-        conn.commit()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO page_ranks (url, score) VALUES (%s, %s)",
+                ("http://example.com/popular", 0.1),
+            )
+            cur.execute(
+                "INSERT INTO page_ranks (url, score) VALUES (%s, %s)",
+                ("http://example.com/unpopular", 0.9),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            conn.close()
 
         # Search with PageRank disabled
         config = BM25Config(pagerank_weight=0.0)
@@ -568,31 +581,41 @@ class TestBM25Scoring:
 
     def test_pagerank_dangling_nodes(self, temp_search_db):
         """Dangling nodes (no outlinks) should still receive PageRank."""
-        from shared.pagerank import calculate_pagerank
+        from shared.search_kernel.pagerank import calculate_pagerank
 
         indexer = SearchIndexer(temp_search_db)
-        # A → B → C (C has no outlinks = dangling)
+        # A -> B -> C (C has no outlinks = dangling)
         for url in ["http://a.com/", "http://b.com/", "http://c.com/"]:
             indexer.index_document(url=url, title="Test", content="test")
         indexer.update_global_stats()
 
-        conn = sqlite3.connect(temp_search_db)
-        conn.execute(
-            "INSERT INTO links (src, dst) VALUES (?, ?)",
-            ("http://a.com/", "http://b.com/"),
-        )
-        conn.execute(
-            "INSERT INTO links (src, dst) VALUES (?, ?)",
-            ("http://b.com/", "http://c.com/"),
-        )
-        conn.commit()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO links (src, dst) VALUES (%s, %s)",
+                ("http://a.com/", "http://b.com/"),
+            )
+            cur.execute(
+                "INSERT INTO links (src, dst) VALUES (%s, %s)",
+                ("http://b.com/", "http://c.com/"),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            conn.close()
 
         calculate_pagerank(temp_search_db)
 
-        conn = sqlite3.connect(temp_search_db)
-        rows = conn.execute("SELECT url, score FROM page_ranks").fetchall()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT url, score FROM page_ranks")
+            rows = cur.fetchall()
+            cur.close()
+        finally:
+            conn.close()
+
         scores = {url: score for url, score in rows}
 
         assert len(scores) == 3
@@ -648,42 +671,46 @@ class TestHybridSearch:
         )
         indexer.update_global_stats()
 
-        # Set up mock embeddings
-        # - "Python programming" doc gets vector [1, 0, 0]
-        # - "Coding tutorial" doc gets vector [0, 1, 0]
-        # - Query "Python" gets vector [0.9, 0.1, 0] (similar to first doc)
-        import struct
+        # Build 1536-dim vectors for pgvector compatibility
+        dim = 1536
+        vec1 = np.zeros(dim)
+        vec1[0] = 1.0
+        vec2 = np.zeros(dim)
+        vec2[1] = 1.0
+        query_vec_python = np.zeros(dim)
+        query_vec_python[0] = 0.9
+        query_vec_python[1] = 0.1
+        query_vec_other = np.zeros(dim)
+        query_vec_other[0] = 0.1
+        query_vec_other[1] = 0.9
 
-        def serialize(vec):
-            return struct.pack(f"{len(vec)}f", *vec)
+        from shared.embedding import to_pgvector
 
-        def deserialize(blob):
-            count = len(blob) // 4
-            return np.array(struct.unpack(f"{count}f", blob))
-
-        # Insert mock embeddings
-        conn = sqlite3.connect(temp_search_db)
-        conn.execute(
-            "INSERT INTO page_embeddings (url, embedding) VALUES (?, ?)",
-            ("http://example.com/bm25", serialize([1.0, 0.0, 0.0])),
-        )
-        conn.execute(
-            "INSERT INTO page_embeddings (url, embedding) VALUES (?, ?)",
-            ("http://example.com/semantic", serialize([0.0, 1.0, 0.0])),
-        )
-        conn.commit()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO page_embeddings (url, embedding) VALUES (%s, %s::vector)",
+                ("http://example.com/bm25", to_pgvector(vec1)),
+            )
+            cur.execute(
+                "INSERT INTO page_embeddings (url, embedding) VALUES (%s, %s::vector)",
+                ("http://example.com/semantic", to_pgvector(vec2)),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            conn.close()
 
         # Create engine with mock functions
         def mock_embed(text):
             if "python" in text.lower():
-                return np.array([0.9, 0.1, 0.0])
-            return np.array([0.1, 0.9, 0.0])
+                return query_vec_python
+            return query_vec_other
 
         engine = SearchEngine(
             temp_search_db,
             embed_query_func=mock_embed,
-            deserialize_func=deserialize,
         )
 
         # BM25 search should find "Python programming"
@@ -716,7 +743,7 @@ class TestSnippetGeneration:
 
     def test_basic_snippet(self):
         """Test basic snippet generation with highlighting."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "Python is a programming language. Python is popular."
         snippet = generate_snippet(text, ["Python"])
@@ -726,7 +753,7 @@ class TestSnippetGeneration:
 
     def test_snippet_context_window(self):
         """Test that snippet shows context around match."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         # Long text with keyword in the middle
         text = "A" * 100 + " Python " + "B" * 100
@@ -738,7 +765,7 @@ class TestSnippetGeneration:
 
     def test_snippet_ellipsis(self):
         """Test that ellipsis is added when text is truncated."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "Start " + "X" * 200 + " Python " + "Y" * 200 + " End"
         snippet = generate_snippet(text, ["Python"], window_size=50)
@@ -749,7 +776,7 @@ class TestSnippetGeneration:
 
     def test_snippet_no_highlight(self):
         """Test snippet without HTML highlighting."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "Python is great"
         snippet = generate_snippet(text, ["Python"], highlight=False)
@@ -759,7 +786,7 @@ class TestSnippetGeneration:
 
     def test_snippet_empty_terms(self):
         """Test snippet with no search terms."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "Some text content here"
         snippet = generate_snippet(text, [], window_size=10)
@@ -768,7 +795,7 @@ class TestSnippetGeneration:
 
     def test_snippet_no_match(self):
         """Test snippet when terms don't match."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "This text has no matches"
         snippet = generate_snippet(text, ["Python"])
@@ -778,7 +805,7 @@ class TestSnippetGeneration:
 
     def test_html_escape_in_snippet(self):
         """Test that HTML entities in content are escaped."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "Use <div> tags and & symbols in Python code"
         snippet = generate_snippet(text, ["Python"])
@@ -791,7 +818,7 @@ class TestSnippetGeneration:
 
     def test_xss_prevention_in_snippet(self):
         """Test that script tags in content are neutralized."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = '<script>alert("xss")</script> Python is safe'
         snippet = generate_snippet(text, ["Python"])
@@ -802,7 +829,7 @@ class TestSnippetGeneration:
 
     def test_html_escape_in_matched_term(self):
         """Test that matched terms with special chars are escaped."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "Search for A&B in the document"
         snippet = generate_snippet(text, ["A&B"])
@@ -812,7 +839,7 @@ class TestSnippetGeneration:
 
     def test_best_window_multi_term(self):
         """Test that best-window picks the region with most distinct terms."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         # Python appears early, but Python+JavaScript cluster later
         text = (
@@ -828,7 +855,7 @@ class TestSnippetGeneration:
 
     def test_ja_sentence_boundary(self):
         """Test that snippet snaps to Japanese sentence boundary."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = (
             "これは前置きです。Pythonは素晴らしい言語です。他の話題が続きます。"
@@ -842,7 +869,7 @@ class TestSnippetGeneration:
 
     def test_default_window_size_200(self):
         """Test that default window size is 200."""
-        from shared.search.snippet import generate_snippet
+        from shared.search_kernel.snippet import generate_snippet
 
         text = "Python " + "word " * 100
         snippet = generate_snippet(text, ["Python"])
@@ -900,13 +927,17 @@ class TestDomainRankBoost:
         indexer.update_global_stats()
 
         # Set domain rank only for python.org
-        conn = sqlite3.connect(temp_search_db)
-        conn.execute(
-            "INSERT INTO domain_ranks (domain, score) VALUES (?, ?)",
-            ("docs.python.org", 0.8),
-        )
-        conn.commit()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO domain_ranks (domain, score) VALUES (%s, %s)",
+                ("docs.python.org", 0.8),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            conn.close()
 
         engine = SearchEngine(temp_search_db)
         result = engine.search("Python Tutorial")
@@ -930,23 +961,27 @@ class TestDomainRankBoost:
         )
         indexer.update_global_stats()
 
-        conn = sqlite3.connect(temp_search_db)
-        # highpr: high page_rank, low domain_rank
-        conn.execute(
-            "INSERT INTO page_ranks (url, score) VALUES (?, ?)",
-            ("https://highpr.example.com/page", 0.9),
-        )
-        conn.execute(
-            "INSERT INTO domain_ranks (domain, score) VALUES (?, ?)",
-            ("highpr.example.com", 0.1),
-        )
-        # highdr: no page_rank, high domain_rank
-        conn.execute(
-            "INSERT INTO domain_ranks (domain, score) VALUES (?, ?)",
-            ("highdr.example.com", 0.7),
-        )
-        conn.commit()
-        conn.close()
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            # highpr: high page_rank, low domain_rank
+            cur.execute(
+                "INSERT INTO page_ranks (url, score) VALUES (%s, %s)",
+                ("https://highpr.example.com/page", 0.9),
+            )
+            cur.execute(
+                "INSERT INTO domain_ranks (domain, score) VALUES (%s, %s)",
+                ("highpr.example.com", 0.1),
+            )
+            # highdr: no page_rank, high domain_rank
+            cur.execute(
+                "INSERT INTO domain_ranks (domain, score) VALUES (%s, %s)",
+                ("highdr.example.com", 0.7),
+            )
+            conn.commit()
+            cur.close()
+        finally:
+            conn.close()
 
         engine = SearchEngine(temp_search_db)
         result = engine.search("Python Guide")

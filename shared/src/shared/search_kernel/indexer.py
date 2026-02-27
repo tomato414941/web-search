@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from shared.search_kernel.analyzer import analyzer, STOP_WORDS
-from shared.postgres.search import get_connection, is_postgres_mode, sql_placeholder
+from shared.postgres.search import get_connection, sql_placeholder
 
 
 class SearchIndexer:
@@ -65,13 +65,11 @@ class SearchIndexer:
 
             # 3. Get tokens from old version (for incremental stats update)
             cur = conn.cursor()
-            old_tokens: set[str] = set()
-            if is_postgres_mode():
-                cur.execute(
-                    f"SELECT DISTINCT token FROM inverted_index WHERE url = {ph}",
-                    (url,),
-                )
-                old_tokens = {row[0] for row in cur.fetchall()}
+            cur.execute(
+                f"SELECT DISTINCT token FROM inverted_index WHERE url = {ph}",
+                (url,),
+            )
+            old_tokens: set[str] = {row[0] for row in cur.fetchall()}
 
             # Clear existing index entries for this document
             cur.execute(f"DELETE FROM inverted_index WHERE url = {ph}", (url,))
@@ -109,22 +107,20 @@ class SearchIndexer:
         try:
             cur = conn.cursor()
 
-            if is_postgres_mode():
-                # Fast approximate count via pg_class
-                cur.execute(
-                    "SELECT reltuples::BIGINT FROM pg_class WHERE relname = 'documents'"
-                )
-                row = cur.fetchone()
-                total_docs = max(int(row[0]), 0) if row else 0
+            # Fast approximate count via pg_class (fall back to COUNT if stale)
+            cur.execute(
+                "SELECT reltuples::BIGINT FROM pg_class WHERE relname = 'documents'"
+            )
+            row = cur.fetchone()
+            total_docs = max(int(row[0]), 0) if row else 0
 
-                cur.execute("SELECT AVG(word_count) FROM documents")
-                avg_length = cur.fetchone()[0] or 0.0
-            else:
+            if total_docs == 0:
+                # reltuples may be stale (e.g. before first ANALYZE); use exact count
                 cur.execute("SELECT COUNT(*) FROM documents")
                 total_docs = cur.fetchone()[0]
 
-                cur.execute("SELECT AVG(word_count) FROM documents")
-                avg_length = cur.fetchone()[0] or 0.0
+            cur.execute("SELECT AVG(word_count) FROM documents")
+            avg_length = cur.fetchone()[0] or 0.0
 
             # Upsert stats
             cur.execute(
@@ -227,49 +223,31 @@ class SearchIndexer:
         if not new_tokens and not old_tokens:
             return
 
-        ph = sql_placeholder()
         cur = conn.cursor()
         try:
-            if is_postgres_mode():
-                # Tokens added in this document (need +1)
-                added = sorted(new_tokens - old_tokens)
-                # Tokens removed from this document (need -1)
-                removed = sorted(old_tokens - new_tokens)
+            # Tokens added in this document (need +1)
+            added = sorted(new_tokens - old_tokens)
+            # Tokens removed from this document (need -1)
+            removed = sorted(old_tokens - new_tokens)
 
-                if added:
-                    cur.execute(
-                        """
-                        INSERT INTO token_stats (token, doc_freq)
-                        SELECT unnest(%s::text[]), 1
-                        ON CONFLICT (token) DO UPDATE SET
-                            doc_freq = token_stats.doc_freq + 1
-                        """,
-                        (added,),
-                    )
-
-                if removed:
-                    cur.execute(
-                        """
-                        UPDATE token_stats SET doc_freq = GREATEST(doc_freq - 1, 0)
-                        WHERE token = ANY(%s::text[])
-                        """,
-                        (removed,),
-                    )
-                return
-
-            # SQLite fallback: full recount per token
-            for token in sorted(new_tokens):
+            if added:
                 cur.execute(
-                    f"SELECT COUNT(DISTINCT url) FROM inverted_index WHERE token = {ph}",
-                    (token,),
-                )
-                doc_freq = cur.fetchone()[0]
-                cur.execute(
-                    f"""
-                    INSERT INTO token_stats (token, doc_freq) VALUES ({ph}, {ph})
-                    ON CONFLICT (token) DO UPDATE SET doc_freq = EXCLUDED.doc_freq
+                    """
+                    INSERT INTO token_stats (token, doc_freq)
+                    SELECT unnest(%s::text[]), 1
+                    ON CONFLICT (token) DO UPDATE SET
+                        doc_freq = token_stats.doc_freq + 1
                     """,
-                    (token, doc_freq),
+                    (added,),
+                )
+
+            if removed:
+                cur.execute(
+                    """
+                    UPDATE token_stats SET doc_freq = GREATEST(doc_freq - 1, 0)
+                    WHERE token = ANY(%s::text[])
+                    """,
+                    (removed,),
                 )
         finally:
             cur.close()

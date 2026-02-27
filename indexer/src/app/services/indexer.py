@@ -5,7 +5,7 @@ import logging
 import os
 
 from app.core.config import settings
-from shared.db.search import get_connection, is_postgres_mode, sql_placeholder
+from shared.db.search import get_connection, sql_placeholder
 from shared.embedding import deserialize, to_pgvector
 from shared.search import SearchIndexer
 from app.services.embedding import embedding_service
@@ -175,11 +175,8 @@ class IndexerService:
     @staticmethod
     def _upsert_embedding(conn, url: str, vector_blob: bytes) -> None:
         ph = sql_placeholder()
-        if is_postgres_mode():
-            vec = deserialize(vector_blob)
-            embedding_value = to_pgvector(vec)
-        else:
-            embedding_value = vector_blob
+        vec = deserialize(vector_blob)
+        embedding_value = to_pgvector(vec)
 
         cur = conn.cursor()
         try:

@@ -16,7 +16,6 @@ import numpy as np
 from shared.search_kernel.analyzer import analyzer, STOP_WORDS
 from shared.postgres.search import (
     get_connection,
-    is_postgres_mode,
     sql_placeholder,
     sql_placeholders,
 )
@@ -335,10 +334,7 @@ class SearchEngine:
 
         query_vec = self._embed_query(query)
 
-        if is_postgres_mode():
-            return self._vector_search_pgvector(query, query_vec, limit, page)
-        else:
-            return self._vector_search_memory(query, query_vec, limit, page)
+        return self._vector_search_pgvector(query, query_vec, limit, page)
 
     def _vector_search_pgvector(
         self,

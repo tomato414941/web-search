@@ -4,7 +4,7 @@ from typing import Any
 
 from frontend.core.config import settings
 from frontend.services.db_helpers import db_cursor
-from shared.db.search import is_postgres_mode, sql_placeholder, sql_placeholders
+from shared.db.search import sql_placeholder, sql_placeholders
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ def time_boundaries() -> tuple[str, str, str]:
     return day_ago, week_ago, today_start
 
 
-def build_analytics_exclusion_filters(is_postgres: bool) -> tuple[str, tuple[Any, ...]]:
+def build_analytics_exclusion_filters() -> tuple[str, tuple[Any, ...]]:
     ph = sql_placeholder()
     clauses: list[str] = []
     params: list[Any] = []
@@ -27,10 +27,7 @@ def build_analytics_exclusion_filters(is_postgres: bool) -> tuple[str, tuple[Any
         ua_clauses: list[str] = []
         for user_agent in excluded_user_agents:
             pattern = user_agent if "%" in user_agent else f"{user_agent}%"
-            if is_postgres:
-                ua_clauses.append(f"COALESCE(user_agent, '') ILIKE {ph}")
-            else:
-                ua_clauses.append(f"LOWER(COALESCE(user_agent, '')) LIKE LOWER({ph})")
+            ua_clauses.append(f"COALESCE(user_agent, '') ILIKE {ph}")
             params.append(pattern)
         clauses.append("NOT (" + " OR ".join(ua_clauses) + ")")
 
@@ -55,11 +52,8 @@ def get_analytics_data() -> dict[str, Any]:
 
     try:
         ph = sql_placeholder()
-        is_postgres = is_postgres_mode()
         _, week_ago, _ = time_boundaries()
-        search_filter_sql, search_filter_params = build_analytics_exclusion_filters(
-            is_postgres
-        )
+        search_filter_sql, search_filter_params = build_analytics_exclusion_filters()
         with db_cursor(settings.DB_PATH) as (_, cursor):
             cursor.execute(
                 f"""

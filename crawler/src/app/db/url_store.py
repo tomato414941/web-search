@@ -8,13 +8,11 @@ Replaces the separate Frontier and History tables.
 import hashlib
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 from shared.db.search import (
     get_connection,
-    is_postgres_mode,
     sql_placeholder,
     sql_placeholders,
 )
@@ -78,44 +76,35 @@ class UrlStore:
         self._init_db()
 
     def _init_db(self):
-        pg = is_postgres_mode()
-
-        if not pg:
-            Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
-
         con = get_connection(self.db_path)
         try:
-            if pg:
-                cur = con.cursor()
-                for stmt in SCHEMA_SQL.split(";"):
-                    stmt = stmt.strip()
-                    if stmt:
-                        cur.execute(stmt)
-                # Migration: add is_seed column to existing tables
+            cur = con.cursor()
+            for stmt in SCHEMA_SQL.split(";"):
+                stmt = stmt.strip()
+                if stmt:
+                    cur.execute(stmt)
+            # Migration: add is_seed column to existing tables
+            cur.execute(
+                "ALTER TABLE urls ADD COLUMN IF NOT EXISTS"
+                " is_seed BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+            # Migrate seeds table data if it exists
+            cur.execute(
+                "SELECT EXISTS ("
+                "SELECT FROM information_schema.tables"
+                " WHERE table_name = 'seeds')"
+            )
+            if cur.fetchone()[0]:
                 cur.execute(
-                    "ALTER TABLE urls ADD COLUMN IF NOT EXISTS"
-                    " is_seed BOOLEAN NOT NULL DEFAULT FALSE"
+                    "UPDATE urls SET is_seed = TRUE"
+                    " WHERE url IN (SELECT url FROM seeds)"
                 )
-                # Migrate seeds table data if it exists
-                cur.execute(
-                    "SELECT EXISTS ("
-                    "SELECT FROM information_schema.tables"
-                    " WHERE table_name = 'seeds')"
-                )
-                if cur.fetchone()[0]:
-                    cur.execute(
-                        "UPDATE urls SET is_seed = TRUE"
-                        " WHERE url IN (SELECT url FROM seeds)"
-                    )
-                cur.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_urls_seed"
-                    " ON urls(url_hash) WHERE is_seed = TRUE"
-                )
-                con.commit()
-                cur.close()
-            else:
-                con.execute("PRAGMA journal_mode=WAL")
-                con.executescript(SCHEMA_SQL)
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_urls_seed"
+                " ON urls(url_hash) WHERE is_seed = TRUE"
+            )
+            con.commit()
+            cur.close()
         finally:
             con.close()
 
@@ -129,50 +118,20 @@ class UrlStore:
         priority: float,
         now: int,
         cutoff: int,
-        postgres_mode: bool,
     ) -> bool:
         ph = sql_placeholder()
-        if postgres_mode:
-            cur.execute(
-                f"""
-                INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
-                VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
-                ON CONFLICT (url_hash) DO UPDATE SET
-                    status = 'pending',
-                    priority = EXCLUDED.priority
-                WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
-                """,
-                (url_hash_value, url, domain, priority, now, cutoff),
-            )
-            return cur.rowcount > 0
-
         cur.execute(
-            f"SELECT status, last_crawled_at FROM urls WHERE url_hash = {ph}",
-            (url_hash_value,),
+            f"""
+            INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
+            VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
+            ON CONFLICT (url_hash) DO UPDATE SET
+                status = 'pending',
+                priority = EXCLUDED.priority
+            WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
+            """,
+            (url_hash_value, url, domain, priority, now, cutoff),
         )
-        existing = cur.fetchone()
-
-        if existing is None:
-            cur.execute(
-                f"""
-                INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
-                VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
-                """,
-                (url_hash_value, url, domain, priority, now),
-            )
-            return cur.rowcount > 0
-
-        if existing[0] in ("done", "failed") and (existing[1] or 0) < cutoff:
-            cur.execute(
-                f"""
-                UPDATE urls SET status = 'pending', priority = {ph}
-                WHERE url_hash = {ph}
-                """,
-                (priority, url_hash_value),
-            )
-            return cur.rowcount > 0
-
-        return False
+        return cur.rowcount > 0
 
     def _pop_pending_rows(
         self,
@@ -180,89 +139,49 @@ class UrlStore:
         *,
         count: int,
         max_per_domain: int,
-        postgres_mode: bool,
     ) -> list[tuple[Any, ...]]:
         ph = sql_placeholder()
 
-        if postgres_mode:
-            # Overscan to ensure enough domain diversity after per-domain cap
-            overscan = count * max_per_domain * 3
-            cur.execute(
-                f"""
-                WITH top_candidates AS (
-                    SELECT url_hash, url, domain, priority, created_at,
-                           priority + LEAST(20.0,
-                               (EXTRACT(EPOCH FROM NOW())::BIGINT - created_at)
-                               / 86400.0 * 0.5
-                           ) AS eff_pri
-                    FROM urls
-                    WHERE status = 'pending'
-                    ORDER BY priority DESC
-                    LIMIT {ph}
-                    FOR UPDATE SKIP LOCKED
-                ),
-                per_domain AS (
-                    SELECT url_hash, url, domain, priority, created_at, eff_pri,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY domain ORDER BY eff_pri DESC
-                           ) AS rn
-                    FROM top_candidates
-                ),
-                selected AS (
-                    SELECT url_hash
-                    FROM per_domain
-                    WHERE rn <= {ph}
-                    ORDER BY eff_pri DESC
-                    LIMIT {ph}
-                )
-                UPDATE urls
-                SET status = 'crawling'
-                FROM selected s
-                WHERE urls.url_hash = s.url_hash
-                RETURNING urls.url_hash, urls.url, urls.domain,
-                          urls.priority, urls.created_at
-                """,
-                (overscan, max_per_domain, count),
-            )
-            return cur.fetchall()
-
-        # SQLite path: no SKIP LOCKED (single-worker only), with aging
-        ranked_query = """
-            SELECT url_hash, url, domain, priority, created_at,
-                   priority + MIN(20.0,
-                       (CAST(strftime('%s', 'now') AS INTEGER) - created_at)
-                       / 86400.0 * 0.5
-                   ) AS eff_pri,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY domain ORDER BY
-                       priority + MIN(20.0,
-                           (CAST(strftime('%s', 'now') AS INTEGER) - created_at)
-                           / 86400.0 * 0.5
-                       ) DESC
-                   ) AS rn
-            FROM urls WHERE status = 'pending'
-        """
+        # Overscan to ensure enough domain diversity after per-domain cap
+        overscan = count * max_per_domain * 3
         cur.execute(
             f"""
-            SELECT url_hash, url, domain, priority, created_at
-            FROM ({ranked_query}) ranked
-            WHERE rn <= {ph}
-            ORDER BY eff_pri DESC
-            LIMIT {ph}
+            WITH top_candidates AS (
+                SELECT url_hash, url, domain, priority, created_at,
+                       priority + LEAST(20.0,
+                           (EXTRACT(EPOCH FROM NOW())::BIGINT - created_at)
+                           / 86400.0 * 0.5
+                       ) AS eff_pri
+                FROM urls
+                WHERE status = 'pending'
+                ORDER BY priority DESC
+                LIMIT {ph}
+                FOR UPDATE SKIP LOCKED
+            ),
+            per_domain AS (
+                SELECT url_hash, url, domain, priority, created_at, eff_pri,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY domain ORDER BY eff_pri DESC
+                       ) AS rn
+                FROM top_candidates
+            ),
+            selected AS (
+                SELECT url_hash
+                FROM per_domain
+                WHERE rn <= {ph}
+                ORDER BY eff_pri DESC
+                LIMIT {ph}
+            )
+            UPDATE urls
+            SET status = 'crawling'
+            FROM selected s
+            WHERE urls.url_hash = s.url_hash
+            RETURNING urls.url_hash, urls.url, urls.domain,
+                      urls.priority, urls.created_at
             """,
-            (max_per_domain, count),
+            (overscan, max_per_domain, count),
         )
-        rows = cur.fetchall()
-        if not rows:
-            return []
-
-        hashes = [row[0] for row in rows]
-        hash_placeholders = sql_placeholders(len(hashes))
-        cur.execute(
-            f"UPDATE urls SET status = 'crawling' WHERE url_hash IN ({hash_placeholders})",
-            tuple(hashes),
-        )
-        return rows
+        return cur.fetchall()
 
     def add(
         self,
@@ -280,7 +199,6 @@ class UrlStore:
         domain = get_domain(url)
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
         try:
@@ -293,7 +211,6 @@ class UrlStore:
                 priority=priority,
                 now=now,
                 cutoff=cutoff,
-                postgres_mode=postgres_mode,
             )
             con.commit()
             cur.close()
@@ -318,7 +235,6 @@ class UrlStore:
         added = 0
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
         try:
@@ -335,7 +251,6 @@ class UrlStore:
                     priority=priority,
                     now=now,
                     cutoff=cutoff,
-                    postgres_mode=postgres_mode,
                 ):
                     added += 1
 
@@ -361,7 +276,6 @@ class UrlStore:
         added = 0
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        postgres_mode = is_postgres_mode()
 
         con = get_connection(self.db_path)
         try:
@@ -377,7 +291,6 @@ class UrlStore:
                     priority=priority,
                     now=now,
                     cutoff=cutoff,
-                    postgres_mode=postgres_mode,
                 ):
                     added += 1
             con.commit()
@@ -401,7 +314,6 @@ class UrlStore:
         if count <= 0:
             return []
 
-        postgres_mode = is_postgres_mode()
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
@@ -409,7 +321,6 @@ class UrlStore:
                 cur,
                 count=count,
                 max_per_domain=max_per_domain,
-                postgres_mode=postgres_mode,
             )
 
             con.commit()
@@ -443,39 +354,17 @@ class UrlStore:
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            if is_postgres_mode():
-                cur.execute(
-                    f"""
-                    INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at, last_crawled_at)
-                    VALUES ({ph}, {ph}, {ph}, {ph}, 0, 1, {ph}, {ph})
-                    ON CONFLICT (url_hash) DO UPDATE SET
-                        status = EXCLUDED.status,
-                        last_crawled_at = EXCLUDED.last_crawled_at,
-                        crawl_count = urls.crawl_count + 1
-                    """,
-                    (h, url, domain, status, now, now),
-                )
-            else:
-                cur.execute(
-                    f"SELECT 1 FROM urls WHERE url_hash = {ph}",
-                    (h,),
-                )
-                if cur.fetchone():
-                    cur.execute(
-                        f"""
-                        UPDATE urls SET status = {ph}, last_crawled_at = {ph}, crawl_count = crawl_count + 1
-                        WHERE url_hash = {ph}
-                        """,
-                        (status, now, h),
-                    )
-                else:
-                    cur.execute(
-                        f"""
-                        INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at, last_crawled_at)
-                        VALUES ({ph}, {ph}, {ph}, {ph}, 0, 1, {ph}, {ph})
-                        """,
-                        (h, url, domain, status, now, now),
-                    )
+            cur.execute(
+                f"""
+                INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at, last_crawled_at)
+                VALUES ({ph}, {ph}, {ph}, {ph}, 0, 1, {ph}, {ph})
+                ON CONFLICT (url_hash) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    last_crawled_at = EXCLUDED.last_crawled_at,
+                    crawl_count = urls.crawl_count + 1
+                """,
+                (h, url, domain, status, now, now),
+            )
             con.commit()
             cur.close()
         finally:

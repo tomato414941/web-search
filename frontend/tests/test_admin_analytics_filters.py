@@ -3,22 +3,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from frontend.api.routers.admin import get_analytics_data, get_dashboard_data
-from frontend.core.config import settings
-from shared.db.search import get_connection, is_postgres_mode
-
-
-def _placeholder() -> str:
-    return "%s" if is_postgres_mode() else "?"
+from shared.postgres.search import get_connection
 
 
 def _insert_search_log(query: str, result_count: int, user_agent: str) -> None:
-    ph = _placeholder()
-    conn = get_connection(settings.DB_PATH)
+    conn = get_connection()
     cur = conn.cursor()
     cur.execute(
-        f"""
+        """
         INSERT INTO search_logs (query, result_count, search_mode, user_agent)
-        VALUES ({ph}, {ph}, {ph}, {ph})
+        VALUES (%s, %s, %s, %s)
         """,
         (query, result_count, "bm25", user_agent),
     )

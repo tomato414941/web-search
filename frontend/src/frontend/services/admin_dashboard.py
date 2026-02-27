@@ -8,7 +8,7 @@ from frontend.services.admin_analytics import (
 )
 from frontend.services.crawler_admin_client import fetch_stats, fetch_status_breakdown
 from frontend.services.db_helpers import db_cursor
-from shared.db.search import is_postgres_mode, sql_placeholder
+from shared.db.search import sql_placeholder
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,8 @@ async def get_dashboard_data() -> dict[str, Any]:
 
     try:
         ph = sql_placeholder()
-        is_postgres = is_postgres_mode()
         day_ago, _, today_start = time_boundaries()
-        search_filter_sql, search_filter_params = build_analytics_exclusion_filters(
-            is_postgres
-        )
+        search_filter_sql, search_filter_params = build_analytics_exclusion_filters()
         with db_cursor(settings.DB_PATH) as (_, cursor):
             cursor.execute("SELECT COUNT(*) FROM documents")
             data["indexed_pages"] = cursor.fetchone()[0]
