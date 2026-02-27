@@ -7,10 +7,12 @@ from frontend.services.admin_analytics import (
     time_boundaries,
 )
 from frontend.services.crawler_admin_client import fetch_stats, fetch_status_breakdown
-from frontend.services.db_helpers import db_cursor
-from shared.db.search import sql_placeholder
+from shared.db.search import get_connection
+from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 
 logger = logging.getLogger(__name__)
+
+_repo = AnalyticsRepository
 
 
 async def get_dashboard_data() -> dict[str, Any]:
@@ -37,77 +39,37 @@ async def get_dashboard_data() -> dict[str, Any]:
     }
 
     try:
-        ph = sql_placeholder()
         day_ago, _, today_start = time_boundaries()
         search_filter_sql, search_filter_params = build_analytics_exclusion_filters()
-        with db_cursor(settings.DB_PATH) as (_, cursor):
-            cursor.execute("SELECT COUNT(*) FROM documents")
-            data["indexed_pages"] = cursor.fetchone()[0]
+        conn = get_connection(settings.DB_PATH)
+        try:
+            data["indexed_pages"] = _repo.count_total_documents(conn)
+            data["indexed_delta"] = _repo.count_indexed_since(conn, day_ago)
+            data["last_crawl"] = _repo.max_indexed_at(conn)
 
-            cursor.execute(
-                f"SELECT COUNT(*) FROM documents WHERE indexed_at >= {ph}",
-                (day_ago,),
+            summary = _repo.today_summary(
+                conn, today_start, search_filter_sql, search_filter_params
             )
-            data["indexed_delta"] = cursor.fetchone()[0]
+            data["today_searches"] = summary["total"]
+            data["today_unique_queries"] = summary["unique_queries"]
+            data["today_zero_hits"] = summary["zero_hits"]
+            if data["today_searches"] > 0:
+                data["zero_hit_rate"] = round(
+                    data["today_zero_hits"] / data["today_searches"] * 100,
+                    1,
+                )
 
-            cursor.execute(
-                "SELECT MAX(indexed_at) FROM documents WHERE indexed_at IS NOT NULL"
+            top = _repo.top_queries(
+                conn, today_start, 1, search_filter_sql, search_filter_params
             )
-            result = cursor.fetchone()
-            if result and result[0]:
-                data["last_crawl"] = result[0]
+            if top:
+                data["top_query"] = {"query": top[0]["query"], "count": top[0]["count"]}
 
-            cursor.execute(
-                f"""
-                SELECT
-                    COUNT(*) as total,
-                    COUNT(DISTINCT query) as unique_queries,
-                    SUM(CASE WHEN result_count = 0 THEN 1 ELSE 0 END) as zero_hits
-                FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                """,
-                (today_start, *search_filter_params),
+            data["zero_hit_queries"] = _repo.zero_hit_queries(
+                conn, today_start, 5, search_filter_sql, search_filter_params
             )
-            row = cursor.fetchone()
-            if row:
-                data["today_searches"] = row[0] or 0
-                data["today_unique_queries"] = row[1] or 0
-                data["today_zero_hits"] = row[2] or 0
-                if data["today_searches"] > 0:
-                    data["zero_hit_rate"] = round(
-                        data["today_zero_hits"] / data["today_searches"] * 100,
-                        1,
-                    )
-
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 1
-                """,
-                (today_start, *search_filter_params),
-            )
-            row = cursor.fetchone()
-            if row and row[0]:
-                data["top_query"] = {"query": row[0], "count": row[1]}
-
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 5
-                """,
-                (today_start, *search_filter_params),
-            )
-            data["zero_hit_queries"] = [
-                {"query": row[0], "count": row[1]} for row in cursor.fetchall()
-            ]
+        finally:
+            conn.close()
     except Exception as exc:
         logger.warning(f"Failed to get DB stats: {exc}")
 

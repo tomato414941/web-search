@@ -10,13 +10,12 @@ from fastapi import Request, Response
 from frontend.core.config import settings
 from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
 from shared.core.infrastructure_config import Environment
-from shared.db.search import (
-    get_connection,
-    sql_placeholder,
-    sql_placeholders,
-)
+from shared.db.search import get_connection
+from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 
 logger = logging.getLogger(__name__)
+
+_repo = AnalyticsRepository
 
 ANON_SESSION_COOKIE = "anon_sid"
 ANON_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
@@ -64,16 +63,10 @@ def log_search(
 ) -> None:
     conn = None
     try:
-        ph = sql_placeholder()
         conn = get_connection(settings.DB_PATH)
-        cur = conn.cursor()
-        cur.execute(
-            f"INSERT INTO search_logs (query, result_count, search_mode, user_agent, api_key_id)"
-            f" VALUES ({ph}, {ph}, {ph}, {ph}, {ph})",
-            (query, result_count, search_mode, user_agent, api_key_id),
+        _repo.insert_search_log(
+            conn, query, result_count, search_mode, user_agent, api_key_id
         )
-        conn.commit()
-        cur.close()
     except Exception as exc:
         logger.warning(f"Failed to persist search log: {exc}")
     finally:
@@ -134,30 +127,19 @@ def _log_search_event(
 ) -> None:
     conn = None
     try:
-        ph = sql_placeholder()
         conn = get_connection(settings.DB_PATH)
-        cur = conn.cursor()
-        cur.execute(
-            f"""
-            INSERT INTO search_events (
-                event_type, query, query_norm, request_id, session_hash,
-                result_count, clicked_url, clicked_rank, latency_ms
-            ) VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
-            """,
-            (
-                event_type,
-                query,
-                normalize_query(query),
-                request_id,
-                session_hash,
-                result_count,
-                clicked_url,
-                clicked_rank,
-                latency_ms,
-            ),
+        _repo.insert_search_event(
+            conn,
+            event_type=event_type,
+            query=query,
+            query_norm=normalize_query(query),
+            request_id=request_id,
+            session_hash=session_hash,
+            result_count=result_count,
+            clicked_url=clicked_url,
+            clicked_rank=clicked_rank,
+            latency_ms=latency_ms,
         )
-        conn.commit()
-        cur.close()
     except Exception as exc:
         logger.warning(f"Failed to persist search event '{event_type}': {exc}")
     finally:
@@ -170,7 +152,6 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
     cutoff_dt = now - timedelta(hours=window_hours)
     cutoff_str = cutoff_dt.strftime("%Y-%m-%d %H:%M:%S")
     cutoff_epoch = int(time.time()) - window_hours * 3600
-    ph = sql_placeholder()
 
     search_data = {
         "impressions": 0,
@@ -190,20 +171,8 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
 
     conn = get_connection(settings.DB_PATH)
     try:
-        cur = conn.cursor()
-
-        if _table_exists(conn, "search_events"):
-            time_filter = f"created_at >= {ph}"
-
-            cur.execute(
-                f"""
-                SELECT request_id, result_count, latency_ms
-                FROM search_events
-                WHERE event_type = {ph} AND {time_filter}
-                """,
-                ("impression", cutoff_str),
-            )
-            impression_rows = cur.fetchall()
+        if _repo.table_exists(conn, "search_events"):
+            impression_rows = _repo.get_impressions(conn, cutoff_str)
 
             impressions = len(impression_rows)
             zero_hits = sum(
@@ -216,26 +185,10 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
                 int(latency) for _, _, latency in impression_rows if latency is not None
             ]
 
-            cur.execute(
-                f"""
-                SELECT DISTINCT request_id
-                FROM search_events
-                WHERE event_type = {ph} AND {time_filter} AND request_id IS NOT NULL
-                """,
-                ("click", cutoff_str),
-            )
-            clicked_request_ids = {row[0] for row in cur.fetchall() if row[0]}
+            clicked_request_ids = _repo.get_clicked_request_ids(conn, cutoff_str)
             clicked_impressions = len(request_ids & clicked_request_ids)
 
-            cur.execute(
-                f"""
-                SELECT clicked_rank
-                FROM search_events
-                WHERE event_type = {ph} AND {time_filter} AND clicked_rank IS NOT NULL
-                """,
-                ("click", cutoff_str),
-            )
-            click_ranks = [int(row[0]) for row in cur.fetchall() if row[0] is not None]
+            click_ranks = _repo.get_click_ranks(conn, cutoff_str)
 
             search_data["impressions"] = impressions
             search_data["zero_hit_rate"] = _ratio_percent(zero_hits, impressions)
@@ -248,69 +201,33 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
             search_data["p50_ms"] = _percentile(latencies, 0.50)
             search_data["p95_ms"] = _percentile(latencies, 0.95)
 
-        if _table_exists(conn, "documents"):
-            indexed_filter = f"indexed_at >= {ph}"
-
-            cur.execute(
-                f"SELECT COUNT(*) FROM documents WHERE indexed_at IS NOT NULL AND {indexed_filter}",
-                (cutoff_str,),
-            )
-            indexed_count = int(cur.fetchone()[0] or 0)
+        if _repo.table_exists(conn, "documents"):
+            indexed_count = _repo.count_indexed_since(conn, cutoff_str)
             crawl_data["indexed_count"] = indexed_count
 
-            cur.execute(
-                f"""
-                SELECT COUNT(*) FROM documents
-                WHERE indexed_at IS NOT NULL AND word_count < {ph} AND {indexed_filter}
-                """,
-                (80, cutoff_str),
-            )
-            short_count = int(cur.fetchone()[0] or 0)
+            short_count = _repo.count_short_content_since(conn, cutoff_str)
             crawl_data["short_content_rate"] = _ratio_percent(
                 short_count, indexed_count
             )
 
-            cur.execute(
-                f"""
-                SELECT COUNT(*), COUNT(DISTINCT md5(content))
-                FROM documents
-                WHERE indexed_at IS NOT NULL
-                  AND content IS NOT NULL
-                  AND content <> ''
-                  AND {indexed_filter}
-                """,
-                (cutoff_str,),
+            total_with_content, unique_contents = _repo.content_duplicate_counts(
+                conn, cutoff_str
             )
-            total_with_content, unique_contents = cur.fetchone()
-            total_with_content = int(total_with_content or 0)
-            unique_contents = int(unique_contents or 0)
             duplicate_count = max(total_with_content - unique_contents, 0)
             crawl_data["duplicate_content_rate"] = _ratio_percent(
                 duplicate_count, total_with_content
             )
 
-        if _table_exists(conn, "urls"):
-            cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'pending'")
-            crawl_data["pending_count"] = int(cur.fetchone()[0] or 0)
+        if _repo.table_exists(conn, "urls"):
+            crawl_data["pending_count"] = _repo.count_pending_urls(conn)
 
-        if _table_exists(conn, "crawl_logs"):
-            status_ph = sql_placeholders(len(CRAWL_ATTEMPT_STATUSES))
-            cur.execute(
-                f"""
-                SELECT status, COUNT(*)
-                FROM crawl_logs
-                WHERE created_at >= {ph}
-                  AND status IN ({status_ph})
-                GROUP BY status
-                """,
-                (cutoff_epoch, *CRAWL_ATTEMPT_STATUSES),
+        if _repo.table_exists(conn, "crawl_logs"):
+            status_counts = _repo.crawl_status_counts(
+                conn, cutoff_epoch, CRAWL_ATTEMPT_STATUSES
             )
-            status_counts = {status: int(count) for status, count in cur.fetchall()}
             attempts = sum(status_counts.values())
             success = status_counts.get("indexed", 0)
             crawl_data["crawl_success_rate"] = _ratio_percent(success, attempts)
-
-        cur.close()
     finally:
         conn.close()
 
@@ -320,24 +237,6 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
         "search": search_data,
         "crawl": crawl_data,
     }
-
-
-def _table_exists(conn: Any, table_name: str) -> bool:
-    cur = conn.cursor()
-    try:
-        ph = sql_placeholder()
-        cur.execute(
-            f"""
-            SELECT EXISTS (
-                SELECT 1 FROM information_schema.tables
-                WHERE table_schema = 'public' AND table_name = {ph}
-            )
-            """,
-            (table_name,),
-        )
-        return bool(cur.fetchone()[0])
-    finally:
-        cur.close()
 
 
 def _ratio_percent(numerator: int, denominator: int) -> float:

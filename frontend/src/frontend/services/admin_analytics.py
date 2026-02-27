@@ -3,10 +3,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from frontend.core.config import settings
-from frontend.services.db_helpers import db_cursor
-from shared.db.search import sql_placeholder, sql_placeholders
+from shared.db.search import get_connection, sql_placeholder, sql_placeholders
+from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 
 logger = logging.getLogger(__name__)
+
+_repo = AnalyticsRepository
 
 
 def time_boundaries() -> tuple[str, str, str]:
@@ -51,49 +53,21 @@ def get_analytics_data() -> dict[str, Any]:
     }
 
     try:
-        ph = sql_placeholder()
         _, week_ago, _ = time_boundaries()
         search_filter_sql, search_filter_params = build_analytics_exclusion_filters()
-        with db_cursor(settings.DB_PATH) as (_, cursor):
-            cursor.execute(
-                f"""
-                SELECT COUNT(*) FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                """,
-                (week_ago, *search_filter_params),
+        conn = get_connection(settings.DB_PATH)
+        try:
+            data["total_searches"] = _repo.count_since(
+                conn, week_ago, search_filter_sql, search_filter_params
             )
-            data["total_searches"] = cursor.fetchone()[0]
-
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count, AVG(result_count) as avg_results
-                FROM search_logs
-                WHERE created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """,
-                (week_ago, *search_filter_params),
+            data["top_queries"] = _repo.top_queries(
+                conn, week_ago, 20, search_filter_sql, search_filter_params
             )
-            data["top_queries"] = [
-                {"query": row[0], "count": row[1], "avg_results": round(row[2], 1)}
-                for row in cursor.fetchall()
-            ]
-
-            cursor.execute(
-                f"""
-                SELECT query, COUNT(*) as count
-                FROM search_logs
-                WHERE result_count = 0 AND created_at >= {ph}{search_filter_sql}
-                GROUP BY query
-                ORDER BY count DESC
-                LIMIT 20
-                """,
-                (week_ago, *search_filter_params),
+            data["zero_hit_queries"] = _repo.zero_hit_queries(
+                conn, week_ago, 20, search_filter_sql, search_filter_params
             )
-            data["zero_hit_queries"] = [
-                {"query": row[0], "count": row[1]} for row in cursor.fetchall()
-            ]
+        finally:
+            conn.close()
     except Exception as exc:
         logger.warning(f"Failed to get analytics data: {exc}")
 
