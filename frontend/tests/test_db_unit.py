@@ -1,14 +1,13 @@
 """Test PostgreSQL database operations."""
 
-from shared.postgres.search import ensure_db, get_connection
+from shared.postgres.search import get_connection
 
 
 class TestDatabaseInitialization:
-    """Test database initialization."""
+    """Test database initialization (schema created by Alembic in conftest)."""
 
-    def test_ensure_db_creates_tables(self):
-        """ensure_db should create required tables."""
-        ensure_db()
+    def test_tables_exist(self):
+        """Required tables should exist (created by Alembic migrations)."""
         conn = get_connection()
         try:
             cur = conn.cursor()

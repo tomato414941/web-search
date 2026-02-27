@@ -15,6 +15,17 @@ services:
       timeout: 5s
       retries: 5
 
+  db-migrate:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+    command: ["python", "-c", "from shared.postgres.migrate import migrate; migrate()"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     build:
       context: .
@@ -38,8 +49,8 @@ services:
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-10}
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -63,8 +74,8 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-15}
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -94,8 +105,8 @@ services:
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_WORKER:-30}
     command: ["python", "-m", "app.worker"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -124,8 +135,8 @@ services:
       - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY:-10}
       - DB_POOL_MAX=${DB_POOL_MAX_CRAWLER:-20}
     depends_on:
-      postgres:
-        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

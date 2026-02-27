@@ -7,7 +7,7 @@ from typing import Any
 from app.api.routes import indexer
 from app.core.config import settings
 from app.services.indexer import indexer_service
-from shared.db.search import ensure_db
+from shared.postgres.migrate import migrate
 from shared.pagerank import calculate_domain_pagerank, calculate_pagerank
 
 logger = logging.getLogger(__name__)
@@ -125,10 +125,7 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     logger.info("Starting indexer worker")
 
-    db_dir = os.path.dirname(settings.DB_PATH)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
-    ensure_db(settings.DB_PATH)
+    migrate()
 
     indexer.index_job_service.db_path = settings.DB_PATH
     indexer.index_job_service.max_retries = settings.INDEXER_JOB_MAX_RETRIES

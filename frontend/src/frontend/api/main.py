@@ -12,7 +12,7 @@ from slowapi.errors import RateLimitExceeded
 
 from frontend.core.config import settings
 from shared.core.infrastructure_config import Environment
-from shared.db.search import ensure_db
+from shared.postgres.migrate import migrate
 from frontend.api.routers import search, search_api, stats, crawler, admin, quality
 from frontend.api.routers.system import root_router as health_root_router
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
@@ -42,11 +42,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- DB Initialization ---
-    db_dir = os.path.dirname(settings.DB_PATH)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
-    ensure_db(settings.DB_PATH)
+    migrate()
     yield
 
 

@@ -10,8 +10,8 @@ from shared.testing import ensure_test_pg
 ensure_test_pg()
 
 import pytest  # noqa: E402
-from shared.postgres.search import ensure_db, get_connection  # noqa: E402
-from shared.postgres.migrate import migrate, _ensure_version_table  # noqa: E402
+from shared.postgres.search import get_connection  # noqa: E402
+from shared.postgres.migrate import migrate  # noqa: E402
 
 # Tables to truncate between tests
 _TABLES = [
@@ -26,20 +26,14 @@ _TABLES = [
     "documents",
     "domain_ranks",
     "links",
-    "schema_version",
     "api_keys",
+    "urls",
+    "crawl_logs",
 ]
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _init_schema():
-    ensure_db()
-    # Ensure schema_version exists and apply migrations (creates api_keys etc.)
-    conn = get_connection()
-    try:
-        _ensure_version_table(conn)
-    finally:
-        conn.close()
     migrate()
 
 
@@ -50,8 +44,12 @@ def _clean_tables():
     try:
         conn.rollback()
         cur = conn.cursor()
-        cur.execute(f"TRUNCATE {', '.join(_TABLES)} CASCADE")
-        conn.commit()
+        for table in _TABLES:
+            try:
+                cur.execute(f"TRUNCATE {table} CASCADE")
+                conn.commit()
+            except Exception:
+                conn.rollback()
         cur.close()
     except Exception:
         conn.rollback()

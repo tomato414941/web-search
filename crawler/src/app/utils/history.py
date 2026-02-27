@@ -48,20 +48,10 @@ def get_db_path() -> str:
 
 
 def init_db(db_path: str | None = None):
-    """Initialize crawler database."""
+    """Verify database connectivity (schema managed by Alembic)."""
     path = db_path or get_db_path()
-
     con = get_connection(path)
-    try:
-        cur = con.cursor()
-        for stmt in SCHEMA_SQL.split(";"):
-            stmt = stmt.strip()
-            if stmt:
-                cur.execute(stmt)
-        con.commit()
-        cur.close()
-    finally:
-        con.close()
+    con.close()
 
 
 def log_crawl_attempt(

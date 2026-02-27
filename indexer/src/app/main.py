@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from shared.db.search import ensure_db
+from shared.postgres.migrate import migrate
 from app.api.routes import indexer
 from app.api.routes.health import root_router as health_root_router
 
@@ -18,11 +18,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: setup and teardown."""
-    # --- DB Initialization ---
-    db_dir = os.path.dirname(settings.DB_PATH)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
-    ensure_db(settings.DB_PATH)
+    migrate()
 
     # Keep route-level job service in sync with runtime settings.
     indexer.index_job_service.db_path = settings.DB_PATH

@@ -76,37 +76,9 @@ class UrlStore:
         self._init_db()
 
     def _init_db(self):
+        # Schema is managed by Alembic; verify connectivity only.
         con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
-            for stmt in SCHEMA_SQL.split(";"):
-                stmt = stmt.strip()
-                if stmt:
-                    cur.execute(stmt)
-            # Migration: add is_seed column to existing tables
-            cur.execute(
-                "ALTER TABLE urls ADD COLUMN IF NOT EXISTS"
-                " is_seed BOOLEAN NOT NULL DEFAULT FALSE"
-            )
-            # Migrate seeds table data if it exists
-            cur.execute(
-                "SELECT EXISTS ("
-                "SELECT FROM information_schema.tables"
-                " WHERE table_name = 'seeds')"
-            )
-            if cur.fetchone()[0]:
-                cur.execute(
-                    "UPDATE urls SET is_seed = TRUE"
-                    " WHERE url IN (SELECT url FROM seeds)"
-                )
-            cur.execute(
-                "CREATE INDEX IF NOT EXISTS idx_urls_seed"
-                " ON urls(url_hash) WHERE is_seed = TRUE"
-            )
-            con.commit()
-            cur.close()
-        finally:
-            con.close()
+        con.close()
 
     def _upsert_pending_url(
         self,
