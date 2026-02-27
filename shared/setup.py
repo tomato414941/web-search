@@ -7,6 +7,7 @@ setup(
     package_dir={"": "src"},
     python_requires=">=3.11",
     install_requires=[
+        "alembic>=1.13",
         "pydantic>=2.0.0",
         "pydantic-settings>=2.0.0",
         "psycopg2-binary>=2.9.0",
