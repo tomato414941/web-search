@@ -40,6 +40,7 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 # Copy application code
 COPY frontend/src/ ./src/
 COPY frontend/gunicorn.conf.py .
+COPY db/ ./db/
 
 ENV PORT=8000 HOST=0.0.0.0 SEARCH_DB=/data/search.db \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
