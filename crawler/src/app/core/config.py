@@ -5,7 +5,10 @@ Configuration specific to the Crawler service, including crawl parameters
 and indexer API configuration.
 """
 
-import os
+from typing import Any
+
+from pydantic import field_validator
+
 from shared.core.infrastructure_config import Environment, InfrastructureSettings
 
 
@@ -17,54 +20,46 @@ class CrawlerSettings(InfrastructureSettings):
     APP_VERSION: str = "3.0.0"
 
     # Database Path (for UrlStore, Seeds)
-    CRAWLER_DB_PATH: str = os.getenv("CRAWLER_DB_PATH", "/data/crawler.db")
+    CRAWLER_DB_PATH: str = "/data/crawler.db"
 
     # Recrawl settings
-    CRAWL_RECRAWL_AFTER_DAYS: int = int(os.getenv("CRAWL_RECRAWL_AFTER_DAYS", "30"))
+    CRAWL_RECRAWL_AFTER_DAYS: int = 30
 
     # Crawler Behavior
-    CRAWL_USER_AGENT: str = os.getenv(
-        "CRAWL_USER_AGENT",
-        "PaleblueBot/1.0 (+https://palebluesearch.com/about; web crawler)",
+    CRAWL_USER_AGENT: str = (
+        "PaleblueBot/1.0 (+https://palebluesearch.com/about; web crawler)"
     )
-    CRAWL_TIMEOUT_SEC: int = int(os.getenv("CRAWL_TIMEOUT_SEC", "10"))
-    CRAWL_OUTLINKS_PER_PAGE: int = int(os.getenv("CRAWL_OUTLINKS_PER_PAGE", "50"))
-    CRAWL_CONCURRENCY: int = int(os.getenv("CRAWL_CONCURRENCY", "10"))
-    CRAWL_SEEDS: list[str] = [
-        s.strip() for s in os.getenv("CRAWL_SEEDS", "").split() if s.strip()
-    ]
+    CRAWL_TIMEOUT_SEC: int = 10
+    CRAWL_OUTLINKS_PER_PAGE: int = 50
+    CRAWL_CONCURRENCY: int = 10
+    CRAWL_SEEDS: list[str] = []
 
     # Scheduler
-    SCHEDULER_BATCH_SIZE: int = int(os.getenv("SCHEDULER_BATCH_SIZE", "500"))
-    SCHEDULER_DOMAIN_MIN_INTERVAL: float = float(
-        os.getenv("SCHEDULER_DOMAIN_MIN_INTERVAL", "1.0")
-    )
-    SCHEDULER_DOMAIN_MAX_CONCURRENT: int = int(
-        os.getenv("SCHEDULER_DOMAIN_MAX_CONCURRENT", "2")
-    )
+    SCHEDULER_BATCH_SIZE: int = 500
+    SCHEDULER_DOMAIN_MIN_INTERVAL: float = 1.0
+    SCHEDULER_DOMAIN_MAX_CONCURRENT: int = 2
 
     # TCP / networking
-    CRAWL_TCP_LIMIT: int = int(os.getenv("CRAWL_TCP_LIMIT", "200"))
-    ROBOTS_CACHE_SIZE: int = int(os.getenv("ROBOTS_CACHE_SIZE", "500000"))
+    CRAWL_TCP_LIMIT: int = 200
+    ROBOTS_CACHE_SIZE: int = 500000
 
     # Static domain blocklist file path
-    DOMAIN_BLOCKLIST_PATH: str = os.getenv(
-        "DOMAIN_BLOCKLIST_PATH", "/app/data/domain_blocklist.txt"
-    )
+    DOMAIN_BLOCKLIST_PATH: str = "/app/data/domain_blocklist.txt"
 
     # Robots block filter (skip enqueue for frequently blocked domains)
-    CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = int(
-        os.getenv("CRAWL_ROBOTS_BLOCK_WINDOW_HOURS", "24")
-    )
-    CRAWL_ROBOTS_BLOCK_MIN_COUNT: int = int(
-        os.getenv("CRAWL_ROBOTS_BLOCK_MIN_COUNT", "3")
-    )
+    CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = 24
+    CRAWL_ROBOTS_BLOCK_MIN_COUNT: int = 3
 
     # Indexer API (for submitting crawled pages)
-    INDEXER_API_URL: str = os.getenv(
-        "INDEXER_API_URL", "http://localhost:8000/api/v1/indexer/page"
-    )
-    INDEXER_API_KEY: str | None = os.getenv("INDEXER_API_KEY")  # Required outside tests
+    INDEXER_API_URL: str = "http://localhost:8000/api/v1/indexer/page"
+    INDEXER_API_KEY: str | None = None  # Required outside tests
+
+    @field_validator("CRAWL_SEEDS", mode="before")
+    @classmethod
+    def _parse_space_list(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return [s.strip() for s in v.split() if s.strip()]
+        return v
 
 
 settings = CrawlerSettings()

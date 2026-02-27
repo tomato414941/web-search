@@ -2,12 +2,14 @@
 Infrastructure Configuration
 
 Base configuration for infrastructure-level settings shared across all services.
-Contains database and path configurations.
+Uses pydantic-settings for automatic environment variable loading and type coercion.
 """
 
-import os
 from enum import Enum
 from pathlib import Path
+
+from pydantic import AliasChoices, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Environment(str, Enum):
@@ -18,38 +20,27 @@ class Environment(str, Enum):
     TEST = "test"
 
 
-def _get_environment() -> Environment:
-    """Get and validate ENVIRONMENT variable."""
-    env_value = os.getenv("ENVIRONMENT")
-    if env_value is None:
-        raise RuntimeError(
-            "ENVIRONMENT is required. Set to 'production', 'development', or 'test'."
-        )
-    try:
-        return Environment(env_value.lower())
-    except ValueError:
-        raise RuntimeError(
-            f"Invalid ENVIRONMENT value: '{env_value}'. "
-            "Must be 'production', 'development', or 'test'."
-        )
+_DEFAULT_DB_PATH = str(
+    Path(__file__).resolve().parent.parent.parent.parent / "data" / "search.db"
+)
 
 
-class InfrastructureSettings:
+class InfrastructureSettings(BaseSettings):
     """Infrastructure-level configuration (database, paths)"""
+
+    model_config = SettingsConfigDict(extra="ignore")
 
     # Database
     # PostgreSQL (production): Set DATABASE_URL environment variable
     # SQLite (test): Uses SEARCH_DB env var or default path
-    DATABASE_URL: str | None = os.getenv("DATABASE_URL")
-    DB_PATH: str = os.getenv(
-        "SEARCH_DB",
-        str(
-            Path(__file__).resolve().parent.parent.parent.parent / "data" / "search.db"
-        ),
+    DATABASE_URL: str | None = None
+    DB_PATH: str = Field(
+        default=_DEFAULT_DB_PATH,
+        validation_alias=AliasChoices("SEARCH_DB", "DB_PATH"),
     )
 
     # Environment
-    ENVIRONMENT: Environment = _get_environment()
+    ENVIRONMENT: Environment
 
 
 settings = InfrastructureSettings()
