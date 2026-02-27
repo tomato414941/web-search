@@ -47,6 +47,11 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_TCP_LIMIT: int = int(os.getenv("CRAWL_TCP_LIMIT", "200"))
     ROBOTS_CACHE_SIZE: int = int(os.getenv("ROBOTS_CACHE_SIZE", "500000"))
 
+    # Static domain blocklist file path
+    DOMAIN_BLOCKLIST_PATH: str = os.getenv(
+        "DOMAIN_BLOCKLIST_PATH", "/app/data/domain_blocklist.txt"
+    )
+
     # Robots block filter (skip enqueue for frequently blocked domains)
     CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = int(
         os.getenv("CRAWL_ROBOTS_BLOCK_WINDOW_HOURS", "24")

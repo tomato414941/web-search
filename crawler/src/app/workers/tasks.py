@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 import aiohttp
 from cachetools import TTLCache
 
+from app.core.blocklist import is_domain_blocked, load_domain_blocklist
 from app.db.url_store import UrlStore, get_domain
 from app.scheduler import Scheduler, SchedulerConfig
 from app.domain.scoring import (
@@ -52,6 +53,7 @@ class WorkerRuntimeState:
         default_factory=lambda: TTLCache(maxsize=DOMAIN_CACHE_MAX, ttl=DOMAIN_CACHE_TTL)
     )
     robots_blocked_domains: set[str] = field(default_factory=set)
+    blocked_domains: frozenset[str] = field(default_factory=frozenset)
 
 
 def _is_html_content_type(content_type: str) -> bool:
@@ -80,6 +82,14 @@ async def process_url(
     host_error = False
 
     try:
+        # 0. Check static + dynamic blocklist (skip before any network I/O)
+        if is_domain_blocked(domain, state.blocked_domains):
+            history_log.log_crawl_attempt(
+                url, "blocked", error_message="Domain blocklisted"
+            )
+            url_store.record(url, status="failed")
+            return
+
         if len(url) > MAX_URL_LENGTH:
             history_log.log_crawl_attempt(
                 url,
@@ -227,7 +237,7 @@ async def process_url(
                     scored_items: list[tuple[str, float]] = []
                     for new_url in discovered:
                         new_domain = get_domain(new_url)
-                        if new_domain in state.robots_blocked_domains:
+                        if is_domain_blocked(new_domain, state.blocked_domains):
                             continue
                         domain_visits = max(state.domain_cache.get(new_domain, 0), 1)
                         dr = get_domain_rank(new_domain)
@@ -360,7 +370,18 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     )
     scheduler = Scheduler(url_store, scheduler_config)
 
-    runtime_state = WorkerRuntimeState()
+    # Load static domain blocklist
+    static_blocklist = load_domain_blocklist(settings.DOMAIN_BLOCKLIST_PATH)
+    logger.info("Static domain blocklist: %d domains", len(static_blocklist))
+    scheduler.set_blocked_domains(static_blocklist)
+
+    # Layer 3: Purge existing pending URLs from blocked domains
+    if static_blocklist:
+        purged = url_store.purge_blocked_domains(static_blocklist)
+        if purged:
+            logger.info("Purged %d pending URLs from blocked domains", purged)
+
+    runtime_state = WorkerRuntimeState(blocked_domains=static_blocklist)
     robots_block_refreshed_at = 0.0  # Force immediate first load
     in_flight_tasks: set[asyncio.Task[None]] = set()
 
@@ -432,12 +453,29 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                             min_count=settings.CRAWL_ROBOTS_BLOCK_MIN_COUNT,
                         )
                     )
+                    # Combine static blocklist + dynamic robots-blocked
+                    dynamic_blocked = frozenset(runtime_state.robots_blocked_domains)
+                    combined = static_blocklist | dynamic_blocked
+                    runtime_state.blocked_domains = combined
+                    scheduler.set_blocked_domains(combined)
+
+                    # Layer 3: Purge newly blocked domains from queue
+                    new_dynamic = dynamic_blocked - static_blocklist
+                    if new_dynamic:
+                        purged = url_store.purge_blocked_domains(frozenset(new_dynamic))
+                        if purged:
+                            logger.info(
+                                "Purged %d pending URLs from newly blocked domains",
+                                purged,
+                            )
+
                     robots_block_refreshed_at = time.monotonic()
-                    if runtime_state.robots_blocked_domains:
-                        logger.info(
-                            "Robots block filter: %d domains",
-                            len(runtime_state.robots_blocked_domains),
-                        )
+                    logger.info(
+                        "Domain block filter: %d static + %d dynamic = %d total",
+                        len(static_blocklist),
+                        len(dynamic_blocked),
+                        len(combined),
+                    )
 
                 # Calculate available concurrency slots
                 available_slots = concurrency - len(in_flight_tasks)

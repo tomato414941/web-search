@@ -810,6 +810,41 @@ class UrlStore:
         finally:
             con.close()
 
+    def purge_blocked_domains(self, blocklist: frozenset[str]) -> int:
+        """Delete pending URLs whose domain matches the blocklist.
+
+        Uses subdomain matching: blocking 'facebook.com' also removes
+        'www.facebook.com', 'm.facebook.com', etc.
+
+        Returns the number of deleted rows.
+        """
+        if not blocklist:
+            return 0
+
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            # Build WHERE conditions for each blocked domain
+            conditions = []
+            params: list[str] = []
+            for d in blocklist:
+                conditions.append(f"domain = {sql_placeholder()}")
+                params.append(d)
+                conditions.append(f"domain LIKE {sql_placeholder()}")
+                params.append(f"%.{d}")
+
+            where = " OR ".join(conditions)
+            cur.execute(
+                f"DELETE FROM urls WHERE status = 'pending' AND ({where})",
+                params,
+            )
+            deleted = cur.rowcount
+            con.commit()
+            cur.close()
+            return deleted
+        finally:
+            con.close()
+
     def get_seeds(self) -> list[dict]:
         """Get all URLs marked as seeds."""
         con = get_connection(self.db_path)

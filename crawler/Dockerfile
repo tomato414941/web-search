@@ -37,8 +37,9 @@ COPY --from=builder /app/shared ./shared
 # Ensure scripts in .local are usable
 ENV PATH=/home/appuser/.local/bin:$PATH
 
-# Copy application code
+# Copy application code and data
 COPY crawler/src/ ./src/
+COPY crawler/data/ ./data/
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src

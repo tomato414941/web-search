@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+from app.core.blocklist import is_domain_blocked
 from app.db.url_store import UrlStore, UrlItem
 
 # Maximum backoff in seconds (1 hour)
@@ -55,6 +56,13 @@ class Scheduler:
         # Buffer of URLs fetched from url_store but not yet ready
         self._buffer: list[UrlItem] = []
 
+        # Combined blocked domains (static blocklist + dynamic robots-blocked)
+        self._blocked_domains: frozenset[str] = frozenset()
+
+    def set_blocked_domains(self, domains: frozenset[str]) -> None:
+        """Update the set of blocked domains (static + dynamic combined)."""
+        self._blocked_domains = domains
+
     def _get_gate(self, domain: str) -> HostGate:
         gate = self._gates.get(domain)
         if gate is None:
@@ -65,12 +73,25 @@ class Scheduler:
             self._gates[domain] = gate
         return gate
 
+    def _is_blocked(self, domain: str) -> bool:
+        """Check if domain is in the blocked set."""
+        return is_domain_blocked(domain, self._blocked_domains)
+
+    def _purge_blocked_from_buffer(self) -> None:
+        """Remove blocked domains from internal buffer."""
+        if not self._blocked_domains:
+            return
+        self._buffer = [
+            item for item in self._buffer if not self._is_blocked(item.domain)
+        ]
+
     def get_next(self) -> Optional[UrlItem]:
         """
         Get next URL that is ready to crawl.
 
         Respects domain rate limits and returns None if no URL is ready.
         """
+        self._purge_blocked_from_buffer()
         now = time.time()
 
         # Try buffer first
@@ -82,6 +103,7 @@ class Scheduler:
         # Fetch more from url_store if buffer is empty or exhausted
         if len(self._buffer) < self.config.batch_size // 2:
             items = self.url_store.pop_batch(self.config.batch_size)
+            items = [item for item in items if not self._is_blocked(item.domain)]
             self._buffer.extend(items)
 
         # Try again with new items
@@ -113,17 +135,25 @@ class Scheduler:
         to_remove = []
         selected_per_domain: dict[str, int] = {}
 
+        blocked = self._blocked_domains
+
         def _can_select(domain: str) -> bool:
+            if blocked and is_domain_blocked(domain, blocked):
+                return False
             gate = self._get_gate(domain)
             if now < gate.next_fetch_at:
                 return False
             effective_inflight = gate.inflight + selected_per_domain.get(domain, 0)
             return effective_inflight < gate.concurrency_limit
 
-        # Check buffer
+        # Check buffer — collect selected AND blocked indices for removal
+        blocked_indices: list[int] = []
         for i, item in enumerate(self._buffer):
             if len(result) >= count:
                 break
+            if blocked and is_domain_blocked(item.domain, blocked):
+                blocked_indices.append(i)
+                continue
             if _can_select(item.domain):
                 result.append(item)
                 to_remove.append(i)
@@ -131,8 +161,8 @@ class Scheduler:
                     selected_per_domain.get(item.domain, 0) + 1
                 )
 
-        # Remove selected items from buffer (reverse order to preserve indices)
-        for i in reversed(to_remove):
+        # Remove selected + blocked items from buffer (reverse order)
+        for i in reversed(sorted(to_remove + blocked_indices)):
             self._buffer.pop(i)
 
         # If we need more, fetch from url_store
@@ -142,9 +172,13 @@ class Scheduler:
                 break
 
             to_remove = []
+            blocked_idx: list[int] = []
             for i, item in enumerate(items):
                 if len(result) >= count:
                     break
+                if blocked and is_domain_blocked(item.domain, blocked):
+                    blocked_idx.append(i)
+                    continue
                 if _can_select(item.domain):
                     result.append(item)
                     to_remove.append(i)
@@ -152,10 +186,10 @@ class Scheduler:
                         selected_per_domain.get(item.domain, 0) + 1
                     )
 
-            # Add remaining to buffer
-            to_remove_set = set(to_remove)
+            # Add remaining to buffer (skip blocked)
+            skip_set = set(to_remove) | set(blocked_idx)
             for i, item in enumerate(items):
-                if i not in to_remove_set:
+                if i not in skip_set:
                     self._buffer.append(item)
 
         return result

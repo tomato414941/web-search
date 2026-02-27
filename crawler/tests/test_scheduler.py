@@ -283,3 +283,35 @@ class TestGetReadyUrls:
         s = self._make_scheduler(buffer_items=items)
         assert s.get_ready_urls(0) == []
         assert s.buffer_size() == 1
+
+    def test_skips_blocked_domains_from_buffer(self):
+        items = [
+            self._make_item("http://facebook.com/1", "facebook.com"),
+            self._make_item("http://a.com/1", "a.com"),
+            self._make_item("http://www.linkedin.com/1", "www.linkedin.com"),
+            self._make_item("http://b.com/1", "b.com"),
+        ]
+        s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
+        s.set_blocked_domains(frozenset({"facebook.com", "linkedin.com"}))
+        result = s.get_ready_urls(4)
+        assert len(result) == 2
+        domains = {item.domain for item in result}
+        assert domains == {"a.com", "b.com"}
+        # Blocked items should be removed from buffer (not left behind)
+        assert s.buffer_size() == 0
+
+    def test_blocked_domains_removed_from_db_batch(self):
+        blocked_item = self._make_item("http://t.co/abc", "t.co")
+        good_item = self._make_item("http://example.com/1", "example.com")
+        url_store = MagicMock()
+        # Return items once, then empty (simulating DB depletion)
+        url_store.pop_batch.side_effect = [[blocked_item, good_item], []]
+        url_store.pending_count.return_value = 0
+        config = SchedulerConfig()
+        s = Scheduler(url_store, config)
+        s.set_blocked_domains(frozenset({"t.co"}))
+        result = s.get_ready_urls(2)
+        assert len(result) == 1
+        assert result[0].domain == "example.com"
+        # Blocked items should NOT be added to buffer
+        assert s.buffer_size() == 0
