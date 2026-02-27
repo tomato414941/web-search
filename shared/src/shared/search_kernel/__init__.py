@@ -1,4 +1,4 @@
-"""Backward-compatible re-exports. Use shared.search_kernel instead."""
+"""Search kernel: BM25 + vector search, indexing, analysis, and ranking."""
 
 from shared.search_kernel.indexer import SearchIndexer
 from shared.search_kernel.searcher import SearchEngine, SearchHit, SearchResult
@@ -6,12 +6,12 @@ from shared.search_kernel.scoring import BM25Scorer, BM25Config
 from shared.search_kernel.snippet import generate_snippet, Snippet
 
 __all__ = [
-    "SearchIndexer",
+    "BM25Config",
+    "BM25Scorer",
     "SearchEngine",
     "SearchHit",
+    "SearchIndexer",
     "SearchResult",
-    "BM25Scorer",
-    "BM25Config",
-    "generate_snippet",
     "Snippet",
+    "generate_snippet",
 ]

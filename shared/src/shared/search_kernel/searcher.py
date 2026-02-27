@@ -1,0 +1,609 @@
+"""
+Custom Full-Text Search Engine
+
+Provides search functionality using the inverted index.
+Supports BM25, Vector (Semantic), and Hybrid (RRF) search modes.
+"""
+
+import os
+import re
+import time
+from dataclasses import dataclass
+from typing import Any, Callable
+
+import numpy as np
+
+from shared.search_kernel.analyzer import analyzer, STOP_WORDS
+from shared.postgres.search import (
+    get_connection,
+    is_postgres_mode,
+    sql_placeholder,
+    sql_placeholders,
+)
+from shared.embedding import to_pgvector
+from shared.search_kernel.scoring import BM25Scorer, BM25Config
+
+
+# Type alias for embedding function
+EmbeddingFunc = Callable[[str], np.ndarray]
+
+
+@dataclass
+class SearchHit:
+    """A single search result."""
+
+    url: str
+    title: str
+    content: str
+    score: float
+
+
+@dataclass
+class SearchResult:
+    """Search results with metadata."""
+
+    query: str
+    total: int
+    hits: list[SearchHit]
+    page: int
+    per_page: int
+    last_page: int
+
+
+@dataclass
+class ParsedQuery:
+    """Parsed query with operators extracted."""
+
+    text: str  # Remaining text after extracting operators
+    site_filter: str | None = None
+
+
+_SITE_RE = re.compile(r"\bsite:(\S+)", re.IGNORECASE)
+
+
+def parse_query(raw: str) -> ParsedQuery:
+    """Extract query operators (site:) from raw query string."""
+    site_filter = None
+    match = _SITE_RE.search(raw)
+    if match:
+        site_filter = match.group(1).lower()
+        raw = raw[: match.start()] + raw[match.end() :]
+    return ParsedQuery(text=raw.strip(), site_filter=site_filter)
+
+
+class SearchEngine:
+    """
+    Custom full-text search engine using inverted index.
+
+    Supports multiple search modes:
+    - BM25 (default): Traditional keyword search with BM25 ranking
+    - Vector: Semantic search using embeddings
+    - Hybrid: Combines BM25 and Vector using Reciprocal Rank Fusion (RRF)
+    """
+
+    RRF_K = 60  # Standard RRF constant
+    CACHE_TTL_SECONDS = 300  # 5 minutes
+    RESULT_CACHE_TTL = 300  # 5 minutes
+    RESULT_CACHE_MAX = 1000
+    CANDIDATE_LIMIT = int(os.getenv("SEARCH_CANDIDATE_LIMIT", "1000"))
+
+    def __init__(
+        self,
+        db_path: str,
+        bm25_config: BM25Config | None = None,
+        embed_query_func: EmbeddingFunc | None = None,
+        deserialize_func: Callable[[bytes], np.ndarray] | None = None,
+    ):
+        """
+        Initialize search engine.
+
+        Args:
+            db_path: Path to SQLite database
+            bm25_config: BM25 configuration
+            embed_query_func: Function to embed query text (required for vector/hybrid search)
+            deserialize_func: Function to deserialize embedding blobs from DB
+        """
+        self.db_path = db_path
+        self.scorer = BM25Scorer(db_path, bm25_config)
+        self._embed_query = embed_query_func
+        self._deserialize = deserialize_func
+        self._vector_cache: list[tuple[str, np.ndarray]] | None = None
+        self._vector_cache_loaded_at: float | None = None
+        self._result_cache: dict[str, tuple[float, SearchResult]] = {}
+
+    def search(
+        self,
+        query: str,
+        limit: int = 10,
+        page: int = 1,
+    ) -> SearchResult:
+        """
+        Search documents using OR logic (ranked by token coverage).
+
+        Args:
+            query: Search query string
+            limit: Number of results per page
+            page: Page number (1-indexed)
+
+        Returns:
+            SearchResult with matching documents
+        """
+        if not query or not query.strip():
+            return self._empty_result(query, limit)
+
+        # Check result cache
+        cache_key = f"{query}:{limit}:{page}"
+        now = time.monotonic()
+        cached = self._result_cache.get(cache_key)
+        if cached is not None:
+            cached_at, cached_result = cached
+            if now - cached_at < self.RESULT_CACHE_TTL:
+                return cached_result
+
+        # 1. Parse query operators (site: etc.)
+        parsed = parse_query(query)
+
+        # 2. Tokenize remaining text
+        tokens = self._tokenize(parsed.text)
+        if not tokens:
+            return self._empty_result(query, limit)
+
+        conn = get_connection(self.db_path)
+        try:
+            # 3. Find candidate documents (AND-first with site filter)
+            candidates = self._find_candidates(
+                conn, tokens, site_filter=parsed.site_filter
+            )
+            if not candidates:
+                return self._empty_result(query, limit)
+
+            # 3. Score candidates (basic term frequency for now)
+            scored = self._score_candidates(conn, candidates, tokens)
+
+            # 4. Sort by score (descending)
+            scored.sort(key=lambda x: x[1], reverse=True)
+
+            # 5. Paginate
+            total = len(scored)
+            offset = (page - 1) * limit
+            page_results = scored[offset : offset + limit]
+
+            # 6. Fetch document details (batch query to avoid N+1)
+            hits = []
+            if page_results:
+                result_urls = [url for url, _ in page_results]
+                result_scores = {url: score for url, score in page_results}
+
+                placeholders = sql_placeholders(len(result_urls))
+                cur = conn.cursor()
+                cur.execute(
+                    f"SELECT url, title, content FROM documents WHERE url IN ({placeholders})",
+                    tuple(result_urls),
+                )
+                docs = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
+                cur.close()
+
+                # Preserve order from BM25 ranking
+                for url in result_urls:
+                    if url in docs:
+                        hits.append(
+                            SearchHit(
+                                url=url,
+                                title=docs[url][0],
+                                content=docs[url][1],
+                                score=result_scores[url],
+                            )
+                        )
+
+            last_page = max((total + limit - 1) // limit, 1)
+
+            result = SearchResult(
+                query=query,
+                total=total,
+                hits=hits,
+                page=page,
+                per_page=limit,
+                last_page=last_page,
+            )
+
+            # Store in result cache
+            if len(self._result_cache) >= self.RESULT_CACHE_MAX:
+                oldest_key = min(
+                    self._result_cache, key=lambda k: self._result_cache[k][0]
+                )
+                del self._result_cache[oldest_key]
+            self._result_cache[cache_key] = (now, result)
+
+            return result
+
+        finally:
+            conn.close()
+
+    def _tokenize(self, text: str) -> list[str]:
+        """Tokenize text using SudachiPy analyzer."""
+        if not text:
+            return []
+        tokenized = analyzer.tokenize(text)
+        return [t for t in tokenized.split() if len(t) > 1 and t not in STOP_WORDS]
+
+    @staticmethod
+    def _min_should_match(token_count: int) -> int:
+        """Calculate minimum token match threshold for OR fallback."""
+        if token_count <= 2:
+            return token_count
+        if token_count <= 5:
+            return max(2, int(token_count * 0.6))
+        return max(2, int(token_count * 0.5))
+
+    def _find_candidates(
+        self,
+        conn: Any,
+        tokens: list[str],
+        *,
+        site_filter: str | None = None,
+    ) -> set[str]:
+        """
+        Find documents using AND-first strategy with OR fallback.
+
+        1. Try requiring ALL tokens (AND).
+        2. If results < CANDIDATE_LIMIT, relax to min_should_match threshold.
+        Optionally filters by site (URL LIKE '%site%').
+        Only returns URLs that exist in the documents table.
+        """
+        if not tokens:
+            return set()
+
+        placeholders = sql_placeholders(len(tokens))
+        token_count = len(tokens)
+        ph = sql_placeholder()
+
+        # Build optional site filter clause
+        site_clause = ""
+        site_params: tuple = ()
+        if site_filter:
+            site_clause = f" AND d.url LIKE {ph}"
+            site_params = (f"%{site_filter}%",)
+
+        cur = conn.cursor()
+
+        # AND-first: require all tokens
+        cur.execute(
+            f"""
+            SELECT ii.url FROM inverted_index ii
+            JOIN documents d ON d.url = ii.url
+            WHERE ii.token IN ({placeholders}){site_clause}
+            GROUP BY ii.url
+            HAVING COUNT(DISTINCT ii.token) = {ph}
+            ORDER BY SUM(ii.term_freq) DESC
+            LIMIT {self.CANDIDATE_LIMIT}
+            """,
+            (*tokens, *site_params, token_count),
+        )
+        candidates = set(row[0] for row in cur.fetchall())
+
+        # OR fallback if AND yields insufficient results
+        min_match = self._min_should_match(token_count)
+        if len(candidates) < self.CANDIDATE_LIMIT and min_match < token_count:
+            cur.execute(
+                f"""
+                SELECT ii.url FROM inverted_index ii
+                JOIN documents d ON d.url = ii.url
+                WHERE ii.token IN ({placeholders}){site_clause}
+                GROUP BY ii.url
+                HAVING COUNT(DISTINCT ii.token) >= {ph}
+                ORDER BY COUNT(DISTINCT ii.token) DESC, SUM(ii.term_freq) DESC
+                LIMIT {self.CANDIDATE_LIMIT}
+                """,
+                (*tokens, *site_params, min_match),
+            )
+            candidates.update(row[0] for row in cur.fetchall())
+
+        cur.close()
+        return candidates
+
+    def _score_candidates(
+        self,
+        conn: Any,
+        candidates: set[str],
+        tokens: list[str],
+    ) -> list[tuple[str, float]]:
+        """Score candidates using BM25 algorithm (batch query)."""
+        return self.scorer.score_batch(conn, list(candidates), tokens)
+
+    def vector_search(
+        self,
+        query: str,
+        limit: int = 10,
+        page: int = 1,
+    ) -> SearchResult:
+        """
+        Semantic search using vector embeddings.
+
+        Uses pgvector HNSW index on PostgreSQL, falls back to in-memory
+        brute-force on SQLite.
+
+        Args:
+            query: Search query string
+            limit: Number of results per page
+            page: Page number (1-indexed)
+        """
+        if not query or not query.strip():
+            return self._empty_result(query, limit)
+
+        if self._embed_query is None:
+            return self._empty_result(query, limit)
+
+        query_vec = self._embed_query(query)
+
+        if is_postgres_mode():
+            return self._vector_search_pgvector(query, query_vec, limit, page)
+        else:
+            return self._vector_search_memory(query, query_vec, limit, page)
+
+    def _vector_search_pgvector(
+        self,
+        query: str,
+        query_vec: np.ndarray,
+        limit: int,
+        page: int,
+    ) -> SearchResult:
+        """Vector search using pgvector <=> cosine distance operator."""
+        vec_str = to_pgvector(query_vec)
+        offset = (page - 1) * limit
+        # Fetch total count and results in a single connection
+        conn = get_connection(self.db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT COUNT(*) FROM page_embeddings WHERE embedding IS NOT NULL"
+            )
+            total = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                SELECT pe.url, d.title, d.content,
+                       1 - (pe.embedding <=> %s::vector) AS similarity
+                FROM page_embeddings pe
+                JOIN documents d ON d.url = pe.url
+                WHERE pe.embedding IS NOT NULL
+                ORDER BY pe.embedding <=> %s::vector
+                LIMIT %s OFFSET %s
+                """,
+                (vec_str, vec_str, limit, offset),
+            )
+            rows = cur.fetchall()
+            cur.close()
+
+            hits = [
+                SearchHit(url=row[0], title=row[1], content=row[2], score=float(row[3]))
+                for row in rows
+            ]
+
+            last_page = max((total + limit - 1) // limit, 1)
+            return SearchResult(
+                query=query,
+                total=total,
+                hits=hits,
+                page=page,
+                per_page=limit,
+                last_page=last_page,
+            )
+        finally:
+            conn.close()
+
+    def _vector_search_memory(
+        self,
+        query: str,
+        query_vec: np.ndarray,
+        limit: int,
+        page: int,
+    ) -> SearchResult:
+        """In-memory brute-force vector search (SQLite fallback)."""
+        if self._deserialize is None:
+            return self._empty_result(query, limit)
+
+        self._load_vector_cache()
+        if not self._vector_cache:
+            return self._empty_result(query, limit)
+
+        urls = [item[0] for item in self._vector_cache]
+        vectors = np.array([item[1] for item in self._vector_cache])
+
+        norm_q = np.linalg.norm(query_vec)
+        norm_docs = np.linalg.norm(vectors, axis=1)
+        dots = np.dot(vectors, query_vec)
+        sims = dots / (norm_docs * norm_q + 1e-9)
+
+        top_indices = np.argsort(sims)[::-1]
+        total = len(urls)
+        start = (page - 1) * limit
+        end = start + limit
+        slice_indices = top_indices[start:end]
+
+        hits = []
+        if len(slice_indices) > 0:
+            result_urls = [urls[idx] for idx in slice_indices]
+            result_scores = {urls[idx]: float(sims[idx]) for idx in slice_indices}
+
+            conn = get_connection(self.db_path)
+            try:
+                placeholders = sql_placeholders(len(result_urls))
+                cur = conn.cursor()
+                cur.execute(
+                    f"SELECT url, title, content FROM documents WHERE url IN ({placeholders})",
+                    tuple(result_urls),
+                )
+                docs = {row[0]: (row[1], row[2]) for row in cur.fetchall()}
+                cur.close()
+
+                for url in result_urls:
+                    if url in docs:
+                        hits.append(
+                            SearchHit(
+                                url=url,
+                                title=docs[url][0],
+                                content=docs[url][1],
+                                score=result_scores[url],
+                            )
+                        )
+            finally:
+                conn.close()
+
+        last_page = max((total + limit - 1) // limit, 1)
+        return SearchResult(
+            query=query,
+            total=total,
+            hits=hits,
+            page=page,
+            per_page=limit,
+            last_page=last_page,
+        )
+
+    def hybrid_search(
+        self,
+        query: str,
+        limit: int = 10,
+        page: int = 1,
+    ) -> SearchResult:
+        """
+        Hybrid search combining BM25 and Vector using Reciprocal Rank Fusion.
+
+        RRF formula: score = sum(1 / (rrf_k + rank)) for each result list
+
+        Args:
+            query: Search query string
+            limit: Number of results per page
+            page: Page number (1-indexed)
+
+        Returns:
+            SearchResult with hybrid-ranked documents
+        """
+        if not query or not query.strip():
+            return self._empty_result(query, limit)
+
+        # Fetch more results from each method for better fusion
+        fetch_k = limit * 3
+
+        # 1. Get BM25 results
+        bm25_result = self.search(query, limit=fetch_k, page=1)
+        bm25_hits = bm25_result.hits
+
+        # 2. Get Vector results (if available)
+        vector_hits: list[SearchHit] = []
+        if self._embed_query is not None and self._deserialize is not None:
+            vector_result = self.vector_search(query, limit=fetch_k, page=1)
+            vector_hits = vector_result.hits
+
+        # 3. Build RRF scores
+        rrf_scores: dict[str, float] = {}
+        url_data: dict[str, SearchHit] = {}
+
+        # Add BM25 contributions
+        for rank, hit in enumerate(bm25_hits, start=1):
+            rrf_scores[hit.url] = rrf_scores.get(hit.url, 0) + 1.0 / (self.RRF_K + rank)
+            if hit.url not in url_data:
+                url_data[hit.url] = hit
+
+        # Add Vector contributions
+        for rank, hit in enumerate(vector_hits, start=1):
+            rrf_scores[hit.url] = rrf_scores.get(hit.url, 0) + 1.0 / (self.RRF_K + rank)
+            if hit.url not in url_data:
+                url_data[hit.url] = hit
+
+        # 4. Sort by RRF score (higher is better)
+        sorted_urls = sorted(
+            rrf_scores.keys(),
+            key=lambda u: rrf_scores[u],
+            reverse=True,
+        )
+
+        # 5. Paginate
+        total = len(sorted_urls)
+        start = (page - 1) * limit
+        end = start + limit
+        page_urls = sorted_urls[start:end]
+
+        # 6. Build final hits
+        hits = []
+        for url in page_urls:
+            original = url_data[url]
+            hits.append(
+                SearchHit(
+                    url=url,
+                    title=original.title,
+                    content=original.content,
+                    score=rrf_scores[url],
+                )
+            )
+
+        last_page = max((total + limit - 1) // limit, 1)
+
+        return SearchResult(
+            query=query,
+            total=total,
+            hits=hits,
+            page=page,
+            per_page=limit,
+            last_page=last_page,
+        )
+
+    def _load_vector_cache(self) -> None:
+        """Load all embeddings from DB into memory with TTL-based invalidation."""
+        now = time.time()
+        if self._vector_cache is not None and self._vector_cache_loaded_at is not None:
+            if (now - self._vector_cache_loaded_at) < self.CACHE_TTL_SECONDS:
+                return  # Cache still valid
+
+        if self._deserialize is None:
+            self._vector_cache = []
+            return
+
+        conn = get_connection(self.db_path)
+        try:
+            # Check if table exists
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM page_embeddings")
+                cur.close()
+            except Exception:
+                self._vector_cache = []
+                return
+
+            cur = conn.cursor()
+            cur.execute("SELECT url, embedding FROM page_embeddings")
+            rows = cur.fetchall()
+            cur.close()
+
+            cache = []
+            for url, blob in rows:
+                # Handle PostgreSQL memoryview
+                if isinstance(blob, memoryview):
+                    blob = bytes(blob)
+                vec = self._deserialize(blob)
+                cache.append((url, vec))
+
+            self._vector_cache = cache
+            self._vector_cache_loaded_at = time.time()
+
+        finally:
+            conn.close()
+
+    def clear_vector_cache(self) -> None:
+        """Clear the vector cache (call after indexing new documents)."""
+        self._vector_cache = None
+        self._vector_cache_loaded_at = None
+
+    def clear_result_cache(self) -> None:
+        """Clear the search result cache."""
+        self._result_cache.clear()
+
+    def _empty_result(self, query: str, limit: int) -> SearchResult:
+        """Return empty search result."""
+        return SearchResult(
+            query=query,
+            total=0,
+            hits=[],
+            page=1,
+            per_page=limit,
+            last_page=1,
+        )
