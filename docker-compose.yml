@@ -49,6 +49,8 @@ services:
       - INDEXER_SERVICE_URL=http://indexer:8000
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-10}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
     depends_on:
       db-migrate:
         condition: service_completed_successfully

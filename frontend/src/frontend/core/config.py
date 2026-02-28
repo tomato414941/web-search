@@ -71,6 +71,10 @@ class Settings(InfrastructureSettings):
     ALLOWED_HOSTS: str = "localhost,127.0.0.1,testclient,testserver"
     CORS_ORIGINS: str = ""
 
+    # OpenSearch
+    OPENSEARCH_URL: str = "http://opensearch:9200"
+    OPENSEARCH_ENABLED: bool = False
+
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000

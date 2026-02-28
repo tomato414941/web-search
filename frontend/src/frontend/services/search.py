@@ -46,6 +46,21 @@ class SearchService:
             deserialize_func=deserialize_func,
         )
 
+        self._os_client = None
+        if settings.OPENSEARCH_ENABLED:
+            try:
+                from shared.opensearch.client import get_client
+                from shared.opensearch.mapping import ensure_index
+
+                self._os_client = get_client(settings.OPENSEARCH_URL)
+                ensure_index(self._os_client)
+                logger.info("OpenSearch search enabled: %s", settings.OPENSEARCH_URL)
+            except Exception:
+                logger.warning(
+                    "OpenSearch init failed, using PostgreSQL", exc_info=True
+                )
+                self._os_client = None
+
     @property
     def hybrid_available(self) -> bool:
         return self._engine._embed_query is not None
@@ -72,6 +87,18 @@ class SearchService:
     def _bm25_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
         SEARCH_QUERY_TOTAL.labels(mode="bm25").inc()
         t0 = time.monotonic()
+
+        if self._os_client is not None:
+            try:
+                result = self._opensearch_bm25(q, k, page)
+                SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
+                SEARCH_RESULT_COUNT.observe(result.total)
+                return self._format_result(q, result)
+            except Exception:
+                logger.warning(
+                    "OpenSearch BM25 failed, falling back to PG", exc_info=True
+                )
+
         result = self._engine.search(q, limit=k, page=page)
         SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
         SEARCH_RESULT_COUNT.observe(result.total)
@@ -126,6 +153,46 @@ class SearchService:
             "last_page": result.last_page,
             "hits": hits,
         }
+
+    def _opensearch_bm25(self, q: str, k: int, page: int) -> Any:
+        """Execute BM25 search via OpenSearch."""
+        from shared.opensearch.search import search_bm25
+        from shared.search_kernel.searcher import SearchHit, SearchResult, parse_query
+
+        parsed = parse_query(q)
+        tokens = analyzer.tokenize(parsed.text) if parsed.text else ""
+
+        if not tokens.strip():
+            return SearchResult(
+                query=q, total=0, hits=[], page=1, per_page=k, last_page=1
+            )
+
+        offset = (page - 1) * k
+        os_result = search_bm25(
+            self._os_client,
+            query_tokens=tokens,
+            limit=k,
+            offset=offset,
+            site_filter=parsed.site_filter,
+        )
+
+        hits = [
+            SearchHit(
+                url=h["url"], title=h["title"], content=h["content"], score=h["score"]
+            )
+            for h in os_result["hits"]
+        ]
+        total = os_result["total"]
+        last_page = max((total + k - 1) // k, 1)
+
+        return SearchResult(
+            query=q,
+            total=total,
+            hits=hits,
+            page=page,
+            per_page=k,
+            last_page=last_page,
+        )
 
     def get_index_stats(self) -> dict[str, int]:
         """Return index stats: total pages."""
