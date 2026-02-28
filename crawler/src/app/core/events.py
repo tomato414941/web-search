@@ -35,4 +35,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("🛑 Shutting down Crawler Service...")
     await worker_manager.stop(graceful=True)
+
+    from app.db.executor import shutdown_db_executor
+
+    shutdown_db_executor()
     logger.info("✅ Shutdown complete")
