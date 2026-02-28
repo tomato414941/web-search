@@ -77,13 +77,13 @@ def test_inverted_index_table_schema():
             ("http://example.com", "Test", "content"),
         )
         cur.execute(
-            "INSERT INTO inverted_index (token, url, field, term_freq, positions) VALUES (%s, %s, %s, %s, %s)",
-            ("test", "http://example.com", "title", 1, "[0]"),
+            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
+            ("test", "http://example.com", "title", 1),
         )
         conn.commit()
 
         cur.execute(
-            "SELECT token, url, field, term_freq, positions FROM inverted_index WHERE token = %s",
+            "SELECT token, url, field, term_freq FROM inverted_index WHERE token = %s",
             ("test",),
         )
         row = cur.fetchone()
@@ -96,4 +96,3 @@ def test_inverted_index_table_schema():
     assert row[1] == "http://example.com"
     assert row[2] == "title"
     assert row[3] == 1
-    assert row[4] == "[0]"

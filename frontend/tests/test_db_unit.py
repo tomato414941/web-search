@@ -133,8 +133,8 @@ class TestInvertedIndexOperations:
             )
 
             cur.execute(
-                "INSERT INTO inverted_index (token, url, field, term_freq, positions) VALUES (%s, %s, %s, %s, %s)",
-                ("python", "https://example.com/python", "title", 2, "[0, 5]"),
+                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
+                ("python", "https://example.com/python", "title", 2),
             )
             conn.commit()
 

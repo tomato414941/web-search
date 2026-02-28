@@ -4,7 +4,6 @@ Custom Full-Text Search Indexer
 Builds inverted index for fast text search.
 """
 
-import json
 from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
@@ -188,27 +187,18 @@ class SearchIndexer:
 
         ph = sql_placeholder()
 
-        # Calculate term frequency and positions
         freq_map: Counter[str] = Counter(tokens)
-        pos_map: dict[str, list[int]] = {}
 
-        for i, token in enumerate(tokens):
-            if token not in pos_map:
-                pos_map[token] = []
-            pos_map[token].append(i)
-
-        # Insert into inverted index
         cur = conn.cursor()
         for token, freq in freq_map.items():
             cur.execute(
                 f"""
-                INSERT INTO inverted_index (token, url, field, term_freq, positions)
-                VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
+                INSERT INTO inverted_index (token, url, field, term_freq)
+                VALUES ({ph}, {ph}, {ph}, {ph})
                 ON CONFLICT (token, url, field) DO UPDATE SET
-                    term_freq = EXCLUDED.term_freq,
-                    positions = EXCLUDED.positions
+                    term_freq = EXCLUDED.term_freq
                 """,
-                (token, url, field, freq, json.dumps(pos_map[token])),
+                (token, url, field, freq),
             )
         cur.close()
 

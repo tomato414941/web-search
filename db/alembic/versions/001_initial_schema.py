@@ -74,7 +74,6 @@ def upgrade() -> None:
             url TEXT NOT NULL REFERENCES documents(url) ON DELETE CASCADE,
             field TEXT NOT NULL,
             term_freq INTEGER DEFAULT 1,
-            positions TEXT,
             PRIMARY KEY (token, url, field)
         )
     """)
@@ -177,7 +176,7 @@ def upgrade() -> None:
         "ON index_jobs(status, lease_until)"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_index_jobs_created " "ON index_jobs(created_at)"
+        "CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at)"
     )
 
     # -- API Keys --
