@@ -35,19 +35,30 @@ class SearchService:
 
         self._embed_query = embed_query_func
         self._os_client = None
-        if settings.OPENSEARCH_ENABLED:
-            try:
-                from shared.opensearch.client import get_client
-                from shared.opensearch.mapping import ensure_index
+        self._os_enabled = settings.OPENSEARCH_ENABLED
+        if self._os_enabled:
+            self._init_opensearch()
 
-                self._os_client = get_client(settings.OPENSEARCH_URL)
-                ensure_index(self._os_client)
-                logger.info("OpenSearch search enabled: %s", settings.OPENSEARCH_URL)
-            except Exception:
-                logger.warning(
-                    "OpenSearch init failed, search unavailable", exc_info=True
-                )
-                self._os_client = None
+    def _init_opensearch(self) -> None:
+        try:
+            from shared.opensearch.client import get_client
+            from shared.opensearch.mapping import ensure_index
+
+            self._os_client = get_client(settings.OPENSEARCH_URL)
+            ensure_index(self._os_client)
+            logger.info("OpenSearch search enabled: %s", settings.OPENSEARCH_URL)
+        except Exception:
+            logger.warning(
+                "OpenSearch init failed, will retry on next request", exc_info=True
+            )
+            self._os_client = None
+
+    def _get_os_client(self):
+        if self._os_client is not None:
+            return self._os_client
+        if self._os_enabled:
+            self._init_opensearch()
+        return self._os_client
 
     @property
     def hybrid_available(self) -> bool:
@@ -76,7 +87,8 @@ class SearchService:
         SEARCH_QUERY_TOTAL.labels(mode="bm25").inc()
         t0 = time.monotonic()
 
-        if self._os_client is not None:
+        client = self._get_os_client()
+        if client is not None:
             try:
                 result = self._opensearch_bm25(q, k, page)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
@@ -92,7 +104,8 @@ class SearchService:
         SEARCH_QUERY_TOTAL.labels(mode="hybrid").inc()
         t0 = time.monotonic()
 
-        if self._os_client is not None:
+        client = self._get_os_client()
+        if client is not None:
             try:
                 result = self._opensearch_hybrid(q, k, page)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
@@ -156,9 +169,10 @@ class SearchService:
                 query=q, total=0, hits=[], page=1, per_page=k, last_page=1
             )
 
+        client = self._get_os_client()
         offset = (page - 1) * k
         os_result = search_bm25(
-            self._os_client,
+            client,
             query_tokens=tokens,
             limit=k,
             offset=offset,
@@ -205,11 +219,12 @@ class SearchService:
             except Exception:
                 logger.warning("Query embedding failed, using BM25 only", exc_info=True)
 
+        client = self._get_os_client()
         offset = (page - 1) * k
 
         if embedding is not None:
             os_result = search_hybrid(
-                self._os_client,
+                client,
                 query_tokens=tokens,
                 embedding=embedding,
                 limit=k,
@@ -218,7 +233,7 @@ class SearchService:
             )
         else:
             os_result = search_bm25(
-                self._os_client,
+                client,
                 query_tokens=tokens,
                 limit=k,
                 offset=offset,
