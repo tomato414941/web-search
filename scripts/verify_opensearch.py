@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared", "src"))
 
 from shared.opensearch.client import INDEX_NAME, doc_id, get_client
-from shared.postgres.search import get_connection
+from shared.db.search import get_connection
 
 logging.basicConfig(
     level=logging.INFO,

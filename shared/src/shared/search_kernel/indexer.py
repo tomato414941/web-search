@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from shared.search_kernel.analyzer import analyzer, STOP_WORDS
-from shared.postgres.search import get_connection, sql_placeholder
+from shared.db.search import get_connection, sql_placeholder
 
 
 class SearchIndexer:

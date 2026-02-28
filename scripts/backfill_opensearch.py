@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared", "src"
 
 from shared.opensearch.client import bulk_index, get_client
 from shared.opensearch.mapping import ensure_index
-from shared.postgres.search import get_connection
+from shared.db.search import get_connection
 from shared.search_kernel.analyzer import analyzer
 
 logging.basicConfig(

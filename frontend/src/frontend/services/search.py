@@ -126,7 +126,7 @@ class SearchService:
     def _pgvector_search(self, q: str, k: int, page: int) -> Any:
         """Semantic search using pgvector cosine distance."""
         from shared.embedding import to_pgvector
-        from shared.postgres.search import get_connection
+        from shared.db.search import get_connection
         from shared.search_kernel.searcher import SearchHit, SearchResult
 
         if not q or not q.strip() or self._embed_query is None:

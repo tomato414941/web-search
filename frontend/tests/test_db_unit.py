@@ -1,6 +1,6 @@
 """Test PostgreSQL database operations."""
 
-from shared.postgres.search import get_connection
+from shared.db.search import get_connection
 
 
 class TestDatabaseInitialization:

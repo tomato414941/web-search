@@ -29,7 +29,7 @@ def _init_schema():
 @pytest.fixture(autouse=True)
 def _clean_crawler_tables():
     yield
-    from shared.postgres.search import get_connection
+    from shared.db.search import get_connection
 
     conn = get_connection()
     try:

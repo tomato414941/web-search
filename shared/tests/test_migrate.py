@@ -1,7 +1,7 @@
 """Tests for the Alembic migration runner."""
 
 from shared.postgres.migrate import migrate, _get_migration_files
-from shared.postgres.search import get_connection
+from shared.db.search import get_connection
 
 
 class TestGetMigrationFiles:
