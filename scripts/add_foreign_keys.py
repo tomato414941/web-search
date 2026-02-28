@@ -18,7 +18,7 @@ from shared.db.search import get_connection  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 logger = logging.getLogger(__name__)
 
-FK_TABLES = ["inverted_index", "page_embeddings", "page_ranks"]
+FK_TABLES = ["page_embeddings", "page_ranks"]
 FK_CONSTRAINT_PREFIX = "fk_{table}_documents"
 BATCH_SIZE = 10_000
 

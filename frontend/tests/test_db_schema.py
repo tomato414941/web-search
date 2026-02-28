@@ -17,11 +17,8 @@ def test_db_creation():
     finally:
         conn.close()
 
-    # Custom search engine tables
+    # Core tables
     assert "documents" in tables
-    assert "inverted_index" in tables
-    assert "index_stats" in tables
-    assert "token_stats" in tables
 
     # Link graph tables
     assert "links" in tables
@@ -64,35 +61,3 @@ def test_documents_table_schema():
     assert row[1] == "Test Title"
     assert row[2] == "Test Content"
     assert row[3] == 2
-
-
-def test_inverted_index_table_schema():
-    """Verify inverted_index table has correct columns."""
-    conn = get_connection()
-    try:
-        cur = conn.cursor()
-        # Need parent document for FK
-        cur.execute(
-            "INSERT INTO documents (url, title, content) VALUES (%s, %s, %s)",
-            ("http://example.com", "Test", "content"),
-        )
-        cur.execute(
-            "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
-            ("test", "http://example.com", "title", 1),
-        )
-        conn.commit()
-
-        cur.execute(
-            "SELECT token, url, field, term_freq FROM inverted_index WHERE token = %s",
-            ("test",),
-        )
-        row = cur.fetchone()
-        cur.close()
-    finally:
-        conn.close()
-
-    assert row is not None
-    assert row[0] == "test"
-    assert row[1] == "http://example.com"
-    assert row[2] == "title"
-    assert row[3] == 1

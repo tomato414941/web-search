@@ -1,10 +1,10 @@
 """
-Custom Full-Text Search Indexer
+Document Indexer
 
-Builds inverted index for fast text search.
+Writes document metadata to the documents table.
+Search indexing is handled by OpenSearch via dual-write.
 """
 
-from collections import Counter
 from datetime import datetime, timezone
 from typing import Any
 
@@ -13,7 +13,7 @@ from shared.postgres.search import get_connection, sql_placeholder
 
 
 class SearchIndexer:
-    """Builds and maintains the inverted index."""
+    """Indexes documents into the documents table."""
 
     def __init__(self, db_path: str):
         self.db_path = db_path
@@ -25,8 +25,7 @@ class SearchIndexer:
         content: str,
         conn: Any | None = None,
     ) -> None:
-        """
-        Index a document into the custom search engine.
+        """Index a document into the documents table.
 
         Args:
             url: Document URL (primary key)
@@ -41,11 +40,8 @@ class SearchIndexer:
         ph = sql_placeholder()
 
         try:
-            # 1. Tokenize title and content
-            title_tokens = self._tokenize(title)
             content_tokens = self._tokenize(content)
 
-            # 2. Store document metadata
             now = datetime.now(timezone.utc).isoformat()
             cur = conn.cursor()
             cur.execute(
@@ -62,83 +58,6 @@ class SearchIndexer:
             )
             cur.close()
 
-            # 3. Get tokens from old version (for incremental stats update)
-            cur = conn.cursor()
-            cur.execute(
-                f"SELECT DISTINCT token FROM inverted_index WHERE url = {ph}",
-                (url,),
-            )
-            old_tokens: set[str] = {row[0] for row in cur.fetchall()}
-
-            # Clear existing index entries for this document
-            cur.execute(f"DELETE FROM inverted_index WHERE url = {ph}", (url,))
-            cur.close()
-
-            # 4. Build inverted index for title
-            self._index_field(conn, url, "title", title_tokens)
-
-            # 5. Build inverted index for content
-            self._index_field(conn, url, "content", content_tokens)
-
-            # 6. Update token statistics (incremental)
-            self._update_token_stats_incremental(
-                conn, title_tokens + content_tokens, old_tokens
-            )
-
-            if should_close:
-                conn.commit()
-
-        finally:
-            if should_close:
-                conn.close()
-
-    def update_global_stats(self, conn: Any | None = None) -> None:
-        """
-        Update global index statistics (total docs, avg doc length).
-        Uses pg_class.reltuples for fast approximate counts in PostgreSQL.
-        """
-        should_close = conn is None
-        if conn is None:
-            conn = get_connection(self.db_path)
-
-        ph = sql_placeholder()
-
-        try:
-            cur = conn.cursor()
-
-            # Fast approximate count via pg_class (fall back to COUNT if stale)
-            cur.execute(
-                "SELECT reltuples::BIGINT FROM pg_class WHERE relname = 'documents'"
-            )
-            row = cur.fetchone()
-            total_docs = max(int(row[0]), 0) if row else 0
-
-            if total_docs == 0:
-                # reltuples may be stale (e.g. before first ANALYZE); use exact count
-                cur.execute("SELECT COUNT(*) FROM documents")
-                total_docs = cur.fetchone()[0]
-
-            cur.execute("SELECT AVG(word_count) FROM documents")
-            avg_length = cur.fetchone()[0] or 0.0
-
-            # Upsert stats
-            cur.execute(
-                f"""
-                INSERT INTO index_stats (key, value) VALUES ({ph}, {ph})
-                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-                """,
-                ("total_docs", float(total_docs)),
-            )
-            cur.execute(
-                f"""
-                INSERT INTO index_stats (key, value) VALUES ({ph}, {ph})
-                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-                """,
-                ("avg_doc_length", avg_length),
-            )
-
-            cur.close()
-
             if should_close:
                 conn.commit()
 
@@ -147,7 +66,7 @@ class SearchIndexer:
                 conn.close()
 
     def delete_document(self, url: str, conn: Any | None = None) -> None:
-        """Remove a document from the index."""
+        """Remove a document from the database."""
         should_close = conn is None
         if conn is None:
             conn = get_connection(self.db_path)
@@ -157,7 +76,6 @@ class SearchIndexer:
         try:
             cur = conn.cursor()
             cur.execute(f"DELETE FROM documents WHERE url = {ph}", (url,))
-            cur.execute(f"DELETE FROM inverted_index WHERE url = {ph}", (url,))
             cur.close()
 
             if should_close:
@@ -173,71 +91,3 @@ class SearchIndexer:
             return []
         tokenized = analyzer.tokenize(text)
         return [t for t in tokenized.split() if len(t) > 1 and t not in STOP_WORDS]
-
-    def _index_field(
-        self,
-        conn: Any,
-        url: str,
-        field: str,
-        tokens: list[str],
-    ) -> None:
-        """Build inverted index entries for a field."""
-        if not tokens:
-            return
-
-        ph = sql_placeholder()
-
-        freq_map: Counter[str] = Counter(tokens)
-
-        cur = conn.cursor()
-        for token, freq in freq_map.items():
-            cur.execute(
-                f"""
-                INSERT INTO inverted_index (token, url, field, term_freq)
-                VALUES ({ph}, {ph}, {ph}, {ph})
-                ON CONFLICT (token, url, field) DO UPDATE SET
-                    term_freq = EXCLUDED.term_freq
-                """,
-                (token, url, field, freq),
-            )
-        cur.close()
-
-    def _update_token_stats_incremental(
-        self,
-        conn: Any,
-        tokens: list[str],
-        old_tokens: set[str],
-    ) -> None:
-        """Incrementally update doc_freq: +1 for new tokens, -1 for removed tokens."""
-        new_tokens = set(tokens)
-        if not new_tokens and not old_tokens:
-            return
-
-        cur = conn.cursor()
-        try:
-            # Tokens added in this document (need +1)
-            added = sorted(new_tokens - old_tokens)
-            # Tokens removed from this document (need -1)
-            removed = sorted(old_tokens - new_tokens)
-
-            if added:
-                cur.execute(
-                    """
-                    INSERT INTO token_stats (token, doc_freq)
-                    SELECT unnest(%s::text[]), 1
-                    ON CONFLICT (token) DO UPDATE SET
-                        doc_freq = token_stats.doc_freq + 1
-                    """,
-                    (added,),
-                )
-
-            if removed:
-                cur.execute(
-                    """
-                    UPDATE token_stats SET doc_freq = GREATEST(doc_freq - 1, 0)
-                    WHERE token = ANY(%s::text[])
-                    """,
-                    (removed,),
-                )
-        finally:
-            cur.close()

@@ -22,11 +22,8 @@ class TestDatabaseInitialization:
         finally:
             conn.close()
 
-        # Custom search tables
+        # Core tables
         assert "documents" in tables
-        assert "inverted_index" in tables
-        assert "index_stats" in tables
-        assert "token_stats" in tables
 
         # Other tables
         assert "links" in tables
@@ -115,76 +112,3 @@ class TestDocumentOperations:
 
         assert count == 1
         assert title == "Updated"
-
-
-class TestInvertedIndexOperations:
-    """Test inverted index operations."""
-
-    def test_insert_index_entry(self):
-        """Index entries can be inserted."""
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-
-            # Need a document first (foreign key)
-            cur.execute(
-                "INSERT INTO documents (url, title, content) VALUES (%s, %s, %s)",
-                ("https://example.com/python", "Python", "content"),
-            )
-
-            cur.execute(
-                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
-                ("python", "https://example.com/python", "title", 2),
-            )
-            conn.commit()
-
-            cur.execute(
-                "SELECT url, term_freq FROM inverted_index WHERE token = %s",
-                ("python",),
-            )
-            result = cur.fetchone()
-            cur.close()
-        finally:
-            conn.close()
-
-        assert result is not None
-        assert result[0] == "https://example.com/python"
-        assert result[1] == 2
-
-    def test_multiple_documents_same_token(self):
-        """Multiple documents can share the same token."""
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-
-            # Insert parent documents first (foreign key)
-            for i in range(1, 4):
-                cur.execute(
-                    "INSERT INTO documents (url, title, content) VALUES (%s, %s, %s)",
-                    (f"https://example.com/{i}", "Test", "content"),
-                )
-
-            # Insert multiple entries for same token
-            cur.execute(
-                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
-                ("programming", "https://example.com/1", "content", 3),
-            )
-            cur.execute(
-                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
-                ("programming", "https://example.com/2", "content", 1),
-            )
-            cur.execute(
-                "INSERT INTO inverted_index (token, url, field, term_freq) VALUES (%s, %s, %s, %s)",
-                ("programming", "https://example.com/3", "title", 1),
-            )
-            conn.commit()
-
-            cur.execute(
-                "SELECT COUNT(*) FROM inverted_index WHERE token = %s", ("programming",)
-            )
-            count = cur.fetchone()[0]
-            cur.close()
-        finally:
-            conn.close()
-
-        assert count == 3

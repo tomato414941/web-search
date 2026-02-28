@@ -1,8 +1,7 @@
-"""Indexer Service - handles page indexing with custom search engine and embeddings."""
+"""Indexer Service - handles page indexing and embeddings."""
 
 import asyncio
 import logging
-import os
 
 from app.core.config import settings
 from shared.db.search import get_connection, sql_placeholder
@@ -27,9 +26,6 @@ def _get_opensearch_client():
     return _os_client
 
 
-STATS_UPDATE_INTERVAL = int(os.getenv("STATS_UPDATE_INTERVAL", "10000"))
-
-
 def _sanitize_text(value: str) -> str:
     return value.replace("\x00", " ")
 
@@ -49,8 +45,6 @@ class IndexerService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
         self.search_indexer = SearchIndexer(db_path)
-        self._pages_since_stats_update = 0
-        self._stats_update_interval = STATS_UPDATE_INTERVAL
 
     async def index_page(
         self,
@@ -72,17 +66,12 @@ class IndexerService:
 
         conn = get_connection(self.db_path)
         try:
-            # Index using custom search engine (inverted index)
+            # Write document metadata to documents table
             self.search_indexer.index_document(url, safe_title, safe_content, conn)
 
             # Save outlinks to link graph (always call to clear stale links)
             self._save_links(conn, url, safe_outlinks)
 
-            # Update global stats periodically (every N pages)
-            self._pages_since_stats_update += 1
-            if self._pages_since_stats_update >= self._stats_update_interval:
-                self.search_indexer.update_global_stats(conn)
-                self._pages_since_stats_update = 0
             conn.commit()
         except Exception as e:
             conn.rollback()

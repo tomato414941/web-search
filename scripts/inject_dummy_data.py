@@ -114,9 +114,6 @@ def inject_data(count: int = 50, db_path: str | None = None):
             con,
         )
 
-        # Update global stats for BM25
-        indexer.update_global_stats(con)
-
         con.commit()
         print("Injection complete.")
     finally:

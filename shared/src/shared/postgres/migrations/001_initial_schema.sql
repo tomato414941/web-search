@@ -38,27 +38,6 @@ CREATE TABLE IF NOT EXISTS page_embeddings (
 CREATE INDEX IF NOT EXISTS idx_page_embeddings_hnsw
   ON page_embeddings USING hnsw (embedding vector_cosine_ops);
 
-CREATE TABLE IF NOT EXISTS inverted_index (
-  token TEXT NOT NULL,
-  url TEXT NOT NULL REFERENCES documents(url) ON DELETE CASCADE,
-  field TEXT NOT NULL,
-  term_freq INTEGER DEFAULT 1,
-  positions TEXT,
-  PRIMARY KEY (token, url, field)
-);
-CREATE INDEX IF NOT EXISTS idx_inverted_token ON inverted_index(token);
-CREATE INDEX IF NOT EXISTS idx_inverted_url ON inverted_index(url);
-
-CREATE TABLE IF NOT EXISTS index_stats (
-  key TEXT PRIMARY KEY,
-  value REAL
-);
-
-CREATE TABLE IF NOT EXISTS token_stats (
-  token TEXT PRIMARY KEY,
-  doc_freq INTEGER DEFAULT 0
-);
-
 -- Search Analytics
 CREATE TABLE IF NOT EXISTS search_logs (
   id SERIAL PRIMARY KEY,

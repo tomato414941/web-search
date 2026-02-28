@@ -70,7 +70,7 @@ class TestHybridFallbackOnError:
         def raise_error(*a, **kw):
             raise RuntimeError("OpenAI API error")
 
-        monkeypatch.setattr(search_service._engine, "hybrid_search", raise_error)
+        monkeypatch.setattr(search_service, "_opensearch_hybrid", raise_error)
 
         result = search_service.search("test", mode="hybrid")
         assert isinstance(result, dict)

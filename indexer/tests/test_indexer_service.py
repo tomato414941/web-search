@@ -41,16 +41,10 @@ class _DummyIndexer:
     def index_document(self, _url, _title, _content, _conn):
         return None
 
-    def update_global_stats(self, _conn):
-        return None
-
 
 class _FailingIndexer:
     def index_document(self, _url, _title, _content, _conn):
         raise RuntimeError("index failed")
-
-    def update_global_stats(self, _conn):
-        return None
 
 
 @pytest.mark.asyncio
