@@ -11,7 +11,6 @@ from typing import Callable
 
 import numpy as np
 
-from shared.search_kernel.analyzer import analyzer, STOP_WORDS
 from shared.postgres.search import get_connection
 from shared.embedding import to_pgvector
 
@@ -139,13 +138,6 @@ class SearchEngine:
             )
         finally:
             conn.close()
-
-    def _tokenize(self, text: str) -> list[str]:
-        """Tokenize text using SudachiPy analyzer."""
-        if not text:
-            return []
-        tokenized = analyzer.tokenize(text)
-        return [t for t in tokenized.split() if len(t) > 1 and t not in STOP_WORDS]
 
     def _empty_result(self, query: str, limit: int) -> SearchResult:
         """Return empty search result."""
