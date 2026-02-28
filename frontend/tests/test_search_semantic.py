@@ -86,7 +86,7 @@ class TestHybridFallbackOnError:
         def raise_error(*a, **kw):
             raise RuntimeError("OpenAI API error")
 
-        monkeypatch.setattr(search_service._engine, "vector_search", raise_error)
+        monkeypatch.setattr(search_service, "_pgvector_search", raise_error)
 
         result = search_service.search("test", mode="semantic")
         assert isinstance(result, dict)

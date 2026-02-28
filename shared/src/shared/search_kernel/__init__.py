@@ -1,11 +1,10 @@
-"""Search kernel: vector search, indexing, analysis, and ranking."""
+"""Search kernel: indexing, analysis, and ranking."""
 
 from shared.search_kernel.indexer import SearchIndexer
-from shared.search_kernel.searcher import SearchEngine, SearchHit, SearchResult
+from shared.search_kernel.searcher import SearchHit, SearchResult
 from shared.search_kernel.snippet import generate_snippet, Snippet
 
 __all__ = [
-    "SearchEngine",
     "SearchHit",
     "SearchIndexer",
     "SearchResult",

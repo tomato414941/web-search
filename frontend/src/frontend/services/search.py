@@ -18,7 +18,6 @@ from frontend.core.config import settings
 from frontend.services.embedding import embed_query_func
 from shared.analyzer import analyzer
 from shared.contracts.enums import SearchMode
-from shared.search_kernel.searcher import SearchEngine
 from shared.search_kernel.snippet import generate_snippet
 
 logger = logging.getLogger(__name__)
@@ -27,12 +26,6 @@ logger = logging.getLogger(__name__)
 class SearchService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
-
-        self._engine = SearchEngine(
-            db_path=db_path,
-            embed_query_func=embed_query_func,
-        )
-
         self._embed_query = embed_query_func
         self._os_client = None
         self._os_enabled = settings.OPENSEARCH_ENABLED
@@ -122,13 +115,64 @@ class SearchService:
         SEARCH_QUERY_TOTAL.labels(mode="semantic").inc()
         t0 = time.monotonic()
         try:
-            result = self._engine.vector_search(q, limit=k, page=page)
+            result = self._pgvector_search(q, k, page)
         except Exception:
             logger.warning("Vector search failed, falling back to BM25", exc_info=True)
             return self._bm25_search(q, k, page)
         SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
         SEARCH_RESULT_COUNT.observe(result.total)
         return self._format_result(q, result)
+
+    def _pgvector_search(self, q: str, k: int, page: int) -> Any:
+        """Semantic search using pgvector cosine distance."""
+        from shared.embedding import to_pgvector
+        from shared.postgres.search import get_connection
+        from shared.search_kernel.searcher import SearchHit, SearchResult
+
+        if not q or not q.strip() or self._embed_query is None:
+            return SearchResult(
+                query=q, total=0, hits=[], page=1, per_page=k, last_page=1
+            )
+
+        query_vec = self._embed_query(q)
+        vec_str = to_pgvector(query_vec)
+        offset = (page - 1) * k
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT COUNT(*) FROM page_embeddings WHERE embedding IS NOT NULL"
+            )
+            total = cur.fetchone()[0]
+            cur.execute(
+                """
+                SELECT pe.url, d.title, d.content,
+                       1 - (pe.embedding <=> %s::vector) AS similarity
+                FROM page_embeddings pe
+                JOIN documents d ON d.url = pe.url
+                WHERE pe.embedding IS NOT NULL
+                ORDER BY pe.embedding <=> %s::vector
+                LIMIT %s OFFSET %s
+                """,
+                (vec_str, vec_str, k, offset),
+            )
+            rows = cur.fetchall()
+            cur.close()
+            hits = [
+                SearchHit(url=r[0], title=r[1], content=r[2], score=float(r[3]))
+                for r in rows
+            ]
+            last_page = max((total + k - 1) // k, 1)
+            return SearchResult(
+                query=q,
+                total=total,
+                hits=hits,
+                page=page,
+                per_page=k,
+                last_page=last_page,
+            )
+        finally:
+            conn.close()
 
     def _format_result(self, q: str, result: Any) -> dict[str, Any]:
         analyzed_q = analyzer.tokenize(q)
