@@ -6,6 +6,7 @@ Manages crawl queue operations using UrlStore.
 
 import logging
 
+from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore, get_domain
 from app.core.config import settings
 from app.domain.scoring import MANUAL_CRAWL_BOOST, get_domain_rank, seed_score
@@ -61,7 +62,7 @@ class QueueService:
                 (url, seed_score(domain_pagerank=dr, boost=MANUAL_CRAWL_BOOST))
             )
 
-        count = self.url_store.add_batch_scored(scored)
+        count = await run_in_db_executor(self.url_store.add_batch_scored, scored)
         logger.info(f"Queued {count}/{len(urls)} URLs (manual crawl)")
         return count
 

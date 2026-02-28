@@ -7,6 +7,8 @@ Crawl history viewing endpoints.
 from fastapi import APIRouter, Query
 from typing import Optional
 
+from app.db.executor import run_in_db_executor
+
 router = APIRouter()
 
 
@@ -25,8 +27,6 @@ async def get_crawl_history(
     from app.utils.history import get_recent_history, get_url_history
 
     if url:
-        # Get history for specific URL
-        return get_url_history(url, limit=limit)
+        return await run_in_db_executor(get_url_history, url, limit)
     else:
-        # Get recent history
-        return get_recent_history(limit=limit)
+        return await run_in_db_executor(get_recent_history, limit)

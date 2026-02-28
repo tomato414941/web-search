@@ -4,9 +4,11 @@ Stats Router
 Aggregated crawler statistics endpoint for dashboard consumption.
 """
 
+import asyncio
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
+from app.db.executor import run_in_db_executor
 from app.workers.manager import worker_manager
 from app.services.queue import QueueService
 from app.api.deps import get_queue_service
@@ -24,9 +26,21 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
         get_status_counts,
     )
 
-    queue_stats = queue_service.get_stats()
-    worker_status = await worker_manager.get_status()
-    status_counts = get_status_counts(hours=1)
+    (
+        queue_stats,
+        worker_status,
+        status_counts,
+        crawl_rate,
+        error_count,
+        recent_errors,
+    ) = await asyncio.gather(
+        run_in_db_executor(queue_service.get_stats),
+        worker_manager.get_status(),
+        run_in_db_executor(get_status_counts, 1),
+        run_in_db_executor(get_crawl_rate, 1),
+        run_in_db_executor(get_error_count, 1),
+        run_in_db_executor(get_recent_errors, 5),
+    )
     attempts_count = sum(status_counts.values())
     indexed_count = status_counts.get("indexed", 0) + status_counts.get(
         "queued_for_index", 0
@@ -36,12 +50,12 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
     )
 
     return {
-        "crawl_rate_1h": get_crawl_rate(hours=1),
+        "crawl_rate_1h": crawl_rate,
         "attempts_count_1h": attempts_count,
         "indexed_count_1h": indexed_count,
         "success_rate_1h": success_rate,
-        "error_count_1h": get_error_count(hours=1),
-        "recent_errors": get_recent_errors(limit=5),
+        "error_count_1h": error_count,
+        "recent_errors": recent_errors,
         "queue_size": queue_stats.get("queue_size", 0),
         "active_seen": queue_stats.get("active_seen", 0),
         "worker_status": worker_status.status,
@@ -62,15 +76,29 @@ async def get_frontier_stats(
     )
 
     url_store = queue_service.url_store
-    stats = url_store.get_stats()
+    (
+        stats,
+        pending_domains,
+        done_domains,
+        robots_blocked,
+        failure_domains,
+        stale_count,
+    ) = await asyncio.gather(
+        run_in_db_executor(url_store.get_stats),
+        run_in_db_executor(url_store.get_pending_domains, 15),
+        run_in_db_executor(url_store.get_domains, 15),
+        run_in_db_executor(get_robots_blocked_domains_with_counts, 24, 3),
+        run_in_db_executor(get_high_failure_domains, 24, 5),
+        run_in_db_executor(url_store.get_stale_url_count),
+    )
 
     return {
         "url_stats": stats,
-        "pending_domains": url_store.get_pending_domains(15),
-        "done_domains": url_store.get_domains(15),
-        "robots_blocked": get_robots_blocked_domains_with_counts(hours=24, min_count=3),
-        "failure_domains": get_high_failure_domains(hours=24, min_count=5),
-        "stale_count": url_store.get_stale_url_count(),
+        "pending_domains": pending_domains,
+        "done_domains": done_domains,
+        "robots_blocked": robots_blocked,
+        "failure_domains": failure_domains,
+        "stale_count": stale_count,
     }
 
 
@@ -83,7 +111,7 @@ async def get_status_breakdown(
     """Status breakdown of crawl attempts."""
     from app.utils.history import get_status_counts
 
-    status_counts = get_status_counts(hours=hours)
+    status_counts = await run_in_db_executor(get_status_counts, hours)
     total = sum(status_counts.values())
 
     indexed = status_counts.get("indexed", 0) + status_counts.get("queued_for_index", 0)
