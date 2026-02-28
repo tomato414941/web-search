@@ -13,7 +13,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared", "src"))
 
 from shared.db.search import open_db
-from shared.search import SearchIndexer
+from shared.search_kernel.indexer import SearchIndexer
 
 # Default DB path (can be overridden via environment)
 DEFAULT_DB_PATH = os.path.join(

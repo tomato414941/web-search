@@ -6,7 +6,7 @@ import logging
 from app.core.config import settings
 from shared.db.search import get_connection, sql_placeholder
 from shared.embedding import deserialize, to_pgvector
-from shared.search import SearchIndexer
+from shared.search_kernel.indexer import SearchIndexer
 from app.services.embedding import embedding_service
 
 logger = logging.getLogger(__name__)

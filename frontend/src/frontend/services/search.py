@@ -18,8 +18,8 @@ from frontend.core.config import settings
 from frontend.services.embedding import embed_query_func
 from shared.analyzer import analyzer
 from shared.contracts.enums import SearchMode
-from shared.search import SearchEngine
-from shared.search.snippet import generate_snippet
+from shared.search_kernel.searcher import SearchEngine
+from shared.search_kernel.snippet import generate_snippet
 
 logger = logging.getLogger(__name__)
 
