@@ -12,6 +12,7 @@ import aiohttp
 from cachetools import TTLCache
 
 from app.core.blocklist import is_domain_blocked, load_domain_blocklist
+from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore, get_domain
 from app.scheduler import Scheduler, SchedulerConfig
 from app.domain.scoring import (
@@ -85,37 +86,47 @@ async def process_url(
     try:
         # 0. Check static + dynamic blocklist (skip before any network I/O)
         if is_domain_blocked(domain, state.blocked_domains):
-            history_log.log_crawl_attempt(
-                url, CrawlAttemptStatus.BLOCKED, error_message="Domain blocklisted"
+            await run_in_db_executor(
+                history_log.log_crawl_attempt,
+                url,
+                CrawlAttemptStatus.BLOCKED,
+                error_message="Domain blocklisted",
             )
-            url_store.record(url, status=CrawlUrlStatus.FAILED)
+            await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
             return
 
         if len(url) > MAX_URL_LENGTH:
-            history_log.log_crawl_attempt(
+            await run_in_db_executor(
+                history_log.log_crawl_attempt,
                 url,
                 CrawlAttemptStatus.SKIPPED,
                 error_message=f"URL too long: {len(url)} > {MAX_URL_LENGTH}",
             )
-            url_store.record(url, status=CrawlUrlStatus.FAILED)
+            await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
             return
 
         # 1. Check robots.txt
         if not await robots.can_fetch(url, settings.CRAWL_USER_AGENT):
             logger.info(f"Blocked by robots.txt: {url}")
-            history_log.log_crawl_attempt(
-                url, CrawlAttemptStatus.BLOCKED, error_message="Blocked by robots.txt"
+            await run_in_db_executor(
+                history_log.log_crawl_attempt,
+                url,
+                CrawlAttemptStatus.BLOCKED,
+                error_message="Blocked by robots.txt",
             )
-            url_store.record(url, status=CrawlUrlStatus.FAILED)
+            await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
             return
 
         # SSRF check: resolve hostname and block private IPs
         if await resolve_is_private_async(domain):
             logger.warning(f"SSRF blocked: {url} resolves to private IP")
-            history_log.log_crawl_attempt(
-                url, CrawlAttemptStatus.BLOCKED, error_message="SSRF: private IP"
+            await run_in_db_executor(
+                history_log.log_crawl_attempt,
+                url,
+                CrawlAttemptStatus.BLOCKED,
+                error_message="SSRF: private IP",
             )
-            url_store.record(url, status=CrawlUrlStatus.FAILED)
+            await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
             return
 
         # Apply Crawl-delay from robots.txt
@@ -137,13 +148,16 @@ async def process_url(
                         logger.warning(
                             f"Response too large ({content_length} bytes): {url}"
                         )
-                        history_log.log_crawl_attempt(
+                        await run_in_db_executor(
+                            history_log.log_crawl_attempt,
                             url,
                             CrawlAttemptStatus.SKIPPED,
                             resp.status,
                             f"Response too large: {content_length} bytes",
                         )
-                        url_store.record(url, status=CrawlUrlStatus.FAILED)
+                        await run_in_db_executor(
+                            url_store.record, url, CrawlUrlStatus.FAILED
+                        )
                         return
                 except ValueError:
                     pass
@@ -155,13 +169,16 @@ async def process_url(
                     logger.warning(
                         f"Response truncated at {MAX_RESPONSE_SIZE} bytes: {url}"
                     )
-                    history_log.log_crawl_attempt(
+                    await run_in_db_executor(
+                        history_log.log_crawl_attempt,
                         url,
                         CrawlAttemptStatus.SKIPPED,
                         resp.status,
                         f"Response truncated at {MAX_RESPONSE_SIZE} bytes",
                     )
-                    url_store.record(url, status=CrawlUrlStatus.FAILED)
+                    await run_in_db_executor(
+                        url_store.record, url, CrawlUrlStatus.FAILED
+                    )
                     return
 
                 html = body.decode("utf-8", errors="replace")
@@ -190,7 +207,8 @@ async def process_url(
                     if indexer_result.ok:
                         # Clear retry count on success
                         state.retry_counts.pop(url, None)
-                        history_log.log_crawl_attempt(
+                        await run_in_db_executor(
+                            history_log.log_crawl_attempt,
                             url,
                             CrawlAttemptStatus.QUEUED_FOR_INDEX,
                             indexer_result.status_code or 202,
@@ -200,25 +218,34 @@ async def process_url(
                                 else None
                             ),
                         )
-                        url_store.record(url, status=CrawlUrlStatus.DONE)
+                        await run_in_db_executor(
+                            url_store.record, url, CrawlUrlStatus.DONE
+                        )
                     else:
                         http_code = indexer_result.status_code or 500
                         error_message = (
                             indexer_result.detail
                             or f"Indexer API rejected ({http_code})"
                         )
-                        history_log.log_crawl_attempt(
+                        await run_in_db_executor(
+                            history_log.log_crawl_attempt,
                             url,
                             CrawlAttemptStatus.INDEXER_ERROR,
                             http_code,
                             error_message,
                         )
-                        url_store.record(url, status=CrawlUrlStatus.FAILED)
+                        await run_in_db_executor(
+                            url_store.record, url, CrawlUrlStatus.FAILED
+                        )
                 else:
-                    history_log.log_crawl_attempt(
-                        url, CrawlAttemptStatus.SKIPPED, 200, "No main content found"
+                    await run_in_db_executor(
+                        history_log.log_crawl_attempt,
+                        url,
+                        CrawlAttemptStatus.SKIPPED,
+                        200,
+                        "No main content found",
                     )
-                    url_store.record(url, status=CrawlUrlStatus.DONE)
+                    await run_in_db_executor(url_store.record, url, CrawlUrlStatus.DONE)
 
                 # 6. Enqueue discovered links (batch insert)
                 if discovered:
@@ -229,8 +256,9 @@ async def process_url(
                         if get_domain(u) not in state.domain_cache
                     }
                     if uncached_domains:
-                        counts = url_store.domain_done_count_batch(
-                            list(uncached_domains)
+                        counts = await run_in_db_executor(
+                            url_store.domain_done_count_batch,
+                            list(uncached_domains),
                         )
                         for d in uncached_domains:
                             state.domain_cache[d] = counts.get(d, 0)
@@ -247,19 +275,20 @@ async def process_url(
                         )
                         scored_items.append((new_url, score))
 
-                    url_store.add_batch_scored(scored_items)
+                    await run_in_db_executor(url_store.add_batch_scored, scored_items)
                     logger.debug(
                         f"Enqueued links from {url} ({len(discovered)} discovered)"
                     )
 
             elif resp.status == 200:
-                history_log.log_crawl_attempt(
+                await run_in_db_executor(
+                    history_log.log_crawl_attempt,
                     url,
                     CrawlAttemptStatus.SKIPPED,
                     resp.status,
                     _non_html_reason(ct),
                 )
-                url_store.record(url, status=CrawlUrlStatus.DONE)
+                await run_in_db_executor(url_store.record, url, CrawlUrlStatus.DONE)
 
             elif resp.status in (429, 500, 502, 503, 504):
                 # Retryable errors
@@ -276,10 +305,14 @@ async def process_url(
             else:
                 # Other HTTP errors (404, etc)
                 logger.warning(f"HTTP error {resp.status} for {url}")
-                history_log.log_crawl_attempt(
-                    url, CrawlAttemptStatus.HTTP_ERROR, resp.status, "HTTP Error"
+                await run_in_db_executor(
+                    history_log.log_crawl_attempt,
+                    url,
+                    CrawlAttemptStatus.HTTP_ERROR,
+                    resp.status,
+                    "HTTP Error",
                 )
-                url_store.record(url, status=CrawlUrlStatus.FAILED)
+                await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
 
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         host_error = True
@@ -289,10 +322,13 @@ async def process_url(
     except Exception as e:
         host_error = True
         logger.error(f"Unexpected error processing {url}: {e}", exc_info=True)
-        history_log.log_crawl_attempt(
-            url, CrawlAttemptStatus.UNKNOWN_ERROR, error_message=str(e)
+        await run_in_db_executor(
+            history_log.log_crawl_attempt,
+            url,
+            CrawlAttemptStatus.UNKNOWN_ERROR,
+            error_message=str(e),
         )
-        url_store.record(url, status=CrawlUrlStatus.FAILED)
+        await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
 
     finally:
         # Always record completion for rate limiting
@@ -312,18 +348,20 @@ async def _handle_retry(
 
     if retry_count >= MAX_RETRIES:
         logger.warning(f"Moving to failed after {retry_count} retries: {url}")
-        history_log.log_crawl_attempt(
+        await run_in_db_executor(
+            history_log.log_crawl_attempt,
             url,
             CrawlAttemptStatus.DEAD_LETTER,
             error_message=f"Max retries ({MAX_RETRIES}) exceeded: {error}",
         )
-        url_store.record(url, status=CrawlUrlStatus.FAILED)
+        await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
         runtime_state.retry_counts.pop(url, None)
     else:
         # Re-add to url_store as pending with lower priority
         new_priority = max(priority - 5.0, -100.0)
-        url_store.add(url, priority=new_priority)
-        history_log.log_crawl_attempt(
+        await run_in_db_executor(url_store.add, url, new_priority)
+        await run_in_db_executor(
+            history_log.log_crawl_attempt,
             url,
             CrawlAttemptStatus.RETRY_LATER,
             error_message=f"{error} (retry {retry_count}/{MAX_RETRIES})",
@@ -349,10 +387,10 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     logger.info(f"Worker loop started with concurrency={concurrency}")
 
     # Initialize history log database
-    history_log.init_db()
+    await run_in_db_executor(history_log.init_db)
 
     # Load domain PageRank cache (best-effort, empty if no data yet)
-    load_domain_rank_cache(settings.DB_PATH)
+    await run_in_db_executor(load_domain_rank_cache, settings.DB_PATH)
     domain_rank_refreshed_at = time.monotonic()
 
     # Initialize UrlStore
@@ -361,7 +399,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     )
 
     # Recover stale crawling URLs from previous crash
-    recovered = url_store.recover_stale_crawling()
+    recovered = await run_in_db_executor(url_store.recover_stale_crawling)
     if recovered:
         logger.info(f"Recovered {recovered} stale crawling URLs back to pending")
 
@@ -380,7 +418,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
 
     # Layer 3: Purge existing pending URLs from blocked domains
     if static_blocklist:
-        purged = url_store.purge_blocked_domains(static_blocklist)
+        purged = await run_in_db_executor(
+            url_store.purge_blocked_domains, static_blocklist
+        )
         if purged:
             logger.info("Purged %d pending URLs from blocked domains", purged)
 
@@ -437,7 +477,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     > DOMAIN_RANK_REFRESH_SECS
                 ):
                     old_count = domain_rank_cache_size()
-                    load_domain_rank_cache(settings.DB_PATH)
+                    await run_in_db_executor(load_domain_rank_cache, settings.DB_PATH)
                     domain_rank_refreshed_at = time.monotonic()
                     logger.info(
                         "Refreshed domain rank cache: %d -> %d entries",
@@ -450,11 +490,10 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     time.monotonic() - robots_block_refreshed_at
                     > ROBOTS_BLOCK_REFRESH_SECS
                 ):
-                    runtime_state.robots_blocked_domains = (
-                        history_log.get_robots_blocked_domains(
-                            hours=settings.CRAWL_ROBOTS_BLOCK_WINDOW_HOURS,
-                            min_count=settings.CRAWL_ROBOTS_BLOCK_MIN_COUNT,
-                        )
+                    runtime_state.robots_blocked_domains = await run_in_db_executor(
+                        history_log.get_robots_blocked_domains,
+                        hours=settings.CRAWL_ROBOTS_BLOCK_WINDOW_HOURS,
+                        min_count=settings.CRAWL_ROBOTS_BLOCK_MIN_COUNT,
                     )
                     # Combine static blocklist + dynamic robots-blocked
                     dynamic_blocked = frozenset(runtime_state.robots_blocked_domains)
@@ -465,7 +504,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     # Layer 3: Purge newly blocked domains from queue
                     new_dynamic = dynamic_blocked - static_blocklist
                     if new_dynamic:
-                        purged = url_store.purge_blocked_domains(frozenset(new_dynamic))
+                        purged = await run_in_db_executor(
+                            url_store.purge_blocked_domains, frozenset(new_dynamic)
+                        )
                         if purged:
                             logger.info(
                                 "Purged %d pending URLs from newly blocked domains",
@@ -493,7 +534,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     continue
 
                 # Batch-fetch ready URLs from different domains
-                ready_items = scheduler.get_ready_urls(available_slots)
+                ready_items = await run_in_db_executor(
+                    scheduler.get_ready_urls, available_slots
+                )
 
                 if not ready_items:
                     # No domains ready right now
