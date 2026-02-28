@@ -17,5 +17,6 @@ setup(
         "openai",
         "tenacity",
         "cachetools>=5.3",
+        "opensearch-py>=2.4",
     ],
 )

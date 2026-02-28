@@ -12,6 +12,21 @@ from app.services.embedding import embedding_service
 
 logger = logging.getLogger(__name__)
 
+_os_client = None
+
+
+def _get_opensearch_client():
+    """Lazy-init OpenSearch client."""
+    global _os_client
+    if _os_client is None:
+        from shared.opensearch.client import get_client
+        from shared.opensearch.mapping import ensure_index
+
+        _os_client = get_client(settings.OPENSEARCH_URL)
+        ensure_index(_os_client)
+    return _os_client
+
+
 STATS_UPDATE_INTERVAL = int(os.getenv("STATS_UPDATE_INTERVAL", "10000"))
 
 
@@ -90,6 +105,10 @@ class IndexerService:
                 logger.warning("Embedding timed out for %s", url)
             except Exception as embed_error:
                 logger.warning("Embedding failed for %s: %s", url, embed_error)
+
+        # Dual-write to OpenSearch
+        if settings.OPENSEARCH_ENABLED:
+            self._index_to_opensearch(url, safe_title, safe_content)
 
         if skip_embedding:
             logger.info("Indexed (no embed): %s", url)
@@ -189,6 +208,75 @@ class IndexerService:
             )
         finally:
             cur.close()
+
+    def _index_to_opensearch(self, url: str, title: str, content: str) -> None:
+        """Write document to OpenSearch (best-effort, logs on failure)."""
+        try:
+            from shared.opensearch.client import index_document
+            from shared.search_kernel.analyzer import analyzer, STOP_WORDS
+
+            title_tokens = analyzer.tokenize(title) if title else ""
+            content_tokens = analyzer.tokenize(content) if content else ""
+            word_count = (
+                len(
+                    [
+                        t
+                        for t in content_tokens.split()
+                        if len(t) > 1 and t not in STOP_WORDS
+                    ]
+                )
+                if content_tokens
+                else 0
+            )
+
+            # Fetch authority score from page_ranks / domain_ranks
+            authority = self._get_authority(url)
+
+            from datetime import datetime, timezone
+
+            now = datetime.now(timezone.utc).isoformat()
+
+            client = _get_opensearch_client()
+            index_document(
+                client,
+                url=url,
+                title_tokens=title_tokens,
+                content_tokens=content_tokens,
+                word_count=word_count,
+                indexed_at=now,
+                authority=authority,
+            )
+        except Exception:
+            logger.warning("OpenSearch index failed for %s", url, exc_info=True)
+
+    def _get_authority(self, url: str) -> float:
+        """Fetch max(page_rank, domain_rank) for a URL."""
+        try:
+            conn = get_connection(self.db_path)
+            ph = sql_placeholder()
+            cur = conn.cursor()
+            try:
+                cur.execute(f"SELECT score FROM page_ranks WHERE url = {ph}", (url,))
+                row = cur.fetchone()
+                page_rank = row[0] if row else 0.0
+
+                # Extract domain from URL
+                from urllib.parse import urlparse
+
+                domain = urlparse(url).netloc
+                cur.execute(
+                    f"SELECT score FROM domain_ranks WHERE domain = {ph}",
+                    (domain,),
+                )
+                row = cur.fetchone()
+                domain_rank = row[0] if row else 0.0
+
+                return max(page_rank, domain_rank)
+            finally:
+                cur.close()
+                conn.close()
+        except Exception:
+            return 0.0
 
     def get_index_stats(self):
         """Get indexing statistics."""

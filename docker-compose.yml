@@ -74,6 +74,8 @@ services:
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-15}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -94,6 +96,8 @@ services:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
       - INDEXER_JOB_WORKERS=${INDEXER_JOB_WORKERS:-4}
       - INDEXER_JOB_BATCH_SIZE=${INDEXER_JOB_BATCH_SIZE:-20}
       - INDEXER_JOB_LEASE_SEC=${INDEXER_JOB_LEASE_SEC:-120}
@@ -145,5 +149,24 @@ services:
       retries: 3
       start_period: 30s
 
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_ADMIN_PASSWORD:-admin}
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    mem_limit: 2g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 volumes:
   postgres_data:
+  opensearch_data:

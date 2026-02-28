@@ -39,6 +39,10 @@ class IndexerSettings(InfrastructureSettings):
     PAGERANK_INTERVAL_HOURS: int = 24
     DOMAIN_RANK_INTERVAL_HOURS: int = 6
 
+    # OpenSearch
+    OPENSEARCH_URL: str = "http://opensearch:9200"
+    OPENSEARCH_ENABLED: bool = False
+
 
 settings = IndexerSettings()
 
