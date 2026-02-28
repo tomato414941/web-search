@@ -83,7 +83,7 @@ class SearchService:
         client = self._get_os_client()
         if client is not None:
             try:
-                result = self._opensearch_bm25(q, k, page)
+                result = self._run_opensearch_query(q, k, page)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
                 return self._format_result(q, result)
@@ -100,7 +100,7 @@ class SearchService:
         client = self._get_os_client()
         if client is not None:
             try:
-                result = self._opensearch_hybrid(q, k, page)
+                result = self._run_opensearch_query(q, k, page, with_embedding=True)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
                 return self._format_result(q, result)
@@ -200,49 +200,10 @@ class SearchService:
             "hits": hits,
         }
 
-    def _opensearch_bm25(self, q: str, k: int, page: int) -> Any:
-        """Execute BM25 search via OpenSearch."""
-        from shared.opensearch.search import search_bm25
-        from shared.search_kernel.searcher import SearchHit, SearchResult, parse_query
-
-        parsed = parse_query(q)
-        tokens = analyzer.tokenize(parsed.text) if parsed.text else ""
-
-        if not tokens.strip():
-            return SearchResult(
-                query=q, total=0, hits=[], page=1, per_page=k, last_page=1
-            )
-
-        client = self._get_os_client()
-        offset = (page - 1) * k
-        os_result = search_bm25(
-            client,
-            query_tokens=tokens,
-            limit=k,
-            offset=offset,
-            site_filter=parsed.site_filter,
-        )
-
-        hits = [
-            SearchHit(
-                url=h["url"], title=h["title"], content=h["content"], score=h["score"]
-            )
-            for h in os_result["hits"]
-        ]
-        total = os_result["total"]
-        last_page = max((total + k - 1) // k, 1)
-
-        return SearchResult(
-            query=q,
-            total=total,
-            hits=hits,
-            page=page,
-            per_page=k,
-            last_page=last_page,
-        )
-
-    def _opensearch_hybrid(self, q: str, k: int, page: int) -> Any:
-        """Execute hybrid BM25 + k-NN search via OpenSearch."""
+    def _run_opensearch_query(
+        self, q: str, k: int, page: int, *, with_embedding: bool = False
+    ) -> Any:
+        """Execute OpenSearch query (BM25 or hybrid BM25 + k-NN)."""
         from shared.opensearch.search import search_bm25, search_hybrid
         from shared.search_kernel.searcher import SearchHit, SearchResult, parse_query
 
@@ -255,7 +216,7 @@ class SearchService:
             )
 
         embedding = None
-        if self._embed_query is not None:
+        if with_embedding and self._embed_query is not None:
             try:
                 vec = self._embed_query(q)
                 if vec is not None:
