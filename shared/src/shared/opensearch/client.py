@@ -1,5 +1,6 @@
 """OpenSearch client for document indexing and deletion."""
 
+import hashlib
 import logging
 from typing import Any
 
@@ -8,6 +9,7 @@ from opensearchpy import OpenSearch
 logger = logging.getLogger(__name__)
 
 INDEX_NAME = "documents"
+_MAX_ID_BYTES = 512
 
 _client: OpenSearch | None = None
 
@@ -29,6 +31,13 @@ def reset_client() -> None:
     """Reset the singleton client (for testing)."""
     global _client
     _client = None
+
+
+def doc_id(url: str) -> str:
+    """Return a safe document ID for OpenSearch (max 512 bytes)."""
+    if len(url.encode("utf-8")) <= _MAX_ID_BYTES:
+        return url
+    return hashlib.sha256(url.encode("utf-8")).hexdigest()
 
 
 def index_document(
@@ -64,13 +73,13 @@ def index_document(
     if embedding is not None:
         body["embedding"] = embedding
 
-    client.index(index=INDEX_NAME, id=url, body=body)
+    client.index(index=INDEX_NAME, id=doc_id(url), body=body)
 
 
 def delete_document(client: OpenSearch, url: str) -> None:
     """Delete a document from OpenSearch by URL."""
     try:
-        client.delete(index=INDEX_NAME, id=url, ignore=[404])
+        client.delete(index=INDEX_NAME, id=doc_id(url), ignore=[404])
     except Exception:
         logger.warning("Failed to delete %s from OpenSearch", url, exc_info=True)
 
@@ -93,7 +102,7 @@ def bulk_index(
 
     actions: list[dict[str, Any]] = []
     for doc in documents:
-        actions.append({"index": {"_index": INDEX_NAME, "_id": doc["url"]}})
+        actions.append({"index": {"_index": INDEX_NAME, "_id": doc_id(doc["url"])}})
         actions.append(doc)
 
     resp = client.bulk(body=actions)

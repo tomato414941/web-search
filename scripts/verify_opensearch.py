@@ -15,7 +15,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared", "src"))
 
-from shared.opensearch.client import INDEX_NAME, get_client
+from shared.opensearch.client import INDEX_NAME, doc_id, get_client
 from shared.postgres.search import get_connection
 
 logging.basicConfig(
@@ -67,7 +67,7 @@ def verify(
     missing = 0
     for url in sample_urls:
         try:
-            resp = client.get(index=INDEX_NAME, id=url, ignore=[404])
+            resp = client.get(index=INDEX_NAME, id=doc_id(url), ignore=[404])
             if not resp.get("found"):
                 missing += 1
                 logger.debug("Missing in OpenSearch: %s", url)
