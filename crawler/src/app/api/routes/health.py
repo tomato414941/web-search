@@ -12,6 +12,7 @@ import logging
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.core.config import settings
 
@@ -24,13 +25,13 @@ root_router = APIRouter()
 _cached_url_store: UrlStore | None = None
 
 
-def _check_db() -> bool:
+async def _check_db() -> bool:
     """Check PostgreSQL/SQLite connectivity."""
     global _cached_url_store
     try:
         if _cached_url_store is None:
             _cached_url_store = UrlStore(settings.CRAWLER_DB_PATH)
-        _cached_url_store.size()
+        await run_in_db_executor(_cached_url_store.size)
         return True
     except Exception:
         _cached_url_store = None
@@ -56,7 +57,7 @@ async def liveness():
 async def readiness():
     """Kubernetes readiness probe - are dependencies healthy?"""
     checks = {
-        "database": "ok" if _check_db() else "unhealthy",
+        "database": "ok" if await _check_db() else "unhealthy",
     }
 
     all_healthy = all(v == "ok" for v in checks.values())
