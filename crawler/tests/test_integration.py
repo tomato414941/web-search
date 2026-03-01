@@ -52,15 +52,15 @@ async def test_process_url_success_flow(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.tasks.html_to_doc",
+        "app.workers.pipeline.html_to_doc",
         return_value=("Test Page", "Test content"),
     ):
         with patch(
-            "app.workers.tasks.extract_links",
+            "app.workers.pipeline.extract_links",
             return_value=["http://example.com/link1"],
         ):
             with patch(
-                "app.workers.tasks.submit_page_to_indexer", new_callable=AsyncMock
+                "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
             ) as mock_indexer:
                 with patch("app.workers.tasks.history_log.log_crawl_attempt"):
                     mock_indexer.return_value = IndexerSubmitResult(
@@ -202,16 +202,16 @@ async def test_process_url_discovers_links(test_components):
     )
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
-    with patch("app.workers.tasks.html_to_doc", return_value=("Test", "Content")):
+    with patch("app.workers.pipeline.html_to_doc", return_value=("Test", "Content")):
         with patch(
-            "app.workers.tasks.extract_links",
+            "app.workers.pipeline.extract_links",
             return_value=[
                 "http://example.com/link1",
                 "http://example.com/link2",
             ],
         ):
             with patch(
-                "app.workers.tasks.submit_page_to_indexer", new_callable=AsyncMock
+                "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
             ) as mock_indexer:
                 with patch("app.workers.tasks.history_log.log_crawl_attempt"):
                     mock_indexer.return_value = IndexerSubmitResult(
@@ -247,7 +247,7 @@ async def test_process_url_non_html_200_logged_as_skipped(test_components):
     mock_response.headers = {"Content-Type": "application/x-gzip"}
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
-    with patch("app.workers.tasks.submit_page_to_indexer", new_callable=AsyncMock) as m:
+    with patch("app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock) as m:
         with patch("app.workers.tasks.history_log.log_crawl_attempt") as mock_log:
             await process_url(
                 mock_session,
@@ -288,12 +288,12 @@ async def test_process_url_logs_indexer_error_detail(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.tasks.html_to_doc",
+        "app.workers.pipeline.html_to_doc",
         return_value=("T", "content"),
     ):
-        with patch("app.workers.tasks.extract_links", return_value=[]):
+        with patch("app.workers.pipeline.extract_links", return_value=[]):
             with patch(
-                "app.workers.tasks.submit_page_to_indexer", new_callable=AsyncMock
+                "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
             ) as mock_indexer:
                 with patch(
                     "app.workers.tasks.history_log.log_crawl_attempt"

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
+from app.db.connection import db_connection, db_transaction
 from shared.postgres.search import (
     get_connection,
     sql_placeholder,
@@ -172,10 +173,8 @@ class UrlStore:
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
-            added = self._upsert_pending_url(
+        with db_transaction(self.db_path) as cur:
+            return self._upsert_pending_url(
                 cur,
                 url_hash_value=h,
                 url=url,
@@ -184,11 +183,6 @@ class UrlStore:
                 now=now,
                 cutoff=cutoff,
             )
-            con.commit()
-            cur.close()
-            return added
-        finally:
-            con.close()
 
     def add_batch(
         self,
@@ -208,9 +202,7 @@ class UrlStore:
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             for url in urls:
                 h = url_hash(url)
                 domain = get_domain(url)
@@ -226,11 +218,7 @@ class UrlStore:
                 ):
                     added += 1
 
-            con.commit()
-            cur.close()
             return added
-        finally:
-            con.close()
 
     def add_batch_scored(
         self,
@@ -249,9 +237,7 @@ class UrlStore:
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             for url, priority in items:
                 h = url_hash(url)
                 domain = get_domain(url)
@@ -265,11 +251,7 @@ class UrlStore:
                     cutoff=cutoff,
                 ):
                     added += 1
-            con.commit()
-            cur.close()
             return added
-        finally:
-            con.close()
 
     def pop_batch(self, count: int, max_per_domain: int = 3) -> list[UrlItem]:
         """
@@ -286,17 +268,12 @@ class UrlStore:
         if count <= 0:
             return []
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             rows = self._pop_pending_rows(
                 cur,
                 count=count,
                 max_per_domain=max_per_domain,
             )
-
-            con.commit()
-            cur.close()
 
             return [
                 UrlItem(
@@ -307,8 +284,6 @@ class UrlStore:
                 )
                 for row in rows
             ]
-        finally:
-            con.close()
 
     def requeue_for_retry(self, url: str, priority: float) -> bool:
         """Move a URL from crawling back to pending for retry.
@@ -317,9 +292,7 @@ class UrlStore:
         """
         h = url_hash(url)
         ph = sql_placeholder()
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             cur.execute(
                 f"""
                 UPDATE urls
@@ -328,12 +301,7 @@ class UrlStore:
                 """,
                 (priority, h),
             )
-            affected = cur.rowcount
-            con.commit()
-            cur.close()
-            return affected > 0
-        finally:
-            con.close()
+            return cur.rowcount > 0
 
     def release_urls(self, urls: list[str], status: str = "failed") -> int:
         """Release URLs from crawling to another status.
@@ -347,9 +315,7 @@ class UrlStore:
         ph = sql_placeholder()
         now = int(time.time())
         affected = 0
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             for url in urls:
                 h = url_hash(url)
                 cur.execute(
@@ -361,11 +327,7 @@ class UrlStore:
                     (status, now, h),
                 )
                 affected += cur.rowcount
-            con.commit()
-            cur.close()
             return affected
-        finally:
-            con.close()
 
     def record(self, url: str, status: str = "done") -> None:
         """
@@ -380,9 +342,7 @@ class UrlStore:
         now = int(time.time())
         ph = sql_placeholder()
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             cur.execute(
                 f"""
                 INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at, last_crawled_at)
@@ -394,36 +354,20 @@ class UrlStore:
                 """,
                 (h, url, domain, status, now, now),
             )
-            con.commit()
-            cur.close()
-        finally:
-            con.close()
 
     def pending_count(self) -> int:
         """Return number of pending URLs."""
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'pending'")
-            result = cur.fetchone()[0]
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return cur.fetchone()[0]
 
     def contains(self, url: str) -> bool:
         """Check if URL exists in any status."""
         h = url_hash(url)
         ph = sql_placeholder()
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(f"SELECT 1 FROM urls WHERE url_hash = {ph}", (h,))
-            result = cur.fetchone() is not None
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return cur.fetchone() is not None
 
     def is_recently_crawled(self, url: str) -> bool:
         """
@@ -437,9 +381,7 @@ class UrlStore:
         cutoff = now - self.recrawl_threshold
         ph = sql_placeholder()
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
                 SELECT 1 FROM urls
@@ -447,18 +389,12 @@ class UrlStore:
                 """,
                 (h, cutoff),
             )
-            result = cur.fetchone() is not None
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return cur.fetchone() is not None
 
     def peek(self, count: int = 10) -> list[UrlItem]:
         """View top pending URLs without modifying them."""
         ph = sql_placeholder()
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
                 SELECT url_hash, url, domain, priority, created_at
@@ -469,7 +405,7 @@ class UrlStore:
                 """,
                 (count,),
             )
-            result = [
+            return [
                 UrlItem(
                     url=row[1],
                     domain=row[2],
@@ -478,10 +414,6 @@ class UrlStore:
                 )
                 for row in cur.fetchall()
             ]
-            cur.close()
-            return result
-        finally:
-            con.close()
 
     def get_stale_urls(self, limit: int = 100) -> list[str]:
         """Get URLs ready for re-crawl (done and past threshold)."""
@@ -489,9 +421,7 @@ class UrlStore:
         cutoff = now - self.recrawl_threshold
         ph = sql_placeholder()
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
                 SELECT url FROM urls
@@ -501,11 +431,7 @@ class UrlStore:
                 """,
                 (cutoff, limit),
             )
-            result = [row[0] for row in cur.fetchall()]
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return [row[0] for row in cur.fetchall()]
 
     def get_stale_url_count(self) -> int:
         """Count URLs ready for re-crawl (done and past threshold)."""
@@ -513,9 +439,7 @@ class UrlStore:
         cutoff = now - self.recrawl_threshold
         ph = sql_placeholder()
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
                 SELECT COUNT(*) FROM urls
@@ -523,11 +447,7 @@ class UrlStore:
                 """,
                 (cutoff,),
             )
-            count = cur.fetchone()[0]
-            cur.close()
-            return count
-        finally:
-            con.close()
+            return cur.fetchone()[0]
 
     def recover_stale_crawling(self) -> int:
         """
@@ -537,16 +457,9 @@ class UrlStore:
         Returns:
             Number of URLs recovered
         """
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             cur.execute("UPDATE urls SET status = 'pending' WHERE status = 'crawling'")
-            count = cur.rowcount
-            con.commit()
-            cur.close()
-            return count
-        finally:
-            con.close()
+            return cur.rowcount
 
     def get_stats(self) -> dict:
         """Get URL statistics."""
@@ -554,10 +467,7 @@ class UrlStore:
         cutoff = now - self.recrawl_threshold
         ph = sql_placeholder()
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
-
+        with db_connection(self.db_path) as cur:
             cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'pending'")
             pending = cur.fetchone()[0]
 
@@ -575,8 +485,6 @@ class UrlStore:
             )
             recent = cur.fetchone()[0]
 
-            cur.close()
-
             return {
                 "pending": pending,
                 "crawling": crawling,
@@ -585,15 +493,11 @@ class UrlStore:
                 "total": pending + crawling + done + failed,
                 "recent": recent,
             }
-        finally:
-            con.close()
 
     def get_domains(self, limit: int = 100) -> list[tuple[str, int]]:
         """Get domain counts for done URLs."""
         ph = sql_placeholder()
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
                 SELECT domain, COUNT(*) as cnt
@@ -605,18 +509,12 @@ class UrlStore:
                 """,
                 (limit,),
             )
-            result = [(row[0], row[1]) for row in cur.fetchall()]
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return [(row[0], row[1]) for row in cur.fetchall()]
 
     def get_pending_domains(self, limit: int = 15) -> list[tuple[str, int]]:
         """Get top domains by pending URL count."""
         ph = sql_placeholder()
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
                 SELECT domain, COUNT(*) as cnt
@@ -628,59 +526,37 @@ class UrlStore:
                 """,
                 (limit,),
             )
-            result = [(row[0], row[1]) for row in cur.fetchall()]
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return [(row[0], row[1]) for row in cur.fetchall()]
 
     def domain_done_count(self, domain: str) -> int:
         """Return number of 'done' URLs for a given domain."""
         ph = sql_placeholder()
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"SELECT COUNT(*) FROM urls WHERE domain = {ph} AND status = 'done'",
                 (domain,),
             )
-            result = cur.fetchone()[0]
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return cur.fetchone()[0]
 
     def domain_done_count_batch(self, domains: list[str]) -> dict[str, int]:
         """Return done-URL counts for multiple domains in a single query."""
         if not domains:
             return {}
         phs = sql_placeholders(len(domains))
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 f"SELECT domain, COUNT(*) FROM urls "
                 f"WHERE domain IN ({phs}) AND status = 'done' "
                 f"GROUP BY domain",
                 tuple(domains),
             )
-            result = {row[0]: row[1] for row in cur.fetchall()}
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return {row[0]: row[1] for row in cur.fetchall()}
 
     def size(self) -> int:
         """Return total number of URLs (all statuses). For health checks."""
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute("SELECT COUNT(*) FROM urls")
-            result = cur.fetchone()[0]
-            cur.close()
-            return result
-        finally:
-            con.close()
+            return cur.fetchone()[0]
 
     def mark_seeds(self, urls: list[str]) -> int:
         """Set is_seed = TRUE for the given URLs."""
@@ -689,9 +565,7 @@ class UrlStore:
 
         ph = sql_placeholder()
         marked = 0
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             for url in urls:
                 h = url_hash(url)
                 cur.execute(
@@ -699,11 +573,7 @@ class UrlStore:
                     (h,),
                 )
                 marked += cur.rowcount
-            con.commit()
-            cur.close()
             return marked
-        finally:
-            con.close()
 
     def unmark_seeds(self, urls: list[str]) -> int:
         """Set is_seed = FALSE for the given URLs."""
@@ -712,9 +582,7 @@ class UrlStore:
 
         ph = sql_placeholder()
         unmarked = 0
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             for url in urls:
                 h = url_hash(url)
                 cur.execute(
@@ -722,11 +590,7 @@ class UrlStore:
                     (h,),
                 )
                 unmarked += cur.rowcount
-            con.commit()
-            cur.close()
             return unmarked
-        finally:
-            con.close()
 
     def purge_blocked_domains(self, blocklist: frozenset[str]) -> int:
         """Delete pending URLs whose domain matches the blocklist.
@@ -739,9 +603,7 @@ class UrlStore:
         if not blocklist:
             return 0
 
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_transaction(self.db_path) as cur:
             # Build WHERE conditions for each blocked domain
             conditions = []
             params: list[str] = []
@@ -756,23 +618,16 @@ class UrlStore:
                 f"DELETE FROM urls WHERE status = 'pending' AND ({where})",
                 params,
             )
-            deleted = cur.rowcount
-            con.commit()
-            cur.close()
-            return deleted
-        finally:
-            con.close()
+            return cur.rowcount
 
     def get_seeds(self) -> list[dict]:
         """Get all URLs marked as seeds."""
-        con = get_connection(self.db_path)
-        try:
-            cur = con.cursor()
+        with db_connection(self.db_path) as cur:
             cur.execute(
                 "SELECT url, domain, status, priority, created_at, last_crawled_at"
                 " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
             )
-            result = [
+            return [
                 {
                     "url": row[0],
                     "domain": row[1],
@@ -783,7 +638,3 @@ class UrlStore:
                 }
                 for row in cur.fetchall()
             ]
-            cur.close()
-            return result
-        finally:
-            con.close()

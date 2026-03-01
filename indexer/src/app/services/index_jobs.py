@@ -1,6 +1,5 @@
 """Indexer async job queue service."""
 
-import hashlib
 import json
 import logging
 import time
@@ -8,6 +7,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from app.services.dedupe import build_dedupe_key, hash_text
+from app.services.retry_policy import RetryPolicy
 from shared.contracts.enums import CLAIMABLE_JOB_STATUSES, IndexJobStatus
 from shared.postgres.search import get_connection, sql_placeholder
 
@@ -49,19 +50,17 @@ class IndexJobService:
         self.retry_base_seconds = retry_base_seconds
         self.retry_max_seconds = retry_max_seconds
 
+    @property
+    def _retry_policy(self) -> RetryPolicy:
+        return RetryPolicy(
+            max_retries=self.max_retries,
+            base_seconds=self.retry_base_seconds,
+            max_seconds=self.retry_max_seconds,
+        )
+
     @staticmethod
     def _now_ts() -> int:
         return int(time.time())
-
-    @staticmethod
-    def _hash_text(value: str) -> str:
-        return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-    @classmethod
-    def _build_dedupe_key(
-        cls, url: str, content_hash: str, outlinks_hash: str = ""
-    ) -> str:
-        return cls._hash_text(f"{url}\n{content_hash}\n{outlinks_hash}")
 
     @staticmethod
     def _normalize_outlinks(outlinks: list[str] | None) -> list[str]:
@@ -98,12 +97,12 @@ class IndexJobService:
         outlinks: list[str] | None,
     ) -> tuple[str, bool]:
         """Queue a new indexing job (idempotent by dedupe_key)."""
-        content_hash = self._hash_text(content)
+        content_hash = hash_text(content)
         clean_outlinks = self._normalize_outlinks(outlinks)
         outlinks_hash = (
-            self._hash_text("\n".join(sorted(clean_outlinks))) if clean_outlinks else ""
+            hash_text("\n".join(sorted(clean_outlinks))) if clean_outlinks else ""
         )
-        dedupe_key = self._build_dedupe_key(url, content_hash, outlinks_hash)
+        dedupe_key = build_dedupe_key(url, content_hash, outlinks_hash)
         job_id = str(uuid.uuid4())
         now_ts = self._now_ts()
         outlinks_json = json.dumps(clean_outlinks)
@@ -351,8 +350,8 @@ class IndexJobService:
                 return False
 
             retry_count = int(row[0]) + 1
-            max_retries = int(row[1])
-            if retry_count >= max_retries:
+            policy = self._retry_policy
+            if policy.is_exhausted(retry_count):
                 cur.execute(
                     f"""
                     UPDATE index_jobs
@@ -374,7 +373,7 @@ class IndexJobService:
                     ),
                 )
             else:
-                available_at = now_ts + self._retry_delay_seconds(retry_count)
+                available_at = now_ts + policy.delay_seconds(retry_count)
                 cur.execute(
                     f"""
                     UPDATE index_jobs
@@ -532,11 +531,6 @@ class IndexJobService:
         finally:
             con.close()
 
-    def _retry_delay_seconds(self, retry_count: int) -> int:
-        # retry_count is already incremented (1, 2, 3...).
-        raw = self.retry_base_seconds * (2 ** (retry_count - 1))
-        return min(raw, self.retry_max_seconds)
-
     def _recover_expired_locked(self, cur: Any, now_ts: int) -> None:
         ph = sql_placeholder()
         cur.execute(
@@ -550,6 +544,7 @@ class IndexJobService:
             (STATUS_PROCESSING, now_ts),
         )
         expired = cur.fetchall()
+        policy = self._retry_policy
         for job_id, retry_count, max_retries in expired:
             next_retry = int(retry_count) + 1
             if next_retry >= int(max_retries):
@@ -574,7 +569,7 @@ class IndexJobService:
                     ),
                 )
             else:
-                available_at = now_ts + self._retry_delay_seconds(next_retry)
+                available_at = now_ts + policy.delay_seconds(next_retry)
                 cur.execute(
                     f"""
                     UPDATE index_jobs
