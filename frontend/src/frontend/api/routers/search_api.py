@@ -54,7 +54,12 @@ class SearchResponse(BaseModel):
     per_page: int = Field(description="Results per page")
     last_page: int = Field(description="Last available page")
     hits: list[SearchHit] = Field(description="Search results")
-    mode: str = Field(description="Search mode used (bm25, hybrid, semantic, auto)")
+    mode: str = Field(
+        description="Actual search mode executed (bm25, hybrid, semantic)"
+    )
+    requested_mode: str = Field(
+        description="Search mode requested by client (bm25, hybrid, semantic, auto)"
+    )
     request_id: str | None = Field(
         default=None, description="Request ID for click tracking"
     )
@@ -138,7 +143,10 @@ async def api_search(
         if query
         else search_service._empty_result(per_page)
     )
-    data["mode"] = search_mode
+    data["requested_mode"] = search_mode
+    # data["mode"] is set by the search service to reflect the actual executed mode
+    if "mode" not in data:
+        data["mode"] = search_mode
 
     if query:
         request_id = uuid.uuid4().hex

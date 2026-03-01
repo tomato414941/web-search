@@ -1,11 +1,12 @@
 """Indexer-focused admin routes."""
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
+from frontend.api.deps_admin import check_csrf_or_redirect, require_admin_session
 from frontend.api.templates import templates
 from frontend.core.config import settings
-from frontend.services import admin_auth
+from frontend.services.admin_auth import CSRF_FORM_FIELD, get_csrf_token
 from frontend.services.indexer_admin_client import (
     fetch_failed_jobs,
     fetch_indexer_stats,
@@ -14,22 +15,12 @@ from frontend.services.indexer_admin_client import (
 
 router = APIRouter()
 
-SESSION_COOKIE_NAME = admin_auth.SESSION_COOKIE_NAME
-CSRF_FORM_FIELD = admin_auth.CSRF_FORM_FIELD
-validate_session = admin_auth.validate_session
-validate_csrf_token = admin_auth.validate_csrf_token
-get_csrf_token = admin_auth.get_csrf_token
-
-
-def _is_authenticated(request: Request) -> bool:
-    return validate_session(request.cookies.get(SESSION_COOKIE_NAME))
-
 
 @router.get("/indexer")
-async def indexer_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
+async def indexer_page(
+    request: Request,
+    _auth: None = Depends(require_admin_session),
+):
     health = await fetch_indexer_stats()
     failed_jobs = await fetch_failed_jobs(limit=50)
     csrf_token = get_csrf_token(request)
@@ -51,14 +42,8 @@ async def retry_job(
     request: Request,
     job_id: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(
-            url="/admin/indexer?error=Invalid+request", status_code=303
-        )
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/indexer?error=Invalid+request")
     await retry_failed_job(job_id)
     return RedirectResponse(url="/admin/indexer", status_code=303)

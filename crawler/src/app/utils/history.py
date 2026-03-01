@@ -7,7 +7,6 @@ PostgreSQL-based crawl attempt logging.
 import logging
 import time
 from typing import Optional, List, Dict, Any, Set
-from urllib.parse import urlparse
 
 from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
 from shared.postgres.search import (
@@ -288,19 +287,20 @@ def get_robots_blocked_domains(
         try:
             cur = con.cursor()
             cur.execute(
-                f"SELECT url FROM crawl_logs "
-                f"WHERE status = 'blocked' "
-                f"AND error_message = 'Blocked by robots.txt' "
-                f"AND created_at >= {ph}",
-                (cutoff,),
+                f"""
+                SELECT substring(url from '://([^/:]+)') AS domain
+                FROM crawl_logs
+                WHERE status = 'blocked'
+                  AND error_message = 'Blocked by robots.txt'
+                  AND created_at >= {ph}
+                GROUP BY domain
+                HAVING COUNT(*) >= {ph}
+                """,
+                (cutoff, min_count),
             )
-            domain_counts: dict[str, int] = {}
-            for (url_val,) in cur.fetchall():
-                d = urlparse(url_val).hostname
-                if d:
-                    domain_counts[d] = domain_counts.get(d, 0) + 1
+            result = {row[0] for row in cur.fetchall() if row[0]}
             cur.close()
-            return {d for d, c in domain_counts.items() if c >= min_count}
+            return result
         finally:
             con.close()
     except Exception as exc:
@@ -322,27 +322,24 @@ def get_robots_blocked_domains_with_counts(
         try:
             cur = con.cursor()
             cur.execute(
-                f"SELECT url FROM crawl_logs "
-                f"WHERE status = 'blocked' "
-                f"AND error_message = 'Blocked by robots.txt' "
-                f"AND created_at >= {ph}",
-                (cutoff,),
+                f"""
+                SELECT substring(url from '://([^/:]+)') AS domain,
+                       COUNT(*) AS cnt
+                FROM crawl_logs
+                WHERE status = 'blocked'
+                  AND error_message = 'Blocked by robots.txt'
+                  AND created_at >= {ph}
+                GROUP BY domain
+                HAVING COUNT(*) >= {ph}
+                ORDER BY cnt DESC
+                """,
+                (cutoff, min_count),
             )
-            domain_counts: dict[str, int] = {}
-            for (url_val,) in cur.fetchall():
-                d = urlparse(url_val).hostname
-                if d:
-                    domain_counts[d] = domain_counts.get(d, 0) + 1
+            result = [
+                {"domain": row[0], "count": row[1]} for row in cur.fetchall() if row[0]
+            ]
             cur.close()
-            return sorted(
-                [
-                    {"domain": d, "count": c}
-                    for d, c in domain_counts.items()
-                    if c >= min_count
-                ],
-                key=lambda x: x["count"],
-                reverse=True,
-            )
+            return result
         finally:
             con.close()
     except Exception as exc:
@@ -356,47 +353,50 @@ def get_high_failure_domains(
     db_path: str | None = None,
 ) -> List[Dict[str, Any]]:
     """Return domains with high crawl failure rates in the given time window."""
-    error_statuses = {
+    error_statuses = (
         CrawlAttemptStatus.HTTP_ERROR,
         CrawlAttemptStatus.INDEXER_ERROR,
         CrawlAttemptStatus.UNKNOWN_ERROR,
         CrawlAttemptStatus.DEAD_LETTER,
         CrawlAttemptStatus.BLOCKED,
-    }
+    )
     try:
         path = db_path or get_db_path()
         ph = sql_placeholder()
+        status_ph = sql_placeholders(len(error_statuses))
         cutoff = int(time.time()) - hours * 3600
         con = get_connection(path)
         try:
             cur = con.cursor()
             cur.execute(
-                f"SELECT url, status FROM crawl_logs WHERE created_at >= {ph}",
-                (cutoff,),
+                f"""
+                SELECT
+                    substring(url from '://([^/:]+)') AS domain,
+                    COUNT(*) AS total_count,
+                    SUM(CASE WHEN status IN ({status_ph}) THEN 1 ELSE 0 END) AS error_count
+                FROM crawl_logs
+                WHERE created_at >= {ph}
+                GROUP BY domain
+                HAVING SUM(CASE WHEN status IN ({status_ph}) THEN 1 ELSE 0 END) >= {ph}
+                ORDER BY error_count DESC
+                LIMIT 20
+                """,
+                (*error_statuses, cutoff, *error_statuses, min_count),
             )
-            domain_errors: dict[str, int] = {}
-            domain_totals: dict[str, int] = {}
-            for url_val, status in cur.fetchall():
-                d = urlparse(url_val).hostname
-                if not d:
-                    continue
-                domain_totals[d] = domain_totals.get(d, 0) + 1
-                if status in error_statuses:
-                    domain_errors[d] = domain_errors.get(d, 0) + 1
-            cur.close()
             result = []
-            for d, err_count in domain_errors.items():
-                total = domain_totals.get(d, 0)
-                if err_count >= min_count and total > 0:
+            for row in cur.fetchall():
+                domain, total, errors = row[0], row[1], row[2]
+                if domain and total > 0:
                     result.append(
                         {
-                            "domain": d,
-                            "error_count": err_count,
+                            "domain": domain,
+                            "error_count": errors,
                             "total_count": total,
-                            "error_rate": round((err_count / total) * 100, 1),
+                            "error_rate": round((errors / total) * 100, 1),
                         }
                     )
-            return sorted(result, key=lambda x: x["error_count"], reverse=True)[:20]
+            cur.close()
+            return result
         finally:
             con.close()
     except Exception as exc:

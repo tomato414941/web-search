@@ -3,13 +3,14 @@ import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi.errors import RateLimitExceeded
 
+from frontend.api.deps_admin import AdminRedirectException
 from frontend.core.config import settings
 from shared.core.infrastructure_config import Environment
 from shared.postgres.migrate import migrate
@@ -129,6 +130,12 @@ async def not_found_handler(request: Request, exc: StarletteHTTPException):
         with open(template_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read(), status_code=404)
     return HTMLResponse(content="<h1>404 - Not Found</h1>", status_code=404)
+
+
+@app.exception_handler(AdminRedirectException)
+async def admin_redirect_handler(request: Request, exc: AdminRedirectException):
+    """Redirect unauthenticated admin requests to login."""
+    return RedirectResponse(url=exc.url, status_code=303)
 
 
 @app.exception_handler(500)

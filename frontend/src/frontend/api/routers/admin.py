@@ -3,9 +3,10 @@
 import logging
 from urllib.parse import quote
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
+from frontend.api.deps_admin import check_csrf_or_redirect, require_admin_session
 from frontend.api.middleware.rate_limiter import limiter
 from frontend.api.routers.admin_crawlers import router as crawlers_router
 from frontend.api.routers.admin_indexer import router as indexer_router
@@ -43,10 +44,6 @@ validate_csrf_token = admin_auth.validate_csrf_token
 validate_session = admin_auth.validate_session
 add_csrf_cookie = admin_auth.add_csrf_cookie
 add_session_cookie = admin_auth.add_session_cookie
-
-
-def _is_authenticated(request: Request) -> bool:
-    return validate_session(request.cookies.get(SESSION_COOKIE_NAME))
 
 
 def _parse_tranco_count(raw_count: str | None) -> int:
@@ -105,10 +102,10 @@ async def logout():
 
 
 @router.get("/")
-async def dashboard(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
+async def dashboard(
+    request: Request,
+    _auth: None = Depends(require_admin_session),
+):
     data = await get_dashboard_data()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
@@ -124,10 +121,12 @@ async def dashboard(request: Request):
 
 
 @router.get("/seeds")
-async def seeds_page(request: Request, success: str = "", error: str = ""):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
+async def seeds_page(
+    request: Request,
+    success: str = "",
+    error: str = "",
+    _auth: None = Depends(require_admin_session),
+):
     seeds = await fetch_seeds()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
@@ -144,10 +143,12 @@ async def seeds_page(request: Request, success: str = "", error: str = ""):
 
 
 @router.get("/queue")
-async def queue_page(request: Request, success: str = "", error: str = ""):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
+async def queue_page(
+    request: Request,
+    success: str = "",
+    error: str = "",
+    _auth: None = Depends(require_admin_session),
+):
     frontier = await fetch_frontier_stats()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
@@ -164,10 +165,11 @@ async def queue_page(request: Request, success: str = "", error: str = ""):
 
 
 @router.get("/history")
-async def history_page(request: Request, url: str = ""):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
+async def history_page(
+    request: Request,
+    url: str = "",
+    _auth: None = Depends(require_admin_session),
+):
     history_logs = await fetch_history(url_filter=url)
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
@@ -187,15 +189,9 @@ async def add_seed(
     request: Request,
     url: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(
-            url="/admin/seeds?error=Invalid+request", status_code=303
-        )
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/seeds?error=Invalid+request")
     try:
         await crawler_add_seed(url)
         return RedirectResponse(
@@ -214,15 +210,9 @@ async def delete_seed(
     request: Request,
     url: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(
-            url="/admin/seeds?error=Invalid+request", status_code=303
-        )
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/seeds?error=Invalid+request")
     try:
         await crawler_delete_seed(url)
         return RedirectResponse(
@@ -241,15 +231,9 @@ async def import_tranco(
     request: Request,
     count: str = Form(default="100"),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(
-            url="/admin/seeds?error=Invalid+request", status_code=303
-        )
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/seeds?error=Invalid+request")
     try:
         count_value = _parse_tranco_count(count)
     except ValueError as exc:
@@ -276,15 +260,9 @@ async def add_to_queue(
     request: Request,
     url: str = Form(...),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(
-            url="/admin/queue?error=Invalid+request", status_code=303
-        )
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/queue?error=Invalid+request")
     try:
         await enqueue_url(url)
         return RedirectResponse(
@@ -299,10 +277,10 @@ async def add_to_queue(
 
 
 @router.get("/analytics")
-async def analytics_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
+async def analytics_page(
+    request: Request,
+    _auth: None = Depends(require_admin_session),
+):
     analytics = get_analytics_data()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
@@ -318,14 +296,14 @@ async def analytics_page(request: Request):
 
 @router.get("/api-keys")
 async def api_keys_list(request: Request):
-    if not _is_authenticated(request):
+    if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     return JSONResponse({"keys": list_api_keys()})
 
 
 @router.post("/api-keys")
 async def api_keys_create(request: Request):
-    if not _is_authenticated(request):
+    if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     body = await request.json()
@@ -340,7 +318,7 @@ async def api_keys_create(request: Request):
 
 @router.delete("/api-keys/{key_id}")
 async def api_keys_revoke(request: Request, key_id: str):
-    if not _is_authenticated(request):
+    if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
     if revoke_api_key(key_id):

@@ -86,7 +86,9 @@ class SearchService:
                 result = self._run_opensearch_query(q, k, page)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
-                return self._format_result(q, result)
+                out = self._format_result(q, result)
+                out["mode"] = SearchMode.BM25
+                return out
             except Exception:
                 logger.warning("OpenSearch BM25 failed", exc_info=True)
 
@@ -99,6 +101,7 @@ class SearchService:
                 SEARCH_RESULT_COUNT.observe(result.total)
                 fallback_result = self._format_result(q, result)
                 fallback_result["fallback"] = True
+                fallback_result["mode"] = SearchMode.SEMANTIC
                 return fallback_result
             except Exception:
                 logger.warning("pgvector fallback also failed", exc_info=True)
@@ -116,7 +119,9 @@ class SearchService:
                 result = self._run_opensearch_query(q, k, page, with_embedding=True)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
-                return self._format_result(q, result)
+                out = self._format_result(q, result)
+                out["mode"] = SearchMode.HYBRID
+                return out
             except Exception:
                 logger.warning(
                     "OpenSearch hybrid failed, falling back to BM25", exc_info=True
@@ -134,7 +139,9 @@ class SearchService:
             return self._bm25_search(q, k, page)
         SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
         SEARCH_RESULT_COUNT.observe(result.total)
-        return self._format_result(q, result)
+        out = self._format_result(q, result)
+        out["mode"] = SearchMode.SEMANTIC
+        return out
 
     _PGVECTOR_MAX_PAGE = 10
 

@@ -18,7 +18,7 @@ async def _pagerank_loop() -> None:
     while True:
         await asyncio.sleep(interval)
         try:
-            count = calculate_pagerank(settings.DB_PATH)
+            count = await asyncio.to_thread(calculate_pagerank, settings.DB_PATH)
             logger.info("Page PageRank recalculated: %s pages", count)
         except Exception:
             logger.exception("Page PageRank calculation failed")
@@ -30,7 +30,9 @@ async def _job_cleanup_loop() -> None:
     while True:
         await asyncio.sleep(cleanup_interval)
         try:
-            deleted = indexer.index_job_service.cleanup_old_done_jobs(max_age)
+            deleted = await asyncio.to_thread(
+                indexer.index_job_service.cleanup_old_done_jobs, max_age
+            )
             logger.info("Job cleanup: deleted %d old done jobs", deleted)
         except Exception:
             logger.exception("Job cleanup failed")
@@ -41,7 +43,7 @@ async def _domain_rank_loop() -> None:
     while True:
         await asyncio.sleep(interval)
         try:
-            count = calculate_domain_pagerank(settings.DB_PATH)
+            count = await asyncio.to_thread(calculate_domain_pagerank, settings.DB_PATH)
             logger.info("Domain PageRank recalculated: %s domains", count)
         except Exception:
             logger.exception("Domain PageRank calculation failed")
@@ -70,8 +72,10 @@ async def _process_single_job(
             if use_batch_embed and job.content:
                 # Defer mark_done until after batch embedding succeeds
                 return (job.job_id, job.url, job.content)
-            indexer.index_job_service.mark_done(
-                job.job_id, worker_id=worker_name
+            await asyncio.to_thread(
+                indexer.index_job_service.mark_done,
+                job.job_id,
+                worker_id=worker_name,
             )
         except Exception as exc:
             error_text = str(exc)
@@ -82,8 +86,11 @@ async def _process_single_job(
                 job.url,
                 error_text,
             )
-            indexer.index_job_service.mark_failure(
-                job.job_id, error_text, worker_id=worker_name
+            await asyncio.to_thread(
+                indexer.index_job_service.mark_failure,
+                job.job_id,
+                error_text,
+                worker_id=worker_name,
             )
     return None
 
@@ -95,7 +102,8 @@ async def _index_job_worker_loop(worker_name: str) -> None:
 
     while True:
         try:
-            jobs = indexer.index_job_service.claim_jobs(
+            jobs = await asyncio.to_thread(
+                indexer.index_job_service.claim_jobs,
                 limit=settings.INDEXER_JOB_BATCH_SIZE,
                 lease_seconds=settings.INDEXER_JOB_LEASE_SEC,
                 worker_id=worker_name,
@@ -125,8 +133,10 @@ async def _index_job_worker_loop(worker_name: str) -> None:
             try:
                 await indexer_service.embed_and_save_batch(url_content_pairs)
                 for jid in job_ids:
-                    indexer.index_job_service.mark_done(
-                        jid, worker_id=worker_name
+                    await asyncio.to_thread(
+                        indexer.index_job_service.mark_done,
+                        jid,
+                        worker_id=worker_name,
                     )
             except Exception:
                 logger.exception(
@@ -135,8 +145,11 @@ async def _index_job_worker_loop(worker_name: str) -> None:
                     len(embed_items),
                 )
                 for jid in job_ids:
-                    indexer.index_job_service.mark_failure(
-                        jid, "Batch embedding failed", worker_id=worker_name
+                    await asyncio.to_thread(
+                        indexer.index_job_service.mark_failure,
+                        jid,
+                        "Batch embedding failed",
+                        worker_id=worker_name,
                     )
 
 

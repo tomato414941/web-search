@@ -1,11 +1,12 @@
 """Crawler-focused admin routes."""
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
+from frontend.api.deps_admin import check_csrf_or_redirect, require_admin_session
 from frontend.api.templates import templates
 from frontend.core.config import settings
-from frontend.services import admin_auth
+from frontend.services.admin_auth import CSRF_FORM_FIELD, get_csrf_token
 from frontend.services.crawler_admin_client import (
     find_crawler_url as _find_crawler_url,
     get_all_crawler_instances as _get_all_crawler_instances,
@@ -16,16 +17,6 @@ from frontend.services.crawler_admin_client import (
 )
 
 router = APIRouter()
-
-CSRF_FORM_FIELD = admin_auth.CSRF_FORM_FIELD
-SESSION_COOKIE_NAME = admin_auth.SESSION_COOKIE_NAME
-get_csrf_token = admin_auth.get_csrf_token
-validate_csrf_token = admin_auth.validate_csrf_token
-validate_session = admin_auth.validate_session
-
-
-def _is_authenticated(request: Request) -> bool:
-    return validate_session(request.cookies.get(SESSION_COOKIE_NAME))
 
 
 async def get_all_crawler_instances() -> list[dict]:
@@ -40,13 +31,9 @@ def find_crawler_url(name: str) -> str | None:
 async def crawler_start(
     request: Request,
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/", status_code=303)
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/")
     await start_worker()
     return RedirectResponse(url="/admin/", status_code=303)
 
@@ -55,22 +42,18 @@ async def crawler_start(
 async def crawler_stop(
     request: Request,
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/", status_code=303)
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/")
     await stop_worker()
     return RedirectResponse(url="/admin/", status_code=303)
 
 
 @router.get("/crawlers")
-async def crawlers_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
+async def crawlers_page(
+    request: Request,
+    _auth: None = Depends(require_admin_session),
+):
     instances = await get_all_crawler_instances()
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
@@ -90,13 +73,9 @@ async def crawler_instance_start(
     name: str,
     concurrency: int = Form(default=1),
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/crawlers", status_code=303)
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/crawlers")
     url = find_crawler_url(name)
     if not url:
         return RedirectResponse(url="/admin/crawlers", status_code=303)
@@ -110,13 +89,9 @@ async def crawler_instance_stop(
     request: Request,
     name: str,
     csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
 ):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/admin/login", status_code=303)
-
-    if not validate_csrf_token(request, csrf_token):
-        return RedirectResponse(url="/admin/crawlers", status_code=303)
-
+    check_csrf_or_redirect(request, csrf_token, "/admin/crawlers")
     url = find_crawler_url(name)
     if not url:
         return RedirectResponse(url="/admin/crawlers", status_code=303)
