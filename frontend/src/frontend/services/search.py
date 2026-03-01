@@ -90,6 +90,19 @@ class SearchService:
             except Exception:
                 logger.warning("OpenSearch BM25 failed", exc_info=True)
 
+        # Fall back to pgvector semantic search when available
+        if self._embed_query is not None:
+            logger.info("Falling back to pgvector for query: %s", q)
+            try:
+                result = self._pgvector_search(q, k, page)
+                SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
+                SEARCH_RESULT_COUNT.observe(result.total)
+                fallback_result = self._format_result(q, result)
+                fallback_result["fallback"] = True
+                return fallback_result
+            except Exception:
+                logger.warning("pgvector fallback also failed", exc_info=True)
+
         SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
         return self._empty_result(k, q)
 
