@@ -22,10 +22,14 @@ async def api_crawl(request: Request, req: CrawlRequest):
         return JSONResponse({"error": "URL is required"}, status_code=400)
 
     try:
+        headers: dict[str, str] = {}
+        if settings.INDEXER_API_KEY:
+            headers["X-API-Key"] = settings.INDEXER_API_KEY
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/urls",
                 json={"urls": [url]},
+                headers=headers,
             )
 
             if resp.status_code == 200:
