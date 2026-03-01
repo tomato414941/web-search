@@ -255,54 +255,100 @@ class IndexJobService:
         finally:
             con.close()
 
-    def mark_done(self, job_id: str) -> None:
+    def mark_done(self, job_id: str, worker_id: str | None = None) -> bool:
+        """Mark job as done. Returns True if update succeeded (CAS check)."""
         now_ts = self._now_ts()
         ph = sql_placeholder()
 
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            cur.execute(
-                f"""
-                UPDATE index_jobs
-                SET
-                    status = {ph},
-                    content = '',
-                    title = '',
-                    outlinks = {ph},
-                    lease_until = NULL,
-                    worker_id = NULL,
-                    last_error = NULL,
-                    updated_at = {ph}
-                WHERE job_id = {ph}
-                """,
-                (STATUS_DONE, "[]", now_ts, job_id),
-            )
+            if worker_id:
+                cur.execute(
+                    f"""
+                    UPDATE index_jobs
+                    SET
+                        status = {ph},
+                        content = '',
+                        title = '',
+                        outlinks = {ph},
+                        lease_until = NULL,
+                        worker_id = NULL,
+                        last_error = NULL,
+                        updated_at = {ph}
+                    WHERE job_id = {ph}
+                      AND status = {ph}
+                      AND worker_id = {ph}
+                    """,
+                    (STATUS_DONE, "[]", now_ts, job_id, STATUS_PROCESSING, worker_id),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    UPDATE index_jobs
+                    SET
+                        status = {ph},
+                        content = '',
+                        title = '',
+                        outlinks = {ph},
+                        lease_until = NULL,
+                        worker_id = NULL,
+                        last_error = NULL,
+                        updated_at = {ph}
+                    WHERE job_id = {ph}
+                    """,
+                    (STATUS_DONE, "[]", now_ts, job_id),
+                )
+            affected = cur.rowcount
             con.commit()
             cur.close()
+            if affected == 0 and worker_id:
+                logger.warning(
+                    "mark_done lost update: job=%s worker=%s", job_id, worker_id
+                )
+            return affected > 0
         finally:
             con.close()
 
-    def mark_failure(self, job_id: str, error_text: str) -> None:
+    def mark_failure(
+        self, job_id: str, error_text: str, worker_id: str | None = None
+    ) -> bool:
+        """Mark job as failed (retry or permanent). Returns True if update succeeded."""
         now_ts = self._now_ts()
         ph = sql_placeholder()
 
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            cur.execute(
-                f"""
-                SELECT retry_count, max_retries
-                FROM index_jobs
-                WHERE job_id = {ph}
-                """,
-                (job_id,),
-            )
+            if worker_id:
+                cur.execute(
+                    f"""
+                    SELECT retry_count, max_retries
+                    FROM index_jobs
+                    WHERE job_id = {ph} AND status = {ph} AND worker_id = {ph}
+                    """,
+                    (job_id, STATUS_PROCESSING, worker_id),
+                )
+            else:
+                cur.execute(
+                    f"""
+                    SELECT retry_count, max_retries
+                    FROM index_jobs
+                    WHERE job_id = {ph}
+                    """,
+                    (job_id,),
+                )
             row = cur.fetchone()
             if not row:
                 con.commit()
                 cur.close()
-                return
+                if worker_id:
+                    logger.warning(
+                        "mark_failure lost update: job=%s worker=%s",
+                        job_id,
+                        worker_id,
+                    )
+                return False
 
             retry_count = int(row[0]) + 1
             max_retries = int(row[1])
@@ -353,6 +399,7 @@ class IndexJobService:
                 )
             con.commit()
             cur.close()
+            return True
         finally:
             con.close()
 

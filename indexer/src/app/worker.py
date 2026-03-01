@@ -52,8 +52,12 @@ async def _process_single_job(
     worker_name: str,
     use_batch_embed: bool,
     semaphore: asyncio.Semaphore,
-) -> tuple[str, str] | None:
-    """Process a single index job. Returns (url, content) for batch embedding on success."""
+) -> tuple[str, str, str] | None:
+    """Process a single index job.
+
+    Returns (job_id, url, content) when batch embedding is deferred,
+    or None when done immediately or on failure.
+    """
     async with semaphore:
         try:
             await indexer_service.index_page(
@@ -63,9 +67,12 @@ async def _process_single_job(
                 outlinks=job.outlinks,
                 skip_embedding=use_batch_embed,
             )
-            indexer.index_job_service.mark_done(job.job_id)
             if use_batch_embed and job.content:
-                return (job.url, job.content)
+                # Defer mark_done until after batch embedding succeeds
+                return (job.job_id, job.url, job.content)
+            indexer.index_job_service.mark_done(
+                job.job_id, worker_id=worker_name
+            )
         except Exception as exc:
             error_text = str(exc)
             logger.exception(
@@ -75,7 +82,9 @@ async def _process_single_job(
                 job.url,
                 error_text,
             )
-            indexer.index_job_service.mark_failure(job.job_id, error_text)
+            indexer.index_job_service.mark_failure(
+                job.job_id, error_text, worker_id=worker_name
+            )
     return None
 
 
@@ -109,16 +118,26 @@ async def _index_job_worker_loop(worker_name: str) -> None:
         )
         embed_items = [r for r in results if r is not None]
 
-        # Batch embed all successful pages at once
+        # Batch embed all successful pages at once, then mark done
         if embed_items:
+            job_ids = [r[0] for r in embed_items]
+            url_content_pairs = [(r[1], r[2]) for r in embed_items]
             try:
-                await indexer_service.embed_and_save_batch(embed_items)
+                await indexer_service.embed_and_save_batch(url_content_pairs)
+                for jid in job_ids:
+                    indexer.index_job_service.mark_done(
+                        jid, worker_id=worker_name
+                    )
             except Exception:
                 logger.exception(
-                    "%s batch embedding failed for %d items",
+                    "%s batch embedding failed for %d items, marking as failure",
                     worker_name,
                     len(embed_items),
                 )
+                for jid in job_ids:
+                    indexer.index_job_service.mark_failure(
+                        jid, "Batch embedding failed", worker_id=worker_name
+                    )
 
 
 async def main() -> None:

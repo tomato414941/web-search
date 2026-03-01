@@ -96,3 +96,55 @@ def test_failure_retries_then_permanent_failure():
     assert status_after_second is not None
     assert status_after_second["status"] == "failed_permanent"
     assert status_after_second["retry_count"] == 2
+
+
+def test_mark_done_cas_rejects_wrong_worker():
+    """mark_done with worker_id should reject if worker doesn't own the job."""
+    service = IndexJobService(settings.DB_PATH)
+    job_id, _ = service.enqueue(
+        url="https://cas-done.example.com",
+        title="CAS",
+        content="cas-test-done",
+        outlinks=[],
+    )
+    service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-A")
+
+    # Wrong worker cannot mark done
+    result = service.mark_done(job_id, worker_id="worker-B")
+    assert result is False
+
+    status = service.get_job_status(job_id)
+    assert status["status"] == "processing"
+
+    # Correct worker succeeds
+    result = service.mark_done(job_id, worker_id="worker-A")
+    assert result is True
+
+    status = service.get_job_status(job_id)
+    assert status["status"] == "done"
+
+
+def test_mark_failure_cas_rejects_wrong_worker():
+    """mark_failure with worker_id should reject if worker doesn't own the job."""
+    service = IndexJobService(settings.DB_PATH)
+    job_id, _ = service.enqueue(
+        url="https://cas-fail.example.com",
+        title="CAS",
+        content="cas-test-fail",
+        outlinks=[],
+    )
+    service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-A")
+
+    # Wrong worker cannot mark failure
+    result = service.mark_failure(job_id, "error", worker_id="worker-B")
+    assert result is False
+
+    status = service.get_job_status(job_id)
+    assert status["status"] == "processing"
+
+    # Correct worker succeeds
+    result = service.mark_failure(job_id, "real error", worker_id="worker-A")
+    assert result is True
+
+    status = service.get_job_status(job_id)
+    assert status["status"] == "failed_retry"
