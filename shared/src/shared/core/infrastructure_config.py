@@ -42,5 +42,8 @@ class InfrastructureSettings(BaseSettings):
     # Environment
     ENVIRONMENT: Environment
 
+    # Run Alembic migrations on service startup (for local dev without db-migrate)
+    RUN_MIGRATIONS: bool = False
+
 
 settings = InfrastructureSettings()

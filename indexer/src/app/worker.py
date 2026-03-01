@@ -125,7 +125,8 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     logger.info("Starting indexer worker")
 
-    migrate()
+    if settings.RUN_MIGRATIONS:
+        migrate()
 
     indexer.index_job_service.db_path = settings.DB_PATH
     indexer.index_job_service.max_retries = settings.INDEXER_JOB_MAX_RETRIES

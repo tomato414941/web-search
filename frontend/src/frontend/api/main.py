@@ -42,7 +42,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    migrate()
+    if settings.RUN_MIGRATIONS:
+        migrate()
     yield
 
 

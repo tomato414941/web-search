@@ -18,7 +18,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: setup and teardown."""
-    migrate()
+    if settings.RUN_MIGRATIONS:
+        migrate()
 
     # Keep route-level job service in sync with runtime settings.
     indexer.index_job_service.db_path = settings.DB_PATH
