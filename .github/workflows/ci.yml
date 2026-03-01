@@ -34,12 +34,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e shared/
-          pip install pytest pytest-asyncio
+          pip install pytest pytest-cov pytest-asyncio
       - name: Run shared tests
         env:
           PYTHONPATH: shared/src
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-        run: cd shared && pytest tests/ -v --tb=short
+        run: cd shared && pytest tests/ -v --tb=short --cov=shared --cov-report=term-missing
 
   test-frontend:
     runs-on: ubuntu-latest
@@ -108,12 +108,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e shared/
           pip install -r crawler/requirements.txt
+          pip install pytest-cov
       - name: Run crawler tests
         env:
           PYTHONPATH: crawler/src
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
           INDEXER_API_KEY: test
-        run: cd crawler && pytest tests/ -v --tb=short
+        run: cd crawler && pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
 
   test-indexer:
     runs-on: ubuntu-latest
@@ -143,12 +144,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e shared/
           pip install -r indexer/requirements.txt
+          pip install pytest-cov
       - name: Run indexer tests
         env:
           PYTHONPATH: indexer/src
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
           INDEXER_API_KEY: test
-        run: cd indexer && pytest tests/ -v --tb=short
+        run: cd indexer && pytest tests/ -v --tb=short --cov=app --cov-report=term-missing
 
   lint:
     runs-on: ubuntu-latest
