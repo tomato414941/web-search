@@ -82,5 +82,5 @@ pytest crawler/tests
 For production-like staging setup on Coolify, see:
 
 - `docs/coolify-staging.md`
-- `coolify.staging.env.example`
+- `deploy/coolify.staging.env.example`
 - `scripts/ops/coolify_staging_smoke.sh`
