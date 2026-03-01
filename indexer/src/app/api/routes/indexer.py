@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.services.indexer import indexer_service
 from app.services.index_jobs import IndexJobService
 from shared.contracts.indexer_api import IndexPageRequest
-from shared.pagerank import calculate_pagerank, calculate_domain_pagerank
+from shared.search_kernel.pagerank import calculate_pagerank, calculate_domain_pagerank
 
 logger = logging.getLogger(__name__)
 

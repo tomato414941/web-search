@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 
 from frontend.services.api_key import (
     KEY_PREFIX,

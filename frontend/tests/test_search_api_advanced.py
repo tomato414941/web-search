@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from frontend.api.main import app
 from frontend.api.routers.search_api import log_search
 from frontend.core.config import settings
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 
 MAX_QUERY_LEN = settings.MAX_QUERY_LEN
 MAX_PER_PAGE = settings.MAX_PER_PAGE

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from frontend.core.config import settings
-from shared.db.search import get_connection, sql_placeholder, sql_placeholders
+from shared.postgres.search import get_connection, sql_placeholder, sql_placeholders
 from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 
 logger = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ from shared.testing import ensure_test_pg  # noqa: E402
 ensure_test_pg()
 
 import pytest  # noqa: E402
-from shared.db.search import get_connection  # noqa: E402
+from shared.postgres.search import get_connection  # noqa: E402
 from shared.postgres.migrate import migrate  # noqa: E402
 
 _TABLES = [

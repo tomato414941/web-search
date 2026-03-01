@@ -5,7 +5,7 @@ import logging
 import secrets
 
 from frontend.core.config import settings
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 from shared.postgres.repositories.api_key_repo import ApiKeyRepository
 
 logger = logging.getLogger(__name__)

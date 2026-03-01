@@ -10,7 +10,7 @@ import logging
 from typing import Any
 from urllib.parse import urlparse
 
-from shared.db.search import open_db, sql_placeholder
+from shared.postgres.search import open_db, sql_placeholder
 
 logger = logging.getLogger(__name__)
 

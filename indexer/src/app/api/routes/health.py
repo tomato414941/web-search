@@ -11,7 +11,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 
 # Router for root-level health endpoints
 root_router = APIRouter()

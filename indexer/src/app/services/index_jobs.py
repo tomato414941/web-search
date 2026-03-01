@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from shared.contracts.enums import CLAIMABLE_JOB_STATUSES, IndexJobStatus
-from shared.db.search import get_connection, sql_placeholder
+from shared.postgres.search import get_connection, sql_placeholder
 
 logger = logging.getLogger(__name__)
 

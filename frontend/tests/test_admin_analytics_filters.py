@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from frontend.api.routers.admin import get_analytics_data, get_dashboard_data
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 
 
 def _insert_search_log(query: str, result_count: int, user_agent: str) -> None:

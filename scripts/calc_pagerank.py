@@ -12,7 +12,7 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "shared", "src"))
 
-from shared.pagerank import calculate_pagerank, calculate_domain_pagerank
+from shared.search_kernel.pagerank import calculate_pagerank, calculate_domain_pagerank
 from shared.core.infrastructure_config import settings
 
 

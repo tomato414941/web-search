@@ -7,7 +7,7 @@ from frontend.services.admin_analytics import (
     time_boundaries,
 )
 from frontend.services.crawler_admin_client import fetch_stats, fetch_status_breakdown
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 
 logger = logging.getLogger(__name__)

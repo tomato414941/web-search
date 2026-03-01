@@ -8,7 +8,7 @@ from app.api.routes import indexer
 from app.core.config import settings
 from app.services.indexer import indexer_service
 from shared.postgres.migrate import migrate
-from shared.pagerank import calculate_domain_pagerank, calculate_pagerank
+from shared.search_kernel.pagerank import calculate_domain_pagerank, calculate_pagerank
 
 logger = logging.getLogger(__name__)
 

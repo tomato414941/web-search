@@ -120,7 +120,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "from shared.db.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.execute('SELECT 1 FROM index_jobs LIMIT 1'); cur.close(); c.close()",
+          "from shared.postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.execute('SELECT 1 FROM index_jobs LIMIT 1'); cur.close(); c.close()",
         ]
       interval: 30s
       timeout: 10s

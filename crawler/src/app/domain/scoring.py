@@ -10,7 +10,7 @@ import math
 import re
 from urllib.parse import urlparse
 
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 
 logger = logging.getLogger(__name__)
 

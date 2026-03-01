@@ -16,7 +16,7 @@ from frontend.api.metrics import (
 )
 from frontend.core.config import settings
 from frontend.services.embedding import embed_query_func
-from shared.analyzer import analyzer
+from shared.search_kernel.analyzer import analyzer
 from shared.contracts.enums import SearchMode
 from shared.search_kernel.snippet import generate_snippet
 
@@ -126,7 +126,7 @@ class SearchService:
     def _pgvector_search(self, q: str, k: int, page: int) -> Any:
         """Semantic search using pgvector cosine distance."""
         from shared.embedding import to_pgvector
-        from shared.db.search import get_connection
+        from shared.postgres.search import get_connection
         from shared.search_kernel.searcher import SearchHit, SearchResult
 
         if not q or not q.strip() or self._embed_query is None:
@@ -266,7 +266,7 @@ class SearchService:
     def get_index_stats(self) -> dict[str, int]:
         """Return index stats: total pages."""
         try:
-            from shared.db.search import get_connection
+            from shared.postgres.search import get_connection
 
             con = get_connection(self.db_path)
             cur = con.cursor()

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from frontend.api.main import app
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 
 client = TestClient(app)
 

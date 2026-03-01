@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 
 
 @contextmanager

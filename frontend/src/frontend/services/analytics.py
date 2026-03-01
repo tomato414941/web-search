@@ -10,7 +10,7 @@ from fastapi import Request, Response
 from frontend.core.config import settings
 from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
 from shared.core.infrastructure_config import Environment
-from shared.db.search import get_connection
+from shared.postgres.search import get_connection
 from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 
 logger = logging.getLogger(__name__)

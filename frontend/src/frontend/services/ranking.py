@@ -1,5 +1,5 @@
 from frontend.core.config import settings
-from shared.pagerank import calculate_pagerank
+from shared.search_kernel.pagerank import calculate_pagerank
 
 
 class RankingService:

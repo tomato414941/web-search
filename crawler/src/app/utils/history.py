@@ -10,7 +10,7 @@ from typing import Optional, List, Dict, Any, Set
 from urllib.parse import urlparse
 
 from shared.contracts.enums import CRAWL_ERROR_STATUSES, CrawlAttemptStatus
-from shared.db.search import (
+from shared.postgres.search import (
     get_connection,
     sql_placeholder,
     sql_placeholders,

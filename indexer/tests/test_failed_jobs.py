@@ -3,7 +3,7 @@
 from app.api.routes.indexer import index_job_service
 from app.core.config import settings
 from app.services.index_jobs import STATUS_FAILED_PERMANENT, STATUS_PENDING
-from shared.db.search import get_connection, sql_placeholder
+from shared.postgres.search import get_connection, sql_placeholder
 
 API_KEY_HEADER = {"X-API-Key": settings.INDEXER_API_KEY}
 

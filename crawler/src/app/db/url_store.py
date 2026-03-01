@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
 
-from shared.db.search import (
+from shared.postgres.search import (
     get_connection,
     sql_placeholder,
     sql_placeholders,
