@@ -310,6 +310,63 @@ class UrlStore:
         finally:
             con.close()
 
+    def requeue_for_retry(self, url: str, priority: float) -> bool:
+        """Move a URL from crawling back to pending for retry.
+
+        Only transitions crawling -> pending. Returns True if transitioned.
+        """
+        h = url_hash(url)
+        ph = sql_placeholder()
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            cur.execute(
+                f"""
+                UPDATE urls
+                SET status = 'pending', priority = {ph}
+                WHERE url_hash = {ph} AND status = 'crawling'
+                """,
+                (priority, h),
+            )
+            affected = cur.rowcount
+            con.commit()
+            cur.close()
+            return affected > 0
+        finally:
+            con.close()
+
+    def release_urls(self, urls: list[str], status: str = "failed") -> int:
+        """Release URLs from crawling to another status.
+
+        Used to release blocked URLs that were popped from the queue
+        but filtered out by the scheduler. Only transitions crawling -> target status.
+        Returns count of affected rows.
+        """
+        if not urls:
+            return 0
+        ph = sql_placeholder()
+        now = int(time.time())
+        affected = 0
+        con = get_connection(self.db_path)
+        try:
+            cur = con.cursor()
+            for url in urls:
+                h = url_hash(url)
+                cur.execute(
+                    f"""
+                    UPDATE urls
+                    SET status = {ph}, last_crawled_at = {ph}
+                    WHERE url_hash = {ph} AND status = 'crawling'
+                    """,
+                    (status, now, h),
+                )
+                affected += cur.rowcount
+            con.commit()
+            cur.close()
+            return affected
+        finally:
+            con.close()
+
     def record(self, url: str, status: str = "done") -> None:
         """
         Record a crawl result. Updates status, last_crawled_at, crawl_count.

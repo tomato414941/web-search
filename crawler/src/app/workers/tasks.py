@@ -357,9 +357,9 @@ async def _handle_retry(
         await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
         runtime_state.retry_counts.pop(url, None)
     else:
-        # Re-add to url_store as pending with lower priority
+        # Transition crawling -> pending with lower priority
         new_priority = max(priority - 5.0, -100.0)
-        await run_in_db_executor(url_store.add, url, new_priority)
+        await run_in_db_executor(url_store.requeue_for_retry, url, new_priority)
         await run_in_db_executor(
             history_log.log_crawl_attempt,
             url,

@@ -103,7 +103,12 @@ class Scheduler:
         # Fetch more from url_store if buffer is empty or exhausted
         if len(self._buffer) < self.config.batch_size // 2:
             items = self.url_store.pop_batch(self.config.batch_size)
+            blocked_items = [item for item in items if self._is_blocked(item.domain)]
             items = [item for item in items if not self._is_blocked(item.domain)]
+            if blocked_items:
+                self.url_store.release_urls(
+                    [item.url for item in blocked_items], status="failed"
+                )
             self._buffer.extend(items)
 
         # Try again with new items
@@ -148,11 +153,13 @@ class Scheduler:
 
         # Check buffer — collect selected AND blocked indices for removal
         blocked_indices: list[int] = []
+        blocked_urls: list[str] = []
         for i, item in enumerate(self._buffer):
             if len(result) >= count:
                 break
             if blocked and is_domain_blocked(item.domain, blocked):
                 blocked_indices.append(i)
+                blocked_urls.append(item.url)
                 continue
             if _can_select(item.domain):
                 result.append(item)
@@ -164,6 +171,10 @@ class Scheduler:
         # Remove selected + blocked items from buffer (reverse order)
         for i in reversed(sorted(to_remove + blocked_indices)):
             self._buffer.pop(i)
+
+        # Release blocked URLs back to DB
+        if blocked_urls:
+            self.url_store.release_urls(blocked_urls, status="failed")
 
         # If we need more, fetch from url_store
         while len(result) < count:
@@ -185,6 +196,12 @@ class Scheduler:
                     selected_per_domain[item.domain] = (
                         selected_per_domain.get(item.domain, 0) + 1
                     )
+
+            # Release blocked URLs back to DB
+            if blocked_idx:
+                self.url_store.release_urls(
+                    [items[i].url for i in blocked_idx], status="failed"
+                )
 
             # Add remaining to buffer (skip blocked)
             skip_set = set(to_remove) | set(blocked_idx)

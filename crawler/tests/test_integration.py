@@ -148,8 +148,13 @@ async def test_process_url_http_error(test_components):
 
 @pytest.mark.asyncio
 async def test_process_url_network_error(test_components):
-    """Test process_url with network error"""
+    """Test process_url with network error re-queues URL from crawling to pending."""
     url_store, scheduler = test_components
+    test_url = "http://example.com/error"
+
+    # Simulate real flow: URL is in crawling status before process_url runs
+    url_store.add(test_url, 100.0)
+    url_store.pop_batch(1)  # marks as crawling
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -167,12 +172,14 @@ async def test_process_url_network_error(test_components):
             mock_robots,
             url_store,
             scheduler,
-            "http://example.com/error",
+            test_url,
             100.0,
         )
 
-        # URL should be re-added as pending (retry)
-        assert url_store.contains("http://example.com/error")
+        # URL should be re-queued as pending (retry)
+        stats = url_store.get_stats()
+        assert stats["pending"] == 1
+        assert stats["crawling"] == 0
 
 
 @pytest.mark.asyncio
@@ -312,6 +319,70 @@ async def test_process_url_logs_indexer_error_detail(test_components):
         "Indexer 422: url_too_long",
     )
     assert url_store.contains("http://example.com/fail")
+
+
+@pytest.mark.asyncio
+async def test_process_url_retry_requeues_crawling_url(test_components):
+    """Verify retry moves URL from crawling -> pending via requeue_for_retry."""
+    url_store, scheduler = test_components
+    test_url = "http://example.com/retry-test"
+
+    # Pre-add and pop to set status to 'crawling'
+    url_store.add(test_url, 50.0)
+    popped = url_store.pop_batch(1)
+    assert len(popped) == 1
+    stats = url_store.get_stats()
+    assert stats["crawling"] == 1
+    assert stats["pending"] == 0
+
+    mock_session = MagicMock()
+    mock_robots = AsyncMock()
+    mock_robots.can_fetch.return_value = True
+    mock_robots.get_crawl_delay = MagicMock(return_value=None)
+
+    # Mock network error to trigger retry
+    import aiohttp
+
+    mock_session.get.side_effect = aiohttp.ClientError("Connection failed")
+
+    with patch("app.workers.tasks.history_log.log_crawl_attempt"):
+        await process_url(
+            mock_session,
+            mock_robots,
+            url_store,
+            scheduler,
+            test_url,
+            50.0,
+        )
+
+    # URL should be back to pending (not stuck in crawling)
+    stats = url_store.get_stats()
+    assert stats["pending"] == 1, f"Expected pending=1, got {stats}"
+    assert stats["crawling"] == 0, f"Expected crawling=0, got {stats}"
+
+
+def test_requeue_for_retry_transitions_crawling_to_pending(tmp_path):
+    """requeue_for_retry should move crawling -> pending."""
+    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store.add("http://example.com/r", 50.0)
+    url_store.pop_batch(1)  # marks as crawling
+
+    result = url_store.requeue_for_retry("http://example.com/r", 45.0)
+    assert result is True
+
+    stats = url_store.get_stats()
+    assert stats["pending"] == 1
+    assert stats["crawling"] == 0
+
+
+def test_requeue_for_retry_noop_if_not_crawling(tmp_path):
+    """requeue_for_retry should be a no-op if URL is not in crawling status."""
+    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store.add("http://example.com/noop", 50.0)
+
+    # Status is 'pending', not 'crawling'
+    result = url_store.requeue_for_retry("http://example.com/noop", 45.0)
+    assert result is False
 
 
 @pytest.mark.asyncio
