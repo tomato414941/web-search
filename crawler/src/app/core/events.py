@@ -25,10 +25,17 @@ async def lifespan(app: FastAPI):
     # Import here to avoid circular dependencies
     from app.workers.manager import worker_manager
 
-    # Initialize worker manager (does not start workers automatically)
+    from app.core.config import settings
+
+    # Initialize worker manager
     await worker_manager.initialize()
-    logger.info("✅ Worker manager initialized (workers not started)")
-    logger.info("💡 Use POST /worker/start to begin crawling")
+
+    if settings.CRAWL_AUTO_START:
+        await worker_manager.start()
+        logger.info("Worker manager initialized and workers auto-started")
+    else:
+        logger.info("Worker manager initialized (workers not started)")
+        logger.info("Use POST /worker/start to begin crawling")
 
     yield  # Application runs here
 

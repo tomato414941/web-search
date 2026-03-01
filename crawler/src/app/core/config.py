@@ -22,6 +22,9 @@ class CrawlerSettings(InfrastructureSettings):
     # Database Path (for UrlStore, Seeds)
     CRAWLER_DB_PATH: str = "/data/crawler.db"
 
+    # Auto-start crawl workers on service startup
+    CRAWL_AUTO_START: bool = False
+
     # Recrawl settings
     CRAWL_RECRAWL_AFTER_DAYS: int = 30
 

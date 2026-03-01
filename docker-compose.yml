@@ -140,6 +140,7 @@ services:
       - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY:-10}
+      - CRAWL_AUTO_START=${CRAWL_AUTO_START:-true}
       - DB_POOL_MAX=${DB_POOL_MAX_CRAWLER:-20}
     depends_on:
       db-migrate:
