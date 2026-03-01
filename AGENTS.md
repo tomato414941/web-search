@@ -7,7 +7,7 @@ This repo is a Python microservices stack. The main services live at the top lev
 - `crawler/` distributed crawler workers and API
 - `shared/` common library (DB, search logic, config), installed as an editable package
 - `docs/` architecture and setup guides, plus API references
-- `scripts/` operational scripts and utilities
+- `scripts/` operational scripts (`ops/`), one-shot migrations (`migrations/`), dev tools (`dev/`)
 Each service has its own `src/` and `tests/` directories (e.g., `frontend/src/`, `frontend/tests/`).
 
 ## Build, Test, and Development Commands

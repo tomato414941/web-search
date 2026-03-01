@@ -83,4 +83,4 @@ For production-like staging setup on Coolify, see:
 
 - `docs/coolify-staging.md`
 - `coolify.staging.env.example`
-- `scripts/coolify_staging_smoke.sh`
+- `scripts/ops/coolify_staging_smoke.sh`

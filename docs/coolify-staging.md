@@ -84,7 +84,7 @@ Expected progression:
 Automation (same checks in one command):
 
 ```bash
-./scripts/coolify_staging_smoke.sh \
+./scripts/ops/coolify_staging_smoke.sh \
   https://<staging-frontend-domain> \
   http://indexer:8000 \
   <INDEXER_API_KEY> \
