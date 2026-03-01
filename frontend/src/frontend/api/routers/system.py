@@ -31,28 +31,34 @@ def _check_database() -> bool:
         return False
 
 
-def _check_crawler() -> bool:
-    """Check Crawler service connectivity."""
+async def _check_crawler() -> bool:
+    """Check Crawler service connectivity (non-blocking)."""
     try:
-        with httpx.Client(timeout=3.0) as client:
-            resp = client.get(f"{settings.CRAWLER_SERVICE_URL}/health")
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/health")
             return resp.status_code == 200
     except Exception:
         return False
 
 
-def _get_readiness_response():
-    """Get readiness status with dependency checks."""
+async def _get_readiness_response():
+    """Get readiness status with dependency checks.
+
+    Only database health determines readiness (200 vs 503).
+    Crawler status is informational — reported but not gating.
+    """
+    db_ok = _check_database()
+    crawler_ok = await _check_crawler()
+
     checks = {
-        "database": "ok" if _check_database() else "unhealthy",
-        "crawler": "ok" if _check_crawler() else "unhealthy",
+        "database": "ok" if db_ok else "unhealthy",
+        "crawler": "ok" if crawler_ok else "degraded",
     }
 
-    all_healthy = all(v == "ok" for v in checks.values())
-    status = "ok" if all_healthy else "unhealthy"
+    status = "ok" if db_ok else "unhealthy"
 
     return JSONResponse(
-        status_code=200 if all_healthy else 503,
+        status_code=200 if db_ok else 503,
         content={"status": status, "checks": checks},
     )
 
@@ -75,7 +81,7 @@ async def liveness():
 @root_router.get("/health/ready")
 async def readiness():
     """Kubernetes readiness probe - are dependencies healthy?"""
-    return _get_readiness_response()
+    return await _get_readiness_response()
 
 
 # Kubernetes-style short aliases
@@ -88,4 +94,4 @@ async def healthz():
 @root_router.get("/readyz")
 async def readyz():
     """Readiness probe alias (/readyz)."""
-    return _get_readiness_response()
+    return await _get_readiness_response()
