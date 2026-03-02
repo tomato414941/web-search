@@ -279,9 +279,7 @@ class SearchService:
         if use_diversity:
             # Overscan: fetch extra candidates so we still have enough
             # after per-domain capping.
-            fetch_size = min(
-                page * k * settings.DIVERSITY_OVERSCAN, CANDIDATE_LIMIT
-            )
+            fetch_size = min(page * k * settings.DIVERSITY_OVERSCAN, CANDIDATE_LIMIT)
             fetch_offset = 0
         else:
             fetch_size = k

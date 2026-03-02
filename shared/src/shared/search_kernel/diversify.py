@@ -34,17 +34,43 @@ def diversify_hits(
 
 
 # Two-level TLDs where the registered domain is one level deeper.
-_TWO_LEVEL_TLDS = frozenset({
-    "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp", "ed.jp", "ad.jp",
-    "co.uk", "ac.uk", "org.uk", "gov.uk",
-    "co.kr", "or.kr", "go.kr",
-    "com.au", "net.au", "org.au", "edu.au",
-    "com.br", "org.br", "net.br",
-    "com.cn", "net.cn", "org.cn",
-    "co.in", "net.in", "org.in",
-    "co.nz", "net.nz", "org.nz",
-    "com.tw", "org.tw", "net.tw",
-})
+_TWO_LEVEL_TLDS = frozenset(
+    {
+        "co.jp",
+        "ne.jp",
+        "or.jp",
+        "ac.jp",
+        "go.jp",
+        "ed.jp",
+        "ad.jp",
+        "co.uk",
+        "ac.uk",
+        "org.uk",
+        "gov.uk",
+        "co.kr",
+        "or.kr",
+        "go.kr",
+        "com.au",
+        "net.au",
+        "org.au",
+        "edu.au",
+        "com.br",
+        "org.br",
+        "net.br",
+        "com.cn",
+        "net.cn",
+        "org.cn",
+        "co.in",
+        "net.in",
+        "org.in",
+        "co.nz",
+        "net.nz",
+        "org.nz",
+        "com.tw",
+        "org.tw",
+        "net.tw",
+    }
+)
 
 
 def _extract_domain(url: str) -> str:

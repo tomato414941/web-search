@@ -38,12 +38,12 @@ class _FakeConnection:
 
 
 class _DummyIndexer:
-    def index_document(self, _url, _title, _content, _conn):
+    def index_document(self, _url, _title, _content, _conn, **_kwargs):
         return None
 
 
 class _FailingIndexer:
-    def index_document(self, _url, _title, _content, _conn):
+    def index_document(self, _url, _title, _content, _conn, **_kwargs):
         raise RuntimeError("index failed")
 
 

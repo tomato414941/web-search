@@ -175,7 +175,9 @@ async def parse(html: str, url: str, max_outlinks: int) -> ParseResult:
     if discovered:
         discovered = discovered[:max_outlinks]
     return ParseResult(
-        title=title, content=content, outlinks=discovered or [],
+        title=title,
+        content=content,
+        outlinks=discovered or [],
         published_at=published_at,
     )
 
