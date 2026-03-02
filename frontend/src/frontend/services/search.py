@@ -241,7 +241,8 @@ class SearchService:
         self, q: str, k: int, page: int, *, with_embedding: bool = False
     ) -> Any:
         """Execute OpenSearch query (BM25 or hybrid BM25 + k-NN)."""
-        from shared.opensearch.search import search_bm25, search_hybrid
+        from shared.opensearch.search import CANDIDATE_LIMIT, search_bm25, search_hybrid
+        from shared.search_kernel.diversify import diversify_hits
         from shared.search_kernel.searcher import SearchHit, SearchResult, parse_query
 
         parsed = parse_query(q)
@@ -262,23 +263,34 @@ class SearchService:
                 logger.warning("Query embedding failed, using BM25 only", exc_info=True)
 
         client = self._get_os_client()
-        offset = (page - 1) * k
+        use_diversity = not parsed.site_filter
+
+        if use_diversity:
+            # Overscan: fetch extra candidates so we still have enough
+            # after per-domain capping.
+            fetch_size = min(
+                page * k * settings.DIVERSITY_OVERSCAN, CANDIDATE_LIMIT
+            )
+            fetch_offset = 0
+        else:
+            fetch_size = k
+            fetch_offset = (page - 1) * k
 
         if embedding is not None:
             os_result = search_hybrid(
                 client,
                 query_tokens=tokens,
                 embedding=embedding,
-                limit=k,
-                offset=offset,
+                limit=fetch_size,
+                offset=fetch_offset,
                 site_filter=parsed.site_filter,
             )
         else:
             os_result = search_bm25(
                 client,
                 query_tokens=tokens,
-                limit=k,
-                offset=offset,
+                limit=fetch_size,
+                offset=fetch_offset,
                 site_filter=parsed.site_filter,
             )
 
@@ -289,8 +301,31 @@ class SearchService:
             for h in os_result["hits"]
         ]
         total = os_result["total"]
-        last_page = max((total + k - 1) // k, 1)
 
+        if use_diversity:
+            diversified = diversify_hits(
+                hits,
+                limit=page * k,
+                max_per_domain=settings.MAX_PER_DOMAIN,
+            )
+            start = (page - 1) * k
+            page_hits = diversified[start : start + k]
+            diversified_total = len(diversified)
+            if len(hits) >= fetch_size:
+                estimated_total = max(total, diversified_total)
+            else:
+                estimated_total = diversified_total
+            last_page = max((estimated_total + k - 1) // k, 1)
+            return SearchResult(
+                query=q,
+                total=estimated_total,
+                hits=page_hits,
+                page=page,
+                per_page=k,
+                last_page=last_page,
+            )
+
+        last_page = max((total + k - 1) // k, 1)
         return SearchResult(
             query=q,
             total=total,
