@@ -58,10 +58,14 @@ class Scheduler:
 
         # Combined blocked domains (static blocklist + dynamic robots-blocked)
         self._blocked_domains: frozenset[str] = frozenset()
+        self._blocked_version: int = 0
+        self._purged_version: int = 0
 
     def set_blocked_domains(self, domains: frozenset[str]) -> None:
         """Update the set of blocked domains (static + dynamic combined)."""
-        self._blocked_domains = domains
+        if domains != self._blocked_domains:
+            self._blocked_domains = domains
+            self._blocked_version += 1
 
     def _get_gate(self, domain: str) -> HostGate:
         gate = self._gates.get(domain)
@@ -78,7 +82,10 @@ class Scheduler:
         return is_domain_blocked(domain, self._blocked_domains)
 
     def _purge_blocked_from_buffer(self) -> None:
-        """Remove blocked domains from internal buffer."""
+        """Remove blocked domains from internal buffer (skips if unchanged)."""
+        if self._purged_version == self._blocked_version:
+            return
+        self._purged_version = self._blocked_version
         if not self._blocked_domains:
             return
         self._buffer = [
