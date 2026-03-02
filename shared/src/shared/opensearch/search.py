@@ -81,7 +81,7 @@ def search_bm25(
         },
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
-        "_source": ["url", "title", "content"],
+        "_source": ["url", "title", "content", "indexed_at"],
     }
 
     resp = client.search(index=INDEX_NAME, body=query)
@@ -96,6 +96,7 @@ def search_bm25(
                 "title": src.get("title", ""),
                 "content": src.get("content", ""),
                 "score": hit["_score"],
+                "indexed_at": src.get("indexed_at"),
             }
         )
 
@@ -158,7 +159,7 @@ def search_hybrid(
         },
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
-        "_source": ["url", "title", "content"],
+        "_source": ["url", "title", "content", "indexed_at"],
     }
 
     resp = client.search(index=INDEX_NAME, body=query)
@@ -173,6 +174,7 @@ def search_hybrid(
                 "title": src.get("title", ""),
                 "content": src.get("content", ""),
                 "score": hit["_score"],
+                "indexed_at": src.get("indexed_at"),
             }
         )
 

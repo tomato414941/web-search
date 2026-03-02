@@ -181,7 +181,8 @@ class SearchService:
             cur.execute(
                 """
                 SELECT pe.url, d.title, d.content,
-                       1 - (pe.embedding <=> %s::vector) AS similarity
+                       1 - (pe.embedding <=> %s::vector) AS similarity,
+                       d.indexed_at
                 FROM page_embeddings pe
                 JOIN documents d ON d.url = pe.url
                 WHERE pe.embedding IS NOT NULL
@@ -195,7 +196,13 @@ class SearchService:
             has_more = len(rows) > k
             rows = rows[:k]
             hits = [
-                SearchHit(url=r[0], title=r[1], content=r[2], score=float(r[3]))
+                SearchHit(
+                    url=r[0],
+                    title=r[1],
+                    content=r[2],
+                    score=float(r[3]),
+                    indexed_at=r[4].isoformat() if r[4] else None,
+                )
                 for r in rows
             ]
             total = offset + len(hits) + (1 if has_more else 0)
@@ -218,15 +225,16 @@ class SearchService:
         hits = []
         for hit in result.hits:
             snippet = generate_snippet(hit.content, search_terms)
-            hits.append(
-                {
-                    "url": hit.url,
-                    "title": hit.title,
-                    "snip": snippet.text,
-                    "snip_plain": snippet.plain_text,
-                    "rank": hit.score,
-                }
-            )
+            hit_dict = {
+                "url": hit.url,
+                "title": hit.title,
+                "snip": snippet.text,
+                "snip_plain": snippet.plain_text,
+                "rank": hit.score,
+            }
+            if hit.indexed_at:
+                hit_dict["indexed_at"] = hit.indexed_at
+            hits.append(hit_dict)
 
         return {
             "query": q,
@@ -296,7 +304,11 @@ class SearchService:
 
         hits = [
             SearchHit(
-                url=h["url"], title=h["title"], content=h["content"], score=h["score"]
+                url=h["url"],
+                title=h["title"],
+                content=h["content"],
+                score=h["score"],
+                indexed_at=h.get("indexed_at"),
             )
             for h in os_result["hits"]
         ]

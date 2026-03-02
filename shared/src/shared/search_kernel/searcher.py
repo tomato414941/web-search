@@ -22,6 +22,7 @@ class SearchHit:
     title: str
     content: str
     score: float
+    indexed_at: str | None = None
 
 
 @dataclass
