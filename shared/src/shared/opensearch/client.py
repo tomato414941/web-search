@@ -22,7 +22,7 @@ def get_client(url: str = "http://localhost:9200") -> OpenSearch:
             hosts=[url],
             use_ssl=url.startswith("https"),
             verify_certs=False,
-            timeout=30,
+            timeout=10,
         )
     return _client
 

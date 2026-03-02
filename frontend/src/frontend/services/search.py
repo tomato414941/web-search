@@ -2,9 +2,10 @@
 Search Service - Frontend search functionality.
 
 Supports BM25 (OpenSearch), vector (pgvector), and hybrid (OpenSearch BM25 + k-NN) modes.
-Default mode is hybrid when embeddings are available, otherwise BM25.
+Default (auto) mode uses BM25 for speed; hybrid/semantic available via explicit mode.
 """
 
+import concurrent.futures
 import logging
 import time
 from typing import Any
@@ -71,8 +72,8 @@ class SearchService:
             return self._hybrid_search(q, k, page)
         elif mode == SearchMode.SEMANTIC and self.hybrid_available:
             return self._vector_search(q, k, page)
-        elif mode == SearchMode.AUTO and self.hybrid_available:
-            return self._hybrid_search(q, k, page)
+        elif mode == SearchMode.AUTO:
+            return self._bm25_search(q, k, page)
         else:
             return self._bm25_search(q, k, page)
 
@@ -112,16 +113,26 @@ class SearchService:
     def _hybrid_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
         SEARCH_QUERY_TOTAL.labels(mode="hybrid").inc()
         t0 = time.monotonic()
+        timeout = settings.HYBRID_SEARCH_TIMEOUT_SEC
 
         client = self._get_os_client()
         if client is not None:
             try:
-                result = self._run_opensearch_query(q, k, page, with_embedding=True)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(
+                        self._run_opensearch_query, q, k, page, with_embedding=True
+                    )
+                    result = future.result(timeout=timeout)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
                 out = self._format_result(q, result)
                 out["mode"] = SearchMode.HYBRID
                 return out
+            except concurrent.futures.TimeoutError:
+                logger.warning(
+                    "Hybrid search timed out after %.1fs, falling back to BM25",
+                    timeout,
+                )
             except Exception:
                 logger.warning(
                     "OpenSearch hybrid failed, falling back to BM25", exc_info=True

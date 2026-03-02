@@ -9,7 +9,7 @@ from shared.opensearch.client import INDEX_NAME
 
 logger = logging.getLogger(__name__)
 
-CANDIDATE_LIMIT = 1000
+CANDIDATE_LIMIT = 200
 
 
 def search_bm25(
@@ -143,7 +143,7 @@ def search_hybrid(
         "knn": {
             "embedding": {
                 "vector": embedding,
-                "k": min(limit * 3, CANDIDATE_LIMIT),
+                "k": min(limit * 2, CANDIDATE_LIMIT),
             }
         }
     }
