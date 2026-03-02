@@ -27,7 +27,7 @@ async def _fetch_crawler_stats() -> dict[str, int]:
     """Fetch queue stats from the crawler API."""
     stats: dict[str, int] = {"queued": 0, "visited": 0}
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/status",
                 headers=_crawler_headers(),
