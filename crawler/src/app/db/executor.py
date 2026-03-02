@@ -28,4 +28,4 @@ async def run_in_db_executor(func, *args, **kwargs):
 
 def shutdown_db_executor():
     """Shutdown the DB executor (call at app shutdown)."""
-    _db_executor.shutdown(wait=False)
+    _db_executor.shutdown(wait=True)
