@@ -130,9 +130,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r mcp/requirements.txt
       - name: Run MCP tests
-        env:
-          PYTHONPATH: mcp/src
-        run: cd mcp && pytest tests/ -v --tb=short
+        run: cd mcp && PYTHONPATH=src pytest tests/ -v --tb=short
 
   test-indexer:
     runs-on: ubuntu-latest
