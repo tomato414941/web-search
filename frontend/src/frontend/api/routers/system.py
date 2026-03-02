@@ -41,6 +41,20 @@ async def _check_crawler() -> bool:
         return False
 
 
+def _check_opensearch() -> dict:
+    """Check OpenSearch connectivity and document count."""
+    if not settings.OPENSEARCH_ENABLED:
+        return {"status": "disabled"}
+    try:
+        from shared.opensearch.client import INDEX_NAME, get_client
+
+        client = get_client(settings.OPENSEARCH_URL)
+        count = client.count(index=INDEX_NAME)["count"]
+        return {"status": "ok", "documents": count}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
 async def _get_readiness_response():
     """Get readiness status with dependency checks.
 
@@ -49,10 +63,12 @@ async def _get_readiness_response():
     """
     db_ok = _check_database()
     crawler_ok = await _check_crawler()
+    opensearch = _check_opensearch()
 
     checks = {
         "database": "ok" if db_ok else "unhealthy",
         "crawler": "ok" if crawler_ok else "degraded",
+        "opensearch": opensearch,
     }
 
     status = "ok" if db_ok else "unhealthy"
