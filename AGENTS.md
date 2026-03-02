@@ -9,6 +9,7 @@ This repo is a Python microservices stack (CQRS-lite: read and write paths are s
 - `indexer/` write-node for ingestion, tokenization, and embeddings
 - `crawler/` distributed crawler workers and API
 - `shared/` common library (DB, search logic, config), installed as an editable package
+- `mcp/` MCP server for AI agent integration (Claude Code, Claude Desktop)
 - `docs/` architecture and setup guides, plus API references
 - `scripts/` operational scripts (`ops/`), one-shot migrations (`migrations/`), dev tools (`dev/`)
 Each service has its own `src/` and `tests/` directories (e.g., `frontend/src/`, `frontend/tests/`).
@@ -23,7 +24,8 @@ Run commands from the repo root unless noted:
 - `export PYTHONPATH=crawler/src && uvicorn app.main:app --reload --port 8082` to run the crawler.
 - `docker compose up --build -d` to start the full stack (frontend, indexer, crawler).
 - `cd frontend && pytest tests/ -v` (repeat for `crawler/`, `indexer/`, `shared/`) to run tests.
-- `ruff check frontend/src/ shared/src/ crawler/src/` and `ruff format ...` for linting/formatting.
+- `cd mcp && PYTHONPATH=src pytest tests/ -v` to run MCP server tests.
+- `ruff check frontend/src/ shared/src/ crawler/src/ mcp/src/` and `ruff format ...` for linting/formatting.
 - `pre-commit run --all-files` before committing to catch style issues.
 
 ## Coding Style & Naming Conventions
