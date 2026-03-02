@@ -1,0 +1,118 @@
+# AI-Focused Seed List for PaleBlueSearch
+# Format: category,domain,priority_boost,note
+# priority_boost: additional score on top of PageRank (0-30)
+# Categories: docs, reference, tech-news, tech-blog, qa, japanese
+
+# =============================================================================
+# A. Official Documentation (highest value for AI agents)
+# =============================================================================
+docs,docs.python.org,30,Python official docs
+docs,react.dev,30,React official docs
+docs,nextjs.org,25,Next.js docs
+docs,vuejs.org,25,Vue.js docs
+docs,angular.dev,25,Angular docs
+docs,svelte.dev,25,Svelte docs
+docs,developer.mozilla.org,30,MDN Web Docs
+docs,nodejs.org,30,Node.js docs
+docs,go.dev,25,Go official docs
+docs,doc.rust-lang.org,25,Rust docs
+docs,docs.oracle.com,20,Java docs
+docs,learn.microsoft.com,25,Microsoft Learn
+docs,cloud.google.com,20,Google Cloud docs
+docs,docs.aws.amazon.com,20,AWS docs
+docs,kubernetes.io,25,Kubernetes docs
+docs,docs.docker.com,25,Docker docs
+docs,www.postgresql.org,25,PostgreSQL docs
+docs,dev.mysql.com,20,MySQL docs
+docs,redis.io,20,Redis docs
+docs,www.elastic.co,20,Elasticsearch docs
+docs,docs.github.com,20,GitHub docs
+docs,git-scm.com,25,Git docs
+docs,docs.djangoproject.com,25,Django docs
+docs,flask.palletsprojects.com,20,Flask docs
+docs,fastapi.tiangolo.com,25,FastAPI docs
+docs,docs.celeryq.dev,20,Celery docs
+docs,www.typescriptlang.org,25,TypeScript docs
+docs,tailwindcss.com,20,Tailwind CSS docs
+docs,docs.anthropic.com,25,Anthropic API docs
+docs,platform.openai.com,25,OpenAI API docs
+docs,docs.pytest.org,20,pytest docs
+docs,docs.astral.sh,20,Ruff/uv docs
+docs,packaging.python.org,20,Python packaging guide
+docs,wiki.archlinux.org,25,Arch Wiki (excellent Linux reference)
+docs,www.terraform.io,20,Terraform docs
+docs,docs.nginx.com,20,Nginx docs
+docs,httpd.apache.org,15,Apache HTTPD docs
+
+# =============================================================================
+# B. Technical Reference
+# =============================================================================
+reference,en.wikipedia.org,20,English Wikipedia
+reference,ja.wikipedia.org,20,Japanese Wikipedia
+reference,www.rfc-editor.org,15,RFC documents
+reference,www.w3.org,15,W3C specifications
+reference,tc39.es,15,ECMAScript proposals
+reference,peps.python.org,20,Python PEPs
+reference,caniuse.com,15,Browser compatibility tables
+reference,man7.org,15,Linux man pages
+reference,www.kernel.org,15,Linux kernel docs
+reference,httpwg.org,10,HTTP working group
+
+# =============================================================================
+# C. Tech News
+# =============================================================================
+tech-news,techcrunch.com,15,TechCrunch
+tech-news,www.theverge.com,15,The Verge
+tech-news,arstechnica.com,15,Ars Technica
+tech-news,www.wired.com,10,Wired
+tech-news,news.ycombinator.com,10,Hacker News
+tech-news,www.infoq.com,15,InfoQ
+tech-news,thenewstack.io,10,The New Stack
+tech-news,www.publickey1.jp,15,Publickey (JP)
+tech-news,gihyo.jp,15,gihyo.jp (JP)
+tech-news,www.itmedia.co.jp,10,ITmedia (JP)
+
+# =============================================================================
+# D. Tech Blogs (company engineering blogs)
+# =============================================================================
+tech-blog,engineering.fb.com,15,Meta engineering
+tech-blog,netflixtechblog.com,15,Netflix tech blog
+tech-blog,blog.google,10,Google blog
+tech-blog,aws.amazon.com/blogs,15,AWS blog
+tech-blog,github.blog,15,GitHub blog
+tech-blog,www.anthropic.com/research,15,Anthropic research
+tech-blog,openai.com/blog,15,OpenAI blog
+tech-blog,blog.cloudflare.com,15,Cloudflare blog
+tech-blog,stripe.com/blog,15,Stripe engineering
+tech-blog,discord.com/blog,10,Discord engineering
+tech-blog,uber.com/blog,10,Uber engineering
+tech-blog,engineering.mercari.com,15,Mercari engineering (JP)
+tech-blog,techlife.cookpad.com,10,Cookpad tech (JP)
+tech-blog,tech.preferred.jp,10,PFN tech (JP)
+tech-blog,developers.cyberagent.co.jp,10,CyberAgent tech (JP)
+tech-blog,martinfowler.com,15,Martin Fowler
+
+# =============================================================================
+# E. Q&A / Problem Solving
+# =============================================================================
+qa,stackoverflow.com,25,Stack Overflow
+qa,github.com,20,GitHub (repos + issues + discussions)
+qa,serverfault.com,15,Server Fault
+qa,superuser.com,10,Super User
+qa,askubuntu.com,15,Ask Ubuntu
+qa,dba.stackexchange.com,10,DBA Stack Exchange
+
+# =============================================================================
+# F. Japanese Content (differentiation point)
+# =============================================================================
+japanese,zenn.dev,25,Zenn - Japanese tech articles
+japanese,qiita.com,25,Qiita - Japanese tech Q&A
+japanese,note.com,10,note - Japanese content platform
+japanese,speakerdeck.com,10,Speaker Deck (JP tech talks)
+japanese,www.slideshare.net,10,SlideShare
+japanese,developers.japan-post.jp,5,Japan Post developers
+japanese,developer.hatenastaff.com,10,Hatena developer blog
+japanese,blog.jxck.io,10,jxck blog (JP web standards)
+japanese,nhkworld-japan.com,10,NHK World (JP news)
+japanese,www3.nhk.or.jp,10,NHK News (JP)
+japanese,www.nikkei.com,10,Nikkei (JP business/tech)

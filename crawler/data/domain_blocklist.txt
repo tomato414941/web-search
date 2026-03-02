@@ -8,6 +8,17 @@ instagram.com
 linkedin.com
 twitter.com
 x.com
+tiktok.com
+snapchat.com
+pinterest.com
+threads.net
+mastodon.social
+
+# Messaging / closed platforms
+discord.gg
+wa.me
+telegram.me
+line.me
 
 # URL shorteners (redirect-only, no content)
 t.co
@@ -20,6 +31,9 @@ ow.ly
 tinyurl.com
 is.gd
 buff.ly
+cutt.ly
+rb.gy
+shorturl.at
 
 # Non-content Wikimedia subdomains
 donate.wikimedia.org
@@ -31,5 +45,39 @@ www.mediawiki.org
 play.google.com
 apps.apple.com
 
-# Other non-crawlable
+# Video / media (not useful as text)
+youtube.com
+vimeo.com
+dailymotion.com
+twitch.tv
+spotify.com
+soundcloud.com
+podcasts.apple.com
+
+# E-commerce (low AI value, huge crawl surface)
+amazon.com
+amazon.co.jp
+rakuten.co.jp
+shopping.yahoo.co.jp
+ebay.com
+aliexpress.com
+mercari.com
+www.walmart.com
+
+# Authentication / account pages
 accounts.google.com
+login.microsoftonline.com
+auth0.com
+
+# Ad / tracking networks
+doubleclick.net
+googleadservices.com
+googlesyndication.com
+facebook.net
+analytics.google.com
+
+# File hosting (binary content)
+drive.google.com
+dropbox.com
+onedrive.live.com
+mega.nz
