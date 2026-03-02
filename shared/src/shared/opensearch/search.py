@@ -74,6 +74,15 @@ def search_bm25(
                         },
                         "weight": 0.1,
                     },
+                    {
+                        "field_value_factor": {
+                            "field": "content_quality",
+                            "modifier": "none",
+                            "factor": 1,
+                            "missing": 0.5,
+                        },
+                        "weight": 0.3,
+                    },
                 ],
                 "score_mode": "sum",
                 "boost_mode": "multiply",

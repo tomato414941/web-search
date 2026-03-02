@@ -50,6 +50,7 @@ def index_document(
     authority: float = 0.0,
     embedding: list[float] | None = None,
     published_at: str | None = None,
+    content_quality: float = 0.0,
 ) -> None:
     """Index a single document into OpenSearch.
 
@@ -63,6 +64,7 @@ def index_document(
         authority: max(page_rank, domain_rank) score
         embedding: Optional 1536-dim vector for k-NN search
         published_at: Optional ISO timestamp of original publication
+        content_quality: Content quality score (0.0-1.0)
     """
     body: dict[str, Any] = {
         "url": url,
@@ -71,6 +73,7 @@ def index_document(
         "word_count": word_count,
         "indexed_at": indexed_at,
         "authority": authority,
+        "content_quality": content_quality,
     }
     if embedding is not None:
         body["embedding"] = embedding
