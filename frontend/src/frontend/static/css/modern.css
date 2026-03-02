@@ -294,6 +294,39 @@ mark {
   animation: fadeIn 0.3s ease-out;
 }
 
+/* Landing Section */
+.landing {
+  text-align: center;
+  margin-top: 1rem;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.tagline {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0 0 1.5rem;
+}
+
+.features {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.feature {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.feature svg {
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
 /* Mobile */
 @media (max-width: 768px) {
   .container {

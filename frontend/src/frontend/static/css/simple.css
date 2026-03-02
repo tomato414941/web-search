@@ -207,6 +207,37 @@ mark {
     color: #555;
 }
 
+/* Landing Section */
+.landing {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.tagline {
+    color: #666;
+    font-size: 0.95rem;
+    margin: 0 0 1rem;
+}
+
+.features {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.feature {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.feature svg {
+    flex-shrink: 0;
+}
+
 /* Mobile */
 @media (max-width: 768px) {
     body {
