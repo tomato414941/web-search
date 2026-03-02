@@ -62,6 +62,7 @@ class ParseResult:
     title: str
     content: str
     outlinks: list[str]
+    published_at: str | None = None
 
 
 def _is_html_content_type(content_type: str) -> bool:
@@ -169,11 +170,14 @@ async def fetch(ctx: PipelineContext) -> FetchResult:
 async def parse(html: str, url: str, max_outlinks: int) -> ParseResult:
     """Parse HTML into title, main content, and extracted outlinks."""
     loop = asyncio.get_running_loop()
-    title, content = await loop.run_in_executor(None, html_to_doc, html)
+    title, content, published_at = await loop.run_in_executor(None, html_to_doc, html)
     discovered = await loop.run_in_executor(None, extract_links, url, html)
     if discovered:
         discovered = discovered[:max_outlinks]
-    return ParseResult(title=title, content=content, outlinks=discovered or [])
+    return ParseResult(
+        title=title, content=content, outlinks=discovered or [],
+        published_at=published_at,
+    )
 
 
 async def submit_to_indexer(ctx: PipelineContext, parsed: ParseResult) -> bool:
@@ -189,6 +193,7 @@ async def submit_to_indexer(ctx: PipelineContext, parsed: ParseResult) -> bool:
         parsed.title,
         parsed.content,
         outlinks=parsed.outlinks,
+        published_at=parsed.published_at,
     )
 
     if result.ok:

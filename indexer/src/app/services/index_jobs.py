@@ -34,6 +34,7 @@ class IndexJob:
     status: str
     retry_count: int
     max_retries: int
+    published_at: str | None = None
 
 
 class IndexJobService:
@@ -95,6 +96,7 @@ class IndexJobService:
         title: str,
         content: str,
         outlinks: list[str] | None,
+        published_at: str | None = None,
     ) -> tuple[str, bool]:
         """Queue a new indexing job (idempotent by dedupe_key)."""
         content_hash = hash_text(content)
@@ -121,12 +123,14 @@ class IndexJobService:
                     job_id, url, title, content, outlinks,
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
-                    created_at, updated_at, content_hash, dedupe_key
+                    created_at, updated_at, content_hash, dedupe_key,
+                    published_at
                 ) VALUES (
                     {ph}, {ph}, {ph}, {ph}, {jsonb_ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
-                    {ph}, {ph}, {ph}, {ph}
+                    {ph}, {ph}, {ph}, {ph},
+                    {ph}
                 )
                 ON CONFLICT (dedupe_key) DO NOTHING
                 RETURNING job_id
@@ -144,6 +148,7 @@ class IndexJobService:
                     now_ts,
                     content_hash,
                     dedupe_key,
+                    published_at,
                 ),
             )
             row = cur.fetchone()
@@ -234,7 +239,8 @@ class IndexJobService:
                 WHERE j.job_id = c.job_id
                 RETURNING
                     j.job_id, j.url, j.title, j.content,
-                    j.outlinks, j.status, j.retry_count, j.max_retries
+                    j.outlinks, j.status, j.retry_count, j.max_retries,
+                    j.published_at
                 """,
                 (
                     STATUS_PENDING,
@@ -612,4 +618,5 @@ class IndexJobService:
             status=str(row[5]),
             retry_count=int(row[6]),
             max_retries=int(row[7]),
+            published_at=str(row[8]) if len(row) > 8 and row[8] else None,
         )

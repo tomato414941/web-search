@@ -49,6 +49,7 @@ def index_document(
     indexed_at: str,
     authority: float = 0.0,
     embedding: list[float] | None = None,
+    published_at: str | None = None,
 ) -> None:
     """Index a single document into OpenSearch.
 
@@ -61,6 +62,7 @@ def index_document(
         indexed_at: ISO timestamp
         authority: max(page_rank, domain_rank) score
         embedding: Optional 1536-dim vector for k-NN search
+        published_at: Optional ISO timestamp of original publication
     """
     body: dict[str, Any] = {
         "url": url,
@@ -72,6 +74,8 @@ def index_document(
     }
     if embedding is not None:
         body["embedding"] = embedding
+    if published_at is not None:
+        body["published_at"] = published_at
 
     client.index(index=INDEX_NAME, id=doc_id(url), body=body)
 

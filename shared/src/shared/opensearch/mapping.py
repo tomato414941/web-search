@@ -45,6 +45,7 @@ INDEX_SETTINGS = {
             },
             "word_count": {"type": "integer"},
             "indexed_at": {"type": "date"},
+            "published_at": {"type": "date"},
             "authority": {"type": "float"},
             "embedding": {
                 "type": "knn_vector",

@@ -48,6 +48,7 @@ async def submit_page(
             title=page.title,
             content=page.content,
             outlinks=page.outlinks,
+            published_at=page.published_at,
         )
         return {
             "ok": True,

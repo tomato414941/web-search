@@ -24,6 +24,7 @@ class SearchIndexer:
         title: str,
         content: str,
         conn: Any | None = None,
+        published_at: str | None = None,
     ) -> None:
         """Index a document into the documents table.
 
@@ -32,6 +33,7 @@ class SearchIndexer:
             title: Document title
             content: Document content
             conn: Optional existing connection (for batch operations)
+            published_at: ISO 8601 publication date from HTML metadata
         """
         should_close = conn is None
         if conn is None:
@@ -46,15 +48,16 @@ class SearchIndexer:
             cur = conn.cursor()
             cur.execute(
                 f"""
-                INSERT INTO documents (url, title, content, word_count, indexed_at)
-                VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
+                INSERT INTO documents (url, title, content, word_count, indexed_at, published_at)
+                VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
                 ON CONFLICT (url) DO UPDATE SET
                     title = EXCLUDED.title,
                     content = EXCLUDED.content,
                     word_count = EXCLUDED.word_count,
-                    indexed_at = EXCLUDED.indexed_at
+                    indexed_at = EXCLUDED.indexed_at,
+                    published_at = COALESCE(EXCLUDED.published_at, documents.published_at)
                 """,
-                (url, title, content, len(content_tokens), now),
+                (url, title, content, len(content_tokens), now, published_at),
             )
             cur.close()
 

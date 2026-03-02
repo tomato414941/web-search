@@ -67,6 +67,7 @@ async def _process_single_job(
                 title=job.title,
                 content=job.content,
                 outlinks=job.outlinks,
+                published_at=job.published_at,
                 skip_embedding=use_batch_embed,
             )
             if use_batch_embed and job.content:

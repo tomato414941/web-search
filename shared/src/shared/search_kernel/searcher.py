@@ -23,6 +23,7 @@ class SearchHit:
     content: str
     score: float
     indexed_at: str | None = None
+    published_at: str | None = None
 
 
 @dataclass

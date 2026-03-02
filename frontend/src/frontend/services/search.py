@@ -182,7 +182,7 @@ class SearchService:
                 """
                 SELECT pe.url, d.title, d.content,
                        1 - (pe.embedding <=> %s::vector) AS similarity,
-                       d.indexed_at
+                       d.indexed_at, d.published_at
                 FROM page_embeddings pe
                 JOIN documents d ON d.url = pe.url
                 WHERE pe.embedding IS NOT NULL
@@ -202,6 +202,7 @@ class SearchService:
                     content=r[2],
                     score=float(r[3]),
                     indexed_at=r[4].isoformat() if r[4] else None,
+                    published_at=r[5].isoformat() if r[5] else None,
                 )
                 for r in rows
             ]
@@ -234,6 +235,8 @@ class SearchService:
             }
             if hit.indexed_at:
                 hit_dict["indexed_at"] = hit.indexed_at
+            if hit.published_at:
+                hit_dict["published_at"] = hit.published_at
             hits.append(hit_dict)
 
         return {
@@ -309,6 +312,7 @@ class SearchService:
                 content=h["content"],
                 score=h["score"],
                 indexed_at=h.get("indexed_at"),
+                published_at=h.get("published_at"),
             )
             for h in os_result["hits"]
         ]

@@ -52,12 +52,14 @@ class IndexerService:
         title: str,
         content: str,
         outlinks: list[str] | None = None,
+        published_at: str | None = None,
         *,
         skip_embedding: bool = False,
     ):
         """Index a single page into the database.
 
         Args:
+            published_at: ISO 8601 publication date extracted from HTML.
             skip_embedding: If True, skip per-page embedding (for batch mode).
         """
         safe_title = _sanitize_text(title)
@@ -67,7 +69,9 @@ class IndexerService:
         conn = get_connection(self.db_path)
         try:
             # Write document metadata to documents table
-            self.search_indexer.index_document(url, safe_title, safe_content, conn)
+            self.search_indexer.index_document(
+                url, safe_title, safe_content, conn, published_at=published_at
+            )
 
             # Save outlinks to link graph (always call to clear stale links)
             self._save_links(conn, url, safe_outlinks)
@@ -97,7 +101,9 @@ class IndexerService:
 
         # Dual-write to OpenSearch
         if settings.OPENSEARCH_ENABLED:
-            self._index_to_opensearch(url, safe_title, safe_content)
+            self._index_to_opensearch(
+                url, safe_title, safe_content, published_at=published_at
+            )
 
         if skip_embedding:
             logger.info("Indexed (no embed): %s", url)
@@ -198,7 +204,9 @@ class IndexerService:
         finally:
             cur.close()
 
-    def _index_to_opensearch(self, url: str, title: str, content: str) -> None:
+    def _index_to_opensearch(
+        self, url: str, title: str, content: str, published_at: str | None = None
+    ) -> None:
         """Write document to OpenSearch (best-effort, logs on failure)."""
         try:
             from shared.opensearch.client import index_document
@@ -234,6 +242,7 @@ class IndexerService:
                 word_count=word_count,
                 indexed_at=now,
                 authority=authority,
+                published_at=published_at,
             )
         except Exception:
             logger.warning("OpenSearch index failed for %s", url, exc_info=True)

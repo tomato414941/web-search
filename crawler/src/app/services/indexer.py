@@ -99,6 +99,7 @@ async def submit_page_to_indexer(
     title: str,
     content: str,
     outlinks: list[str] | None = None,
+    published_at: str | None = None,
 ) -> IndexerSubmitResult:
     """
     Submit a page to the Indexer API
@@ -132,6 +133,8 @@ async def submit_page_to_indexer(
         }
         if outlinks:
             payload["outlinks"] = outlinks
+        if published_at:
+            payload["published_at"] = published_at
 
         async with session.post(
             api_url, json=payload, headers=headers, timeout=INDEXER_TIMEOUT_SEC

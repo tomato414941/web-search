@@ -10,6 +10,7 @@ class IndexPageRequest(BaseModel):
     title: str = Field(max_length=1000)
     content: str = Field(max_length=1_000_000)
     outlinks: list[str] = Field(default_factory=list, max_length=500)
+    published_at: str | None = Field(default=None, max_length=50)
 
 
 class IndexPageResponse(BaseModel):

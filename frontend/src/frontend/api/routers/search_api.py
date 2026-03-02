@@ -43,6 +43,10 @@ class SearchHit(BaseModel):
     indexed_at: str | None = Field(
         default=None, description="When this page was last indexed (ISO 8601 UTC)"
     )
+    published_at: str | None = Field(
+        default=None,
+        description="When this page was originally published (ISO 8601 UTC)",
+    )
 
 
 class UsageInfo(BaseModel):
