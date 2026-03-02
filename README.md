@@ -1,18 +1,19 @@
 # PaleBlueSearch
 
-**Web Search API for AI Agents** — Search the web with freshness metadata that AI can trust.
+**Web Search API for AI Agents** — Quality-focused search built for LLMs and autonomous agents.
 
 A full-stack search engine with its own crawler, BM25 + vector hybrid ranking,
-and Japanese NLP support. Every search hit includes `indexed_at` and `published_at`
-timestamps so AI consumers know exactly how fresh the information is.
+content quality scoring, and Japanese NLP support. Designed to return clean,
+high-quality content that AI agents can trust.
 
 ## Features
 
-- **Freshness Metadata**: Every hit returns `indexed_at` (crawl time) and `published_at` (original publication date) — built for AI agents that need to know when information was created.
+- **Content Quality Scoring**: Pages are scored for quality using text density, link ratio, and structure signals — aggregation pages and boilerplate are automatically demoted.
+- **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
 - **Hybrid Search**: BM25 keyword matching + vector semantic search with RRF fusion.
+- **Freshness Metadata**: Hits include `indexed_at` (crawl time) and `published_at` (original publication date, when available).
 - **600K+ Indexed Pages**: Own crawler with PageRank, domain diversity, and robots.txt compliance.
 - **Japanese NLP**: SudachiPy morphological analysis for high-quality Japanese search.
-- **Microservices Architecture**: Read-only Search API, Write-only Indexer, distributed Crawler workers.
 - **Free API**: Anonymous access with IP-based rate limiting (100 req/min).
 
 ## Search API
@@ -109,6 +110,7 @@ curl -X POST "https://palebluesearch.com/api/v1/search/click" \
 ## Documentation
 
 *   **[Architecture](./docs/architecture.md)**: System design and modules.
+*   **[Content Quality](./docs/content-quality.md)**: Quality scoring strategy and ranking integration.
 *   **[Setup Guide](./docs/setup.md)**: Installation, Docker, and local development.
 *   **[API Reference](./docs/api.md)**: Endpoints and usage details.
 *   **[Japanese Tokenization](./docs/japanese_tokenization.md)**: Details on SudachiPy and custom indexing.
@@ -136,7 +138,7 @@ Once running, access the following:
 
 - **Web Node (Frontend)**: FastAPI (serves UI and Search API).
 - **Write Node (Indexer)**: FastAPI (handles Ingestion and Vectors).
-- **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `BeautifulSoup`.
+- **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `trafilatura`.
 - **Database**: PostgreSQL for production, SQLite for local development.
 
 ## License

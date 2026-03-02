@@ -19,8 +19,8 @@ The system consists of three independent services managed in a monorepo:
     -   **Scaling**: Write-heavy service; decoupled from read load.
     -   **Async Worker**: Background job processor for tokenization and embedding generation.
 3.  **Crawler Service (Worker Node)**:
-    -   **Role**: URL frontier management, parallel fetching, HTML parsing, link discovery.
-    -   **Stack**: FastAPI + PostgreSQL + aiohttp + BeautifulSoup.
+    -   **Role**: URL frontier management, parallel fetching, content extraction, link discovery.
+    -   **Stack**: FastAPI + PostgreSQL + aiohttp + trafilatura (BS4 fallback).
     -   **Port**: `8082`.
     -   **Communication**: Sends pages to Indexer via HTTP API.
 
@@ -93,11 +93,17 @@ The `crawling → done` transition has zero index operations, enabling PostgreSQ
 *   **Search Engine (`shared.search_kernel`)**:
     *   **Hybrid Search**: Combines BM25 (Keyword) and Vector (Semantic) scores using Reciprocal Rank Fusion (RRF).
     *   **Tokenizer**: `SudachiPy` for Japanese morphological analysis.
-    *   **Scoring**: BM25 + PageRank boosting + Title boosting + Domain diversity.
+    *   **Scoring**: BM25 + PageRank boosting + Content quality boosting + Title boosting + Domain diversity.
     *   **Snippet Generation**: Context-aware snippet extraction with `<mark>` highlighting.
 *   **OpenSearch Integration** (`shared.opensearch`): Optional dual-write for fast full-text search.
 
-### 4. Data Flow
-1.  **Crawl**: Crawler fetches HTML, extracts content/links/`published_at`, sends to Indexer via HTTP API.
-2.  **Index**: Indexer tokenizes text (SudachiPy), generates embeddings (OpenAI), writes to PostgreSQL + OpenSearch.
-3.  **Search**: Frontend queries PostgreSQL (BM25) or OpenSearch, applies PageRank boosting and domain diversity.
+### 4. Content Quality Pipeline
+The system uses a 3-layer quality stack (see [content-quality.md](./content-quality.md)):
+1.  **Extraction**: trafilatura strips boilerplate (nav, footer, sidebar), BS4 fallback for edge cases.
+2.  **Quality Score**: Indexer computes `content_quality` (0.0-1.0) from word count, link density, and structure signals.
+3.  **Ranking**: OpenSearch `function_score` boosts high-quality pages via `content_quality` field.
+
+### 5. Data Flow
+1.  **Crawl**: Crawler fetches HTML, extracts main content via trafilatura, extracts links/`published_at`, sends to Indexer via HTTP API.
+2.  **Index**: Indexer tokenizes text (SudachiPy), computes content quality, generates embeddings (OpenAI), writes to PostgreSQL + OpenSearch.
+3.  **Search**: Frontend queries PostgreSQL (BM25) or OpenSearch, applies PageRank + content quality boosting and domain diversity.

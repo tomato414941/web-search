@@ -2,7 +2,7 @@
 
 ## Problem
 
-PaleBlueSearch indexes full page text including navigation, footers, and sidebars via `soup.get_text()`. This causes:
+Previously, PaleBlueSearch indexed full page text including navigation, footers, and sidebars via `soup.get_text()`. This caused:
 
 1. **Low search relevance** — BM25 matches on boilerplate keywords (nav links, footer text)
 2. **Inflated word_count** — includes non-content text, making quality metrics unreliable
@@ -92,26 +92,32 @@ score = BM25(clean_content, title^3)
 | E-E-A-T evaluation | Too complex, requires NLP/ML pipeline |
 | BrowseRank | Requires browser instrumentation data |
 
-## Implementation Phases
+## Implementation Status
 
-### Phase 1: trafilatura (crawler change only)
+### Phase 1: trafilatura — DONE
 
-- Add trafilatura to crawler/requirements.txt
-- Replace `html_to_doc` internals with trafilatura + BS4 fallback
-- Return type unchanged: `tuple[str, str, str | None]`
-- No indexer/search changes needed — cleaner content improves BM25 immediately
+- trafilatura added to `crawler/requirements.txt`
+- `html_to_doc` uses trafilatura with BS4 fallback (`crawler/src/app/utils/parser.py`)
+- Options: `include_comments=True`, `include_tables=True`, `deduplicate=True`, `favor_recall=True`
 
-### Phase 2: content_quality score
+### Phase 2: content_quality score + ranking — DONE
 
-- Compute content_quality in indexer (trafilatura text vs raw text ratio)
-- Add `content_quality` field to OpenSearch mapping
-- Store during indexing
+- `_compute_content_quality()` in `indexer/src/app/services/indexer.py`
+- `content_quality` float field in OpenSearch mapping
+- `field_value_factor` boost in `search_bm25()` (weight=0.3, missing=0.5)
+- No API contract changes — computed entirely in indexer from word_count + outlinks_count
 
-### Phase 3: Ranking integration
+### Phase 3: HTML storage for offline re-processing — DESIGN DONE
 
-- Add content_quality to function_score in search.py
-- Tune weight parameter (start with 0.3, evaluate)
-- Re-index existing pages for full effect
+- Design document: [html-storage.md](./html-storage.md)
+- Cloudflare R2 for raw HTML storage ($0.14/mo)
+- Enables re-processing without re-crawling
+
+### Future
+
+- content_ratio signal (trafilatura text / BS4 full text) — requires crawler-side computation
+- Weight tuning based on click-through data
+- Re-index existing 600K pages for full effect
 
 ## References
 
