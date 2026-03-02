@@ -1,20 +1,19 @@
-# Web Search Engine
+# PaleBlueSearch
 
-A custom full-text search engine built with **FastAPI** and **PostgreSQL** (production),
-with **SQLite** for local development. It features a parallel crawler, a separate indexer
-with SudachiPy tokenization, and a modern UI.
+**Web Search API for AI Agents** — Search the web with freshness metadata that AI can trust.
+
+A full-stack search engine with its own crawler, BM25 + vector hybrid ranking,
+and Japanese NLP support. Every search hit includes `indexed_at` and `published_at`
+timestamps so AI consumers know exactly how fresh the information is.
 
 ## Features
 
-- **Full-Text Search**: Custom inverted index with **SudachiPy** (Japanese morphological analyzer).
-- **Microservices Architecture**:
-    - **Search Service (Frontend)**: Read-only, scalable, serving UI & API.
-    - **Indexer Service**: Dedicated Write-node for heavy processing (Tokenization, Embedding).
-    - **Crawler Service**: Distributed worker nodes.
-- **CQRS-lite**: Read (`:8083`) and Write (`:8081`) paths are split by service with a shared DB.
-- **Parallel Crawler**: SQLite-based URL frontier/history for crawl state.
-- **Internationalization (i18n)**: UI supports both English and Japanese.
-- **API First**: Provides JSON endpoints for search, stats, and crawling.
+- **Freshness Metadata**: Every hit returns `indexed_at` (crawl time) and `published_at` (original publication date) — built for AI agents that need to know when information was created.
+- **Hybrid Search**: BM25 keyword matching + vector semantic search with RRF fusion.
+- **600K+ Indexed Pages**: Own crawler with PageRank, domain diversity, and robots.txt compliance.
+- **Japanese NLP**: SudachiPy morphological analysis for high-quality Japanese search.
+- **Microservices Architecture**: Read-only Search API, Write-only Indexer, distributed Crawler workers.
+- **Free API**: Anonymous access with IP-based rate limiting (100 req/min).
 
 ## Search API
 
@@ -39,7 +38,9 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
       "title": "FastAPI - Modern Python Web Framework",
       "snip": "A modern, fast web framework for building APIs with <mark>Python</mark>...",
       "snip_plain": "A modern, fast web framework for building APIs with Python...",
-      "rank": 12.5
+      "rank": 12.5,
+      "indexed_at": "2026-03-01T12:00:00.000000+00:00",
+      "published_at": "2026-02-28T09:30:00+00:00"
     }
   ],
   "mode": "auto",
