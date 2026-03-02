@@ -21,15 +21,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crawl_logs_created_status "
+        "CREATE INDEX IF NOT EXISTS idx_crawl_logs_created_status "
         "ON crawl_logs(created_at, status)"
     )
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crawl_logs_status_created "
+        "CREATE INDEX IF NOT EXISTS idx_crawl_logs_status_created "
         "ON crawl_logs(status, created_at DESC)"
     )
     op.execute(
-        "CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_urls_last_crawled "
+        "CREATE INDEX IF NOT EXISTS idx_urls_last_crawled "
         "ON urls(last_crawled_at) WHERE last_crawled_at IS NOT NULL"
     )
 
