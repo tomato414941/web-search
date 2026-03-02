@@ -76,6 +76,20 @@ services:
       opensearch:
         condition: service_healthy
 
+  embedding-backfill:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: "no"
+    profiles: ["embedding"]
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    command: ["python", "scripts/migrations/backfill_embeddings.py"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+
   indexer:
     build:
       context: .
