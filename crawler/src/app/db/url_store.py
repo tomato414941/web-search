@@ -53,10 +53,9 @@ CREATE TABLE IF NOT EXISTS urls (
     is_seed BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE INDEX IF NOT EXISTS idx_urls_pending ON urls(priority DESC) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_urls_pending_claim ON urls(status, priority DESC, created_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_urls_pending_domain ON urls(domain) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
-CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status);
-CREATE INDEX IF NOT EXISTS idx_urls_recrawl ON urls(last_crawled_at) WHERE status IN ('done', 'failed');
 """
 
 
