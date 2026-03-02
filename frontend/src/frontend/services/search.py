@@ -117,12 +117,12 @@ class SearchService:
 
         client = self._get_os_client()
         if client is not None:
+            pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
             try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                    future = pool.submit(
-                        self._run_opensearch_query, q, k, page, with_embedding=True
-                    )
-                    result = future.result(timeout=timeout)
+                future = pool.submit(
+                    self._run_opensearch_query, q, k, page, with_embedding=True
+                )
+                result = future.result(timeout=timeout)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
                 out = self._format_result(q, result)
@@ -137,6 +137,8 @@ class SearchService:
                 logger.warning(
                     "OpenSearch hybrid failed, falling back to BM25", exc_info=True
                 )
+            finally:
+                pool.shutdown(wait=False)
 
         return self._bm25_search(q, k, page)
 
