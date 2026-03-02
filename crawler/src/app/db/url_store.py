@@ -314,20 +314,17 @@ class UrlStore:
             return 0
         ph = sql_placeholder()
         now = int(time.time())
-        affected = 0
+        hashes = [url_hash(u) for u in urls]
         with db_transaction(self.db_path) as cur:
-            for url in urls:
-                h = url_hash(url)
-                cur.execute(
-                    f"""
-                    UPDATE urls
-                    SET status = {ph}, last_crawled_at = {ph}
-                    WHERE url_hash = {ph} AND status = 'crawling'
-                    """,
-                    (status, now, h),
-                )
-                affected += cur.rowcount
-            return affected
+            cur.execute(
+                f"""
+                UPDATE urls
+                SET status = {ph}, last_crawled_at = {ph}
+                WHERE url_hash = ANY({ph}) AND status = 'crawling'
+                """,
+                (status, now, hashes),
+            )
+            return cur.rowcount
 
     def record(self, url: str, status: str = "done") -> None:
         """
@@ -564,16 +561,13 @@ class UrlStore:
             return 0
 
         ph = sql_placeholder()
-        marked = 0
+        hashes = [url_hash(u) for u in urls]
         with db_transaction(self.db_path) as cur:
-            for url in urls:
-                h = url_hash(url)
-                cur.execute(
-                    f"UPDATE urls SET is_seed = TRUE WHERE url_hash = {ph}",
-                    (h,),
-                )
-                marked += cur.rowcount
-            return marked
+            cur.execute(
+                f"UPDATE urls SET is_seed = TRUE WHERE url_hash = ANY({ph})",
+                (hashes,),
+            )
+            return cur.rowcount
 
     def unmark_seeds(self, urls: list[str]) -> int:
         """Set is_seed = FALSE for the given URLs."""
@@ -581,16 +575,13 @@ class UrlStore:
             return 0
 
         ph = sql_placeholder()
-        unmarked = 0
+        hashes = [url_hash(u) for u in urls]
         with db_transaction(self.db_path) as cur:
-            for url in urls:
-                h = url_hash(url)
-                cur.execute(
-                    f"UPDATE urls SET is_seed = FALSE WHERE url_hash = {ph}",
-                    (h,),
-                )
-                unmarked += cur.rowcount
-            return unmarked
+            cur.execute(
+                f"UPDATE urls SET is_seed = FALSE WHERE url_hash = ANY({ph})",
+                (hashes,),
+            )
+            return cur.rowcount
 
     def purge_blocked_domains(self, blocklist: frozenset[str]) -> int:
         """Delete pending URLs whose domain matches the blocklist.
@@ -610,8 +601,10 @@ class UrlStore:
             for d in blocklist:
                 conditions.append(f"domain = {sql_placeholder()}")
                 params.append(d)
-                conditions.append(f"domain LIKE {sql_placeholder()}")
-                params.append(f"%.{d}")
+                # Escape SQL LIKE wildcards in domain name
+                escaped = d.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                conditions.append(f"domain LIKE {sql_placeholder()} ESCAPE '\\'")
+                params.append(f"%.{escaped}")
 
             where = " OR ".join(conditions)
             cur.execute(
