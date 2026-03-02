@@ -97,6 +97,18 @@ def backfill(
     client = get_client(opensearch_url)
     ensure_index(client)
 
+    # Skip if OpenSearch already has enough documents
+    try:
+        os_count = client.count(index="documents")["count"]
+        logger.info("OpenSearch currently has %d documents", os_count)
+        if os_count >= total and total > 0:
+            logger.info("OpenSearch already up to date (%d >= %d), skipping", os_count, total)
+            cur.close()
+            conn.close()
+            return
+    except Exception:
+        logger.info("Could not check OpenSearch count, proceeding with backfill")
+
     offset = 0
     indexed = 0
     start = time.time()

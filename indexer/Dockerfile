@@ -40,6 +40,9 @@ ENV PATH=/home/appuser/.local/bin:$PATH
 # Copy application code
 COPY indexer/src/ ./src/
 
+# Copy migration scripts (for backfill services)
+COPY scripts/migrations/ ./scripts/migrations/
+
 ENV PORT=8000 HOST=0.0.0.0 SEARCH_DB=/data/search.db \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src

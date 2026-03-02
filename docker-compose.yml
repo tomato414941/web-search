@@ -61,6 +61,21 @@ services:
       retries: 3
       start_period: 40s
 
+  opensearch-backfill:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: "no"
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+    command: ["python", "scripts/migrations/backfill_opensearch.py"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+
   indexer:
     build:
       context: .
