@@ -308,8 +308,7 @@ class SearchService:
             con = get_connection(self.db_path)
             cur = con.cursor()
             cur.execute(
-                "SELECT reltuples::bigint FROM pg_class"
-                " WHERE relname = 'documents'"
+                "SELECT reltuples::bigint FROM pg_class WHERE relname = 'documents'"
             )
             row = cur.fetchone()
             count = row[0] if row and row[0] >= 0 else 0

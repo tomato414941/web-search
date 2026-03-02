@@ -471,10 +471,7 @@ class UrlStore:
 
         with db_connection(self.db_path) as cur:
             # Try approximate counts from pg_class + pg_stats
-            cur.execute(
-                "SELECT reltuples::bigint FROM pg_class"
-                " WHERE relname = 'urls'"
-            )
+            cur.execute("SELECT reltuples::bigint FROM pg_class WHERE relname = 'urls'")
             row = cur.fetchone()
             total = row[0] if row and row[0] > 0 else 0
 
@@ -493,8 +490,7 @@ class UrlStore:
             if status_counts is not None:
                 # Fast path: approximate counts + indexed recent query
                 cur.execute(
-                    f"SELECT COUNT(*) FROM urls"
-                    f" WHERE last_crawled_at > {ph}",
+                    f"SELECT COUNT(*) FROM urls WHERE last_crawled_at > {ph}",
                     (cutoff,),
                 )
                 recent = cur.fetchone()[0]
@@ -642,7 +638,9 @@ class UrlStore:
                 conditions.append(f"domain = {sql_placeholder()}")
                 params.append(d)
                 # Escape SQL LIKE wildcards in domain name
-                escaped = d.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                escaped = (
+                    d.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                )
                 conditions.append(f"domain LIKE {sql_placeholder()} ESCAPE '\\'")
                 params.append(f"%.{escaped}")
 
