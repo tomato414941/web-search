@@ -459,12 +459,55 @@ class UrlStore:
             return cur.rowcount
 
     def get_stats(self) -> dict:
-        """Get URL statistics."""
+        """Get URL statistics.
+
+        Uses pg_class/pg_stats for approximate per-status counts when
+        available (large tables), falling back to exact COUNT for small
+        or freshly-created tables where pg_stats has no data yet.
+        """
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
         ph = sql_placeholder()
 
         with db_connection(self.db_path) as cur:
+            # Try approximate counts from pg_class + pg_stats
+            cur.execute(
+                "SELECT reltuples::bigint FROM pg_class"
+                " WHERE relname = 'urls'"
+            )
+            row = cur.fetchone()
+            total = row[0] if row and row[0] > 0 else 0
+
+            status_counts: dict[str, int] | None = None
+            if total > 0:
+                cur.execute(
+                    "SELECT unnest(most_common_vals::text::text[]) AS status,"
+                    " unnest(most_common_freqs) AS freq"
+                    " FROM pg_stats"
+                    " WHERE tablename = 'urls' AND attname = 'status'"
+                )
+                rows = cur.fetchall()
+                if rows:
+                    status_counts = {r[0]: round(total * r[1]) for r in rows}
+
+            if status_counts is not None:
+                # Fast path: approximate counts + indexed recent query
+                cur.execute(
+                    f"SELECT COUNT(*) FROM urls"
+                    f" WHERE last_crawled_at > {ph}",
+                    (cutoff,),
+                )
+                recent = cur.fetchone()[0]
+                return {
+                    "pending": status_counts.get("pending", 0),
+                    "crawling": status_counts.get("crawling", 0),
+                    "done": status_counts.get("done", 0),
+                    "failed": status_counts.get("failed", 0),
+                    "total": total,
+                    "recent": recent,
+                }
+
+            # Fallback: exact counts (small tables / no pg_stats data)
             cur.execute(
                 f"""
                 SELECT
