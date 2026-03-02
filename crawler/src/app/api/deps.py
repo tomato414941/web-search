@@ -24,6 +24,7 @@ def _get_url_store() -> UrlStore:
         _url_store = UrlStore(
             settings.CRAWLER_DB_PATH,
             recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
+            max_pending_per_domain=settings.MAX_PENDING_PER_DOMAIN,
         )
     return _url_store
 

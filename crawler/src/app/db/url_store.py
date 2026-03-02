@@ -71,15 +71,34 @@ class UrlStore:
     - failed: crawl failed
     """
 
-    def __init__(self, db_path: str, recrawl_after_days: int = 30):
+    def __init__(
+        self,
+        db_path: str,
+        recrawl_after_days: int = 30,
+        max_pending_per_domain: int = 0,
+    ):
         self.db_path = db_path
         self.recrawl_threshold = recrawl_after_days * 86400
+        self.max_pending_per_domain = max_pending_per_domain
         self._init_db()
 
     def _init_db(self):
         # Schema is managed by Alembic; verify connectivity only.
         con = get_connection(self.db_path)
         con.close()
+
+    def _get_pending_counts_batch(self, cur: Any, domains: list[str]) -> dict[str, int]:
+        """Get pending URL counts per domain in a single query."""
+        if not domains:
+            return {}
+        ph = sql_placeholder()
+        cur.execute(
+            f"SELECT domain, COUNT(*) FROM urls "
+            f"WHERE domain = ANY({ph}) AND status = 'pending' "
+            f"GROUP BY domain",
+            (domains,),
+        )
+        return {row[0]: row[1] for row in cur.fetchall()}
 
     def _upsert_pending_url(
         self,
@@ -191,6 +210,7 @@ class UrlStore:
     ) -> int:
         """
         Add multiple URLs as pending.
+        Respects per-domain pending cap (max_pending_per_domain).
 
         Returns:
             Number of URLs added
@@ -201,12 +221,22 @@ class UrlStore:
         added = 0
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
+        cap = self.max_pending_per_domain
 
         with db_transaction(self.db_path) as cur:
+            pending: dict[str, int] = {}
+            if cap > 0:
+                domains = list({get_domain(u) for u in urls})
+                pending = self._get_pending_counts_batch(cur, domains)
+            batch_adds: dict[str, int] = {}
+
             for url in urls:
                 h = url_hash(url)
                 domain = get_domain(url)
-
+                if cap > 0:
+                    current = pending.get(domain, 0) + batch_adds.get(domain, 0)
+                    if current >= cap:
+                        continue
                 if self._upsert_pending_url(
                     cur,
                     url_hash_value=h,
@@ -217,6 +247,8 @@ class UrlStore:
                     cutoff=cutoff,
                 ):
                     added += 1
+                    if cap > 0:
+                        batch_adds[domain] = batch_adds.get(domain, 0) + 1
 
             return added
 
@@ -226,6 +258,7 @@ class UrlStore:
     ) -> int:
         """
         Add multiple (url, priority) pairs as pending in a single transaction.
+        Respects per-domain pending cap (max_pending_per_domain).
 
         Returns:
             Number of URLs added
@@ -236,11 +269,22 @@ class UrlStore:
         added = 0
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
+        cap = self.max_pending_per_domain
 
         with db_transaction(self.db_path) as cur:
+            pending: dict[str, int] = {}
+            if cap > 0:
+                domains = list({get_domain(url) for url, _ in items})
+                pending = self._get_pending_counts_batch(cur, domains)
+            batch_adds: dict[str, int] = {}
+
             for url, priority in items:
                 h = url_hash(url)
                 domain = get_domain(url)
+                if cap > 0:
+                    current = pending.get(domain, 0) + batch_adds.get(domain, 0)
+                    if current >= cap:
+                        continue
                 if self._upsert_pending_url(
                     cur,
                     url_hash_value=h,
@@ -251,6 +295,8 @@ class UrlStore:
                     cutoff=cutoff,
                 ):
                     added += 1
+                    if cap > 0:
+                        batch_adds[domain] = batch_adds.get(domain, 0) + 1
             return added
 
     def pop_batch(self, count: int, max_per_domain: int = 3) -> list[UrlItem]:

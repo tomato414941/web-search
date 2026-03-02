@@ -242,7 +242,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
 
     # Initialize UrlStore
     url_store = UrlStore(
-        settings.CRAWLER_DB_PATH, recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS
+        settings.CRAWLER_DB_PATH,
+        recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
+        max_pending_per_domain=settings.MAX_PENDING_PER_DOMAIN,
     )
 
     # Recover stale crawling URLs from previous crash
