@@ -34,8 +34,9 @@ pytest-cache-files*/
 # Documentation (not needed in production image)
 docs/
 
-# Scripts (optional, remove if needed)
-scripts/
+# Scripts (keep scripts/migrations/ for backfill services)
+scripts/dev/
+scripts/ops/
 
 # Environment files
 .env
