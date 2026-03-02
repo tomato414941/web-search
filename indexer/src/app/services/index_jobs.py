@@ -535,7 +535,7 @@ class IndexJobService:
         ph = sql_placeholder()
         cur.execute(
             f"""
-            SELECT job_id, retry_count, max_retries
+            SELECT job_id, retry_count
             FROM index_jobs
             WHERE status = {ph}
               AND lease_until IS NOT NULL
@@ -544,54 +544,63 @@ class IndexJobService:
             (STATUS_PROCESSING, now_ts),
         )
         expired = cur.fetchall()
+        if not expired:
+            return
+
         policy = self._retry_policy
-        for job_id, retry_count, max_retries in expired:
+        exhausted_ids = []
+        retryable_ids = []
+        for job_id, retry_count in expired:
             next_retry = int(retry_count) + 1
-            if next_retry >= int(max_retries):
-                cur.execute(
-                    f"""
-                    UPDATE index_jobs
-                    SET
-                        status = {ph},
-                        retry_count = {ph},
-                        lease_until = NULL,
-                        worker_id = NULL,
-                        last_error = {ph},
-                        updated_at = {ph}
-                    WHERE job_id = {ph}
-                    """,
-                    (
-                        STATUS_FAILED_PERMANENT,
-                        next_retry,
-                        "Lease expired",
-                        now_ts,
-                        job_id,
-                    ),
-                )
+            if policy.is_exhausted(next_retry):
+                exhausted_ids.append(str(job_id))
             else:
-                available_at = now_ts + policy.delay_seconds(next_retry)
-                cur.execute(
-                    f"""
-                    UPDATE index_jobs
-                    SET
-                        status = {ph},
-                        retry_count = {ph},
-                        available_at = {ph},
-                        lease_until = NULL,
-                        worker_id = NULL,
-                        last_error = {ph},
-                        updated_at = {ph}
-                    WHERE job_id = {ph}
-                    """,
-                    (
-                        STATUS_FAILED_RETRY,
-                        next_retry,
-                        available_at,
-                        "Lease expired",
-                        now_ts,
-                        job_id,
+                retryable_ids.append(str(job_id))
+
+        if exhausted_ids:
+            cur.execute(
+                f"""
+                UPDATE index_jobs
+                SET
+                    status = {ph},
+                    retry_count = retry_count + 1,
+                    lease_until = NULL,
+                    worker_id = NULL,
+                    last_error = {ph},
+                    updated_at = {ph}
+                WHERE job_id = ANY({ph})
+                """,
+                (STATUS_FAILED_PERMANENT, "Lease expired", now_ts, exhausted_ids),
+            )
+
+        if retryable_ids:
+            base = policy.base_seconds
+            cap = policy.max_seconds
+            cur.execute(
+                f"""
+                UPDATE index_jobs
+                SET
+                    status = {ph},
+                    retry_count = retry_count + 1,
+                    available_at = {ph} + LEAST(
+                        {ph} * POWER(2, retry_count)::int, {ph}
                     ),
-                )
+                    lease_until = NULL,
+                    worker_id = NULL,
+                    last_error = {ph},
+                    updated_at = {ph}
+                WHERE job_id = ANY({ph})
+                """,
+                (
+                    STATUS_FAILED_RETRY,
+                    now_ts,
+                    base,
+                    cap,
+                    "Lease expired",
+                    now_ts,
+                    retryable_ids,
+                ),
+            )
 
     def _row_to_job(self, row: tuple[Any, ...]) -> IndexJob:
         return IndexJob(
