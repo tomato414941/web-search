@@ -1,4 +1,8 @@
+import asyncio
 import logging
+import time
+from typing import Any
+
 from fastapi import APIRouter
 import httpx
 from frontend.core.config import settings
@@ -8,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+_stats_cache: dict[str, Any] = {"data": None, "expires": 0}
+_STATS_TTL = 30
+
 
 def _crawler_headers() -> dict[str, str]:
     headers: dict[str, str] = {}
@@ -16,11 +23,9 @@ def _crawler_headers() -> dict[str, str]:
     return headers
 
 
-@router.get("/stats")
-async def api_stats():
-    """Return System Stats (Queue, Index, etc.)"""
-    # Crawler stats (via API)
-    crawler_stats = {"queued": 0, "visited": 0}
+async def _fetch_crawler_stats() -> dict[str, int]:
+    """Fetch queue stats from the crawler API."""
+    stats: dict[str, int] = {"queued": 0, "visited": 0}
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.get(
@@ -29,10 +34,8 @@ async def api_stats():
             )
             if resp.status_code == 200:
                 data = resp.json()
-                # Current crawler API uses queue_size/active_seen.
-                # Keep backward-compatible fallbacks for older responses.
-                crawler_stats["queued"] = data.get("queue_size", data.get("queued", 0))
-                crawler_stats["visited"] = data.get(
+                stats["queued"] = data.get("queue_size", data.get("queued", 0))
+                stats["visited"] = data.get(
                     "active_seen",
                     data.get("visited", 0),
                 )
@@ -42,8 +45,23 @@ async def api_stats():
                 )
     except Exception as e:
         logger.warning(f"Failed to get crawler stats: {e}")
+    return stats
 
-    # DB stats (delegated to search service)
-    db_stats = search_service.get_index_stats()
 
-    return {"queue": crawler_stats, "index": db_stats}
+@router.get("/stats")
+async def api_stats():
+    """Return System Stats (Queue, Index, etc.)"""
+    now = time.monotonic()
+    if _stats_cache["data"] is not None and now < _stats_cache["expires"]:
+        return _stats_cache["data"]
+
+    loop = asyncio.get_running_loop()
+    crawler_stats, db_stats = await asyncio.gather(
+        _fetch_crawler_stats(),
+        loop.run_in_executor(None, search_service.get_index_stats),
+    )
+
+    result = {"queue": crawler_stats, "index": db_stats}
+    _stats_cache["data"] = result
+    _stats_cache["expires"] = now + _STATS_TTL
+    return result

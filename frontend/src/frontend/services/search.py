@@ -301,14 +301,18 @@ class SearchService:
         )
 
     def get_index_stats(self) -> dict[str, int]:
-        """Return index stats: total pages."""
+        """Return index stats: approximate total pages via pg_class."""
         try:
             from shared.postgres.search import get_connection
 
             con = get_connection(self.db_path)
             cur = con.cursor()
-            cur.execute("SELECT count(*) FROM documents")
-            count = cur.fetchone()[0]
+            cur.execute(
+                "SELECT reltuples::bigint FROM pg_class"
+                " WHERE relname = 'documents'"
+            )
+            row = cur.fetchone()
+            count = row[0] if row and row[0] >= 0 else 0
             cur.close()
             con.close()
             return {"indexed": count}

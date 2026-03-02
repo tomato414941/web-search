@@ -6,6 +6,11 @@ client = TestClient(app)
 
 
 def test_api_stats():
+    from frontend.api.routers.stats import _stats_cache
+
+    _stats_cache["data"] = None
+    _stats_cache["expires"] = 0
+
     response = client.get("/api/v1/stats")
     assert response.status_code == 200
     data = response.json()
@@ -43,6 +48,11 @@ def test_api_crawl_success():
 
 
 def test_api_stats_maps_crawler_contract_fields():
+    from frontend.api.routers.stats import _stats_cache
+
+    _stats_cache["data"] = None
+    _stats_cache["expires"] = 0
+
     mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {"queue_size": 7, "active_seen": 19}

@@ -49,6 +49,11 @@ def test_queue_peek_endpoint(test_client, test_url_store):
 
 def test_queue_status_endpoint(test_client, test_url_store):
     """Test GET /api/v1/status endpoint"""
+    from app.api.routes.queue import _status_cache
+
+    _status_cache["data"] = None
+    _status_cache["expires"] = 0
+
     # Add some data
     test_url_store.add("http://example.com", priority=100.0)
     test_url_store.record("http://crawled.com", status="done")
