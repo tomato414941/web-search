@@ -1,6 +1,6 @@
 """Admin authentication and CSRF dependencies for FastAPI."""
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 
 from frontend.services.admin_auth import (
     SESSION_COOKIE_NAME,
@@ -20,6 +20,12 @@ def require_admin_session(request: Request) -> None:
     """FastAPI dependency that ensures the request has a valid admin session."""
     if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
         raise AdminRedirectException("/admin/login")
+
+
+def require_admin_session_api(request: Request) -> None:
+    """FastAPI dependency for JSON API endpoints (returns 401 instead of redirect)."""
+    if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 def check_csrf_or_redirect(

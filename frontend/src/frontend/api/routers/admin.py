@@ -6,7 +6,11 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from frontend.api.deps_admin import check_csrf_or_redirect, require_admin_session
+from frontend.api.deps_admin import (
+    check_csrf_or_redirect,
+    require_admin_session,
+    require_admin_session_api,
+)
 from frontend.api.middleware.rate_limiter import limiter
 from frontend.api.routers.admin_crawlers import router as crawlers_router
 from frontend.api.routers.admin_indexer import router as indexer_router
@@ -198,9 +202,15 @@ async def add_seed(
             url=f"/admin/seeds?success={quote(f'Added seed {url}', safe='')}",
             status_code=303,
         )
-    except Exception as exc:
+    except ValueError as exc:
         return RedirectResponse(
             url=f"/admin/seeds?error={quote(str(exc), safe='')}",
+            status_code=303,
+        )
+    except Exception:
+        logger.exception("Failed to add seed %s", url)
+        return RedirectResponse(
+            url="/admin/seeds?error=An+unexpected+error+occurred",
             status_code=303,
         )
 
@@ -219,9 +229,15 @@ async def delete_seed(
             url=f"/admin/seeds?success={quote('Seed deleted', safe='')}",
             status_code=303,
         )
-    except Exception as exc:
+    except ValueError as exc:
         return RedirectResponse(
             url=f"/admin/seeds?error={quote(str(exc), safe='')}",
+            status_code=303,
+        )
+    except Exception:
+        logger.exception("Failed to delete seed %s", url)
+        return RedirectResponse(
+            url="/admin/seeds?error=An+unexpected+error+occurred",
             status_code=303,
         )
 
@@ -248,9 +264,10 @@ async def import_tranco(
             url=f"/admin/seeds?success={quote(f'Imported {added} seeds from Tranco top {count_value}', safe='')}",
             status_code=303,
         )
-    except Exception as exc:
+    except Exception:
+        logger.exception("Failed to import Tranco seeds")
         return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
+            url="/admin/seeds?error=An+unexpected+error+occurred",
             status_code=303,
         )
 
@@ -269,9 +286,15 @@ async def add_to_queue(
             url=f"/admin/queue?success={quote(f'Added {url} to queue', safe='')}",
             status_code=303,
         )
-    except Exception as exc:
+    except ValueError as exc:
         return RedirectResponse(
             url=f"/admin/queue?error={quote(str(exc), safe='')}",
+            status_code=303,
+        )
+    except Exception:
+        logger.exception("Failed to enqueue URL %s", url)
+        return RedirectResponse(
+            url="/admin/queue?error=An+unexpected+error+occurred",
             status_code=303,
         )
 
@@ -295,17 +318,14 @@ async def analytics_page(
 
 
 @router.get("/api-keys")
-async def api_keys_list(request: Request):
-    if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+async def api_keys_list(_auth: None = Depends(require_admin_session_api)):
     return JSONResponse({"keys": list_api_keys()})
 
 
 @router.post("/api-keys")
-async def api_keys_create(request: Request):
-    if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
+async def api_keys_create(
+    request: Request, _auth: None = Depends(require_admin_session_api)
+):
     body = await request.json()
     name = body.get("name", "").strip()
     if not name:
@@ -317,10 +337,9 @@ async def api_keys_create(request: Request):
 
 
 @router.delete("/api-keys/{key_id}")
-async def api_keys_revoke(request: Request, key_id: str):
-    if not validate_session(request.cookies.get(SESSION_COOKIE_NAME)):
-        return JSONResponse({"error": "Unauthorized"}, status_code=401)
-
+async def api_keys_revoke(
+    key_id: str, _auth: None = Depends(require_admin_session_api)
+):
     if revoke_api_key(key_id):
         return JSONResponse({"status": "revoked"})
     return JSONResponse({"error": "Key not found or already revoked"}, status_code=404)
