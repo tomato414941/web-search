@@ -9,6 +9,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _crawler_headers() -> dict[str, str]:
+    headers: dict[str, str] = {}
+    if settings.INDEXER_API_KEY:
+        headers["X-API-Key"] = settings.INDEXER_API_KEY
+    return headers
+
+
 @router.get("/stats")
 async def api_stats():
     """Return System Stats (Queue, Index, etc.)"""
@@ -16,7 +23,10 @@ async def api_stats():
     crawler_stats = {"queued": 0, "visited": 0}
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/api/v1/status")
+            resp = await client.get(
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/status",
+                headers=_crawler_headers(),
+            )
             if resp.status_code == 200:
                 data = resp.json()
                 # Current crawler API uses queue_size/active_seen.
