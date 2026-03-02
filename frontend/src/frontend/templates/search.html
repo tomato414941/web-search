@@ -6,6 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if q %}{{ q }}{{ msg.title_suffix }}{% else %}{{ msg.title_default }}{% endif %}</title>
 
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <meta name="description" content="{{ msg.meta_description }}">
+
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{% if q %}{{ q }}{{ msg.title_suffix }}{% else %}{{ msg.title_default }}{% endif %}">
+    <meta property="og:description" content="{{ msg.meta_description }}">
+    <meta property="og:url" content="https://palebluesearch.com{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+    <meta property="og:image" content="https://palebluesearch.com/static/ogp.png">
+    <meta property="og:site_name" content="PaleBlueSearch">
+    <meta property="og:locale" content="{{ 'ja_JP' if lang == 'ja' else 'en_US' }}">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% if q %}{{ q }}{{ msg.title_suffix }}{% else %}{{ msg.title_default }}{% endif %}">
+    <meta name="twitter:description" content="{{ msg.meta_description }}">
+    <meta name="twitter:image" content="https://palebluesearch.com/static/ogp.png">
+
     {% if mode == 'simple' %}
     <link rel="stylesheet" href="/static/css/simple.css">
     {% else %}

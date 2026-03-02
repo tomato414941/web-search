@@ -9,7 +9,7 @@ Provides Kubernetes-compatible health check endpoints:
 
 import httpx
 from fastapi import APIRouter
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
 from frontend.core.config import settings
 from shared.postgres.search import get_connection
@@ -80,6 +80,35 @@ async def _get_readiness_response():
         status_code=200 if db_ok else 503,
         content={"status": status, "checks": checks},
     )
+
+
+ROBOTS_TXT = """\
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Sitemap: https://palebluesearch.com/sitemap.xml
+"""
+
+SITEMAP_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://palebluesearch.com/</loc></url>
+</urlset>
+"""
+
+
+# --- SEO endpoints ---
+
+
+@root_router.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    return PlainTextResponse(ROBOTS_TXT, media_type="text/plain")
+
+
+@root_router.get("/sitemap.xml")
+async def sitemap_xml():
+    return Response(content=SITEMAP_XML, media_type="application/xml")
 
 
 # --- Root-level endpoints (Kubernetes probes) ---

@@ -23,6 +23,7 @@ MESSAGES = {
         "lang_switch_ja": "日本語",
         "lang_switch_en": "English",
         "no_title": "(no title)",
+        "meta_description": "Search the web with BM25 + vector hybrid search. 600K+ pages indexed with Japanese NLP support.",
     },
     "ja": {
         "title_suffix": " - 検索",
@@ -42,5 +43,6 @@ MESSAGES = {
         "lang_switch_ja": "日本語",
         "lang_switch_en": "English",
         "no_title": "(無題)",
+        "meta_description": "BM25 + ベクトル検索のハイブリッド検索エンジン。60万ページ以上をインデックス、日本語対応。",
     },
 }
