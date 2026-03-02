@@ -53,7 +53,7 @@ class Settings(InfrastructureSettings):
     MAX_PER_PAGE: int = 50
     RESULTS_LIMIT: int = 10
     HYBRID_SEARCH_TIMEOUT_SEC: float = 3.0
-    MAX_PER_DOMAIN: int = 3
+    MAX_PER_DOMAIN: int = 5
     DIVERSITY_OVERSCAN: int = 5
 
     # Indexer API (required - no default for security)
