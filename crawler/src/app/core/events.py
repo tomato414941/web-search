@@ -31,8 +31,10 @@ async def lifespan(app: FastAPI):
     await worker_manager.initialize()
 
     if settings.CRAWL_AUTO_START:
-        await worker_manager.start()
-        logger.info("Worker manager initialized and workers auto-started")
+        await worker_manager.start(concurrency=settings.CRAWL_CONCURRENCY)
+        logger.info(
+            "Worker auto-started with concurrency=%d", settings.CRAWL_CONCURRENCY
+        )
     else:
         logger.info("Worker manager initialized (workers not started)")
         logger.info("Use POST /worker/start to begin crawling")
