@@ -81,7 +81,7 @@ def test_html_to_doc_extraction():
     </body>
     </html>
     """
-    title, text = html_to_doc(html)
+    title, text, _published_at = html_to_doc(html)
     assert title == "My Title"
     assert "Header" in text
     assert "Paragraph text." in text
@@ -92,21 +92,21 @@ def test_html_to_doc_extraction():
 
 def test_html_to_doc_no_title():
     html = "<body><p>Hello</p></body>"
-    title, text = html_to_doc(html)
+    title, text, _published_at = html_to_doc(html)
     assert title == ""
     assert "Hello" in text
 
 
 def test_html_to_doc_empty():
     html = "<html></html>"
-    title, text = html_to_doc(html)
+    title, text, _published_at = html_to_doc(html)
     assert title == ""
     assert text == ""
 
 
 def test_html_to_doc_strips_nul_characters():
     html = "<html><head><title>A\x00B</title></head><body>hello\x00world</body></html>"
-    title, text = html_to_doc(html)
+    title, text, _published_at = html_to_doc(html)
     assert "\x00" not in title
     assert "\x00" not in text
     assert title == "A B"
