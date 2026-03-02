@@ -465,30 +465,27 @@ class UrlStore:
         ph = sql_placeholder()
 
         with db_connection(self.db_path) as cur:
-            cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'pending'")
-            pending = cur.fetchone()[0]
-
-            cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'crawling'")
-            crawling = cur.fetchone()[0]
-
-            cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'done'")
-            done = cur.fetchone()[0]
-
-            cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'failed'")
-            failed = cur.fetchone()[0]
-
             cur.execute(
-                f"SELECT COUNT(*) FROM urls WHERE last_crawled_at > {ph}", (cutoff,)
+                f"""
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+                    COUNT(*) FILTER (WHERE status = 'crawling') AS crawling,
+                    COUNT(*) FILTER (WHERE status = 'done') AS done,
+                    COUNT(*) FILTER (WHERE status = 'failed') AS failed,
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE last_crawled_at > {ph}) AS recent
+                FROM urls
+                """,
+                (cutoff,),
             )
-            recent = cur.fetchone()[0]
-
+            row = cur.fetchone()
             return {
-                "pending": pending,
-                "crawling": crawling,
-                "done": done,
-                "failed": failed,
-                "total": pending + crawling + done + failed,
-                "recent": recent,
+                "pending": row[0],
+                "crawling": row[1],
+                "done": row[2],
+                "failed": row[3],
+                "total": row[4],
+                "recent": row[5],
             }
 
     def get_domains(self, limit: int = 100) -> list[tuple[str, int]]:

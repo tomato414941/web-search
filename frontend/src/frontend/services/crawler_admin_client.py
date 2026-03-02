@@ -26,7 +26,7 @@ def _api_error(resp: httpx.Response) -> CrawlerApiError:
 
 async def fetch_stats() -> dict[str, Any] | None:
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats", headers=_auth_headers()
             )
@@ -57,7 +57,7 @@ async def fetch_status_breakdown(
 
 async def fetch_seeds() -> list[dict[str, Any]]:
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds", headers=_auth_headers()
             )
@@ -85,7 +85,7 @@ async def fetch_frontier_stats() -> dict[str, Any] | None:
 
 async def fetch_history(url_filter: str = "") -> list[dict[str, Any]]:
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             params = {"url": url_filter} if url_filter else {}
             resp = await client.get(
                 f"{settings.CRAWLER_SERVICE_URL}/api/v1/history",
@@ -191,7 +191,7 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
     }
     try:
         headers = _auth_headers()
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(f"{url}/api/v1/status", headers=headers)
             if resp.status_code == 200:
                 data = resp.json()

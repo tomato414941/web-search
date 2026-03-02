@@ -10,7 +10,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
-_DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
+_DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "10"))
 _db_executor = ThreadPoolExecutor(
     max_workers=_DB_POOL_MAX,
     thread_name_prefix="db-io",

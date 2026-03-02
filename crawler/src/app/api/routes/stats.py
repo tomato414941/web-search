@@ -5,7 +5,8 @@ Aggregated crawler statistics endpoint for dashboard consumption.
 """
 
 import asyncio
-from typing import Optional
+import time
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Query
 from app.db.executor import run_in_db_executor
@@ -15,10 +16,19 @@ from app.api.deps import get_queue_service
 
 router = APIRouter()
 
+_stats_cache: dict[str, Any] = {"data": None, "expires": 0}
+_frontier_cache: dict[str, Any] = {"data": None, "expires": 0}
+_STATS_TTL = 30
+_FRONTIER_TTL = 60
+
 
 @router.get("/stats")
 async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
     """Return aggregated crawler stats in a single response."""
+    now = time.monotonic()
+    if _stats_cache["data"] is not None and now < _stats_cache["expires"]:
+        return _stats_cache["data"]
+
     from app.utils.history import (
         get_crawl_rate,
         get_error_count,
@@ -49,7 +59,7 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
         round((indexed_count / attempts_count) * 100, 1) if attempts_count > 0 else 0.0
     )
 
-    return {
+    result = {
         "crawl_rate_1h": crawl_rate,
         "attempts_count_1h": attempts_count,
         "indexed_count_1h": indexed_count,
@@ -63,6 +73,9 @@ async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
         "active_tasks": worker_status.active_tasks,
         "concurrency": worker_status.concurrency,
     }
+    _stats_cache["data"] = result
+    _stats_cache["expires"] = now + _STATS_TTL
+    return result
 
 
 @router.get("/stats/frontier")
@@ -70,6 +83,10 @@ async def get_frontier_stats(
     queue_service: QueueService = Depends(get_queue_service),
 ):
     """Frontier health data for admin dashboard."""
+    now = time.monotonic()
+    if _frontier_cache["data"] is not None and now < _frontier_cache["expires"]:
+        return _frontier_cache["data"]
+
     from app.utils.history import (
         get_robots_blocked_domains_with_counts,
         get_high_failure_domains,
@@ -92,7 +109,7 @@ async def get_frontier_stats(
         run_in_db_executor(url_store.get_stale_url_count),
     )
 
-    return {
+    result = {
         "url_stats": stats,
         "pending_domains": pending_domains,
         "done_domains": done_domains,
@@ -100,6 +117,9 @@ async def get_frontier_stats(
         "failure_domains": failure_domains,
         "stale_count": stale_count,
     }
+    _frontier_cache["data"] = result
+    _frontier_cache["expires"] = now + _FRONTIER_TTL
+    return result
 
 
 @router.get("/stats/breakdown")
