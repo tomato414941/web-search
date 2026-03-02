@@ -44,7 +44,7 @@ async def _fetch_crawler_stats() -> dict[str, int]:
                     "Crawler stats API returned non-200 status: %s", resp.status_code
                 )
     except Exception as e:
-        logger.warning(f"Failed to get crawler stats: {e}")
+        logger.warning("Failed to get crawler stats: %s(%s)", type(e).__name__, e)
     return stats
 
 
