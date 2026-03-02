@@ -12,6 +12,10 @@ updates:
     directory: "/indexer"
     schedule:
       interval: "weekly"
+  - package-ecosystem: "pip"
+    directory: "/mcp"
+    schedule:
+      interval: "weekly"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

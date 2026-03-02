@@ -56,3 +56,11 @@ repos:
         pass_filenames: false
         always_run: false
         files: ^shared/
+      - id: pytest-mcp
+        name: pytest (mcp)
+        entry: bash -c "cd mcp && PYTHONPATH=src ../.venv/bin/pytest tests/ -v --tb=short"
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^mcp/
