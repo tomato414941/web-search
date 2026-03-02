@@ -202,7 +202,9 @@ async def test_process_url_discovers_links(test_components):
     )
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
-    with patch("app.workers.pipeline.html_to_doc", return_value=("Test", "Content", None)):
+    with patch(
+        "app.workers.pipeline.html_to_doc", return_value=("Test", "Content", None)
+    ):
         with patch(
             "app.workers.pipeline.extract_links",
             return_value=[
@@ -247,7 +249,9 @@ async def test_process_url_non_html_200_logged_as_skipped(test_components):
     mock_response.headers = {"Content-Type": "application/x-gzip"}
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
-    with patch("app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock) as m:
+    with patch(
+        "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
+    ) as m:
         with patch("app.workers.tasks.history_log.log_crawl_attempt") as mock_log:
             await process_url(
                 mock_session,

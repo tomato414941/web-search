@@ -8,6 +8,7 @@ import json
 import re
 from datetime import datetime, timezone
 
+import trafilatura
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 import warnings
 
@@ -97,12 +98,18 @@ def extract_published_at(soup: BeautifulSoup) -> str | None:
 
 
 def html_to_doc(html: str) -> tuple[str, str, str | None]:
-    """Extract (title, text, published_at) from HTML using BeautifulSoup.
+    """Extract (title, text, published_at) from HTML.
+
+    Primary: trafilatura for boilerplate-free main content extraction.
+    Fallback: BeautifulSoup get_text() when trafilatura returns None.
 
     Returns:
         Tuple of (title, text_content, published_at_iso)
     """
-    soup = BeautifulSoup(_strip_nul(html), "html.parser")
+    cleaned_html = _strip_nul(html)
+
+    # Title and published_at always via BeautifulSoup
+    soup = BeautifulSoup(cleaned_html, "html.parser")
 
     title = ""
     if soup.title and soup.title.string:
@@ -111,12 +118,25 @@ def html_to_doc(html: str) -> tuple[str, str, str | None]:
     # Extract published_at BEFORE decomposing script tags
     published_at = extract_published_at(soup)
 
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
+    # Main content: try trafilatura first
+    text = trafilatura.extract(
+        cleaned_html,
+        include_comments=True,
+        include_tables=True,
+        deduplicate=True,
+        favor_recall=True,
+    )
 
-    text = soup.get_text(" ", strip=True)
-    text = _strip_nul(text)
-    text = re.sub(r"\s+", " ", text).strip()
+    if text:
+        text = _strip_nul(text)
+        text = re.sub(r"\s+", " ", text).strip()
+    else:
+        # Fallback: BeautifulSoup full-text extraction
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+        text = soup.get_text(" ", strip=True)
+        text = _strip_nul(text)
+        text = re.sub(r"\s+", " ", text).strip()
 
     return title, text, published_at
 

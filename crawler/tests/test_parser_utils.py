@@ -114,6 +114,73 @@ def test_html_to_doc_strips_nul_characters():
 
 
 # ==========================================
+# Tests for trafilatura integration
+# ==========================================
+
+
+def test_html_to_doc_strips_boilerplate():
+    """trafilatura should extract main content, ignoring nav/footer."""
+    html = """
+    <html>
+    <head><title>Article Page</title></head>
+    <body>
+        <nav><a href="/">Home</a> | <a href="/about">About</a> | <a href="/contact">Contact</a></nav>
+        <main>
+            <article>
+                <h1>Main Article Title</h1>
+                <p>This is the main article content that should be extracted by trafilatura.
+                It contains multiple sentences of useful information for the reader.
+                The content is substantial enough for trafilatura to recognize it as main text.</p>
+                <p>Another paragraph with more detailed information about the topic at hand.
+                This helps ensure the article has enough content density to be recognized.</p>
+            </article>
+        </main>
+        <footer>Copyright 2025 Example Corp. All rights reserved.
+            <a href="/privacy">Privacy Policy</a> | <a href="/terms">Terms of Service</a>
+        </footer>
+    </body>
+    </html>
+    """
+    title, text, _published_at = html_to_doc(html)
+    assert title == "Article Page"
+    assert "Main Article Title" in text
+    assert "main article content" in text
+
+
+def test_html_to_doc_fallback_on_minimal_html():
+    """trafilatura returns None for minimal HTML; BS4 fallback should work."""
+    html = "<p>Just a short paragraph</p>"
+    title, text, _published_at = html_to_doc(html)
+    assert "Just a short paragraph" in text
+
+
+def test_html_to_doc_preserves_table_content():
+    """Tables should be included (include_tables=True)."""
+    html = """
+    <html>
+    <head><title>Comparison</title></head>
+    <body>
+        <article>
+            <h1>Framework Comparison</h1>
+            <p>Here is a detailed comparison of popular Python web frameworks
+            that developers frequently use for building modern applications.</p>
+            <table>
+                <tr><th>Framework</th><th>Speed</th></tr>
+                <tr><td>FastAPI</td><td>Fast</td></tr>
+                <tr><td>Django</td><td>Moderate</td></tr>
+            </table>
+            <p>FastAPI is known for its high performance while Django provides
+            a more comprehensive set of built-in features for rapid development.</p>
+        </article>
+    </body>
+    </html>
+    """
+    title, text, _published_at = html_to_doc(html)
+    assert "FastAPI" in text
+    assert "Django" in text
+
+
+# ==========================================
 # Tests for extract_links
 # ==========================================
 
