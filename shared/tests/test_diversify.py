@@ -4,7 +4,7 @@ import os
 
 os.environ.setdefault("ENVIRONMENT", "test")
 
-from shared.search_kernel.diversify import diversify_hits
+from shared.search_kernel.diversify import _extract_domain, diversify_hits
 from shared.search_kernel.searcher import SearchHit
 
 
@@ -68,6 +68,20 @@ class TestDiversifyHits:
         urls = [h.url for h in result]
         assert urls == ["https://a.com/1", "https://b.com/1"]
 
+    def test_subdomains_grouped(self):
+        hits = [
+            _hit("https://b.hatena.ne.jp/1", 10.0),
+            _hit("https://d.hatena.ne.jp/1", 9.0),
+            _hit("https://blog.hatena.ne.jp/1", 8.0),
+            _hit("https://b.hatena.ne.jp/2", 7.0),
+            _hit("https://d.hatena.ne.jp/2", 6.0),
+            _hit("https://github.com/1", 5.0),
+        ]
+        result = diversify_hits(hits, limit=10, max_per_domain=3)
+        assert len(result) == 4  # 3 hatena + 1 github
+        hatena = [h for h in result if "hatena" in h.url]
+        assert len(hatena) == 3
+
     def test_malformed_url(self):
         hits = [
             _hit("not-a-url", 5.0),
@@ -75,3 +89,23 @@ class TestDiversifyHits:
         ]
         result = diversify_hits(hits, limit=10, max_per_domain=3)
         assert len(result) == 2
+
+
+class TestExtractDomain:
+    def test_simple(self):
+        assert _extract_domain("https://example.com/foo") == "example.com"
+
+    def test_subdomain(self):
+        assert _extract_domain("https://docs.github.com/en") == "github.com"
+
+    def test_two_level_tld_jp(self):
+        assert _extract_domain("https://b.hatena.ne.jp/foo") == "hatena.ne.jp"
+
+    def test_two_level_tld_uk(self):
+        assert _extract_domain("https://www.bbc.co.uk/news") == "bbc.co.uk"
+
+    def test_bare_domain(self):
+        assert _extract_domain("https://example.com") == "example.com"
+
+    def test_empty(self):
+        assert _extract_domain("") == ""

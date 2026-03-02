@@ -33,8 +33,34 @@ def diversify_hits(
     return result
 
 
+# Two-level TLDs where the registered domain is one level deeper.
+_TWO_LEVEL_TLDS = frozenset({
+    "co.jp", "ne.jp", "or.jp", "ac.jp", "go.jp", "ed.jp", "ad.jp",
+    "co.uk", "ac.uk", "org.uk", "gov.uk",
+    "co.kr", "or.kr", "go.kr",
+    "com.au", "net.au", "org.au", "edu.au",
+    "com.br", "org.br", "net.br",
+    "com.cn", "net.cn", "org.cn",
+    "co.in", "net.in", "org.in",
+    "co.nz", "net.nz", "org.nz",
+    "com.tw", "org.tw", "net.tw",
+})
+
+
 def _extract_domain(url: str) -> str:
+    """Extract the registered domain, grouping subdomains together.
+
+    e.g. b.hatena.ne.jp -> hatena.ne.jp, docs.github.com -> github.com
+    """
     try:
-        return urlparse(url).netloc or ""
+        host = urlparse(url).hostname or ""
     except Exception:
         return ""
+    parts = host.split(".")
+    if len(parts) <= 2:
+        return host
+    # Check for two-level TLD (e.g. ne.jp, co.uk)
+    two_level = ".".join(parts[-2:])
+    if two_level in _TWO_LEVEL_TLDS and len(parts) >= 3:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
