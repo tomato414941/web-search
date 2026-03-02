@@ -68,6 +68,24 @@ export PYTHONPATH=crawler/src
 uvicorn app.main:app --reload --port 8082
 ```
 
+## Linting and Formatting
+
+```bash
+ruff check frontend/src/ shared/src/ crawler/src/ indexer/src/
+ruff format frontend/src/ shared/src/ crawler/src/ indexer/src/
+```
+
+## Pre-commit Hooks
+
+Install pre-commit hooks to catch lint and test failures before pushing:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+This runs `ruff` (lint + format) and service-specific `pytest` on every commit.
+
 ## Running Tests
 Tests are split by service.
 
@@ -82,5 +100,4 @@ pytest crawler/tests
 For production-like staging setup on Coolify, see:
 
 - `docs/coolify-staging.md`
-- `deploy/coolify.staging.env.example`
 - `scripts/ops/coolify_staging_smoke.sh`

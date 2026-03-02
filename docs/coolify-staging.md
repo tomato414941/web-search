@@ -36,6 +36,7 @@ Set these in Coolify application environment variables.
 | `INDEXER_API_KEY` | `change-me-random` | Shared secret between crawler/frontend and indexer. |
 | `OPENAI_API_KEY` | `` | Optional. Leave empty to disable embeddings. |
 | `CRAWL_CONCURRENCY` | `10` | Initial crawler concurrency. |
+| `CRAWL_AUTO_START` | `false` | Set to `false` in STG to prevent CPU saturation when sharing a server with PRD. Start manually via API when testing. |
 | `INDEXER_JOB_WORKERS` | `4` | Async index worker count. |
 | `INDEXER_JOB_BATCH_SIZE` | `20` | Max claimed jobs per poll. |
 | `INDEXER_JOB_LEASE_SEC` | `120` | Job lease duration. |
