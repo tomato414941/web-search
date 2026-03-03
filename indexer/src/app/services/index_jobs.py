@@ -35,6 +35,9 @@ class IndexJob:
     retry_count: int
     max_retries: int
     published_at: str | None = None
+    updated_at: str | None = None
+    author: str | None = None
+    organization: str | None = None
 
 
 class IndexJobService:
@@ -97,6 +100,9 @@ class IndexJobService:
         content: str,
         outlinks: list[str] | None,
         published_at: str | None = None,
+        updated_at: str | None = None,
+        author: str | None = None,
+        organization: str | None = None,
     ) -> tuple[str, bool]:
         """Queue a new indexing job (idempotent by dedupe_key)."""
         content_hash = hash_text(content)
@@ -124,13 +130,13 @@ class IndexJobService:
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
                     created_at, updated_at, content_hash, dedupe_key,
-                    published_at
+                    published_at, author, organization
                 ) VALUES (
                     {ph}, {ph}, {ph}, {ph}, {jsonb_ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
                     {ph}, {ph}, {ph}, {ph},
-                    {ph}
+                    {ph}, {ph}, {ph}
                 )
                 ON CONFLICT (dedupe_key) DO NOTHING
                 RETURNING job_id
@@ -149,6 +155,8 @@ class IndexJobService:
                     content_hash,
                     dedupe_key,
                     published_at,
+                    author,
+                    organization,
                 ),
             )
             row = cur.fetchone()
@@ -240,7 +248,7 @@ class IndexJobService:
                 RETURNING
                     j.job_id, j.url, j.title, j.content,
                     j.outlinks, j.status, j.retry_count, j.max_retries,
-                    j.published_at
+                    j.published_at, j.author, j.organization
                 """,
                 (
                     STATUS_PENDING,
@@ -619,4 +627,6 @@ class IndexJobService:
             retry_count=int(row[6]),
             max_retries=int(row[7]),
             published_at=str(row[8]) if len(row) > 8 and row[8] else None,
+            author=str(row[9]) if len(row) > 9 and row[9] else None,
+            organization=str(row[10]) if len(row) > 10 and row[10] else None,
         )

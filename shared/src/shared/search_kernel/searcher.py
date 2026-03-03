@@ -25,6 +25,9 @@ class SearchHit:
     indexed_at: str | None = None
     published_at: str | None = None
     temporal_anchor: float | None = None
+    authorship_clarity: float | None = None
+    author: str | None = None
+    organization: str | None = None
 
 
 @dataclass

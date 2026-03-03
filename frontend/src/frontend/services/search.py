@@ -239,6 +239,12 @@ class SearchService:
                 hit_dict["published_at"] = hit.published_at
             if hit.temporal_anchor is not None:
                 hit_dict["temporal_anchor"] = hit.temporal_anchor
+            if hit.authorship_clarity is not None:
+                hit_dict["authorship_clarity"] = hit.authorship_clarity
+            if hit.author:
+                hit_dict["author"] = hit.author
+            if hit.organization:
+                hit_dict["organization"] = hit.organization
             hits.append(hit_dict)
 
         return {
@@ -314,6 +320,9 @@ class SearchService:
                 indexed_at=h.get("indexed_at"),
                 published_at=h.get("published_at"),
                 temporal_anchor=h.get("temporal_anchor"),
+                authorship_clarity=h.get("authorship_clarity"),
+                author=h.get("author"),
+                organization=h.get("organization"),
             )
             for h in os_result["hits"]
         ]

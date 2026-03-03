@@ -49,7 +49,13 @@ def _format_hits(data: dict) -> str:
         if snip:
             lines.append(snip)
         temporal_anchor = hit.get("temporal_anchor")
+        author = hit.get("author")
+        organization = hit.get("organization")
         meta_parts = []
+        if author:
+            meta_parts.append(f"Author: {author}")
+        if organization:
+            meta_parts.append(f"Org: {organization}")
         if published_at:
             meta_parts.append(f"Published: {published_at}")
         if indexed_at:

@@ -49,7 +49,19 @@ class SearchHit(BaseModel):
     )
     temporal_anchor: float | None = Field(
         default=None,
-        description="Temporal transparency score (0.0-1.0): how well the document's time context is grounded",
+        description="Temporal transparency score (0.0-1.0)",
+    )
+    authorship_clarity: float | None = Field(
+        default=None,
+        description="Authorship clarity score (0.0-1.0)",
+    )
+    author: str | None = Field(
+        default=None,
+        description="Author name extracted from HTML metadata",
+    )
+    organization: str | None = Field(
+        default=None,
+        description="Publisher/organization extracted from HTML metadata",
     )
 
 

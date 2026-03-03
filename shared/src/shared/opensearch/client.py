@@ -52,22 +52,11 @@ def index_document(
     published_at: str | None = None,
     content_quality: float = 0.0,
     temporal_anchor: float = 0.2,
+    authorship_clarity: float = 0.1,
+    author: str | None = None,
+    organization: str | None = None,
 ) -> None:
-    """Index a single document into OpenSearch.
-
-    Args:
-        client: OpenSearch client instance
-        url: Document URL (used as document ID)
-        title_tokens: Pre-tokenized title (space-separated)
-        content_tokens: Pre-tokenized content (space-separated)
-        word_count: Number of content tokens
-        indexed_at: ISO timestamp
-        authority: max(page_rank, domain_rank) score
-        embedding: Optional 1536-dim vector for k-NN search
-        published_at: Optional ISO timestamp of original publication
-        content_quality: Content quality score (0.0-1.0)
-        temporal_anchor: Temporal transparency score (0.0-1.0)
-    """
+    """Index a single document into OpenSearch."""
     body: dict[str, Any] = {
         "url": url,
         "title": title_tokens,
@@ -77,11 +66,16 @@ def index_document(
         "authority": authority,
         "content_quality": content_quality,
         "temporal_anchor": temporal_anchor,
+        "authorship_clarity": authorship_clarity,
     }
     if embedding is not None:
         body["embedding"] = embedding
     if published_at is not None:
         body["published_at"] = published_at
+    if author is not None:
+        body["author"] = author
+    if organization is not None:
+        body["organization"] = organization
 
     client.index(index=INDEX_NAME, id=doc_id(url), body=body)
 

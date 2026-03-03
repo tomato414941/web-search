@@ -52,8 +52,15 @@ async def test_process_url_success_flow(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.pipeline.html_to_doc",
-        return_value=("Test Page", "Test content", None),
+        "app.workers.pipeline.html_to_doc_full",
+        return_value=MagicMock(
+            title="Test Page",
+            content="Test content",
+            published_at=None,
+            updated_at=None,
+            author=None,
+            organization=None,
+        ),
     ):
         with patch(
             "app.workers.pipeline.extract_links",
@@ -203,7 +210,15 @@ async def test_process_url_discovers_links(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.pipeline.html_to_doc", return_value=("Test", "Content", None)
+        "app.workers.pipeline.html_to_doc_full",
+        return_value=MagicMock(
+            title="Test",
+            content="Content",
+            published_at=None,
+            updated_at=None,
+            author=None,
+            organization=None,
+        ),
     ):
         with patch(
             "app.workers.pipeline.extract_links",
@@ -292,8 +307,15 @@ async def test_process_url_logs_indexer_error_detail(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.pipeline.html_to_doc",
-        return_value=("T", "content", None),
+        "app.workers.pipeline.html_to_doc_full",
+        return_value=MagicMock(
+            title="T",
+            content="content",
+            published_at=None,
+            updated_at=None,
+            author=None,
+            organization=None,
+        ),
     ):
         with patch("app.workers.pipeline.extract_links", return_value=[]):
             with patch(

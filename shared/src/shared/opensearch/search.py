@@ -96,6 +96,9 @@ def search_bm25(
             "indexed_at",
             "published_at",
             "temporal_anchor",
+            "authorship_clarity",
+            "author",
+            "organization",
         ],
     }
 
@@ -114,6 +117,9 @@ def search_bm25(
                 "indexed_at": src.get("indexed_at"),
                 "published_at": src.get("published_at"),
                 "temporal_anchor": src.get("temporal_anchor"),
+                "authorship_clarity": src.get("authorship_clarity"),
+                "author": src.get("author"),
+                "organization": src.get("organization"),
             }
         )
 
@@ -183,6 +189,9 @@ def search_hybrid(
             "indexed_at",
             "published_at",
             "temporal_anchor",
+            "authorship_clarity",
+            "author",
+            "organization",
         ],
     }
 
@@ -201,6 +210,9 @@ def search_hybrid(
                 "indexed_at": src.get("indexed_at"),
                 "published_at": src.get("published_at"),
                 "temporal_anchor": src.get("temporal_anchor"),
+                "authorship_clarity": src.get("authorship_clarity"),
+                "author": src.get("author"),
+                "organization": src.get("organization"),
             }
         )
 

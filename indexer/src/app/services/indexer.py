@@ -84,15 +84,12 @@ class IndexerService:
         content: str,
         outlinks: list[str] | None = None,
         published_at: str | None = None,
+        author: str | None = None,
+        organization: str | None = None,
         *,
         skip_embedding: bool = False,
     ):
-        """Index a single page into the database.
-
-        Args:
-            published_at: ISO 8601 publication date extracted from HTML.
-            skip_embedding: If True, skip per-page embedding (for batch mode).
-        """
+        """Index a single page into the database."""
         safe_title = _sanitize_text(title)
         safe_content = _sanitize_text(content)
         safe_outlinks = _sanitize_outlinks(outlinks)
@@ -138,6 +135,8 @@ class IndexerService:
                 safe_content,
                 published_at=published_at,
                 outlinks_count=len(safe_outlinks),
+                author=author,
+                organization=organization,
             )
 
         if skip_embedding:
@@ -246,6 +245,8 @@ class IndexerService:
         content: str,
         published_at: str | None = None,
         outlinks_count: int = 0,
+        author: str | None = None,
+        organization: str | None = None,
     ) -> None:
         """Write document to OpenSearch (best-effort, logs on failure)."""
         try:
@@ -270,6 +271,7 @@ class IndexerService:
                 word_count, outlinks_count, title, published_at
             )
             temporal_anchor = _compute_temporal_anchor(published_at)
+            authorship_clarity = _compute_authorship_clarity(author, organization, url)
 
             # Fetch authority score from page_ranks / domain_ranks
             authority = self._get_authority(url)
@@ -290,6 +292,9 @@ class IndexerService:
                 published_at=published_at,
                 content_quality=content_quality,
                 temporal_anchor=temporal_anchor,
+                authorship_clarity=authorship_clarity,
+                author=author,
+                organization=organization,
             )
         except Exception:
             logger.warning("OpenSearch index failed for %s", url, exc_info=True)
@@ -378,6 +383,48 @@ def _compute_temporal_anchor(published_at: str | None) -> float:
     if published_at:
         return 1.0
     return 0.2
+
+
+_UGC_DOMAINS = frozenset(
+    [
+        "reddit.com",
+        "twitter.com",
+        "x.com",
+        "news.ycombinator.com",
+        "stackoverflow.com",
+        "stackexchange.com",
+        "quora.com",
+        "medium.com",
+        "dev.to",
+        "github.com",
+    ]
+)
+
+
+def _compute_authorship_clarity(
+    author: str | None,
+    organization: str | None,
+    url: str,
+) -> float:
+    """Score how clearly the authorship is identified.
+
+    AI agents need to know WHO wrote this to assess reliability.
+    """
+    from urllib.parse import urlparse
+
+    domain = urlparse(url).netloc.lower()
+    base_domain = ".".join(domain.rsplit(".", 2)[-2:])
+
+    if base_domain in _UGC_DOMAINS:
+        return 0.3
+
+    if author and organization:
+        return 1.0
+    if author:
+        return 0.8
+    if organization:
+        return 0.6
+    return 0.1
 
 
 # Global instance

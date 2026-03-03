@@ -49,6 +49,9 @@ INDEX_SETTINGS = {
             "authority": {"type": "float"},
             "content_quality": {"type": "float"},
             "temporal_anchor": {"type": "float"},
+            "authorship_clarity": {"type": "float"},
+            "author": {"type": "keyword"},
+            "organization": {"type": "keyword"},
             "embedding": {
                 "type": "knn_vector",
                 "dimension": 1536,
