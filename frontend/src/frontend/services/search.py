@@ -237,6 +237,8 @@ class SearchService:
                 hit_dict["indexed_at"] = hit.indexed_at
             if hit.published_at:
                 hit_dict["published_at"] = hit.published_at
+            if hit.temporal_anchor is not None:
+                hit_dict["temporal_anchor"] = hit.temporal_anchor
             hits.append(hit_dict)
 
         return {
@@ -311,6 +313,7 @@ class SearchService:
                 score=h["score"],
                 indexed_at=h.get("indexed_at"),
                 published_at=h.get("published_at"),
+                temporal_anchor=h.get("temporal_anchor"),
             )
             for h in os_result["hits"]
         ]

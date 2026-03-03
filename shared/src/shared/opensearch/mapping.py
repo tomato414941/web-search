@@ -48,6 +48,7 @@ INDEX_SETTINGS = {
             "published_at": {"type": "date"},
             "authority": {"type": "float"},
             "content_quality": {"type": "float"},
+            "temporal_anchor": {"type": "float"},
             "embedding": {
                 "type": "knn_vector",
                 "dimension": 1536,

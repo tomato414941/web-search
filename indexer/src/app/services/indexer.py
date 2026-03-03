@@ -269,6 +269,7 @@ class IndexerService:
             content_quality = _compute_content_quality(
                 word_count, outlinks_count, title, published_at
             )
+            temporal_anchor = _compute_temporal_anchor(published_at)
 
             # Fetch authority score from page_ranks / domain_ranks
             authority = self._get_authority(url)
@@ -288,6 +289,7 @@ class IndexerService:
                 authority=authority,
                 published_at=published_at,
                 content_quality=content_quality,
+                temporal_anchor=temporal_anchor,
             )
         except Exception:
             logger.warning("OpenSearch index failed for %s", url, exc_info=True)
@@ -364,6 +366,18 @@ def _compute_content_quality(
         structure += 0.1
 
     return round(min(1.0, text_score * link_penalty * structure), 4)
+
+
+def _compute_temporal_anchor(published_at: str | None) -> float:
+    """Score how well the document's time context is grounded.
+
+    AI agents need to know WHEN information was true.
+    This does NOT boost fresh content — it scores temporal transparency.
+    The AI agent decides freshness relevance, not the search engine.
+    """
+    if published_at:
+        return 1.0
+    return 0.2
 
 
 # Global instance

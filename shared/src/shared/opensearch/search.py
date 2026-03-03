@@ -65,12 +65,11 @@ def search_bm25(
                         "weight": 1,
                     },
                     {
-                        "exp": {
-                            "indexed_at": {
-                                "origin": "now",
-                                "scale": "180d",
-                                "decay": 0.5,
-                            }
+                        "field_value_factor": {
+                            "field": "temporal_anchor",
+                            "modifier": "none",
+                            "factor": 1,
+                            "missing": 0.5,
                         },
                         "weight": 0.1,
                     },
@@ -90,7 +89,14 @@ def search_bm25(
         },
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
-        "_source": ["url", "title", "content", "indexed_at", "published_at"],
+        "_source": [
+            "url",
+            "title",
+            "content",
+            "indexed_at",
+            "published_at",
+            "temporal_anchor",
+        ],
     }
 
     resp = client.search(index=INDEX_NAME, body=query)
@@ -107,6 +113,7 @@ def search_bm25(
                 "score": hit["_score"],
                 "indexed_at": src.get("indexed_at"),
                 "published_at": src.get("published_at"),
+                "temporal_anchor": src.get("temporal_anchor"),
             }
         )
 
@@ -169,7 +176,14 @@ def search_hybrid(
         },
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
-        "_source": ["url", "title", "content", "indexed_at", "published_at"],
+        "_source": [
+            "url",
+            "title",
+            "content",
+            "indexed_at",
+            "published_at",
+            "temporal_anchor",
+        ],
     }
 
     resp = client.search(index=INDEX_NAME, body=query)
@@ -186,6 +200,7 @@ def search_hybrid(
                 "score": hit["_score"],
                 "indexed_at": src.get("indexed_at"),
                 "published_at": src.get("published_at"),
+                "temporal_anchor": src.get("temporal_anchor"),
             }
         )
 
