@@ -241,6 +241,8 @@ class SearchService:
                 hit_dict["temporal_anchor"] = hit.temporal_anchor
             if hit.authorship_clarity is not None:
                 hit_dict["authorship_clarity"] = hit.authorship_clarity
+            if hit.factual_density is not None:
+                hit_dict["factual_density"] = hit.factual_density
             if hit.author:
                 hit_dict["author"] = hit.author
             if hit.organization:
@@ -321,6 +323,7 @@ class SearchService:
                 published_at=h.get("published_at"),
                 temporal_anchor=h.get("temporal_anchor"),
                 authorship_clarity=h.get("authorship_clarity"),
+                factual_density=h.get("factual_density"),
                 author=h.get("author"),
                 organization=h.get("organization"),
             )

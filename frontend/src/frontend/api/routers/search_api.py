@@ -55,6 +55,10 @@ class SearchHit(BaseModel):
         default=None,
         description="Authorship clarity score (0.0-1.0)",
     )
+    factual_density: float | None = Field(
+        default=None,
+        description="Factual density score (0.0-1.0)",
+    )
     author: str | None = Field(
         default=None,
         description="Author name extracted from HTML metadata",

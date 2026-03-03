@@ -53,6 +53,7 @@ def index_document(
     content_quality: float = 0.0,
     temporal_anchor: float = 0.2,
     authorship_clarity: float = 0.1,
+    factual_density: float = 0.0,
     author: str | None = None,
     organization: str | None = None,
 ) -> None:
@@ -67,6 +68,7 @@ def index_document(
         "content_quality": content_quality,
         "temporal_anchor": temporal_anchor,
         "authorship_clarity": authorship_clarity,
+        "factual_density": factual_density,
     }
     if embedding is not None:
         body["embedding"] = embedding

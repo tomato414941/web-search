@@ -26,6 +26,7 @@ class SearchHit:
     published_at: str | None = None
     temporal_anchor: float | None = None
     authorship_clarity: float | None = None
+    factual_density: float | None = None
     author: str | None = None
     organization: str | None = None
 

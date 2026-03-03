@@ -50,6 +50,7 @@ INDEX_SETTINGS = {
             "content_quality": {"type": "float"},
             "temporal_anchor": {"type": "float"},
             "authorship_clarity": {"type": "float"},
+            "factual_density": {"type": "float"},
             "author": {"type": "keyword"},
             "organization": {"type": "keyword"},
             "embedding": {

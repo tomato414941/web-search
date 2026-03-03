@@ -273,6 +273,12 @@ class IndexerService:
             temporal_anchor = _compute_temporal_anchor(published_at)
             authorship_clarity = _compute_authorship_clarity(author, organization, url)
 
+            from shared.search_kernel.factual_density import compute_factual_density
+
+            factual_density = compute_factual_density(
+                content, outlinks_count=outlinks_count, word_count=word_count
+            )
+
             # Fetch authority score from page_ranks / domain_ranks
             authority = self._get_authority(url)
 
@@ -293,6 +299,7 @@ class IndexerService:
                 content_quality=content_quality,
                 temporal_anchor=temporal_anchor,
                 authorship_clarity=authorship_clarity,
+                factual_density=factual_density,
                 author=author,
                 organization=organization,
             )
