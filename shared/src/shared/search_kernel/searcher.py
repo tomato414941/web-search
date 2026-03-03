@@ -47,6 +47,7 @@ class SearchResult:
     last_page: int
     confidence: str | None = None
     perspective_count: int | None = None
+    query_intent: str | None = None
 
 
 @dataclass

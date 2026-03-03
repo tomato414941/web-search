@@ -269,6 +269,8 @@ class SearchService:
             data["confidence"] = result.confidence
         if result.perspective_count is not None:
             data["perspective_count"] = result.perspective_count
+        if result.query_intent:
+            data["query_intent"] = result.query_intent
         return data
 
     def _run_opensearch_query(
@@ -277,6 +279,11 @@ class SearchService:
         """Execute OpenSearch query (BM25 or hybrid BM25 + k-NN)."""
         from shared.opensearch.search import CANDIDATE_LIMIT, search_bm25, search_hybrid
         from shared.search_kernel.claim_diversity import diversify_by_claims
+        from shared.search_kernel.scope_match import (
+            classify_document_type,
+            classify_query_intent,
+            compute_scope_match,
+        )
         from shared.search_kernel.searcher import SearchHit, SearchResult, parse_query
 
         parsed = parse_query(q)
@@ -346,6 +353,15 @@ class SearchService:
         ]
         total = os_result["total"]
 
+        # Scope match: re-rank by query intent × document type affinity
+        intent = classify_query_intent(q)
+        if intent.value != "unknown":
+            for hit in hits:
+                doc_type = classify_document_type(hit.url)
+                boost = compute_scope_match(intent, doc_type)
+                hit.score *= 0.8 + 0.2 * boost
+            hits.sort(key=lambda h: h.score, reverse=True)
+
         if use_diversity:
             diversity_result = diversify_by_claims(
                 hits,
@@ -379,10 +395,11 @@ class SearchService:
             )
             result.confidence = diversity_result.confidence
             result.perspective_count = diversity_result.perspective_count
+            result.query_intent = intent.value
             return result
 
         last_page = max((total + k - 1) // k, 1)
-        return SearchResult(
+        result = SearchResult(
             query=q,
             total=total,
             hits=hits,
@@ -390,6 +407,8 @@ class SearchService:
             per_page=k,
             last_page=last_page,
         )
+        result.query_intent = intent.value
+        return result
 
     def get_index_stats(self) -> dict[str, int]:
         """Return index stats: approximate total pages via pg_class."""

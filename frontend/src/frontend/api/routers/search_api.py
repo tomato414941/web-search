@@ -111,6 +111,10 @@ class SearchResponse(BaseModel):
         default=None,
         description="Number of distinct claim clusters",
     )
+    query_intent: str | None = Field(
+        default=None,
+        description="Detected query intent: overview/tutorial/troubleshoot/reference/news/comparison/unknown",
+    )
     request_id: str | None = Field(
         default=None, description="Request ID for click tracking"
     )
