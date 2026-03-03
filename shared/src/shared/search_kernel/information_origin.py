@@ -132,7 +132,7 @@ def calculate_information_origin(db_path: str) -> int:
         for _, ot, _, _, _ in results:
             type_counts[ot] = type_counts.get(ot, 0) + 1
         logger.info(
-            "Information origin complete: %d pages scored. " "Distribution: %s",
+            "Information origin complete: %d pages scored. Distribution: %s",
             len(results),
             ", ".join(f"{k}={v}" for k, v in sorted(type_counts.items())),
         )
