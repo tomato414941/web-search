@@ -75,6 +75,14 @@ class SearchHit(BaseModel):
         default=None,
         description="Publisher/organization extracted from HTML metadata",
     )
+    cluster_id: int | None = Field(
+        default=None,
+        description="Claim cluster ID within result set",
+    )
+    sources_agreeing: int | None = Field(
+        default=None,
+        description="Number of pages with similar claims",
+    )
 
 
 class UsageInfo(BaseModel):
@@ -94,6 +102,14 @@ class SearchResponse(BaseModel):
     )
     requested_mode: str = Field(
         description="Search mode requested by client (bm25, hybrid, semantic, auto)"
+    )
+    confidence: str | None = Field(
+        default=None,
+        description="Result confidence: high/low/contested/none",
+    )
+    perspective_count: int | None = Field(
+        default=None,
+        description="Number of distinct claim clusters",
     )
     request_id: str | None = Field(
         default=None, description="Request ID for click tracking"

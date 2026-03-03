@@ -251,9 +251,13 @@ class SearchService:
                 hit_dict["author"] = hit.author
             if hit.organization:
                 hit_dict["organization"] = hit.organization
+            if hit.cluster_id is not None:
+                hit_dict["cluster_id"] = hit.cluster_id
+            if hit.sources_agreeing is not None:
+                hit_dict["sources_agreeing"] = hit.sources_agreeing
             hits.append(hit_dict)
 
-        return {
+        data: dict[str, Any] = {
             "query": q,
             "total": result.total,
             "page": result.page,
@@ -261,13 +265,18 @@ class SearchService:
             "last_page": result.last_page,
             "hits": hits,
         }
+        if result.confidence:
+            data["confidence"] = result.confidence
+        if result.perspective_count is not None:
+            data["perspective_count"] = result.perspective_count
+        return data
 
     def _run_opensearch_query(
         self, q: str, k: int, page: int, *, with_embedding: bool = False
     ) -> Any:
         """Execute OpenSearch query (BM25 or hybrid BM25 + k-NN)."""
         from shared.opensearch.search import CANDIDATE_LIMIT, search_bm25, search_hybrid
-        from shared.search_kernel.diversify import diversify_hits
+        from shared.search_kernel.claim_diversity import diversify_by_claims
         from shared.search_kernel.searcher import SearchHit, SearchResult, parse_query
 
         parsed = parse_query(q)
@@ -338,11 +347,12 @@ class SearchService:
         total = os_result["total"]
 
         if use_diversity:
-            diversified = diversify_hits(
+            diversity_result = diversify_by_claims(
                 hits,
                 limit=page * k,
                 max_per_domain=settings.MAX_PER_DOMAIN,
             )
+            diversified = diversity_result.hits
             start = (page - 1) * k
             page_hits = diversified[start : start + k]
             diversified_total = len(diversified)
@@ -351,7 +361,15 @@ class SearchService:
             else:
                 estimated_total = diversified_total
             last_page = max((estimated_total + k - 1) // k, 1)
-            return SearchResult(
+
+            # Attach cluster metadata to hits
+            for hit in page_hits:
+                meta = diversity_result.cluster_meta.get(hit.url)
+                if meta:
+                    hit.cluster_id = meta.cluster_id
+                    hit.sources_agreeing = meta.sources_agreeing
+
+            result = SearchResult(
                 query=q,
                 total=estimated_total,
                 hits=page_hits,
@@ -359,6 +377,9 @@ class SearchService:
                 per_page=k,
                 last_page=last_page,
             )
+            result.confidence = diversity_result.confidence
+            result.perspective_count = diversity_result.perspective_count
+            return result
 
         last_page = max((total + k - 1) // k, 1)
         return SearchResult(
