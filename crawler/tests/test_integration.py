@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 from app.db import UrlStore
 from app.services.indexer import IndexerSubmitResult
 from app.scheduler import Scheduler, SchedulerConfig
+from app.utils.parser import ParsedDocument
 from app.workers.tasks import process_url
 
 
@@ -52,48 +53,41 @@ async def test_process_url_success_flow(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.pipeline.html_to_doc_full",
-        return_value=MagicMock(
+        "app.workers.pipeline.parse_page",
+        return_value=ParsedDocument(
             title="Test Page",
             content="Test content",
-            published_at=None,
-            updated_at=None,
-            author=None,
-            organization=None,
+            outlinks=["http://example.com/link1"],
         ),
     ):
         with patch(
-            "app.workers.pipeline.extract_links",
-            return_value=["http://example.com/link1"],
-        ):
-            with patch(
-                "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
-            ) as mock_indexer:
-                with patch("app.workers.tasks.history_log.log_crawl_attempt"):
-                    mock_indexer.return_value = IndexerSubmitResult(
-                        ok=True, status_code=202, job_id="job-1"
-                    )
+            "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
+        ) as mock_indexer:
+            with patch("app.workers.tasks.history_log.log_crawl_attempt"):
+                mock_indexer.return_value = IndexerSubmitResult(
+                    ok=True, status_code=202, job_id="job-1"
+                )
 
-                    await process_url(
-                        mock_session,
-                        mock_robots,
-                        url_store,
-                        scheduler,
-                        "http://example.com/test",
-                        100.0,
-                    )
+                await process_url(
+                    mock_session,
+                    mock_robots,
+                    url_store,
+                    scheduler,
+                    "http://example.com/test",
+                    100.0,
+                )
 
-                    # Verify robots check
-                    mock_robots.can_fetch.assert_called_once()
+                # Verify robots check
+                mock_robots.can_fetch.assert_called_once()
 
-                    # Verify HTTP fetch
-                    mock_session.get.assert_called_once()
+                # Verify HTTP fetch
+                mock_session.get.assert_called_once()
 
-                    # Verify indexer submission
-                    mock_indexer.assert_called_once()
+                # Verify indexer submission
+                mock_indexer.assert_called_once()
 
-                    # Verify URL was recorded as done
-                    assert url_store.contains("http://example.com/test")
+                # Verify URL was recorded as done
+                assert url_store.contains("http://example.com/test")
 
 
 @pytest.mark.asyncio
@@ -210,43 +204,40 @@ async def test_process_url_discovers_links(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.pipeline.html_to_doc_full",
-        return_value=MagicMock(
+        "app.workers.pipeline.parse_page",
+        return_value=ParsedDocument(
             title="Test",
             content="Content",
             published_at=None,
             updated_at=None,
             author=None,
             organization=None,
-        ),
-    ):
-        with patch(
-            "app.workers.pipeline.extract_links",
-            return_value=[
+            outlinks=[
                 "http://example.com/link1",
                 "http://example.com/link2",
             ],
-        ):
-            with patch(
-                "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
-            ) as mock_indexer:
-                with patch("app.workers.tasks.history_log.log_crawl_attempt"):
-                    mock_indexer.return_value = IndexerSubmitResult(
-                        ok=True, status_code=202, job_id="job-2"
-                    )
+        ),
+    ):
+        with patch(
+            "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
+        ) as mock_indexer:
+            with patch("app.workers.tasks.history_log.log_crawl_attempt"):
+                mock_indexer.return_value = IndexerSubmitResult(
+                    ok=True, status_code=202, job_id="job-2"
+                )
 
-                    await process_url(
-                        mock_session,
-                        mock_robots,
-                        url_store,
-                        scheduler,
-                        "http://example.com/",
-                        100.0,
-                    )
+                await process_url(
+                    mock_session,
+                    mock_robots,
+                    url_store,
+                    scheduler,
+                    "http://example.com/",
+                    100.0,
+                )
 
-                    # Discovered links should be in url_store
-                    assert url_store.contains("http://example.com/link1")
-                    assert url_store.contains("http://example.com/link2")
+                # Discovered links should be in url_store
+                assert url_store.contains("http://example.com/link1")
+                assert url_store.contains("http://example.com/link2")
 
 
 @pytest.mark.asyncio
@@ -307,36 +298,30 @@ async def test_process_url_logs_indexer_error_detail(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "app.workers.pipeline.html_to_doc_full",
-        return_value=MagicMock(
+        "app.workers.pipeline.parse_page",
+        return_value=ParsedDocument(
             title="T",
             content="content",
-            published_at=None,
-            updated_at=None,
-            author=None,
-            organization=None,
+            outlinks=[],
         ),
     ):
-        with patch("app.workers.pipeline.extract_links", return_value=[]):
-            with patch(
-                "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
-            ) as mock_indexer:
-                with patch(
-                    "app.workers.tasks.history_log.log_crawl_attempt"
-                ) as mock_log:
-                    mock_indexer.return_value = IndexerSubmitResult(
-                        ok=False,
-                        status_code=422,
-                        detail="Indexer 422: url_too_long",
-                    )
-                    await process_url(
-                        mock_session,
-                        mock_robots,
-                        url_store,
-                        scheduler,
-                        "http://example.com/fail",
-                        100.0,
-                    )
+        with patch(
+            "app.workers.pipeline.submit_page_to_indexer", new_callable=AsyncMock
+        ) as mock_indexer:
+            with patch("app.workers.tasks.history_log.log_crawl_attempt") as mock_log:
+                mock_indexer.return_value = IndexerSubmitResult(
+                    ok=False,
+                    status_code=422,
+                    detail="Indexer 422: url_too_long",
+                )
+                await process_url(
+                    mock_session,
+                    mock_robots,
+                    url_store,
+                    scheduler,
+                    "http://example.com/fail",
+                    100.0,
+                )
 
     mock_log.assert_any_call(
         "http://example.com/fail",

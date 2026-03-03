@@ -19,7 +19,7 @@ from app.domain.scoring import calculate_url_score, get_domain_rank
 from app.scheduler import Scheduler
 from app.services.indexer import submit_page_to_indexer
 from app.utils import history as history_log
-from app.utils.parser import extract_links, html_to_doc_full
+from app.utils.parser import parse_page
 from app.utils.robots import AsyncRobotsCache
 from shared.contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
 from shared.core.utils import MAX_URL_LENGTH, resolve_is_private_async
@@ -171,16 +171,16 @@ async def fetch(ctx: PipelineContext) -> FetchResult:
 
 
 async def parse(html: str, url: str, max_outlinks: int) -> ParseResult:
-    """Parse HTML into title, main content, metadata, and extracted outlinks."""
+    """Parse HTML into title, main content, metadata, and extracted outlinks.
+
+    Uses parse_page() which parses HTML once (lxml) for both content and links.
+    """
     loop = asyncio.get_running_loop()
-    doc = await loop.run_in_executor(None, html_to_doc_full, html)
-    discovered = await loop.run_in_executor(None, extract_links, url, html)
-    if discovered:
-        discovered = discovered[:max_outlinks]
+    doc = await loop.run_in_executor(None, parse_page, html, url, max_outlinks)
     return ParseResult(
         title=doc.title,
         content=doc.content,
-        outlinks=discovered or [],
+        outlinks=doc.outlinks or [],
         published_at=doc.published_at,
         updated_at=doc.updated_at,
         author=doc.author,
