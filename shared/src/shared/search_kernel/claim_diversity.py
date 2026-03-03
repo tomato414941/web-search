@@ -186,9 +186,7 @@ def _tfidf_vectors(
     return vectors
 
 
-def _cosine_similarity(
-    a: dict[str, float], b: dict[str, float]
-) -> float:
+def _cosine_similarity(a: dict[str, float], b: dict[str, float]) -> float:
     """Cosine similarity between two sparse TF-IDF vectors."""
     if not a or not b:
         return 0.0
@@ -214,9 +212,7 @@ def _quality_score(hit: SearchHit) -> float:
     return origin * 0.6 + density * 0.4
 
 
-def _compute_confidence(
-    clusters: list[list[int]], total: int
-) -> str:
+def _compute_confidence(clusters: list[list[int]], total: int) -> str:
     """Determine result-set confidence from cluster distribution."""
     if total == 0:
         return "none"

@@ -102,7 +102,9 @@ def backfill(
         os_count = client.count(index="documents")["count"]
         logger.info("OpenSearch currently has %d documents", os_count)
         if os_count >= total and total > 0:
-            logger.info("OpenSearch already up to date (%d >= %d), skipping", os_count, total)
+            logger.info(
+                "OpenSearch already up to date (%d >= %d), skipping", os_count, total
+            )
             cur.close()
             conn.close()
             return

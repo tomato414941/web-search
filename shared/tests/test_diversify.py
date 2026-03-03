@@ -50,9 +50,7 @@ class TestDiversifyHits:
         assert scores == sorted(scores, reverse=True)
 
     def test_limit_respected(self):
-        hits = [
-            _hit(f"https://d{i}.com/1", 10.0 - i) for i in range(20)
-        ]
+        hits = [_hit(f"https://d{i}.com/1", 10.0 - i) for i in range(20)]
         result = diversify_hits(hits, limit=5, max_per_domain=3)
         assert len(result) == 5
 

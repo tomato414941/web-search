@@ -32,16 +32,39 @@ _TUTORIAL_RE = re.compile(
     # 方法, やり方, 使い方, 手順
     re.IGNORECASE,
 )
-_TROUBLESHOOT_WORDS = frozenset([
-    "error", "not working", "fix", "debug", "issue", "bug",
-    "failed", "crash", "broken", "traceback", "exception",
-    "エラー", "動かない", "修正", "バグ",
-])
-_REFERENCE_WORDS = frozenset([
-    "api", "documentation", "docs", "reference", "spec",
-    "specification", "syntax", "manual",
-    "リファレンス", "仕様",
-])
+_TROUBLESHOOT_WORDS = frozenset(
+    [
+        "error",
+        "not working",
+        "fix",
+        "debug",
+        "issue",
+        "bug",
+        "failed",
+        "crash",
+        "broken",
+        "traceback",
+        "exception",
+        "エラー",
+        "動かない",
+        "修正",
+        "バグ",
+    ]
+)
+_REFERENCE_WORDS = frozenset(
+    [
+        "api",
+        "documentation",
+        "docs",
+        "reference",
+        "spec",
+        "specification",
+        "syntax",
+        "manual",
+        "リファレンス",
+        "仕様",
+    ]
+)
 _NEWS_RE = re.compile(
     r"\b(?:latest|new|202[4-9]|update|release|announce|launch)\b"
     r"|(?:\u6700\u65b0|\u30ea\u30ea\u30fc\u30b9|\u30a2\u30c3\u30d7\u30c7\u30fc\u30c8)",
@@ -85,15 +108,21 @@ _DOC_TYPE_URL_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("reference", re.compile(r"/(?:docs?|api|reference|manual)/", re.I)),
     ("tutorial", re.compile(r"/(?:tutorial|guide|how-to|getting-started)/", re.I)),
     ("news", re.compile(r"/(?:news|blog|press|announce|release)/", re.I)),
-    ("forum", re.compile(
-        r"(?:stackoverflow|stackexchange|reddit|forum|discuss|community)\.",
-        re.I,
-    )),
+    (
+        "forum",
+        re.compile(
+            r"(?:stackoverflow|stackexchange|reddit|forum|discuss|community)\.",
+            re.I,
+        ),
+    ),
     ("academic", re.compile(r"(?:arxiv\.org|scholar\.google|doi\.org)", re.I)),
-    ("official", re.compile(
-        r"(?:\.gov(?:\.\w{2})?/|\.edu/|\.ac\.\w{2}/)",
-        re.I,
-    )),
+    (
+        "official",
+        re.compile(
+            r"(?:\.gov(?:\.\w{2})?/|\.edu/|\.ac\.\w{2}/)",
+            re.I,
+        ),
+    ),
 ]
 
 
@@ -109,26 +138,40 @@ def classify_document_type(url: str) -> str:
 
 _INTENT_AFFINITY: dict[QueryIntent, dict[str, float]] = {
     QueryIntent.OVERVIEW: {
-        "reference": 1.0, "academic": 0.9, "official": 0.8,
-        "general": 0.6, "news": 0.4, "tutorial": 0.5,
+        "reference": 1.0,
+        "academic": 0.9,
+        "official": 0.8,
+        "general": 0.6,
+        "news": 0.4,
+        "tutorial": 0.5,
     },
     QueryIntent.TUTORIAL: {
-        "tutorial": 1.0, "general": 0.7, "reference": 0.5,
+        "tutorial": 1.0,
+        "general": 0.7,
+        "reference": 0.5,
         "forum": 0.6,
     },
     QueryIntent.TROUBLESHOOT: {
-        "forum": 0.9, "general": 0.8, "tutorial": 0.7,
+        "forum": 0.9,
+        "general": 0.8,
+        "tutorial": 0.7,
         "reference": 0.5,
     },
     QueryIntent.REFERENCE: {
-        "reference": 1.0, "official": 0.9, "academic": 0.8,
+        "reference": 1.0,
+        "official": 0.9,
+        "academic": 0.8,
         "general": 0.5,
     },
     QueryIntent.NEWS: {
-        "news": 1.0, "general": 0.6, "official": 0.7,
+        "news": 1.0,
+        "general": 0.6,
+        "official": 0.7,
     },
     QueryIntent.COMPARISON: {
-        "general": 0.8, "reference": 0.7, "news": 0.5,
+        "general": 0.8,
+        "reference": 0.7,
+        "news": 0.5,
     },
 }
 

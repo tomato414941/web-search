@@ -21,7 +21,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 # Add shared to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "shared", "src"))
 
-from shared.embedding import MAX_CHARS, _prepare_text, serialize, to_pgvector
+from shared.embedding import _prepare_text, to_pgvector
 from shared.postgres.search import get_connection
 
 logging.basicConfig(

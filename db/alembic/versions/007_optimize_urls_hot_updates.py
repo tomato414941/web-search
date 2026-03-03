@@ -46,7 +46,6 @@ def downgrade() -> None:
         "ON urls(last_crawled_at) WHERE status IN ('done', 'failed')"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_urls_status_domain "
-        "ON urls(status, domain)"
+        "CREATE INDEX IF NOT EXISTS idx_urls_status_domain " "ON urls(status, domain)"
     )
     op.execute("DROP INDEX IF EXISTS idx_urls_pending_domain")
