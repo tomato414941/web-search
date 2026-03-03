@@ -4,7 +4,7 @@ Parser Utility Tests
 Tests for HTML parsing and link extraction utilities.
 """
 
-from app.utils.parser import html_to_doc, extract_links
+from app.utils.parser import parse_page
 from shared.core.utils import normalize_url
 
 
@@ -65,11 +65,11 @@ def test_normalize_url_too_long():
 
 
 # ==========================================
-# Tests for html_to_doc
+# Tests for parse_page: content extraction
 # ==========================================
 
 
-def test_html_to_doc_extraction():
+def test_parse_page_extraction():
     html = """
     <html>
     <head><title>  My Title  </title></head>
@@ -81,36 +81,35 @@ def test_html_to_doc_extraction():
     </body>
     </html>
     """
-    title, text, _published_at = html_to_doc(html)
-    assert title == "My Title"
-    assert "Header" in text
-    assert "Paragraph text." in text
-    # Confirm scripts/styles are removed
-    assert "console.log" not in text
-    assert "color: red" not in text
+    doc = parse_page(html, "http://example.com")
+    assert doc.title == "My Title"
+    assert "Header" in doc.content
+    assert "Paragraph text." in doc.content
+    assert "console.log" not in doc.content
+    assert "color: red" not in doc.content
 
 
-def test_html_to_doc_no_title():
+def test_parse_page_no_title():
     html = "<body><p>Hello</p></body>"
-    title, text, _published_at = html_to_doc(html)
-    assert title == ""
-    assert "Hello" in text
+    doc = parse_page(html, "http://example.com")
+    assert doc.title == ""
+    assert "Hello" in doc.content
 
 
-def test_html_to_doc_empty():
+def test_parse_page_empty():
     html = "<html></html>"
-    title, text, _published_at = html_to_doc(html)
-    assert title == ""
-    assert text == ""
+    doc = parse_page(html, "http://example.com")
+    assert doc.title == ""
+    assert doc.content == ""
 
 
-def test_html_to_doc_strips_nul_characters():
+def test_parse_page_strips_nul_characters():
     html = "<html><head><title>A\x00B</title></head><body>hello\x00world</body></html>"
-    title, text, _published_at = html_to_doc(html)
-    assert "\x00" not in title
-    assert "\x00" not in text
-    assert title == "A B"
-    assert "hello world" in text
+    doc = parse_page(html, "http://example.com")
+    assert "\x00" not in doc.title
+    assert "\x00" not in doc.content
+    assert doc.title == "A B"
+    assert "hello world" in doc.content
 
 
 # ==========================================
@@ -118,7 +117,7 @@ def test_html_to_doc_strips_nul_characters():
 # ==========================================
 
 
-def test_html_to_doc_strips_boilerplate():
+def test_parse_page_strips_boilerplate():
     """trafilatura should extract main content, ignoring nav/footer."""
     html = """
     <html>
@@ -141,20 +140,20 @@ def test_html_to_doc_strips_boilerplate():
     </body>
     </html>
     """
-    title, text, _published_at = html_to_doc(html)
-    assert title == "Article Page"
-    assert "Main Article Title" in text
-    assert "main article content" in text
+    doc = parse_page(html, "http://example.com")
+    assert doc.title == "Article Page"
+    assert "Main Article Title" in doc.content
+    assert "main article content" in doc.content
 
 
-def test_html_to_doc_fallback_on_minimal_html():
+def test_parse_page_fallback_on_minimal_html():
     """trafilatura returns None for minimal HTML; BS4 fallback should work."""
     html = "<p>Just a short paragraph</p>"
-    title, text, _published_at = html_to_doc(html)
-    assert "Just a short paragraph" in text
+    doc = parse_page(html, "http://example.com")
+    assert "Just a short paragraph" in doc.content
 
 
-def test_html_to_doc_preserves_table_content():
+def test_parse_page_preserves_table_content():
     """Tables should be included (include_tables=True)."""
     html = """
     <html>
@@ -175,52 +174,50 @@ def test_html_to_doc_preserves_table_content():
     </body>
     </html>
     """
-    title, text, _published_at = html_to_doc(html)
-    assert "FastAPI" in text
-    assert "Django" in text
+    doc = parse_page(html, "http://example.com")
+    assert "FastAPI" in doc.content
+    assert "Django" in doc.content
 
 
 # ==========================================
-# Tests for extract_links
+# Tests for parse_page: link extraction
 # ==========================================
 
 
-def test_extract_links():
+def test_parse_page_extract_links():
     base = "http://example.com"
     html = """
     <a href="/one">One</a>
     <a href="http://other.com">Other</a>
     <a href="#skip">Skip</a>
     """
-    links = extract_links(base, html)
-    assert "http://example.com/one" in links
-    assert "http://other.com" in links
+    doc = parse_page(html, base)
+    assert "http://example.com/one" in doc.outlinks
+    assert "http://other.com" in doc.outlinks
 
 
-def test_extract_links_limit():
+def test_parse_page_extract_links_limit():
     base = "http://example.com"
     html = "".join([f'<a href="/page{i}">Link {i}</a>' for i in range(20)])
-    links = extract_links(base, html)
-    # Default limit in tasks.py is 50
-    assert len(links) <= 50
+    doc = parse_page(html, base, max_outlinks=10)
+    assert len(doc.outlinks) == 10
 
 
-def test_extract_links_relative():
+def test_parse_page_extract_links_relative():
     base = "http://example.com/dir/"
     html = '<a href="page.html">Link</a>'
-    links = extract_links(base, html)
-    assert "http://example.com/dir/page.html" in links
+    doc = parse_page(html, base)
+    assert "http://example.com/dir/page.html" in doc.outlinks
 
 
-def test_extract_links_ignore_invalid():
+def test_parse_page_extract_links_ignore_invalid():
     base = "http://example.com"
     html = """
     <a href="mailto:test@example.com">Email</a>
     <a href="javascript:void(0)">JS</a>
     <a href="http://valid.com">Valid</a>
     """
-    links = extract_links(base, html)
-    # Only valid HTTP(S) links should be included
-    assert "http://valid.com" in links
-    assert not any("mailto" in link for link in links)
-    assert not any("javascript" in link for link in links)
+    doc = parse_page(html, base)
+    assert "http://valid.com" in doc.outlinks
+    assert not any("mailto" in link for link in doc.outlinks)
+    assert not any("javascript" in link for link in doc.outlinks)
