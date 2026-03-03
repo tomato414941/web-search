@@ -60,7 +60,7 @@ The project uses a **Folder-Separated Monorepo** pattern:
 | `indexer/` | `app` | **Write Cluster**. Indexing & Embedding. | `api/routes/indexer.py`, `services/indexer.py`, `worker.py` |
 | `crawler/` | `app` | **Worker Node**. Fetching & URL Management. | `workers/pipeline.py`, `db/url_store.py`, `scheduler.py` |
 | `shared/` | `shared` | **Shared Kernel**. Domain Logic & Infra. | `postgres/search.py`, `search_kernel/analyzer.py`, `search_kernel/searcher.py` |
-| `db/alembic/` | - | **Database Migrations**. | `versions/001_initial_schema.py` ... `versions/007_optimize_urls_hot_updates.py` |
+| `db/alembic/` | - | **Database Migrations**. | `versions/001_initial_schema.py` ... `versions/009_add_information_origins.py` |
 | `docs/` | - | **Documentation**. | `architecture.md`, `setup.md`, `api.md` |
 | `scripts/ops/` | - | **Operations**. | PageRank calculation, seed import, OpenSearch verify |
 
@@ -93,17 +93,18 @@ The `crawling → done` transition has zero index operations, enabling PostgreSQ
 *   **Search Engine (`shared.search_kernel`)**:
     *   **Hybrid Search**: Combines BM25 (Keyword) and Vector (Semantic) scores using Reciprocal Rank Fusion (RRF).
     *   **Tokenizer**: `SudachiPy` for Japanese morphological analysis.
-    *   **Scoring**: BM25 + PageRank boosting + Content quality boosting + Title boosting + Domain diversity.
+    *   **Scoring**: BM25 + Information Origin + Factual Density + Temporal Anchor + Scope Match re-ranking + Claim Diversity.
     *   **Snippet Generation**: Context-aware snippet extraction with `<mark>` highlighting.
 *   **OpenSearch Integration** (`shared.opensearch`): Optional dual-write for fast full-text search.
 
-### 4. Content Quality Pipeline
-The system uses a 3-layer quality stack (see [content-quality.md](./content-quality.md)):
-1.  **Extraction**: trafilatura strips boilerplate (nav, footer, sidebar), BS4 fallback for edge cases.
-2.  **Quality Score**: Indexer computes `content_quality` (0.0-1.0) from word count, link density, and structure signals.
-3.  **Ranking**: OpenSearch `function_score` boosts high-quality pages via `content_quality` field.
+### 4. AI-Agent-Optimized Ranking Pipeline
+The system uses a multi-signal ranking stack (see [content-quality.md](./content-quality.md)):
+1.  **Extraction**: trafilatura strips boilerplate, extracts author/organization metadata. BS4 fallback for edge cases.
+2.  **Signal Scoring**: Indexer computes per-document signals — `factual_density`, `temporal_anchor`, `authorship_clarity`, `information_origin`.
+3.  **Retrieval**: OpenSearch `function_score` combines BM25 with `origin_score`, `factual_density`, and `temporal_anchor`.
+4.  **Re-ranking**: Scope Match adjusts scores by query intent × document type affinity. Claim Diversity clusters results by content similarity.
 
 ### 5. Data Flow
 1.  **Crawl**: Crawler fetches HTML, extracts main content via trafilatura, extracts links/`published_at`, sends to Indexer via HTTP API.
-2.  **Index**: Indexer tokenizes text (SudachiPy), computes content quality, generates embeddings (OpenAI), writes to PostgreSQL + OpenSearch.
-3.  **Search**: Frontend queries PostgreSQL (BM25) or OpenSearch, applies PageRank + content quality boosting and domain diversity.
+2.  **Index**: Indexer tokenizes text (SudachiPy), computes ranking signals (factual density, temporal anchor, authorship clarity), generates embeddings (OpenAI), writes to PostgreSQL + OpenSearch.
+3.  **Search**: Frontend queries PostgreSQL (BM25) or OpenSearch, applies information origin + factual density + temporal anchor scoring, scope match re-ranking, and claim diversity clustering.

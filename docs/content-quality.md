@@ -15,13 +15,14 @@ Example: searching "python" returns hatena bookmark listing pages (link collecti
 
 ```
 Layer 3: Search Ranking
-         BM25(clean content) × authority × content_quality × freshness
+         OpenSearch function_score (origin_score, factual_density, temporal_anchor)
+         → Scope Match re-ranking → Claim Diversity clustering
          ↑
-Layer 2: Content Quality Score (indexer)
-         word_count(main text only) + link_density + structure signals
+Layer 2: Signal Scoring (indexer)
+         factual_density + temporal_anchor + authorship_clarity + information_origin
          ↑
 Layer 1: Main Content Extraction (crawler)
-         trafilatura for boilerplate removal → clean main text
+         trafilatura for boilerplate removal → clean main text + metadata extraction
 ```
 
 ### Layer 1: Main Content Extraction (trafilatura)
@@ -74,22 +75,45 @@ def content_quality(main_words, raw_words, outlinks, title, has_published_at):
 
 ### Layer 3: Search Ranking Integration
 
-Add `content_quality` to OpenSearch `function_score`:
+The ranking pipeline applies scoring signals in two phases:
+
+**Phase A — OpenSearch `function_score` (retrieval-time)**
 
 ```
-score = BM25(clean_content, title^3)
-      × (1 + authority × 0.5)       # existing
-      × (1 + content_quality × 0.3)  # new
-      × freshness_decay              # existing
+score = BM25(clean_content, title^3) × Σ weighted signals
 ```
+
+| Signal | Field | Weight | Description |
+|--------|-------|--------|-------------|
+| Information Origin | `origin_score` | 1.0 | Primary source > aggregation (replaces PageRank) |
+| Factual Density | `factual_density` | 0.3 | Verifiable facts per unit of text (replaces content_quality) |
+| Temporal Anchor | `temporal_anchor` | 0.1 | Temporal transparency — has `published_at`? (replaces freshness decay) |
+
+Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/opensearch/search.py`.
+
+**Phase B — Post-retrieval re-ranking**
+
+1. **Scope Match**: Boost results where document type matches query intent (±20%). Intents: overview, tutorial, troubleshoot, reference, news, comparison. See `shared/src/shared/search_kernel/scope_match.py`.
+2. **Claim Diversity**: Cluster results by content similarity (TF-IDF cosine), pick best representative per cluster (origin_score × factual_density). Replaces domain-only diversity cap. See `shared/src/shared/search_kernel/claim_diversity.py`.
+
+**Metadata passed to API consumers (not used in scoring)**
+
+| Field | Description |
+|-------|-------------|
+| `authorship_clarity` | Author/org presence score (0.0-1.0) |
+| `author` / `organization` | Extracted from HTML metadata (JSON-LD, meta tags) |
+| `origin_type` | spring / river / delta / swamp |
+| `cluster_id` / `sources_agreeing` | Claim cluster metadata |
+| `confidence` | Result-set confidence (high / low / contested) |
+| `query_intent` | Detected query intent |
 
 ## What We Don't Need (and Why)
 
-| Technique | Why not |
-|-----------|---------|
+| Technique | Why not / Status |
+|-----------|-----------------|
 | User behavior signals (Navboost) | No user traffic yet |
 | SpamBrain-level ML | Overkill for 600K page corpus |
-| E-E-A-T evaluation | Too complex, requires NLP/ML pipeline |
+| E-E-A-T evaluation | Partially addressed by `authorship_clarity` (rule-based, no ML) |
 | BrowseRank | Requires browser instrumentation data |
 
 ## Implementation Status
@@ -100,18 +124,30 @@ score = BM25(clean_content, title^3)
 - `html_to_doc` uses trafilatura with BS4 fallback (`crawler/src/app/utils/parser.py`)
 - Options: `include_comments=True`, `include_tables=True`, `deduplicate=True`, `favor_recall=True`
 
-### Phase 2: content_quality score + ranking — DONE
+### Phase 2: content_quality score + ranking — DONE (superseded by Phase 4)
 
 - `_compute_content_quality()` in `indexer/src/app/services/indexer.py`
-- `content_quality` float field in OpenSearch mapping
-- `field_value_factor` boost in `search_bm25()` (weight=0.3, missing=0.5)
-- No API contract changes — computed entirely in indexer from word_count + outlinks_count
+- `content_quality` float field retained in OpenSearch for backward compatibility
+- Ranking now uses `factual_density` instead of `content_quality`
 
 ### Phase 3: HTML storage for offline re-processing — DESIGN DONE
 
 - Design document: [html-storage.md](./html-storage.md)
 - Cloudflare R2 for raw HTML storage ($0.14/mo)
 - Enables re-processing without re-crawling
+
+### Phase 4: AI-agent-optimized ranking signals — DONE
+
+- `temporal_anchor` replaces freshness decay (`indexer/src/app/services/indexer.py`)
+- `authorship_clarity` + author/org extraction (`crawler/src/app/utils/parser.py`)
+- `factual_density` replaces content_quality in scoring (`shared/src/shared/search_kernel/factual_density.py`)
+- `information_origin` replaces PageRank (`shared/src/shared/search_kernel/information_origin.py`)
+- DB migrations: 008 (authorship metadata), 009 (information_origins table)
+
+### Phase 5: Result-set intelligence — DONE
+
+- `claim_diversity` replaces domain-only diversity (`shared/src/shared/search_kernel/claim_diversity.py`)
+- `scope_match` for query intent × document type matching (`shared/src/shared/search_kernel/scope_match.py`)
 
 ### Future
 

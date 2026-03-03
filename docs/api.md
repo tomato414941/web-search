@@ -14,7 +14,7 @@ The `web-search` project provides a RESTful JSON API across multiple services.
 ## Frontend Service (`:8083`)
 
 ### `GET /api/v1/search`
-Full-text web search with BM25 ranking and PageRank boosting.
+Full-text web search with BM25 ranking and AI-optimized ranking signals.
 
 **Parameters:**
 *   `q` (string, required): The search query.
@@ -54,13 +54,47 @@ API key users get 1,000 requests/day and usage info in the response.
       "snip_plain": "A modern, fast web framework for building APIs with Python...",
       "rank": 12.5,
       "indexed_at": "2026-03-01T12:00:00.000000+00:00",
-      "published_at": "2026-02-28T09:30:00+00:00"
+      "published_at": "2026-02-28T09:30:00+00:00",
+      "temporal_anchor": 1.0,
+      "authorship_clarity": 0.8,
+      "factual_density": 0.72,
+      "origin_score": 0.85,
+      "origin_type": "spring",
+      "author": "Sebastián Ramírez",
+      "organization": "FastAPI",
+      "cluster_id": 0,
+      "sources_agreeing": 3
     }
   ],
   "mode": "auto",
+  "confidence": "high",
+  "perspective_count": 8,
+  "query_intent": "overview",
   "request_id": "a1b2c3d4e5f6"
 }
 ```
+
+**Hit fields** (all optional, omitted when null):
+
+| Field | Description |
+|---|---|
+| `temporal_anchor` | Temporal transparency score (0.0-1.0). 1.0 = `published_at` present |
+| `authorship_clarity` | Author/org metadata presence (0.0-1.0) |
+| `factual_density` | Verifiable facts per unit of text (0.0-1.0) |
+| `origin_score` | Information origin score (0.0-1.0). Higher = closer to primary source |
+| `origin_type` | `spring` / `river` / `delta` / `swamp` |
+| `author` | Author name from HTML metadata |
+| `organization` | Publisher/organization from HTML metadata |
+| `cluster_id` | Claim cluster ID within result set |
+| `sources_agreeing` | Number of pages with similar claims |
+
+**Response-level fields:**
+
+| Field | Description |
+|---|---|
+| `confidence` | Result-set confidence: `high` / `low` / `contested` / `none` |
+| `perspective_count` | Number of distinct claim clusters |
+| `query_intent` | Detected query intent: `overview` / `tutorial` / `troubleshoot` / `reference` / `news` / `comparison` / `unknown` |
 
 With a valid API key, the response also includes:
 ```json
@@ -148,7 +182,9 @@ Queue a crawled page for asynchronous indexing.
   "title": "Page Title",
   "content": "Full page text content...",
   "outlinks": ["http://example.com/about"],
-  "published_at": "2026-01-15T10:00:00Z"
+  "published_at": "2026-01-15T10:00:00Z",
+  "author": "John Doe",
+  "organization": "Example Inc"
 }
 ```
 
@@ -174,6 +210,9 @@ Retry a failed job.
 
 ### `POST /api/v1/indexer/pagerank`
 Trigger PageRank calculation.
+
+### `POST /api/v1/indexer/origin-scores`
+Recalculate information origin scores from the link graph. Classifies documents as spring/river/delta/swamp based on in-link/out-link ratio.
 
 ### `GET /api/v1/indexer/stats`
 Indexer statistics: page count and job queue metrics. Requires `X-API-Key` header.

@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## What This Project Is
-PaleBlueSearch is a Web Search API for AI agents. The core value proposition is freshness metadata (`indexed_at`, `published_at`) on every search hit, so AI consumers know exactly how fresh the information is. Features include BM25 + vector hybrid search, Japanese NLP (SudachiPy), and a distributed crawler with PageRank and domain diversity.
+PaleBlueSearch is a Web Search API for AI agents. The core value proposition is transparency metadata on every search hit — freshness (`temporal_anchor`), source reliability (`origin_score`), factual richness (`factual_density`), and authorship clarity — so AI consumers can make informed decisions. Features include BM25 + vector hybrid search, Japanese NLP (SudachiPy), information origin scoring, claim diversity, and scope matching.
 
 ## Project Structure & Module Organization
 This repo is a Python microservices stack (CQRS-lite: read and write paths are split by service). The main services live at the top level:

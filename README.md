@@ -8,11 +8,14 @@ high-quality content that AI agents can trust.
 
 ## Features
 
-- **Content Quality Scoring**: Pages are scored for quality using text density, link ratio, and structure signals — aggregation pages and boilerplate are automatically demoted.
+- **AI-Agent-Optimized Ranking**: Every hit includes transparency metadata (`temporal_anchor`, `authorship_clarity`, `factual_density`, `origin_score`) so AI agents can make informed decisions.
+- **Information Origin**: Documents classified as spring/river/delta/swamp based on link direction — primary sources rank higher than aggregation.
+- **Factual Density**: Scores verifiable facts per unit of text (numbers, dates, citations, code, named entities) — replaces shallow word-count quality.
+- **Claim Diversity**: Results clustered by content similarity (TF-IDF cosine) — no wasted slots on paraphrases of the same claim.
+- **Scope Match**: Query intent (overview/tutorial/troubleshoot/reference/news/comparison) matched with document type for better relevance.
 - **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
 - **Hybrid Search**: BM25 keyword matching + vector semantic search with RRF fusion.
-- **Freshness Metadata**: Hits include `indexed_at` (crawl time) and `published_at` (original publication date, when available).
-- **600K+ Indexed Pages**: Own crawler with PageRank, domain diversity, and robots.txt compliance.
+- **600K+ Indexed Pages**: Own crawler with robots.txt compliance and authorship metadata extraction.
 - **Japanese NLP**: SudachiPy morphological analysis for high-quality Japanese search.
 - **Free API**: Anonymous access with IP-based rate limiting (100 req/min).
 
@@ -41,10 +44,16 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
       "snip_plain": "A modern, fast web framework for building APIs with Python...",
       "rank": 12.5,
       "indexed_at": "2026-03-01T12:00:00.000000+00:00",
-      "published_at": "2026-02-28T09:30:00+00:00"
+      "published_at": "2026-02-28T09:30:00+00:00",
+      "temporal_anchor": 1.0,
+      "factual_density": 0.72,
+      "origin_score": 0.85,
+      "origin_type": "spring"
     }
   ],
   "mode": "auto",
+  "confidence": "high",
+  "query_intent": "overview",
   "request_id": "a1b2c3d4e5f6"
 }
 ```
@@ -136,9 +145,9 @@ Once running, access the following:
 
 ## Architecture
 
-- **Web Node (Frontend)**: FastAPI (serves UI and Search API).
-- **Write Node (Indexer)**: FastAPI (handles Ingestion and Vectors).
-- **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `trafilatura`.
+- **Web Node (Frontend)**: FastAPI (serves UI and Search API, scope match re-ranking, claim diversity).
+- **Write Node (Indexer)**: FastAPI (handles ingestion, signal scoring, vectors).
+- **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `trafilatura` with metadata extraction.
 - **Database**: PostgreSQL for production, SQLite for local development.
 
 ## License
