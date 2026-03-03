@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.services.indexer import indexer_service
 from app.services.index_jobs import IndexJobService
 from shared.contracts.indexer_api import IndexPageRequest
+from shared.search_kernel.information_origin import calculate_information_origin
 from shared.search_kernel.pagerank import calculate_pagerank, calculate_domain_pagerank
 
 logger = logging.getLogger(__name__)
@@ -124,6 +125,20 @@ async def trigger_pagerank(x_api_key: str = Header(..., alias="X-API-Key")) -> d
     except Exception as e:
         logger.error(f"PageRank calculation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="PageRank calculation failed")
+
+
+@router.post("/origin-scores")
+async def trigger_origin_scores(
+    x_api_key: str = Header(..., alias="X-API-Key"),
+) -> dict:
+    """Recalculate information origin scores from the link graph."""
+    verify_api_key(x_api_key)
+    try:
+        count = calculate_information_origin(settings.DB_PATH)
+        return {"ok": True, "pages_scored": count}
+    except Exception as e:
+        logger.error("Origin score calculation failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Origin score calculation failed")
 
 
 @router.get("/stats")

@@ -51,6 +51,8 @@ INDEX_SETTINGS = {
             "temporal_anchor": {"type": "float"},
             "authorship_clarity": {"type": "float"},
             "factual_density": {"type": "float"},
+            "origin_score": {"type": "float"},
+            "origin_type": {"type": "keyword"},
             "author": {"type": "keyword"},
             "organization": {"type": "keyword"},
             "embedding": {

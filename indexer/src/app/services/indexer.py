@@ -279,7 +279,9 @@ class IndexerService:
                 content, outlinks_count=outlinks_count, word_count=word_count
             )
 
-            # Fetch authority score from page_ranks / domain_ranks
+            # Fetch origin score (replaces PageRank authority)
+            origin_score, origin_type = self._get_origin_score(url)
+            # Keep authority as fallback for documents not yet scored
             authority = self._get_authority(url)
 
             from datetime import datetime, timezone
@@ -300,6 +302,8 @@ class IndexerService:
                 temporal_anchor=temporal_anchor,
                 authorship_clarity=authorship_clarity,
                 factual_density=factual_density,
+                origin_score=origin_score,
+                origin_type=origin_type,
                 author=author,
                 organization=organization,
             )
@@ -334,6 +338,27 @@ class IndexerService:
                 conn.close()
         except Exception:
             return 0.0
+
+    def _get_origin_score(self, url: str) -> tuple[float, str]:
+        """Fetch information origin score and type for a URL."""
+        try:
+            conn = get_connection(self.db_path)
+            ph = sql_placeholder()
+            cur = conn.cursor()
+            try:
+                cur.execute(
+                    f"SELECT score, origin_type FROM information_origins WHERE url = {ph}",
+                    (url,),
+                )
+                row = cur.fetchone()
+                if row:
+                    return float(row[0]), str(row[1])
+                return 0.5, "river"
+            finally:
+                cur.close()
+                conn.close()
+        except Exception:
+            return 0.5, "river"
 
     def get_index_stats(self):
         """Get indexing statistics."""

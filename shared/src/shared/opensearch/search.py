@@ -57,10 +57,10 @@ def search_bm25(
                 "functions": [
                     {
                         "field_value_factor": {
-                            "field": "authority",
+                            "field": "origin_score",
                             "modifier": "none",
                             "factor": 0.5,
-                            "missing": 0,
+                            "missing": 0.5,
                         },
                         "weight": 1,
                     },
@@ -98,6 +98,8 @@ def search_bm25(
             "temporal_anchor",
             "authorship_clarity",
             "factual_density",
+            "origin_score",
+            "origin_type",
             "author",
             "organization",
         ],
@@ -120,6 +122,8 @@ def search_bm25(
                 "temporal_anchor": src.get("temporal_anchor"),
                 "authorship_clarity": src.get("authorship_clarity"),
                 "factual_density": src.get("factual_density"),
+                "origin_score": src.get("origin_score"),
+                "origin_type": src.get("origin_type"),
                 "author": src.get("author"),
                 "organization": src.get("organization"),
             }
@@ -193,6 +197,8 @@ def search_hybrid(
             "temporal_anchor",
             "authorship_clarity",
             "factual_density",
+            "origin_score",
+            "origin_type",
             "author",
             "organization",
         ],
@@ -215,6 +221,8 @@ def search_hybrid(
                 "temporal_anchor": src.get("temporal_anchor"),
                 "authorship_clarity": src.get("authorship_clarity"),
                 "factual_density": src.get("factual_density"),
+                "origin_score": src.get("origin_score"),
+                "origin_type": src.get("origin_type"),
                 "author": src.get("author"),
                 "organization": src.get("organization"),
             }
