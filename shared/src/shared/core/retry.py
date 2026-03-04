@@ -23,11 +23,28 @@ class RetryPolicy:
         default=(Exception,),
     )
 
+    @property
+    def base_seconds(self) -> float:
+        return self.base_delay
+
+    @property
+    def max_seconds(self) -> float:
+        return self.max_delay
+
     def compute_delay(self, attempt: int) -> float:
         """Compute delay for a given attempt (0-indexed)."""
         delay = min(self.base_delay * (2**attempt), self.max_delay)
         jitter_range = delay * self.jitter
         return delay + random.uniform(-jitter_range, jitter_range)
+
+    def delay_seconds(self, retry_count: int) -> int:
+        """Compute delay for 1-indexed retry count (no jitter)."""
+        raw = int(self.base_delay * (2 ** (retry_count - 1)))
+        return min(raw, int(self.max_delay))
+
+    def is_exhausted(self, retry_count: int) -> bool:
+        """Return True when retry_count has reached the limit."""
+        return retry_count >= self.max_attempts
 
     def execute(self, fn: Callable[[], T], label: str = "operation") -> T:
         """Execute fn with retries according to policy."""

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.services.dedupe import build_dedupe_key, hash_text
-from app.services.retry_policy import RetryPolicy
+from shared.core.retry import RetryPolicy
 from shared.contracts.enums import CLAIMABLE_JOB_STATUSES, IndexJobStatus
 from shared.postgres.search import get_connection, sql_placeholder
 
@@ -57,9 +57,9 @@ class IndexJobService:
     @property
     def _retry_policy(self) -> RetryPolicy:
         return RetryPolicy(
-            max_retries=self.max_retries,
-            base_seconds=self.retry_base_seconds,
-            max_seconds=self.retry_max_seconds,
+            max_attempts=self.max_retries,
+            base_delay=self.retry_base_seconds,
+            max_delay=self.retry_max_seconds,
         )
 
     @staticmethod
