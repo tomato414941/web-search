@@ -1,4 +1,4 @@
-"""URL seed management: mark, unmark, purge, list seeds."""
+"""URL seed management: mark, unmark, get, purge."""
 
 from app.db.connection import db_connection, db_transaction
 from app.db.url_types import url_hash
@@ -7,6 +7,8 @@ from shared.postgres.search import sql_placeholder
 
 class UrlSeedsMixin:
     """Mixin for seed URL operations."""
+
+    db_path: str
 
     def mark_seeds(self, urls: list[str]) -> int:
         """Set is_seed = TRUE for the given URLs."""
