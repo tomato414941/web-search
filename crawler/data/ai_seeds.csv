@@ -116,3 +116,40 @@ japanese,blog.jxck.io,10,jxck blog (JP web standards)
 japanese,nhkworld-japan.com,10,NHK World (JP news)
 japanese,www3.nhk.or.jp,10,NHK News (JP)
 japanese,www.nikkei.com,10,Nikkei (JP business/tech)
+japanese,sizu.me,10,Sizu - quiet internet (JP)
+japanese,techblog.yahoo.co.jp,10,Yahoo JAPAN Tech Blog
+japanese,engineering.linecorp.com,15,LINE Engineering
+japanese,blog.cybozu.io,10,Cybozu Inside Out
+japanese,future-architect.github.io,10,Future Tech Blog
+japanese,tech.smarthr.jp,10,SmartHR Tech Blog
+japanese,tech.uzabase.com,10,Uzabase Tech Blog
+japanese,developer.so-net.ne.jp,5,So-net developer
+
+# =============================================================================
+# G. Japanese News & Media
+# =============================================================================
+japanese-news,mainichi.jp,10,Mainichi Shimbun
+japanese-news,www.asahi.com,10,Asahi Shimbun
+japanese-news,www.yomiuri.co.jp,10,Yomiuri Shimbun
+japanese-news,japan.cnet.com,10,CNET Japan
+japanese-news,ascii.jp,10,ASCII.jp
+japanese-news,atmarkit.itmedia.co.jp,15,@IT
+japanese-news,xtech.nikkei.com,15,Nikkei xTECH
+
+# =============================================================================
+# H. Japanese Government & Public
+# =============================================================================
+japanese-gov,www.meti.go.jp,10,METI (Ministry of Economy)
+japanese-gov,www.soumu.go.jp,10,MIC (Ministry of Internal Affairs)
+japanese-gov,www.digital.go.jp,15,Digital Agency
+japanese-gov,www.stat.go.jp,10,Statistics Bureau
+japanese-gov,e-gov.go.jp,10,e-Gov Portal
+japanese-gov,www.mhlw.go.jp,10,MHLW (Ministry of Health)
+japanese-gov,www.ipa.go.jp,15,IPA (Information-technology Promotion Agency)
+
+# =============================================================================
+# I. Japanese Academic
+# =============================================================================
+japanese-academic,www.nii.ac.jp,10,NII (National Institute of Informatics)
+japanese-academic,ci.nii.ac.jp,10,CiNii - academic papers search
+japanese-academic,www.jstage.jst.go.jp,10,J-STAGE - academic journals
