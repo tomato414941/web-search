@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from paleblue_mcp.server import _format_hits, get_stats, web_search
+from paleblue_mcp.server import _format_hits, fetch_content, get_stats, web_search
 
 MOCK_SEARCH_DATA = {
     "query": "python frameworks",
@@ -96,7 +96,11 @@ async def test_web_search_tool():
         assert "FastAPI" in result
         assert "Flask" in result
         mock_client.search.assert_called_once_with(
-            query="python frameworks", limit=10, page=1, mode="auto"
+            query="python frameworks",
+            limit=10,
+            page=1,
+            mode="auto",
+            include_content=False,
         )
 
 
@@ -123,6 +127,51 @@ async def test_web_search_error_handling():
         result = await web_search("test")
         assert "Search failed" in result
         assert "Network error" in result
+
+
+@pytest.mark.asyncio
+async def test_web_search_with_content():
+    data = {**MOCK_SEARCH_DATA}
+    data["hits"] = [
+        {**MOCK_SEARCH_DATA["hits"][0], "content": "Full page text here"},
+    ]
+    with patch("paleblue_mcp.server._client") as mock_client:
+        mock_client.search = AsyncMock(return_value=data)
+        result = await web_search("python frameworks", include_content=True)
+        assert "Full page text here" in result
+        mock_client.search.assert_called_once_with(
+            query="python frameworks",
+            limit=10,
+            page=1,
+            mode="auto",
+            include_content=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_fetch_content_tool():
+    mock_data = {
+        "url": "https://example.com",
+        "title": "Example Page",
+        "content": "This is the full content.",
+        "word_count": 5,
+        "indexed_at": "2026-03-01T00:00:00+00:00",
+        "published_at": None,
+    }
+    with patch("paleblue_mcp.server._client") as mock_client:
+        mock_client.get_content = AsyncMock(return_value=mock_data)
+        result = await fetch_content("https://example.com")
+        assert "Example Page" in result
+        assert "This is the full content." in result
+        assert "Words: 5" in result
+
+
+@pytest.mark.asyncio
+async def test_fetch_content_error():
+    with patch("paleblue_mcp.server._client") as mock_client:
+        mock_client.get_content = AsyncMock(side_effect=Exception("Not found"))
+        result = await fetch_content("https://missing.com")
+        assert "Content fetch failed" in result
 
 
 @pytest.mark.asyncio

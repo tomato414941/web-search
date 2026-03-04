@@ -23,11 +23,25 @@ class PaleBlueClient:
         limit: int = 10,
         page: int = 1,
         mode: str = "auto",
+        include_content: bool = False,
     ) -> dict:
+        params: dict = {"q": query, "limit": limit, "page": page, "mode": mode}
+        if include_content:
+            params["include_content"] = "true"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
                 f"{self.base_url}/api/v1/search",
-                params={"q": query, "limit": limit, "page": page, "mode": mode},
+                params=params,
+                headers=self._headers(),
+            )
+            resp.raise_for_status()
+            return resp.json()
+
+    async def get_content(self, url: str) -> dict:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.get(
+                f"{self.base_url}/api/v1/content",
+                params={"url": url},
                 headers=self._headers(),
             )
             resp.raise_for_status()

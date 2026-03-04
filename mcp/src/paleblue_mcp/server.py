@@ -11,15 +11,17 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP(
     "PaleBlueSearch",
     instructions=(
-        "Web search engine for AI agents. "
-        "Provides fresh web search results with indexing timestamps."
+        "Japanese Web search and content retrieval for AI agents. "
+        "Search 1M+ Japanese and English web pages, then fetch full page text "
+        "for grounding LLM responses with fresh, sourced information. "
+        "Specializes in Japanese tech, news, government, and reference content."
     ),
 )
 
 _client = PaleBlueClient()
 
 
-def _format_hits(data: dict) -> str:
+def _format_hits(data: dict, include_content: bool = False) -> str:
     """Format search API response as Markdown for LLM consumption."""
     query = data.get("query", "")
     total = data.get("total", 0)
@@ -79,6 +81,12 @@ def _format_hits(data: dict) -> str:
             meta_parts.append(f"Sources agreeing: {sources_agreeing}")
         if meta_parts:
             lines.append(f"*{' | '.join(meta_parts)}*")
+
+        if include_content and hit.get("content"):
+            lines.append("")
+            lines.append("**Content:**")
+            lines.append(hit["content"])
+
         lines.append("")
 
     return "\n".join(lines)
@@ -90,26 +98,74 @@ async def web_search(
     limit: int = 10,
     mode: str = "auto",
     page: int = 1,
+    include_content: bool = False,
 ) -> str:
-    """Search the web using PaleBlueSearch.
+    """Search Japanese and English web pages using PaleBlueSearch.
 
     Returns fresh web search results with publication and indexing dates.
+    Set include_content=true to get full page text inline (useful for RAG).
 
     Args:
         query: Search query string.
         limit: Number of results (1-50, default 10).
         mode: Search mode - "auto", "bm25", "hybrid", or "semantic".
         page: Page number for pagination (default 1).
+        include_content: Include full page text in results (default false).
     """
     limit = max(1, min(limit, 50))
     page = max(1, page)
 
     try:
-        data = await _client.search(query=query, limit=limit, page=page, mode=mode)
-        return _format_hits(data)
+        data = await _client.search(
+            query=query,
+            limit=limit,
+            page=page,
+            mode=mode,
+            include_content=include_content,
+        )
+        return _format_hits(data, include_content=include_content)
     except Exception as e:
         logger.error("Search failed: %s", e)
         return f"Search failed: {e}"
+
+
+@mcp.tool()
+async def fetch_content(url: str) -> str:
+    """Fetch the full stored content of a previously indexed page.
+
+    Use this after web_search to get the complete text of a page
+    without re-crawling. Ideal for RAG pipelines that need full context.
+
+    Args:
+        url: The URL to fetch content for (must be in the index).
+    """
+    try:
+        data = await _client.get_content(url)
+        title = data.get("title") or "Untitled"
+        content = data.get("content") or ""
+        word_count = data.get("word_count", 0)
+        indexed_at = data.get("indexed_at", "")
+        published_at = data.get("published_at", "")
+
+        lines = [
+            f"# {title}",
+            f"URL: {url}",
+        ]
+        meta_parts = []
+        if published_at:
+            meta_parts.append(f"Published: {published_at}")
+        if indexed_at:
+            meta_parts.append(f"Indexed: {indexed_at}")
+        if word_count:
+            meta_parts.append(f"Words: {word_count}")
+        if meta_parts:
+            lines.append(" | ".join(meta_parts))
+        lines.append("")
+        lines.append(content)
+        return "\n".join(lines)
+    except Exception as e:
+        logger.error("Content fetch failed: %s", e)
+        return f"Content fetch failed: {e}"
 
 
 @mcp.tool()
