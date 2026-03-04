@@ -13,7 +13,8 @@ from cachetools import TTLCache
 
 from app.core.blocklist import load_domain_blocklist
 from app.db.executor import run_in_db_executor
-from app.db.url_store import UrlStore, get_domain
+from app.db.url_store import UrlStore
+from app.db.url_types import get_domain
 from app.scheduler import Scheduler, SchedulerConfig
 from app.domain.scoring import (
     domain_rank_cache_size,

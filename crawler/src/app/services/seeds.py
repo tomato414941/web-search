@@ -7,7 +7,8 @@ Manages seed URL operations via the unified urls table (is_seed flag).
 import logging
 from datetime import datetime
 
-from app.db.url_store import UrlStore, get_domain
+from app.db.url_store import UrlStore
+from app.db.url_types import get_domain
 from app.domain.scoring import (
     SEED_BOOST,
     get_domain_rank,

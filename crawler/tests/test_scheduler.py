@@ -7,7 +7,7 @@ Tests for HostGate, rate limiting, backoff, and crawl-delay.
 import time
 from unittest.mock import MagicMock
 
-from app.db.url_store import UrlItem
+from app.db.url_types import UrlItem
 from app.scheduler import HostGate, Scheduler, SchedulerConfig, MAX_BACKOFF
 
 

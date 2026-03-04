@@ -14,7 +14,8 @@ import aiohttp
 from app.core.blocklist import is_domain_blocked
 from app.core.config import settings
 from app.db.executor import run_in_db_executor
-from app.db.url_store import UrlStore, get_domain
+from app.db.url_store import UrlStore
+from app.db.url_types import get_domain
 from app.domain.scoring import calculate_url_score, get_domain_rank
 from app.scheduler import Scheduler
 from app.services.indexer import submit_page_to_indexer

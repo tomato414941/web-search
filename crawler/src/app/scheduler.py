@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from app.core.blocklist import is_domain_blocked
-from app.db.url_store import UrlStore, UrlItem
+from app.db.url_store import UrlStore
+from app.db.url_types import UrlItem
 
 # Maximum backoff in seconds (1 hour)
 MAX_BACKOFF = 3600

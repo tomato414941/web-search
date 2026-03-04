@@ -7,7 +7,8 @@ Manages crawl queue operations using UrlStore.
 import logging
 
 from app.db.executor import run_in_db_executor
-from app.db.url_store import UrlStore, get_domain
+from app.db.url_store import UrlStore
+from app.db.url_types import get_domain
 from app.core.config import settings
 from app.domain.scoring import MANUAL_CRAWL_BOOST, get_domain_rank, seed_score
 from shared.core.utils import is_private_ip
