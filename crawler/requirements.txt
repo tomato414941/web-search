@@ -16,7 +16,3 @@ trafilatura>=2.0
 
 # HTTP Client (for calling Web Server API)
 httpx>=0.28
-
-# Test dependencies
-pytest>=9.0
-pytest-asyncio>=1.3

@@ -7,7 +7,3 @@ uvicorn[standard]>=0.40
 # Japanese Tokenization
 sudachipy>=0.6.10
 sudachidict_core
-
-# Test dependencies
-pytest>=9.0
-pytest-asyncio>=1.3

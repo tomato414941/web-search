@@ -1,0 +1,3 @@
+# Shared test dependencies (all services)
+pytest>=9.0
+pytest-asyncio>=1.3

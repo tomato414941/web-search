@@ -19,4 +19,7 @@ setup(
         "cachetools>=5.3",
         "opensearch-py>=2.4",
     ],
+    extras_require={
+        "test": ["testcontainers"],
+    },
 )

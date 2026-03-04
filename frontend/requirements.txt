@@ -17,7 +17,3 @@ prometheus-client>=0.24
 # Search & Indexing
 sudachipy>=0.6.10
 sudachidict_core
-
-# Test dependencies
-pytest>=9.0
-pytest-asyncio>=1.3
