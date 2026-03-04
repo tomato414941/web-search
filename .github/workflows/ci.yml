@@ -108,6 +108,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e shared/
           pip install -r crawler/requirements.txt
+          pip install -r requirements-dev.txt
           pip install pytest-cov
       - name: Run crawler tests
         env:
@@ -129,6 +130,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r mcp/requirements.txt
+          pip install -r requirements-dev.txt
       - name: Run MCP tests
         run: cd mcp && PYTHONPATH=src pytest tests/ -v --tb=short
 
@@ -160,6 +162,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e shared/
           pip install -r indexer/requirements.txt
+          pip install -r requirements-dev.txt
           pip install pytest-cov
       - name: Run indexer tests
         env:
