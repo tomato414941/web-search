@@ -259,7 +259,7 @@ class AnalyticsRepository:
     @staticmethod
     def count_pending_urls(conn: Any) -> int:
         cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM urls WHERE status = 'pending'")
+        cur.execute("SELECT COUNT(*) FROM crawl_queue")
         count = int(cur.fetchone()[0] or 0)
         cur.close()
         return count

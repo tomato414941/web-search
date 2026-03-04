@@ -30,3 +30,11 @@ async def optional_api_key(request: Request) -> dict | None:
 
     key_info["daily_used"] = usage
     return key_info
+
+
+async def require_api_key(request: Request) -> dict:
+    """Require a valid API key. Raises 401 if missing or invalid."""
+    result = await optional_api_key(request)
+    if result is None:
+        raise HTTPException(status_code=401, detail="API key required")
+    return result

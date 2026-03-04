@@ -64,20 +64,24 @@ class SearchService:
         k: int = 10,
         page: int = 1,
         mode: str = SearchMode.AUTO,
+        *,
+        include_content: bool = False,
     ) -> dict[str, Any]:
         if not q:
             return self._empty_result(k)
 
         if mode == SearchMode.HYBRID and self.hybrid_available:
-            return self._hybrid_search(q, k, page)
+            return self._hybrid_search(q, k, page, include_content=include_content)
         elif mode == SearchMode.SEMANTIC and self.hybrid_available:
-            return self._vector_search(q, k, page)
+            return self._vector_search(q, k, page, include_content=include_content)
         elif mode == SearchMode.AUTO:
-            return self._bm25_search(q, k, page)
+            return self._bm25_search(q, k, page, include_content=include_content)
         else:
-            return self._bm25_search(q, k, page)
+            return self._bm25_search(q, k, page, include_content=include_content)
 
-    def _bm25_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
+    def _bm25_search(
+        self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
+    ) -> dict[str, Any]:
         SEARCH_QUERY_TOTAL.labels(mode="bm25").inc()
         t0 = time.monotonic()
 
@@ -87,7 +91,7 @@ class SearchService:
                 result = self._run_opensearch_query(q, k, page)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
-                out = self._format_result(q, result)
+                out = self._format_result(q, result, include_content=include_content)
                 out["mode"] = SearchMode.BM25
                 return out
             except Exception:
@@ -100,7 +104,9 @@ class SearchService:
                 result = self._pgvector_search(q, k, page)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
-                fallback_result = self._format_result(q, result)
+                fallback_result = self._format_result(
+                    q, result, include_content=include_content
+                )
                 fallback_result["fallback"] = True
                 fallback_result["mode"] = SearchMode.SEMANTIC
                 return fallback_result
@@ -110,7 +116,9 @@ class SearchService:
         SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
         return self._empty_result(k, q)
 
-    def _hybrid_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
+    def _hybrid_search(
+        self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
+    ) -> dict[str, Any]:
         SEARCH_QUERY_TOTAL.labels(mode="hybrid").inc()
         t0 = time.monotonic()
         timeout = settings.HYBRID_SEARCH_TIMEOUT_SEC
@@ -125,7 +133,7 @@ class SearchService:
                 result = future.result(timeout=timeout)
                 SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
                 SEARCH_RESULT_COUNT.observe(result.total)
-                out = self._format_result(q, result)
+                out = self._format_result(q, result, include_content=include_content)
                 out["mode"] = SearchMode.HYBRID
                 return out
             except concurrent.futures.TimeoutError:
@@ -140,19 +148,21 @@ class SearchService:
             finally:
                 pool.shutdown(wait=False)
 
-        return self._bm25_search(q, k, page)
+        return self._bm25_search(q, k, page, include_content=include_content)
 
-    def _vector_search(self, q: str, k: int = 10, page: int = 1) -> dict[str, Any]:
+    def _vector_search(
+        self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
+    ) -> dict[str, Any]:
         SEARCH_QUERY_TOTAL.labels(mode="semantic").inc()
         t0 = time.monotonic()
         try:
             result = self._pgvector_search(q, k, page)
         except Exception:
             logger.warning("Vector search failed, falling back to BM25", exc_info=True)
-            return self._bm25_search(q, k, page)
+            return self._bm25_search(q, k, page, include_content=include_content)
         SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
         SEARCH_RESULT_COUNT.observe(result.total)
-        out = self._format_result(q, result)
+        out = self._format_result(q, result, include_content=include_content)
         out["mode"] = SearchMode.SEMANTIC
         return out
 
@@ -219,7 +229,9 @@ class SearchService:
         finally:
             conn.close()
 
-    def _format_result(self, q: str, result: Any) -> dict[str, Any]:
+    def _format_result(
+        self, q: str, result: Any, *, include_content: bool = False
+    ) -> dict[str, Any]:
         analyzed_q = analyzer.tokenize(q)
         search_terms = analyzed_q.split() if analyzed_q.strip() else [q]
 
@@ -233,6 +245,8 @@ class SearchService:
                 "snip_plain": snippet.plain_text,
                 "rank": hit.score,
             }
+            if include_content and hit.content:
+                hit_dict["content"] = hit.content
             if hit.indexed_at:
                 hit_dict["indexed_at"] = hit.indexed_at
             if hit.published_at:

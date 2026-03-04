@@ -83,6 +83,10 @@ class SearchHit(BaseModel):
         default=None,
         description="Number of pages with similar claims",
     )
+    content: str | None = Field(
+        default=None,
+        description="Full page text (only when include_content=true with API key)",
+    )
 
 
 class UsageInfo(BaseModel):
@@ -165,6 +169,7 @@ async def api_search(
     limit: str | None = None,
     page: str | None = None,
     mode: str | None = None,
+    include_content: str | None = None,
     api_key_info: dict | None = Depends(optional_api_key),
 ):
     """Full-text web search with BM25 ranking and PageRank boosting.
@@ -191,9 +196,16 @@ async def api_search(
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
     search_mode = mode if mode in VALID_SEARCH_MODES else "auto"
 
+    want_content = include_content == "true" and api_key_info is not None
+
     data = (
         await asyncio.to_thread(
-            search_service.search, query, per_page, page_number, search_mode
+            search_service.search,
+            query,
+            per_page,
+            page_number,
+            search_mode,
+            include_content=want_content,
         )
         if query
         else search_service._empty_result(per_page)
