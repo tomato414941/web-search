@@ -80,16 +80,15 @@ def backfill(
         sys.exit(1)
 
     conn = get_connection(db_path)
-    cur = conn.cursor()
 
     # Count total documents
-    cur.execute("SELECT COUNT(*) FROM documents")
-    total = cur.fetchone()[0]
+    with conn.cursor() as cnt_cur:
+        cnt_cur.execute("SELECT COUNT(*) FROM documents")
+        total = cnt_cur.fetchone()[0]
     logger.info("Total documents to backfill: %d", total)
 
     if dry_run:
         logger.info("Dry run - exiting")
-        cur.close()
         conn.close()
         return
 
@@ -105,23 +104,21 @@ def backfill(
             logger.info(
                 "OpenSearch already up to date (%d >= %d), skipping", os_count, total
             )
-            cur.close()
             conn.close()
             return
     except Exception:
         logger.info("Could not check OpenSearch count, proceeding with backfill")
 
-    offset = 0
     indexed = 0
     start = time.time()
 
-    while offset < total:
-        cur.execute(
-            "SELECT url, title, content, word_count, indexed_at "
-            "FROM documents ORDER BY url LIMIT %s OFFSET %s",
-            (batch_size, offset),
-        )
-        rows = cur.fetchall()
+    # Server-side cursor: no sorting, no offset — sequential scan
+    cur = conn.cursor(name="backfill_cursor")
+    cur.itersize = batch_size
+    cur.execute("SELECT url, title, content, word_count, indexed_at FROM documents")
+
+    while True:
+        rows = cur.fetchmany(batch_size)
         if not rows:
             break
 
@@ -145,7 +142,6 @@ def backfill(
 
         count = bulk_index(client, docs)
         indexed += count
-        offset += len(rows)
 
         elapsed = time.time() - start
         rate = indexed / elapsed if elapsed > 0 else 0
