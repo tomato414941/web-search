@@ -375,36 +375,6 @@ class IndexerService:
             return {"total": 0}
 
 
-def _compute_content_quality(
-    word_count: int,
-    outlinks_count: int,
-    title: str,
-    published_at: str | None,
-) -> float:
-    """Compute content quality score (0.0-1.0).
-
-    Based on Boilerpipe's shallow text features (Kohlschütter 2010).
-    """
-    # Text substance (log scale, 1000 words -> 1.0)
-    text_score = min(1.0, math.log10(word_count + 1) / 3.0)
-
-    # Link density penalty (link-heavy pages are likely aggregation)
-    if word_count > 0:
-        link_ratio = outlinks_count / word_count
-        link_penalty = max(0.3, 1.0 - link_ratio * 3)
-    else:
-        link_penalty = 0.3
-
-    # Structure bonus (structured content tends to be higher quality)
-    structure = 1.0
-    if title and len(title) > 5:
-        structure += 0.1
-    if published_at:
-        structure += 0.1
-
-    return round(min(1.0, text_score * link_penalty * structure), 4)
-
-
 def _compute_temporal_anchor(published_at: str | None) -> float:
     """Score how well the document's time context is grounded.
 
