@@ -22,7 +22,6 @@ def test_crawl_urls_endpoint(test_client, test_url_store):
             "/api/v1/urls",
             json={
                 "urls": ["http://example.com", "http://test.com"],
-                "priority": 100.0,
             },
         )
         assert response.status_code == 200
@@ -34,8 +33,8 @@ def test_crawl_urls_endpoint(test_client, test_url_store):
 def test_queue_peek_endpoint(test_client, test_url_store):
     """Test GET /api/v1/queue endpoint"""
     # Add some URLs to url_store
-    test_url_store.add("http://example.com", priority=100.0)
-    test_url_store.add("http://test.com", priority=90.0)
+    test_url_store.add("http://example.com")
+    test_url_store.add("http://test.com")
 
     with patch("app.api.deps._get_url_store", return_value=test_url_store):
         response = test_client.get("/api/v1/queue?limit=10")
@@ -44,7 +43,6 @@ def test_queue_peek_endpoint(test_client, test_url_store):
         assert isinstance(data, list)
         assert len(data) == 2
         assert data[0]["url"] == "http://example.com"
-        assert data[0]["score"] == 100.0
 
 
 def test_queue_status_endpoint(test_client, test_url_store):
@@ -55,8 +53,8 @@ def test_queue_status_endpoint(test_client, test_url_store):
     _status_cache["expires"] = 0
 
     # Add some data
-    test_url_store.add("http://example.com", priority=100.0)
-    test_url_store.record("http://crawled.com", status="done")
+    test_url_store.add("http://example.com")
+    test_url_store.record("http://crawled.com")
 
     with patch("app.api.deps._get_url_store", return_value=test_url_store):
         response = test_client.get("/api/v1/status")

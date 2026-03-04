@@ -11,7 +11,6 @@ class QueueItem(BaseModel):
     """Single item in the crawl queue"""
 
     url: str = Field(..., description="URL to be crawled")
-    score: float = Field(..., description="Priority score (higher = crawled sooner)")
 
 
 class QueueStats(BaseModel):

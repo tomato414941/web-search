@@ -74,7 +74,6 @@ async def test_process_url_success_flow(test_components):
                     url_store,
                     scheduler,
                     "http://example.com/test",
-                    100.0,
                 )
 
                 # Verify robots check
@@ -86,7 +85,7 @@ async def test_process_url_success_flow(test_components):
                 # Verify indexer submission
                 mock_indexer.assert_called_once()
 
-                # Verify URL was recorded as done
+                # Verify URL was recorded
                 assert url_store.contains("http://example.com/test")
 
 
@@ -107,7 +106,6 @@ async def test_process_url_robots_blocked(test_components):
             url_store,
             scheduler,
             "http://example.com/blocked",
-            100.0,
         )
 
         # Should not fetch
@@ -140,7 +138,6 @@ async def test_process_url_http_error(test_components):
             url_store,
             scheduler,
             "http://example.com/notfound",
-            100.0,
         )
 
         # URL should be recorded as failed
@@ -149,13 +146,13 @@ async def test_process_url_http_error(test_components):
 
 @pytest.mark.asyncio
 async def test_process_url_network_error(test_components):
-    """Test process_url with network error re-queues URL from crawling to pending."""
+    """Test process_url with network error re-queues URL."""
     url_store, scheduler = test_components
     test_url = "http://example.com/error"
 
-    # Simulate real flow: URL is in crawling status before process_url runs
-    url_store.add(test_url, 100.0)
-    url_store.pop_batch(1)  # marks as crawling
+    # Add URL to queue then pop (simulates real flow)
+    url_store.add(test_url)
+    url_store.pop_batch(1)
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -174,13 +171,11 @@ async def test_process_url_network_error(test_components):
             url_store,
             scheduler,
             test_url,
-            100.0,
         )
 
-        # URL should be re-queued as pending (retry)
+        # URL should be re-queued (retry)
         stats = url_store.get_stats()
         assert stats["pending"] == 1
-        assert stats["crawling"] == 0
 
 
 @pytest.mark.asyncio
@@ -232,7 +227,6 @@ async def test_process_url_discovers_links(test_components):
                     url_store,
                     scheduler,
                     "http://example.com/",
-                    100.0,
                 )
 
                 # Discovered links should be in url_store
@@ -265,7 +259,6 @@ async def test_process_url_non_html_200_logged_as_skipped(test_components):
                 url_store,
                 scheduler,
                 "http://example.com/archive.gz",
-                100.0,
             )
 
     m.assert_not_called()
@@ -320,7 +313,6 @@ async def test_process_url_logs_indexer_error_detail(test_components):
                     url_store,
                     scheduler,
                     "http://example.com/fail",
-                    100.0,
                 )
 
     mock_log.assert_any_call(
@@ -333,17 +325,16 @@ async def test_process_url_logs_indexer_error_detail(test_components):
 
 
 @pytest.mark.asyncio
-async def test_process_url_retry_requeues_crawling_url(test_components):
-    """Verify retry moves URL from crawling -> pending via requeue_for_retry."""
+async def test_process_url_retry_requeues_url(test_components):
+    """Verify retry re-queues URL via requeue."""
     url_store, scheduler = test_components
     test_url = "http://example.com/retry-test"
 
-    # Pre-add and pop to set status to 'crawling'
-    url_store.add(test_url, 50.0)
+    # Add and pop to simulate real flow
+    url_store.add(test_url)
     popped = url_store.pop_batch(1)
     assert len(popped) == 1
     stats = url_store.get_stats()
-    assert stats["crawling"] == 1
     assert stats["pending"] == 0
 
     mock_session = MagicMock()
@@ -363,36 +354,33 @@ async def test_process_url_retry_requeues_crawling_url(test_components):
             url_store,
             scheduler,
             test_url,
-            50.0,
         )
 
-    # URL should be back to pending (not stuck in crawling)
+    # URL should be back in queue (retry)
     stats = url_store.get_stats()
     assert stats["pending"] == 1, f"Expected pending=1, got {stats}"
-    assert stats["crawling"] == 0, f"Expected crawling=0, got {stats}"
 
 
-def test_requeue_for_retry_transitions_crawling_to_pending(tmp_path):
-    """requeue_for_retry should move crawling -> pending."""
+def test_requeue_inserts_to_crawl_queue(tmp_path):
+    """requeue should insert URL back into crawl_queue."""
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    url_store.add("http://example.com/r", 50.0)
-    url_store.pop_batch(1)  # marks as crawling
+    url_store.add("http://example.com/r")
+    url_store.pop_batch(1)  # removes from queue
 
-    result = url_store.requeue_for_retry("http://example.com/r", 45.0)
+    result = url_store.requeue("http://example.com/r")
     assert result is True
 
     stats = url_store.get_stats()
     assert stats["pending"] == 1
-    assert stats["crawling"] == 0
 
 
-def test_requeue_for_retry_noop_if_not_crawling(tmp_path):
-    """requeue_for_retry should be a no-op if URL is not in crawling status."""
+def test_requeue_noop_if_already_queued(tmp_path):
+    """requeue should be a no-op if URL is already in queue."""
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    url_store.add("http://example.com/noop", 50.0)
+    url_store.add("http://example.com/noop")
 
-    # Status is 'pending', not 'crawling'
-    result = url_store.requeue_for_retry("http://example.com/noop", 45.0)
+    # Already in queue, requeue should conflict
+    result = url_store.requeue("http://example.com/noop")
     assert result is False
 
 
@@ -415,7 +403,6 @@ async def test_process_url_too_long_is_skipped_before_fetch(test_components):
             url_store,
             scheduler,
             over_limit_url,
-            100.0,
         )
 
     mock_robots.can_fetch.assert_not_called()

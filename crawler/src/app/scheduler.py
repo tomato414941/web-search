@@ -114,9 +114,7 @@ class Scheduler:
             blocked_items = [item for item in items if self._is_blocked(item.domain)]
             items = [item for item in items if not self._is_blocked(item.domain)]
             if blocked_items:
-                self.url_store.release_urls(
-                    [item.url for item in blocked_items], status="failed"
-                )
+                self.url_store.release_urls([item.url for item in blocked_items])
             self._buffer.extend(items)
 
         # Try again with new items
@@ -182,7 +180,7 @@ class Scheduler:
 
         # Release blocked URLs back to DB
         if blocked_urls:
-            self.url_store.release_urls(blocked_urls, status="failed")
+            self.url_store.release_urls(blocked_urls)
 
         # If we need more, fetch from url_store
         while len(result) < count:
@@ -208,7 +206,7 @@ class Scheduler:
             # Release blocked URLs back to DB
             if blocked_idx:
                 self.url_store.release_urls(
-                    [items[i].url for i in blocked_idx], status="failed"
+                    [items[i].url for i in blocked_idx],
                 )
 
             # Add remaining to buffer (skip blocked)

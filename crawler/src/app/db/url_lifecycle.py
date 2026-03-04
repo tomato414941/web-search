@@ -1,4 +1,4 @@
-"""URL lifecycle operations: add, pop, record, release, recover."""
+"""URL lifecycle operations: add, pop, record, release, requeue."""
 
 import time
 from typing import Any
@@ -9,107 +9,81 @@ from shared.postgres.search import sql_placeholder
 
 
 class UrlLifecycleMixin:
-    """Mixin for URL lifecycle state transitions."""
+    """Mixin for URL lifecycle: discovery ledger (urls) + crawl queue."""
 
-    def _get_pending_counts_batch(self, cur: Any, domains: list[str]) -> dict[str, int]:
-        """Get pending URL counts per domain in a single query."""
+    def _get_queue_counts_batch(self, cur: Any, domains: list[str]) -> dict[str, int]:
+        """Get queued URL counts per domain."""
         if not domains:
             return {}
         ph = sql_placeholder()
         cur.execute(
-            f"SELECT domain, COUNT(*) FROM urls "
-            f"WHERE domain = ANY({ph}) AND status = 'pending' "
+            f"SELECT domain, COUNT(*) FROM crawl_queue "
+            f"WHERE domain = ANY({ph}) "
             f"GROUP BY domain",
             (domains,),
         )
         return {row[0]: row[1] for row in cur.fetchall()}
 
-    def _upsert_pending_url(
+    def _enqueue_url(
         self,
         cur: Any,
         *,
-        url_hash_value: str,
+        h: str,
         url: str,
         domain: str,
-        priority: float,
         now: int,
         cutoff: int,
     ) -> bool:
+        """Register URL in ledger and enqueue if eligible.
+
+        Returns True if URL was added to the queue.
+        """
         ph = sql_placeholder()
+
+        # Register in discovery ledger
         cur.execute(
             f"""
-            INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at)
-            VALUES ({ph}, {ph}, {ph}, 'pending', {ph}, 0, {ph})
-            ON CONFLICT (url_hash) DO UPDATE SET
-                status = 'pending',
-                priority = EXCLUDED.priority
-            WHERE urls.status IN ('done', 'failed') AND urls.last_crawled_at < {ph}
+            INSERT INTO urls (url_hash, url, domain, created_at)
+            VALUES ({ph}, {ph}, {ph}, {ph})
+            ON CONFLICT (url_hash) DO NOTHING
             """,
-            (url_hash_value, url, domain, priority, now, cutoff),
+            (h, url, domain, now),
+        )
+
+        # Check if already in queue
+        cur.execute(
+            f"SELECT 1 FROM crawl_queue WHERE url_hash = {ph}",
+            (h,),
+        )
+        if cur.fetchone():
+            return False
+
+        # Check if recently crawled
+        cur.execute(
+            f"SELECT last_crawled_at FROM urls WHERE url_hash = {ph}",
+            (h,),
+        )
+        row = cur.fetchone()
+        if row and row[0] is not None and row[0] >= cutoff:
+            return False
+
+        # Enqueue
+        cur.execute(
+            f"""
+            INSERT INTO crawl_queue (url_hash, url, domain, created_at)
+            VALUES ({ph}, {ph}, {ph}, {ph})
+            ON CONFLICT (url_hash) DO NOTHING
+            """,
+            (h, url, domain, now),
         )
         return cur.rowcount > 0
 
-    def _pop_pending_rows(
-        self,
-        cur: Any,
-        *,
-        count: int,
-        max_per_domain: int,
-    ) -> list[tuple[Any, ...]]:
-        ph = sql_placeholder()
-
-        # Overscan to ensure enough domain diversity after per-domain cap
-        overscan = count * max_per_domain * 3
-        cur.execute(
-            f"""
-            WITH top_candidates AS (
-                SELECT url_hash, url, domain, priority, created_at,
-                       priority + LEAST(20.0,
-                           (EXTRACT(EPOCH FROM NOW())::BIGINT - created_at)
-                           / 86400.0 * 0.5
-                       ) AS eff_pri
-                FROM urls
-                WHERE status = 'pending'
-                ORDER BY priority DESC
-                LIMIT {ph}
-                FOR UPDATE SKIP LOCKED
-            ),
-            per_domain AS (
-                SELECT url_hash, url, domain, priority, created_at, eff_pri,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY domain ORDER BY eff_pri DESC
-                       ) AS rn
-                FROM top_candidates
-            ),
-            selected AS (
-                SELECT url_hash
-                FROM per_domain
-                WHERE rn <= {ph}
-                ORDER BY eff_pri DESC
-                LIMIT {ph}
-            )
-            UPDATE urls
-            SET status = 'crawling'
-            FROM selected s
-            WHERE urls.url_hash = s.url_hash
-            RETURNING urls.url_hash, urls.url, urls.domain,
-                      urls.priority, urls.created_at
-            """,
-            (overscan, max_per_domain, count),
-        )
-        return cur.fetchall()
-
-    def add(
-        self,
-        url: str,
-        priority: float = 0.0,
-    ) -> bool:
+    def add(self, url: str) -> bool:
         """
-        Add a URL as pending. Skips if already pending/crawling.
-        Re-adds if done/failed and past recrawl threshold.
+        Discover a URL and enqueue it for crawling if eligible.
 
         Returns:
-            True if added/re-queued, False otherwise
+            True if added to the queue, False otherwise
         """
         h = url_hash(url)
         domain = get_domain(url)
@@ -117,27 +91,17 @@ class UrlLifecycleMixin:
         cutoff = now - self.recrawl_threshold
 
         with db_transaction(self.db_path) as cur:
-            return self._upsert_pending_url(
-                cur,
-                url_hash_value=h,
-                url=url,
-                domain=domain,
-                priority=priority,
-                now=now,
-                cutoff=cutoff,
+            return self._enqueue_url(
+                cur, h=h, url=url, domain=domain, now=now, cutoff=cutoff
             )
 
-    def add_batch(
-        self,
-        urls: list[str],
-        priority: float = 0.0,
-    ) -> int:
+    def add_batch(self, urls: list[str]) -> int:
         """
-        Add multiple URLs as pending.
-        Respects per-domain pending cap (max_pending_per_domain).
+        Discover and enqueue multiple URLs.
+        Respects per-domain queue cap (max_pending_per_domain).
 
         Returns:
-            Number of URLs added
+            Number of URLs added to the queue
         """
         if not urls:
             return 0
@@ -148,84 +112,31 @@ class UrlLifecycleMixin:
         cap = self.max_pending_per_domain
 
         with db_transaction(self.db_path) as cur:
-            pending: dict[str, int] = {}
+            queued: dict[str, int] = {}
             if cap > 0:
                 domains = list({get_domain(u) for u in urls})
-                pending = self._get_pending_counts_batch(cur, domains)
+                queued = self._get_queue_counts_batch(cur, domains)
             batch_adds: dict[str, int] = {}
 
             for url in urls:
                 h = url_hash(url)
                 domain = get_domain(url)
                 if cap > 0:
-                    current = pending.get(domain, 0) + batch_adds.get(domain, 0)
+                    current = queued.get(domain, 0) + batch_adds.get(domain, 0)
                     if current >= cap:
                         continue
-                if self._upsert_pending_url(
-                    cur,
-                    url_hash_value=h,
-                    url=url,
-                    domain=domain,
-                    priority=priority,
-                    now=now,
-                    cutoff=cutoff,
+                if self._enqueue_url(
+                    cur, h=h, url=url, domain=domain, now=now, cutoff=cutoff
                 ):
                     added += 1
                     if cap > 0:
                         batch_adds[domain] = batch_adds.get(domain, 0) + 1
 
-            return added
-
-    def add_batch_scored(
-        self,
-        items: list[tuple[str, float]],
-    ) -> int:
-        """
-        Add multiple (url, priority) pairs as pending in a single transaction.
-        Respects per-domain pending cap (max_pending_per_domain).
-
-        Returns:
-            Number of URLs added
-        """
-        if not items:
-            return 0
-
-        added = 0
-        now = int(time.time())
-        cutoff = now - self.recrawl_threshold
-        cap = self.max_pending_per_domain
-
-        with db_transaction(self.db_path) as cur:
-            pending: dict[str, int] = {}
-            if cap > 0:
-                domains = list({get_domain(url) for url, _ in items})
-                pending = self._get_pending_counts_batch(cur, domains)
-            batch_adds: dict[str, int] = {}
-
-            for url, priority in items:
-                h = url_hash(url)
-                domain = get_domain(url)
-                if cap > 0:
-                    current = pending.get(domain, 0) + batch_adds.get(domain, 0)
-                    if current >= cap:
-                        continue
-                if self._upsert_pending_url(
-                    cur,
-                    url_hash_value=h,
-                    url=url,
-                    domain=domain,
-                    priority=priority,
-                    now=now,
-                    cutoff=cutoff,
-                ):
-                    added += 1
-                    if cap > 0:
-                        batch_adds[domain] = batch_adds.get(domain, 0) + 1
             return added
 
     def pop_batch(self, count: int, max_per_domain: int = 3) -> list[UrlItem]:
         """
-        Get pending URLs and mark them as crawling.
+        Pop URLs from the crawl queue.
         Ensures domain diversity by limiting URLs per domain.
 
         Args:
@@ -233,51 +144,76 @@ class UrlLifecycleMixin:
             max_per_domain: Maximum URLs from a single domain
 
         Returns:
-            List of UrlItems
+            List of UrlItems (removed from queue)
         """
         if count <= 0:
             return []
 
+        ph = sql_placeholder()
+
         with db_transaction(self.db_path) as cur:
-            rows = self._pop_pending_rows(
-                cur,
-                count=count,
-                max_per_domain=max_per_domain,
+            # Overscan then filter by domain diversity
+            overscan = count * max_per_domain * 3
+            cur.execute(
+                f"""
+                WITH candidates AS (
+                    SELECT url_hash, url, domain, created_at
+                    FROM crawl_queue
+                    ORDER BY created_at
+                    LIMIT {ph}
+                    FOR UPDATE SKIP LOCKED
+                ),
+                per_domain AS (
+                    SELECT url_hash, url, domain, created_at,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY domain ORDER BY created_at
+                           ) AS rn
+                    FROM candidates
+                ),
+                selected AS (
+                    SELECT url_hash
+                    FROM per_domain
+                    WHERE rn <= {ph}
+                    ORDER BY created_at
+                    LIMIT {ph}
+                )
+                DELETE FROM crawl_queue
+                USING selected s
+                WHERE crawl_queue.url_hash = s.url_hash
+                RETURNING crawl_queue.url, crawl_queue.domain, crawl_queue.created_at
+                """,
+                (overscan, max_per_domain, count),
             )
+            rows = cur.fetchall()
 
             return [
-                UrlItem(
-                    url=row[1],
-                    domain=row[2],
-                    priority=row[3],
-                    created_at=row[4],
-                )
-                for row in rows
+                UrlItem(url=row[0], domain=row[1], created_at=row[2]) for row in rows
             ]
 
-    def requeue_for_retry(self, url: str, priority: float) -> bool:
-        """Move a URL from crawling back to pending for retry.
+    def requeue(self, url: str) -> bool:
+        """Re-add a URL to the crawl queue (e.g. for retry).
 
-        Only transitions crawling -> pending. Returns True if transitioned.
+        Returns True if inserted, False if already in queue.
         """
         h = url_hash(url)
+        domain = get_domain(url)
+        now = int(time.time())
         ph = sql_placeholder()
         with db_transaction(self.db_path) as cur:
             cur.execute(
                 f"""
-                UPDATE urls
-                SET status = 'pending', priority = {ph}
-                WHERE url_hash = {ph} AND status = 'crawling'
+                INSERT INTO crawl_queue (url_hash, url, domain, created_at)
+                VALUES ({ph}, {ph}, {ph}, {ph})
+                ON CONFLICT (url_hash) DO NOTHING
                 """,
-                (priority, h),
+                (h, url, domain, now),
             )
             return cur.rowcount > 0
 
-    def release_urls(self, urls: list[str], status: str = "failed") -> int:
-        """Release URLs from crawling to another status.
+    def release_urls(self, urls: list[str]) -> int:
+        """Mark URLs as crawled (permanently failed / blocked).
 
-        Used to release blocked URLs that were popped from the queue
-        but filtered out by the scheduler. Only transitions crawling -> target status.
+        Records last_crawled_at so they won't be re-queued until stale.
         Returns count of affected rows.
         """
         if not urls:
@@ -289,20 +225,21 @@ class UrlLifecycleMixin:
             cur.execute(
                 f"""
                 UPDATE urls
-                SET status = {ph}, last_crawled_at = {ph}
-                WHERE url_hash = ANY({ph}) AND status = 'crawling'
+                SET last_crawled_at = {ph},
+                    crawl_count = crawl_count + 1
+                WHERE url_hash = ANY({ph})
                 """,
-                (status, now, hashes),
+                (now, hashes),
             )
             return cur.rowcount
 
     def record(self, url: str, status: str = "done") -> None:
         """
-        Record a crawl result. Updates status, last_crawled_at, crawl_count.
+        Record a crawl result. Updates last_crawled_at and crawl_count.
 
         Args:
             url: Crawled URL
-            status: 'done' or 'failed'
+            status: 'done' or 'failed' (kept for API compat, both update the ledger)
         """
         h = url_hash(url)
         domain = get_domain(url)
@@ -312,24 +249,11 @@ class UrlLifecycleMixin:
         with db_transaction(self.db_path) as cur:
             cur.execute(
                 f"""
-                INSERT INTO urls (url_hash, url, domain, status, priority, crawl_count, created_at, last_crawled_at)
-                VALUES ({ph}, {ph}, {ph}, {ph}, 0, 1, {ph}, {ph})
+                INSERT INTO urls (url_hash, url, domain, crawl_count, created_at, last_crawled_at)
+                VALUES ({ph}, {ph}, {ph}, 1, {ph}, {ph})
                 ON CONFLICT (url_hash) DO UPDATE SET
-                    status = EXCLUDED.status,
                     last_crawled_at = EXCLUDED.last_crawled_at,
                     crawl_count = urls.crawl_count + 1
                 """,
-                (h, url, domain, status, now, now),
+                (h, url, domain, now, now),
             )
-
-    def recover_stale_crawling(self) -> int:
-        """
-        Reset stale 'crawling' URLs back to 'pending'.
-        Called at startup to recover from crashes.
-
-        Returns:
-            Number of URLs recovered
-        """
-        with db_transaction(self.db_path) as cur:
-            cur.execute("UPDATE urls SET status = 'pending' WHERE status = 'crawling'")
-            return cur.rowcount

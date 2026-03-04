@@ -16,7 +16,6 @@ from app.core.config import settings
 from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
-from app.domain.scoring import calculate_url_score, get_domain_rank
 from app.scheduler import Scheduler
 from app.services.indexer import submit_page_to_indexer
 from app.utils import history as history_log
@@ -41,7 +40,6 @@ class PipelineContext:
     scheduler: Scheduler
     url: str
     domain: str
-    priority: float
     blocked_domains: frozenset[str] = field(default_factory=frozenset)
     domain_cache: dict = field(default_factory=dict)
 
@@ -235,32 +233,18 @@ async def submit_to_indexer(ctx: PipelineContext, parsed: ParseResult) -> bool:
 async def discover_and_enqueue_links(
     ctx: PipelineContext, discovered: list[str]
 ) -> None:
-    """Score discovered links and enqueue them into the URL store."""
+    """Filter and enqueue discovered links into the crawl queue."""
     if not discovered:
         return
 
-    # Batch-fetch domain done counts for uncached domains
-    uncached_domains = {
-        get_domain(u) for u in discovered if get_domain(u) not in ctx.domain_cache
-    }
-    if uncached_domains:
-        counts = await run_in_db_executor(
-            ctx.url_store.domain_done_count_batch, list(uncached_domains)
-        )
-        for d in uncached_domains:
-            ctx.domain_cache[d] = counts.get(d, 0)
+    # Filter: blocklist + URL length
+    valid_urls = [
+        u
+        for u in discovered
+        if len(u) <= MAX_URL_LENGTH
+        and not is_domain_blocked(get_domain(u), ctx.blocked_domains)
+    ]
 
-    scored_items: list[tuple[str, float]] = []
-    for new_url in discovered:
-        new_domain = get_domain(new_url)
-        if is_domain_blocked(new_domain, ctx.blocked_domains):
-            continue
-        domain_visits = max(ctx.domain_cache.get(new_domain, 0), 1)
-        dr = get_domain_rank(new_domain)
-        score = calculate_url_score(
-            new_url, ctx.priority, domain_visits, domain_pagerank=dr
-        )
-        scored_items.append((new_url, score))
-
-    await run_in_db_executor(ctx.url_store.add_batch_scored, scored_items)
+    if valid_urls:
+        await run_in_db_executor(ctx.url_store.add_batch, valid_urls)
     logger.debug("Enqueued links from %s (%d discovered)", ctx.url, len(discovered))

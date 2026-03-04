@@ -215,8 +215,8 @@ class TestGetReadyUrls:
             s._buffer = list(buffer_items)
         return s
 
-    def _make_item(self, url, domain, priority=10.0):
-        return UrlItem(url=url, domain=domain, priority=priority, created_at=0)
+    def _make_item(self, url, domain):
+        return UrlItem(url=url, domain=domain, created_at=0)
 
     def test_returns_urls_from_different_domains(self):
         items = [
@@ -232,9 +232,9 @@ class TestGetReadyUrls:
 
     def test_respects_domain_concurrency_limit(self):
         items = [
-            self._make_item("http://a.com/1", "a.com", 10),
-            self._make_item("http://a.com/2", "a.com", 9),
-            self._make_item("http://a.com/3", "a.com", 8),
+            self._make_item("http://a.com/1", "a.com"),
+            self._make_item("http://a.com/2", "a.com"),
+            self._make_item("http://a.com/3", "a.com"),
         ]
         s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
         result = s.get_ready_urls(3)
@@ -264,11 +264,11 @@ class TestGetReadyUrls:
 
     def test_mixed_domains_fills_to_count(self):
         items = [
-            self._make_item("http://a.com/1", "a.com", 10),
-            self._make_item("http://a.com/2", "a.com", 9),
-            self._make_item("http://a.com/3", "a.com", 8),
-            self._make_item("http://b.com/1", "b.com", 7),
-            self._make_item("http://b.com/2", "b.com", 6),
+            self._make_item("http://a.com/1", "a.com"),
+            self._make_item("http://a.com/2", "a.com"),
+            self._make_item("http://a.com/3", "a.com"),
+            self._make_item("http://b.com/1", "b.com"),
+            self._make_item("http://b.com/2", "b.com"),
         ]
         s = self._make_scheduler(buffer_items=items, domain_max_concurrent=2)
         result = s.get_ready_urls(4)

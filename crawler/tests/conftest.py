@@ -18,7 +18,7 @@ ensure_test_pg()
 from shared.postgres.migrate import migrate  # noqa: E402
 
 # Crawler tables to truncate
-_CRAWLER_TABLES = ["urls", "crawl_logs"]
+_CRAWLER_TABLES = ["urls", "crawl_queue", "crawl_logs"]
 
 
 @pytest.fixture(scope="session", autouse=True)

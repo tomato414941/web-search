@@ -39,7 +39,7 @@ class UrlSeedsMixin:
             return cur.rowcount
 
     def purge_blocked_domains(self, blocklist: frozenset[str]) -> int:
-        """Delete pending URLs whose domain matches the blocklist.
+        """Delete queued URLs whose domain matches the blocklist.
 
         Uses subdomain matching: blocking 'facebook.com' also removes
         'www.facebook.com', 'm.facebook.com', etc.
@@ -50,13 +50,11 @@ class UrlSeedsMixin:
             return 0
 
         with db_transaction(self.db_path) as cur:
-            # Build WHERE conditions for each blocked domain
             conditions = []
             params: list[str] = []
             for d in blocklist:
                 conditions.append(f"domain = {sql_placeholder()}")
                 params.append(d)
-                # Escape SQL LIKE wildcards in domain name
                 escaped = (
                     d.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                 )
@@ -65,7 +63,7 @@ class UrlSeedsMixin:
 
             where = " OR ".join(conditions)
             cur.execute(
-                f"DELETE FROM urls WHERE status = 'pending' AND ({where})",
+                f"DELETE FROM crawl_queue WHERE ({where})",
                 params,
             )
             return cur.rowcount
@@ -74,17 +72,17 @@ class UrlSeedsMixin:
         """Get all URLs marked as seeds."""
         with db_connection(self.db_path) as cur:
             cur.execute(
-                "SELECT url, domain, status, priority, created_at, last_crawled_at"
+                "SELECT url, domain, crawl_count, created_at, last_crawled_at"
                 " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
             )
             return [
                 {
                     "url": row[0],
                     "domain": row[1],
-                    "status": row[2],
-                    "priority": row[3],
-                    "created_at": row[4],
-                    "last_crawled_at": row[5],
+                    "status": "done" if row[2] > 0 else "pending",
+                    "priority": 0,
+                    "created_at": row[3],
+                    "last_crawled_at": row[4],
                 }
                 for row in cur.fetchall()
             ]

@@ -1,8 +1,8 @@
 """
-URL Store - Unified URL Management
+URL Store - Discovery Ledger + Crawl Queue
 
-Manages the full URL lifecycle: pending → crawling → done/failed.
-Replaces the separate Frontier and History tables.
+urls table: ledger of all discovered URLs (no status column).
+crawl_queue table: work queue of URLs to crawl next (DELETE on pop).
 """
 
 from app.db.url_lifecycle import UrlLifecycleMixin
@@ -13,32 +13,31 @@ from shared.postgres.search import get_connection
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS urls (
-    url_hash TEXT PRIMARY KEY,
-    url TEXT NOT NULL,
-    domain TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    priority REAL NOT NULL DEFAULT 0,
-    crawl_count INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
+    url_hash        TEXT PRIMARY KEY,
+    url             TEXT NOT NULL,
+    domain          TEXT NOT NULL,
+    crawl_count     INTEGER NOT NULL DEFAULT 0,
+    created_at      INTEGER NOT NULL,
     last_crawled_at INTEGER,
-    is_seed BOOLEAN NOT NULL DEFAULT FALSE
+    is_seed         BOOLEAN NOT NULL DEFAULT FALSE
 );
-
-CREATE INDEX IF NOT EXISTS idx_urls_pending_claim ON urls(status, priority DESC, created_at) WHERE status = 'pending';
-CREATE INDEX IF NOT EXISTS idx_urls_pending_domain ON urls(domain) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain);
+
+CREATE TABLE IF NOT EXISTS crawl_queue (
+    url_hash   TEXT PRIMARY KEY,
+    url        TEXT NOT NULL,
+    domain     TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+);
 """
 
 
 class UrlStore(UrlLifecycleMixin, UrlQueriesMixin, UrlSeedsMixin):
     """
-    Unified URL storage.
+    URL storage backed by a discovery ledger (urls) and a crawl queue.
 
-    Manages the full lifecycle of URLs:
-    - pending: discovered, waiting to be crawled
-    - crawling: currently being fetched
-    - done: successfully crawled
-    - failed: crawl failed
+    urls: all discovered URLs. last_crawled_at IS NULL means never crawled.
+    crawl_queue: URLs waiting to be crawled. Popped via DELETE.
     """
 
     def __init__(

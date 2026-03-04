@@ -63,7 +63,6 @@ def _make_ctx(**overrides) -> PipelineContext:
         scheduler=MagicMock(),
         url="http://example.com/page",
         domain="example.com",
-        priority=10.0,
         blocked_domains=frozenset(),
         domain_cache={},
     )

@@ -38,4 +38,4 @@ async def view_queue(
 ):
     """View current queue contents"""
     items = queue_service.get_queue_items(limit)
-    return [QueueItem(url=item["url"], score=item["score"]) for item in items]
+    return [QueueItem(url=item["url"]) for item in items]

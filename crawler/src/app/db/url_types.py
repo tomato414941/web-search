@@ -24,5 +24,4 @@ def get_domain(url: str) -> str:
 class UrlItem:
     url: str
     domain: str
-    priority: float
     created_at: int

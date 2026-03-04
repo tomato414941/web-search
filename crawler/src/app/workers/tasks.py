@@ -16,7 +16,7 @@ from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
 from app.scheduler import Scheduler, SchedulerConfig
-from app.domain.scoring import (
+from app.domain.scoring import (  # noqa: F401 - used for periodic refresh
     domain_rank_cache_size,
     load_domain_rank_cache,
 )
@@ -66,7 +66,6 @@ async def process_url(
     url_store: UrlStore,
     scheduler: Scheduler,
     url: str,
-    priority: float,
     runtime_state: WorkerRuntimeState | None = None,
 ):
     """
@@ -83,7 +82,6 @@ async def process_url(
         scheduler=scheduler,
         url=url,
         domain=domain,
-        priority=priority,
         blocked_domains=state.blocked_domains,
         domain_cache=state.domain_cache,
     )
@@ -146,9 +144,7 @@ async def process_url(
             # Retryable errors
             host_error = True
             logger.warning("Retryable error %d for %s", result.status, url)
-            await _handle_retry(
-                url, url_store, priority, f"HTTP {result.status}", state
-            )
+            await _handle_retry(url, url_store, f"HTTP {result.status}", state)
 
         else:
             # Other HTTP errors (404, etc)
@@ -165,7 +161,7 @@ async def process_url(
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         host_error = True
         logger.warning("Network error for %s: %s", url, e)
-        await _handle_retry(url, url_store, priority, str(e), state)
+        await _handle_retry(url, url_store, str(e), state)
 
     except Exception as e:
         host_error = True
@@ -186,7 +182,6 @@ async def process_url(
 async def _handle_retry(
     url: str,
     url_store: UrlStore,
-    priority: float,
     error: str,
     runtime_state: WorkerRuntimeState,
 ):
@@ -205,9 +200,8 @@ async def _handle_retry(
         await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
         runtime_state.retry_counts.pop(url, None)
     else:
-        # Transition crawling -> pending with lower priority
-        new_priority = max(priority - 5.0, -100.0)
-        await run_in_db_executor(url_store.requeue_for_retry, url, new_priority)
+        # Re-add to crawl queue for retry
+        await run_in_db_executor(url_store.requeue, url)
         await run_in_db_executor(
             history_log.log_crawl_attempt,
             url,
@@ -247,11 +241,6 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
         recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
         max_pending_per_domain=settings.MAX_PENDING_PER_DOMAIN,
     )
-
-    # Recover stale crawling URLs from previous crash
-    recovered = await run_in_db_executor(url_store.recover_stale_crawling)
-    if recovered:
-        logger.info("Recovered %d stale crawling URLs back to pending", recovered)
 
     # Initialize Scheduler with rate limiting
     scheduler_config = SchedulerConfig(
@@ -301,9 +290,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
         logger.info("Crawler started with concurrency=%d", concurrency)
         logger.info("Submitting pages to: %s", settings.INDEXER_API_URL)
 
-        async def process_task(
-            url: str, priority: float, state: WorkerRuntimeState
-        ) -> None:
+        async def process_task(url: str, state: WorkerRuntimeState) -> None:
             try:
                 await process_url(
                     session,
@@ -311,7 +298,6 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     url_store,
                     scheduler,
                     url,
-                    priority,
                     runtime_state=state,
                 )
             except asyncio.CancelledError:
@@ -402,14 +388,12 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
 
                 # Dispatch all ready URLs concurrently
                 for item in ready_items:
-                    logger.info(
-                        "Processing: %s (priority=%.1f)", item.url, item.priority
-                    )
+                    logger.info("Processing: %s", item.url)
                     scheduler.record_start(item.domain)
 
                     try:
                         task = asyncio.create_task(
-                            process_task(item.url, item.priority, runtime_state)
+                            process_task(item.url, runtime_state)
                         )
                         in_flight_tasks.add(task)
                         task.add_done_callback(_on_task_done)
