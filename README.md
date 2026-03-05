@@ -151,7 +151,17 @@ COMPOSE_PROFILES=search,crawler docker compose up --build -d
 - `search`: starts `opensearch` and `opensearch-backfill`
 - `crawler`: starts `crawler`
 - `embedding`: starts `embedding-backfill`
+- `monitoring`: starts `prometheus` and `grafana`
 - **Crawler API**: [http://localhost:8082/docs](http://localhost:8082/docs) when the `crawler` profile is enabled
+
+To enable the monitoring stack locally:
+
+```bash
+COMPOSE_PROFILES=monitoring docker compose up --build -d
+```
+
+- **Prometheus**: [http://localhost:9090/targets](http://localhost:9090/targets)
+- **Grafana**: [http://localhost:3000/](http://localhost:3000/) (`admin` / `admin-change-me` by default)
 
 ## Architecture
 

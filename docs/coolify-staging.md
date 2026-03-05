@@ -21,6 +21,7 @@ Optional profiles:
 - `search`: starts `opensearch` and `opensearch-backfill` when you need to validate search retrieval.
 - `crawler`: starts `crawler` when you need crawl flow validation.
 - `embedding`: starts `embedding-backfill` for one-off embedding backfills.
+- `monitoring`: starts `prometheus` and `grafana` for temporary observability windows.
 
 ## Coolify App Configuration
 1. Create a separate Coolify Project for staging (for example `web-search-staging`).
@@ -30,6 +31,7 @@ Optional profiles:
 5. Set branch to staging target branch (for example `main` or `staging`).
 6. Expose only `frontend` service on a public domain.
 7. Leave `COMPOSE_PROFILES` empty for the default lightweight staging runtime.
+8. If you enable `monitoring`, keep `PROMETHEUS_BIND_ADDRESS` and `GRAFANA_BIND_ADDRESS` on `127.0.0.1` and use SSH port-forwarding instead of exposing them publicly.
 
 ## Required Environment Variables
 Set these in Coolify application environment variables.
@@ -46,7 +48,10 @@ Set these in Coolify application environment variables.
 | `INDEXER_API_KEY` | `change-me-random` | Shared secret between crawler/frontend and indexer. |
 | `OPENAI_API_KEY` | `` | Optional. Leave empty to disable embeddings. |
 | `OPENSEARCH_ENABLED` | `false` | Keep `false` for the lightweight default runtime. Set `true` only when `search` profile is enabled. |
-| `COMPOSE_PROFILES` | `` | Empty by default. Use `search`, `crawler`, or `crawler,search` only for targeted validation windows. |
+| `COMPOSE_PROFILES` | `` | Empty by default. Use `search`, `crawler`, `monitoring`, or a temporary combination such as `crawler,search` only for targeted validation windows. |
+| `PROMETHEUS_PORT` | `9091` | Used only when `monitoring` profile is enabled. Choose a host-local port that does not conflict with other apps. |
+| `GRAFANA_PORT` | `3001` | Used only when `monitoring` profile is enabled. Choose a host-local port that does not conflict with other apps. |
+| `GRAFANA_ADMIN_PASSWORD` | `change-me-monitoring` | Required when `monitoring` profile is enabled. Use a staging-only password. |
 | `POSTGRES_MAX_CONNECTIONS` | `64` | Keeps DB connection budget explicit on the shared host. |
 | `DB_POOL_MAX_FRONTEND` | `4` | Lower frontend DB pool for shared-host staging. |
 | `DB_POOL_MAX_INDEXER` | `6` | Lower indexer DB pool for shared-host staging. |
@@ -69,6 +74,7 @@ Resource budget defaults:
 - Always-on DB pool max budget is `20` (`frontend 4 + indexer 6 + jobs 8 + maintenance 2`).
 - Enabling the optional crawler raises the DB pool max budget to `24`.
 - Default memory caps are `frontend 384m`, `indexer 384m`, `indexer-worker 768m`, `indexer-maintenance-worker 256m`, `crawler 384m`, `postgres 768m`.
+- Enabling `monitoring` adds `prometheus 256m` and `grafana 256m` by default.
 
 ## Initial Validation Checklist
 Run these checks right after deployment.
@@ -133,11 +139,27 @@ Enable `COMPOSE_PROFILES=crawler,search` only for the test window, then redeploy
 - Stop the crawler after validation
 - Clear `COMPOSE_PROFILES` again when finished
 
+### 6) Optional: monitoring validation
+Enable `COMPOSE_PROFILES=monitoring`, then redeploy.
+
+- Confirm inside the server:
+  - `curl -s http://127.0.0.1:<PROMETHEUS_PORT>/targets`
+  - `curl -s http://127.0.0.1:<GRAFANA_PORT>/api/health`
+- Use SSH port-forwarding from your workstation:
+
+```bash
+ssh -L 3001:127.0.0.1:3001 -L 9091:127.0.0.1:9091 root@5.223.74.201
+```
+
+- Open `http://localhost:3001`
+- Login with `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`
+- Confirm the provisioned `Web Search Overview` dashboard is visible
+
 ## Rollout Safety Notes
 - Never reuse production DB or secrets.
 - Keep indexer/crawler private; expose only frontend publicly.
 - Keep `COMPOSE_PROFILES` empty by default on shared hosts.
-- Only enable `crawler` / `search` profiles for short validation windows.
+- Only enable `crawler` / `search` / `monitoring` profiles for short validation windows.
 - Tune `INDEXER_JOB_WORKERS` and `CRAWL_CONCURRENCY` gradually while watching queue growth.
 
 ## Rollback Procedure

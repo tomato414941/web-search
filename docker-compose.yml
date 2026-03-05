@@ -120,6 +120,8 @@ services:
       context: .
       dockerfile: indexer/Dockerfile
     restart: unless-stopped
+    expose:
+      - "${WORKER_METRICS_PORT:-9000}"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
@@ -137,6 +139,8 @@ services:
       - INDEXER_JOB_RETRY_MAX_SEC=${INDEXER_JOB_RETRY_MAX_SEC:-1800}
       - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
       - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
+      - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
+      - QUEUE_METRICS_INTERVAL_SEC=${QUEUE_METRICS_INTERVAL_SEC:-5}
       - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_WORKER:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_WORKER:-8}
     command: ["python", "-m", "app.worker", "jobs"]
@@ -162,12 +166,15 @@ services:
       context: .
       dockerfile: indexer/Dockerfile
     restart: unless-stopped
+    expose:
+      - "${WORKER_METRICS_PORT:-9000}"
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
       - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
+      - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
       - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_MAINTENANCE:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_MAINTENANCE:-2}
     command: ["python", "-m", "app.worker", "maintenance"]
@@ -251,6 +258,66 @@ services:
       opensearch:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    ports:
+      - "${PROMETHEUS_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-7d}"
+    volumes:
+      - ./deploy/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      frontend:
+        condition: service_healthy
+      indexer:
+        condition: service_healthy
+      indexer-worker:
+        condition: service_healthy
+      indexer-maintenance-worker:
+        condition: service_healthy
+    mem_limit: ${PROMETHEUS_MEM_LIMIT:-256m}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    ports:
+      - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin-change-me}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/web-search-overview.json
+    volumes:
+      - ./deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    mem_limit: ${GRAFANA_MEM_LIMIT:-256m}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
 volumes:
   postgres_data:
   opensearch_data:
+  prometheus_data:
+  grafana_data:

@@ -58,7 +58,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         # Skip metrics endpoint itself
-        if request.url.path == "/metrics":
+        if request.url.path in {"/metrics", "/api/v1/metrics"}:
             return await call_next(request)
 
         ACTIVE_REQUESTS.inc()

@@ -26,6 +26,18 @@ COMPOSE_PROFILES=search,crawler docker compose up --build -d
 - `search`: starts `opensearch` and `opensearch-backfill`
 - `crawler`: starts `crawler`
 - `embedding`: starts `embedding-backfill`
+- `monitoring`: starts `prometheus` and `grafana`
+
+Monitoring only:
+
+```bash
+COMPOSE_PROFILES=monitoring docker compose up --build -d
+```
+
+Monitoring URLs:
+- Prometheus: `http://localhost:9090/targets`
+- Grafana: `http://localhost:3000/`
+- Default Grafana login: `admin / admin-change-me`
 
 ## Local Development Setup
 This repo is a folder-separated monorepo. Install the shared package first, then service deps.
