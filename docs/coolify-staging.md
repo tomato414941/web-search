@@ -47,11 +47,12 @@ Set these in Coolify application environment variables.
 | `OPENAI_API_KEY` | `` | Optional. Leave empty to disable embeddings. |
 | `OPENSEARCH_ENABLED` | `false` | Keep `false` for the lightweight default runtime. Set `true` only when `search` profile is enabled. |
 | `COMPOSE_PROFILES` | `` | Empty by default. Use `search`, `crawler`, or `crawler,search` only for targeted validation windows. |
-| `DB_POOL_MAX_FRONTEND` | `5` | Lower frontend DB pool for shared-host staging. |
-| `DB_POOL_MAX_INDEXER` | `8` | Lower indexer DB pool for shared-host staging. |
-| `DB_POOL_MAX_INDEXER_WORKER` | `10` | Lower worker DB pool for shared-host staging. |
-| `DB_POOL_MAX_INDEXER_MAINTENANCE` | `5` | Lower maintenance-worker DB pool for shared-host staging. |
-| `DB_POOL_MAX_CRAWLER` | `5` | Used only when `crawler` profile is enabled. |
+| `POSTGRES_MAX_CONNECTIONS` | `64` | Keeps DB connection budget explicit on the shared host. |
+| `DB_POOL_MAX_FRONTEND` | `4` | Lower frontend DB pool for shared-host staging. |
+| `DB_POOL_MAX_INDEXER` | `6` | Lower indexer DB pool for shared-host staging. |
+| `DB_POOL_MAX_INDEXER_WORKER` | `8` | Job-worker DB pool, sized for the conservative async defaults. |
+| `DB_POOL_MAX_INDEXER_MAINTENANCE` | `2` | Maintenance worker only needs a small pool. |
+| `DB_POOL_MAX_CRAWLER` | `4` | Used only when `crawler` profile is enabled. |
 | `CRAWL_CONCURRENCY` | `2` | Conservative crawler concurrency for temporary crawler test windows. |
 | `CRAWL_AUTO_START` | `false` | Required when `crawler` profile is enabled on a shared host. |
 | `INDEXER_JOB_WORKERS` | `1` | Conservative async index worker count for staging. |
@@ -62,6 +63,12 @@ Set these in Coolify application environment variables.
 | `INDEXER_JOB_POLL_INTERVAL_MS` | `500` | Worker poll interval. |
 | `INDEXER_JOB_RETRY_BASE_SEC` | `5` | Exponential retry base. |
 | `INDEXER_JOB_RETRY_MAX_SEC` | `1800` | Exponential retry ceiling. |
+
+Resource budget defaults:
+- DB pool minimum stays at `1` per service to avoid preallocating idle PostgreSQL connections.
+- Always-on DB pool max budget is `20` (`frontend 4 + indexer 6 + jobs 8 + maintenance 2`).
+- Enabling the optional crawler raises the DB pool max budget to `24`.
+- Default memory caps are `frontend 384m`, `indexer 384m`, `indexer-worker 768m`, `indexer-maintenance-worker 256m`, `crawler 384m`, `postgres 768m`.
 
 ## Initial Validation Checklist
 Run these checks right after deployment.
