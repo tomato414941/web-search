@@ -1,6 +1,6 @@
 """Content API Router - Full text content retrieval for indexed pages."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from frontend.api.deps import require_api_key
@@ -31,7 +31,7 @@ class ContentResponse(BaseModel):
 )
 @limiter.limit("100/minute")
 async def api_content(
-    request,  # needed by limiter
+    request: Request,  # needed by limiter
     url: str,
     api_key_info: dict = Depends(require_api_key),
 ):
