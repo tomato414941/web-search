@@ -132,7 +132,7 @@ curl -X POST "https://palebluesearch.com/api/v1/search/click" \
 ### Running the App
 
 ```bash
-# Build and start services (Frontend, Indexer, Crawler)
+# Build and start the default lightweight stack
 docker compose up --build -d
 ```
 
@@ -141,7 +141,17 @@ Once running, access the following:
 - **Search UI**: [http://localhost:8083/](http://localhost:8083/)
 - **API Docs**: [http://localhost:8083/docs](http://localhost:8083/docs)
 - **Indexer API**: [http://localhost:8081/docs](http://localhost:8081/docs)
-- **Crawler API**: [http://localhost:8082/docs](http://localhost:8082/docs)
+
+To start the optional crawler and search stack as well:
+
+```bash
+COMPOSE_PROFILES=search,crawler docker compose up --build -d
+```
+
+- `search`: starts `opensearch` and `opensearch-backfill`
+- `crawler`: starts `crawler`
+- `embedding`: starts `embedding-backfill`
+- **Crawler API**: [http://localhost:8082/docs](http://localhost:8082/docs) when the `crawler` profile is enabled
 
 ## Architecture
 

@@ -6,7 +6,7 @@
 - Git
 
 ## Docker Setup (Recommended)
-Run the full stack with Docker Compose:
+Run the default lightweight stack with Docker Compose:
 
 ```bash
 docker compose up --build -d
@@ -15,8 +15,17 @@ docker compose up --build -d
 Services and ports:
 - Frontend (UI + Search API): http://localhost:8083
 - Indexer (Write API): http://localhost:8081
-- Crawler (API): http://localhost:8082
 - PostgreSQL: internal to the compose network
+
+Enable optional services only when needed:
+
+```bash
+COMPOSE_PROFILES=search,crawler docker compose up --build -d
+```
+
+- `search`: starts `opensearch` and `opensearch-backfill`
+- `crawler`: starts `crawler`
+- `embedding`: starts `embedding-backfill`
 
 ## Local Development Setup
 This repo is a folder-separated monorepo. Install the shared package first, then service deps.
@@ -99,6 +108,5 @@ pytest crawler/tests
 ## Staging on Coolify
 For production-like staging setup on Coolify, see:
 
-- `docker-compose.coolify.yml` (lightweight default STG stack)
 - `docs/coolify-staging.md`
 - `scripts/ops/coolify_staging_smoke.sh`

@@ -25,7 +25,7 @@ Optional profiles:
 1. Create a separate Coolify Project for staging (for example `web-search-staging`).
 2. Create a new Application from this repository.
 3. Select `Docker Compose` deployment.
-4. Set Compose file path to `docker-compose.coolify.yml`.
+4. Set Compose file path to `docker-compose.yml`.
 5. Set branch to staging target branch (for example `main` or `staging`).
 6. Expose only `frontend` service on a public domain.
 7. Leave `COMPOSE_PROFILES` empty for the default lightweight staging runtime.
