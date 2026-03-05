@@ -7,6 +7,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from app.metrics import record_claim_batch, record_job_result, update_queue_metrics
 from app.services.dedupe import build_dedupe_key, hash_text
 from app.services.job_recovery import (
     cleanup_old_done_jobs,
@@ -270,6 +271,7 @@ class IndexJobService:
             rows = cur.fetchall()
             con.commit()
             cur.close()
+            record_claim_batch(len(rows))
             return [self._row_to_job(row) for row in rows]
         finally:
             con.close()
@@ -325,6 +327,8 @@ class IndexJobService:
                 logger.warning(
                     "mark_done lost update: job=%s worker=%s", job_id, worker_id
                 )
+            if affected > 0:
+                record_job_result(STATUS_DONE)
             return affected > 0
         finally:
             con.close()
@@ -372,6 +376,7 @@ class IndexJobService:
             retry_count = int(row[0]) + 1
             policy = self._retry_policy
             if policy.is_exhausted(retry_count):
+                result_status = STATUS_FAILED_PERMANENT
                 cur.execute(
                     f"""
                     UPDATE index_jobs
@@ -385,7 +390,7 @@ class IndexJobService:
                     WHERE job_id = {ph}
                     """,
                     (
-                        STATUS_FAILED_PERMANENT,
+                        result_status,
                         retry_count,
                         error_text,
                         now_ts,
@@ -393,6 +398,7 @@ class IndexJobService:
                     ),
                 )
             else:
+                result_status = STATUS_FAILED_RETRY
                 available_at = now_ts + policy.delay_seconds(retry_count)
                 cur.execute(
                     f"""
@@ -408,7 +414,7 @@ class IndexJobService:
                     WHERE job_id = {ph}
                     """,
                     (
-                        STATUS_FAILED_RETRY,
+                        result_status,
                         retry_count,
                         available_at,
                         error_text,
@@ -418,6 +424,7 @@ class IndexJobService:
                 )
             con.commit()
             cur.close()
+            record_job_result(result_status)
             return True
         finally:
             con.close()
@@ -458,7 +465,7 @@ class IndexJobService:
             if min_available is not None:
                 oldest_pending_seconds = max(0, now_ts - int(min_available))
 
-            return {
+            stats = {
                 "pending_jobs": pending_count,
                 "processing_jobs": int(row[2] or 0),
                 "done_jobs": int(row[3] or 0),
@@ -466,6 +473,8 @@ class IndexJobService:
                 "total_jobs": int(row[5] or 0),
                 "oldest_pending_seconds": oldest_pending_seconds,
             }
+            update_queue_metrics(stats)
+            return stats
         finally:
             con.close()
 

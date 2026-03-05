@@ -8,9 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.metrics import router as metrics_router, update_indexed_pages_metric
 from shared.postgres.migrate import migrate
 from app.api.routes import indexer
 from app.api.routes.health import root_router as health_root_router
+from app.services.indexer import indexer_service
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +62,19 @@ app.add_middleware(
 # --- Routers ---
 # Root-level health endpoints (Kubernetes probes)
 app.include_router(health_root_router, tags=["health"])
+app.include_router(metrics_router, tags=["metrics"], include_in_schema=False)
 
 # Indexer API (requires API key)
 app.include_router(indexer.router, prefix="/api/v1", tags=["indexer"])
+
+
+@app.middleware("http")
+async def refresh_metrics_on_write_requests(request, call_next):
+    if request.url.path in {"/metrics", "/api/v1/indexer/stats"}:
+        update_indexed_pages_metric(indexer_service.get_index_stats().get("total", 0))
+        indexer.index_job_service.get_queue_stats()
+    response = await call_next(request)
+    return response
 
 
 if __name__ == "__main__":

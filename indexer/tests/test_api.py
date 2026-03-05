@@ -258,3 +258,22 @@ class TestHealthEndpoint:
         assert "processing_jobs" in body
         assert "failed_permanent_jobs" in body
         assert "oldest_pending_seconds" in body
+
+    def test_metrics_endpoint_exposes_queue_metrics(self, test_client):
+        enqueue_resp = test_client.post(
+            "/api/v1/indexer/page",
+            headers={"X-API-Key": settings.INDEXER_API_KEY},
+            json={
+                "url": "https://metrics.example.com",
+                "title": "Metrics",
+                "content": "metrics test",
+            },
+        )
+        assert enqueue_resp.status_code == 202
+
+        response = test_client.get("/metrics")
+        assert response.status_code == 200
+        assert "text/plain" in response.headers["content-type"]
+        body = response.text
+        assert "indexer_queue_pending_jobs" in body
+        assert "indexer_indexed_pages" in body

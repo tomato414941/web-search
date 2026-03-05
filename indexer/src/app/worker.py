@@ -5,10 +5,21 @@ import logging
 import os
 import signal
 import sys
+import time
 from typing import Any, Literal, cast
 
 from app.api.routes import indexer
 from app.core.config import settings
+from app.metrics import (
+    maybe_start_worker_metrics_server,
+    record_batch_embedding,
+    record_batch_embedding_failure,
+    record_cleanup_deleted,
+    record_job_processing_duration,
+    record_maintenance_run,
+    record_worker_error,
+    record_worker_start,
+)
 from app.services.indexer import indexer_service
 from shared.postgres.migrate import migrate
 from shared.search_kernel.pagerank import calculate_domain_pagerank, calculate_pagerank
@@ -25,8 +36,11 @@ async def _pagerank_loop() -> None:
         await asyncio.sleep(interval)
         try:
             count = await asyncio.to_thread(calculate_pagerank, settings.DB_PATH)
+            record_maintenance_run("pagerank", success=True)
             logger.info("Page PageRank recalculated: %s pages", count)
         except Exception:
+            record_maintenance_run("pagerank", success=False)
+            record_worker_error("pagerank")
             logger.exception("Page PageRank calculation failed")
 
 
@@ -39,8 +53,12 @@ async def _job_cleanup_loop() -> None:
             deleted = await asyncio.to_thread(
                 indexer.index_job_service.cleanup_old_done_jobs, max_age
             )
+            record_cleanup_deleted(deleted)
+            record_maintenance_run("job_cleanup", success=True)
             logger.info("Job cleanup: deleted %d old done jobs", deleted)
         except Exception:
+            record_maintenance_run("job_cleanup", success=False)
+            record_worker_error("job_cleanup")
             logger.exception("Job cleanup failed")
 
 
@@ -50,9 +68,23 @@ async def _domain_rank_loop() -> None:
         await asyncio.sleep(interval)
         try:
             count = await asyncio.to_thread(calculate_domain_pagerank, settings.DB_PATH)
+            record_maintenance_run("domain_rank", success=True)
             logger.info("Domain PageRank recalculated: %s domains", count)
         except Exception:
+            record_maintenance_run("domain_rank", success=False)
+            record_worker_error("domain_rank")
             logger.exception("Domain PageRank calculation failed")
+
+
+async def _queue_metrics_loop() -> None:
+    interval = max(1, int(os.getenv("QUEUE_METRICS_INTERVAL_SEC", "5")))
+    while True:
+        try:
+            await asyncio.to_thread(indexer.index_job_service.get_queue_stats)
+        except Exception:
+            record_worker_error("queue_metrics")
+            logger.exception("Queue metrics refresh failed")
+        await asyncio.sleep(interval)
 
 
 async def _process_single_job(
@@ -67,6 +99,7 @@ async def _process_single_job(
     or None when done immediately or on failure.
     """
     async with semaphore:
+        started_at = time.monotonic()
         try:
             await indexer_service.index_page(
                 url=job.url,
@@ -101,6 +134,8 @@ async def _process_single_job(
                 error_text,
                 worker_id=worker_name,
             )
+        finally:
+            record_job_processing_duration(time.monotonic() - started_at)
     return None
 
 
@@ -118,6 +153,7 @@ async def _index_job_worker_loop(worker_name: str) -> None:
                 worker_id=worker_name,
             )
         except Exception:
+            record_worker_error("claim_jobs")
             logger.exception("%s failed to claim jobs", worker_name)
             await asyncio.sleep(poll_interval)
             continue
@@ -139,8 +175,12 @@ async def _index_job_worker_loop(worker_name: str) -> None:
         if embed_items:
             job_ids = [r[0] for r in embed_items]
             url_content_pairs = [(r[1], r[2]) for r in embed_items]
+            batch_started_at = time.monotonic()
             try:
                 await indexer_service.embed_and_save_batch(url_content_pairs)
+                record_batch_embedding(
+                    len(url_content_pairs), time.monotonic() - batch_started_at
+                )
                 for jid in job_ids:
                     await asyncio.to_thread(
                         indexer.index_job_service.mark_done,
@@ -148,6 +188,8 @@ async def _index_job_worker_loop(worker_name: str) -> None:
                         worker_id=worker_name,
                     )
             except Exception:
+                record_batch_embedding_failure()
+                record_worker_error("batch_embedding")
                 logger.exception(
                     "%s batch embedding failed for %d items, marking as failure",
                     worker_name,
@@ -194,6 +236,7 @@ def _build_task_specs(mode: WorkerMode) -> list[TaskSpec]:
         )
 
     if mode in {"all", "jobs"}:
+        task_specs.append(("queue-metrics", _queue_metrics_loop))
         for i in range(max(1, settings.INDEXER_JOB_WORKERS)):
             worker_name = f"indexer-worker-{i + 1}"
             task_specs.append(
@@ -206,6 +249,10 @@ def _build_task_specs(mode: WorkerMode) -> list[TaskSpec]:
 async def main(mode: WorkerMode = "all") -> None:
     logging.basicConfig(level=logging.INFO)
     logger.info("Starting indexer worker mode=%s", mode)
+    record_worker_start(mode)
+    metrics_port = maybe_start_worker_metrics_server()
+    if metrics_port is not None:
+        logger.info("Worker metrics server started on port %s", metrics_port)
 
     if settings.RUN_MIGRATIONS:
         migrate()

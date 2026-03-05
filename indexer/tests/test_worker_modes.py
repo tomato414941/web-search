@@ -24,7 +24,7 @@ def test_build_task_specs_for_jobs(monkeypatch):
 
     task_names = [task_name for task_name, _ in worker._build_task_specs("jobs")]
 
-    assert task_names == ["indexer-worker-1", "indexer-worker-2"]
+    assert task_names == ["queue-metrics", "indexer-worker-1", "indexer-worker-2"]
 
 
 def test_build_task_specs_for_maintenance(monkeypatch):
@@ -44,6 +44,7 @@ def test_build_task_specs_for_all(monkeypatch):
         "pagerank",
         "domain-rank",
         "job-cleanup",
+        "queue-metrics",
         "indexer-worker-1",
         "indexer-worker-2",
     ]
