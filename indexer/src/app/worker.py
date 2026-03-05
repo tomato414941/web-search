@@ -1,8 +1,11 @@
 import asyncio
+from collections.abc import Awaitable, Callable, Sequence
+from functools import partial
 import logging
 import os
 import signal
-from typing import Any
+import sys
+from typing import Any, Literal, cast
 
 from app.api.routes import indexer
 from app.core.config import settings
@@ -11,6 +14,9 @@ from shared.postgres.migrate import migrate
 from shared.search_kernel.pagerank import calculate_domain_pagerank, calculate_pagerank
 
 logger = logging.getLogger(__name__)
+WorkerMode = Literal["all", "jobs", "maintenance"]
+TaskFactory = Callable[[], Awaitable[None]]
+TaskSpec = tuple[str, TaskFactory]
 
 
 async def _pagerank_loop() -> None:
@@ -156,24 +162,60 @@ async def _index_job_worker_loop(worker_name: str) -> None:
                     )
 
 
-async def main() -> None:
-    logging.basicConfig(level=logging.INFO)
-    logger.info("Starting indexer worker")
+def resolve_worker_mode(argv: Sequence[str]) -> WorkerMode:
+    if len(argv) < 2:
+        return "all"
 
-    if settings.RUN_MIGRATIONS:
-        migrate()
+    mode = argv[1].strip().lower()
+    if mode not in {"all", "jobs", "maintenance"}:
+        raise ValueError(
+            f"Unsupported worker mode '{argv[1]}'. Expected: all, jobs, maintenance"
+        )
+    return cast(WorkerMode, mode)
 
+
+def _configure_index_job_service() -> None:
     indexer.index_job_service.db_path = settings.DB_PATH
     indexer.index_job_service.max_retries = settings.INDEXER_JOB_MAX_RETRIES
     indexer.index_job_service.retry_base_seconds = settings.INDEXER_JOB_RETRY_BASE_SEC
     indexer.index_job_service.retry_max_seconds = settings.INDEXER_JOB_RETRY_MAX_SEC
 
-    pr_task = asyncio.create_task(_pagerank_loop())
-    dr_task = asyncio.create_task(_domain_rank_loop())
-    cleanup_task = asyncio.create_task(_job_cleanup_loop())
-    job_workers = [
-        asyncio.create_task(_index_job_worker_loop(f"indexer-worker-{i + 1}"))
-        for i in range(max(1, settings.INDEXER_JOB_WORKERS))
+
+def _build_task_specs(mode: WorkerMode) -> list[TaskSpec]:
+    task_specs: list[TaskSpec] = []
+
+    if mode in {"all", "maintenance"}:
+        task_specs.extend(
+            [
+                ("pagerank", _pagerank_loop),
+                ("domain-rank", _domain_rank_loop),
+                ("job-cleanup", _job_cleanup_loop),
+            ]
+        )
+
+    if mode in {"all", "jobs"}:
+        for i in range(max(1, settings.INDEXER_JOB_WORKERS)):
+            worker_name = f"indexer-worker-{i + 1}"
+            task_specs.append(
+                (worker_name, partial(_index_job_worker_loop, worker_name))
+            )
+
+    return task_specs
+
+
+async def main(mode: WorkerMode = "all") -> None:
+    logging.basicConfig(level=logging.INFO)
+    logger.info("Starting indexer worker mode=%s", mode)
+
+    if settings.RUN_MIGRATIONS:
+        migrate()
+
+    _configure_index_job_service()
+
+    task_specs = _build_task_specs(mode)
+    tasks = [
+        asyncio.create_task(task_factory(), name=task_name)
+        for task_name, task_factory in task_specs
     ]
 
     stop_event = asyncio.Event()
@@ -186,17 +228,15 @@ async def main() -> None:
 
     await stop_event.wait()
 
-    logger.info("Shutting down indexer worker")
-    pr_task.cancel()
-    dr_task.cancel()
-    cleanup_task.cancel()
-    for worker_task in job_workers:
-        worker_task.cancel()
-
-    await asyncio.gather(
-        pr_task, dr_task, cleanup_task, *job_workers, return_exceptions=True
-    )
+    logger.info("Shutting down indexer worker mode=%s", mode)
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        worker_mode = resolve_worker_mode(sys.argv)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    asyncio.run(main(worker_mode))

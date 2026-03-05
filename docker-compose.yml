@@ -126,7 +126,36 @@ services:
       - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
       - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_WORKER:-10}
-    command: ["python", "-m", "app.worker"]
+    command: ["python", "-m", "app.worker", "jobs"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from shared.postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  indexer-maintenance-worker:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
+      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_MAINTENANCE:-5}
+    command: ["python", "-m", "app.worker", "maintenance"]
     depends_on:
       db-migrate:
         condition: service_completed_successfully

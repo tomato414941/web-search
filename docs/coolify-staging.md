@@ -14,6 +14,7 @@ Default always-on services:
 - `frontend`: public (staging domain)
 - `indexer`: private (internal network only)
 - `indexer-worker`: private (internal network only)
+- `indexer-maintenance-worker`: private (internal network only)
 - `postgres`: private (internal network only)
 
 Optional profiles:
@@ -49,6 +50,7 @@ Set these in Coolify application environment variables.
 | `DB_POOL_MAX_FRONTEND` | `5` | Lower frontend DB pool for shared-host staging. |
 | `DB_POOL_MAX_INDEXER` | `8` | Lower indexer DB pool for shared-host staging. |
 | `DB_POOL_MAX_INDEXER_WORKER` | `10` | Lower worker DB pool for shared-host staging. |
+| `DB_POOL_MAX_INDEXER_MAINTENANCE` | `5` | Lower maintenance-worker DB pool for shared-host staging. |
 | `DB_POOL_MAX_CRAWLER` | `5` | Used only when `crawler` profile is enabled. |
 | `CRAWL_CONCURRENCY` | `2` | Conservative crawler concurrency for temporary crawler test windows. |
 | `CRAWL_AUTO_START` | `false` | Required when `crawler` profile is enabled on a shared host. |
