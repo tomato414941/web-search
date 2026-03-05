@@ -1,0 +1,209 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    shm_size: "256m"
+    command: ["postgres", "-c", "max_connections=80", "-c", "shared_buffers=128MB"]
+    environment:
+      POSTGRES_USER: websearch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: websearch
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U websearch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: "no"
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+    command: ["python", "-c", "from shared.postgres.migrate import migrate; migrate()"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - PORT=8000
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - ANALYTICS_SALT=${ANALYTICS_SALT}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CRAWLER_SERVICE_URL=http://crawler:8000
+      - INDEXER_SERVICE_URL=http://indexer:8000
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-5}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  indexer:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - PORT=8000
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-8}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  indexer-worker:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+      - INDEXER_JOB_WORKERS=${INDEXER_JOB_WORKERS:-1}
+      - INDEXER_JOB_BATCH_SIZE=${INDEXER_JOB_BATCH_SIZE:-10}
+      - INDEXER_JOB_CONCURRENCY=${INDEXER_JOB_CONCURRENCY:-2}
+      - INDEXER_JOB_LEASE_SEC=${INDEXER_JOB_LEASE_SEC:-120}
+      - INDEXER_JOB_MAX_RETRIES=${INDEXER_JOB_MAX_RETRIES:-5}
+      - INDEXER_JOB_POLL_INTERVAL_MS=${INDEXER_JOB_POLL_INTERVAL_MS:-500}
+      - INDEXER_JOB_RETRY_BASE_SEC=${INDEXER_JOB_RETRY_BASE_SEC:-5}
+      - INDEXER_JOB_RETRY_MAX_SEC=${INDEXER_JOB_RETRY_MAX_SEC:-1800}
+      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
+      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_WORKER:-10}
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from shared.postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  crawler:
+    build:
+      context: .
+      dockerfile: crawler/Dockerfile
+    restart: unless-stopped
+    profiles: ["crawler"]
+    expose:
+      - "8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY:-2}
+      - CRAWL_AUTO_START=${CRAWL_AUTO_START:-false}
+      - DB_POOL_MAX=${DB_POOL_MAX_CRAWLER:-5}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    restart: unless-stopped
+    profiles: ["search"]
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  opensearch-backfill:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: "no"
+    profiles: ["search"]
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+    command: ["python", "scripts/migrations/backfill_opensearch.py"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+
+  embedding-backfill:
+    build:
+      context: .
+      dockerfile: indexer/Dockerfile
+    restart: "no"
+    profiles: ["embedding"]
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    command: ["python", "scripts/migrations/backfill_embeddings.py"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
+  opensearch_data:

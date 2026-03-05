@@ -99,5 +99,6 @@ pytest crawler/tests
 ## Staging on Coolify
 For production-like staging setup on Coolify, see:
 
+- `docker-compose.coolify.yml` (lightweight default STG stack)
 - `docs/coolify-staging.md`
 - `scripts/ops/coolify_staging_smoke.sh`
