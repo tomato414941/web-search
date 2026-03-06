@@ -229,12 +229,12 @@ services:
     profiles: ["search"]
     environment:
       - discovery.type=single-node
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
       - DISABLE_INSTALL_DEMO_CONFIG=true
       - DISABLE_SECURITY_PLUGIN=true
     volumes:
       - opensearch_data:/usr/share/opensearch/data
-    mem_limit: 1g
+    mem_limit: ${OPENSEARCH_MEM_LIMIT:-1g}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
       interval: 30s
