@@ -127,6 +127,15 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
+    def test_seeds_page_with_valid_session(self, client):
+        """Seeds page should be accessible with valid session."""
+        client.cookies.clear()
+        login_as_admin(client)
+        response = client.get("/admin/seeds")
+        assert response.status_code == 200
+        assert "Seed URLs" in response.text
+        assert "Registered Seeds" in response.text
+
     def test_add_seed_requires_auth(self, client):
         """Adding seeds should require authentication."""
         client.cookies.clear()

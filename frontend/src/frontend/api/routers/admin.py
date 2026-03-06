@@ -139,6 +139,7 @@ async def seeds_page(
         "admin/seeds.html",
         {
             "request": request,
+            "seeds": seed_page["items"],
             "seed_page": seed_page,
             "success": success,
             "error": error,
