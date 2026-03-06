@@ -3,6 +3,7 @@
 import asyncio
 import time
 import uuid
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request, Cookie, BackgroundTasks
 from fastapi.responses import HTMLResponse
@@ -29,6 +30,30 @@ def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
     except ValueError:
         x = default
     return max(x, min_v)
+
+
+def _build_search_url(
+    *,
+    query: str | None,
+    page: int | None = None,
+    mode: str | None = None,
+    lang: str | None = None,
+    search_mode: str | None = None,
+) -> str:
+    params: list[tuple[str, str]] = []
+    if query:
+        params.append(("q", query))
+    if page is not None:
+        params.append(("page", str(page)))
+    if mode:
+        params.append(("mode", mode))
+    if lang:
+        params.append(("lang", lang))
+    if search_mode:
+        params.append(("search_mode", search_mode))
+
+    encoded = urlencode(params)
+    return f"/?{encoded}" if encoded else "/"
 
 
 def _detect_language(
@@ -81,6 +106,10 @@ async def search_page(
     effective_search_mode = (
         search_mode if search_mode in valid_search_modes else SearchMode.AUTO
     )
+    current_page = page_number
+    preserved_search_mode = (
+        effective_search_mode if effective_search_mode in valid_search_modes else None
+    )
 
     result = (
         await asyncio.to_thread(
@@ -89,6 +118,8 @@ async def search_page(
         if query
         else None
     )
+    if result is not None:
+        current_page = result["page"]
 
     resp = templates.TemplateResponse(
         request,
@@ -101,6 +132,61 @@ async def search_page(
             "lang": current_lang,
             "msg": msg,
             "request_id": request_id,
+            "preserved_search_mode": preserved_search_mode,
+            "mode_urls": {
+                "modern": _build_search_url(
+                    query=query,
+                    page=current_page if query else None,
+                    mode="modern",
+                    lang=current_lang,
+                    search_mode=preserved_search_mode,
+                ),
+                "simple": _build_search_url(
+                    query=query,
+                    page=current_page if query else None,
+                    mode="simple",
+                    lang=current_lang,
+                    search_mode=preserved_search_mode,
+                ),
+            },
+            "lang_urls": {
+                "en": _build_search_url(
+                    query=query,
+                    page=current_page if query else None,
+                    mode=current_mode,
+                    lang="en",
+                    search_mode=preserved_search_mode,
+                ),
+                "ja": _build_search_url(
+                    query=query,
+                    page=current_page if query else None,
+                    mode=current_mode,
+                    lang="ja",
+                    search_mode=preserved_search_mode,
+                ),
+            },
+            "prev_page_url": (
+                _build_search_url(
+                    query=query,
+                    page=result["page"] - 1,
+                    mode=current_mode,
+                    lang=current_lang,
+                    search_mode=preserved_search_mode,
+                )
+                if result is not None and result["page"] > 1
+                else None
+            ),
+            "next_page_url": (
+                _build_search_url(
+                    query=query,
+                    page=result["page"] + 1,
+                    mode=current_mode,
+                    lang=current_lang,
+                    search_mode=preserved_search_mode,
+                )
+                if result is not None and result["page"] < result["last_page"]
+                else None
+            ),
         },
     )
 

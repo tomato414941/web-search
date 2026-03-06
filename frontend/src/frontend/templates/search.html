@@ -42,20 +42,20 @@
             <div class="gear-section">
                 <div class="gear-label">Design</div>
                 {% if mode == 'simple' %}
-                <a href="?{% if q %}q={{ q }}&{% endif %}mode=modern{% if lang %}&lang={{ lang }}{% endif %}">Modern</a>
+                <a href="{{ mode_urls.modern }}">Modern</a>
                 <span class="gear-active">Simple</span>
                 {% else %}
                 <span class="gear-active">Modern</span>
-                <a href="?{% if q %}q={{ q }}&{% endif %}mode=simple{% if lang %}&lang={{ lang }}{% endif %}">Simple</a>
+                <a href="{{ mode_urls.simple }}">Simple</a>
                 {% endif %}
             </div>
             <div class="gear-section">
                 <div class="gear-label">Language</div>
                 {% if lang == 'en' %}
                 <span class="gear-active">English</span>
-                <a href="?{% if q %}q={{ q }}&{% endif %}mode={{ mode }}&lang=ja">日本語</a>
+                <a href="{{ lang_urls.ja }}">日本語</a>
                 {% else %}
-                <a href="?{% if q %}q={{ q }}&{% endif %}mode={{ mode }}&lang=en">English</a>
+                <a href="{{ lang_urls.en }}">English</a>
                 <span class="gear-active">日本語</span>
                 {% endif %}
             </div>
@@ -66,8 +66,14 @@
         <h1>{{ msg.header_title }}</h1>
 
         <form method="get" action="/">
-            {% if mode and mode != 'modern' %}
+            {% if mode %}
             <input type="hidden" name="mode" value="{{ mode }}">
+            {% endif %}
+            {% if lang %}
+            <input type="hidden" name="lang" value="{{ lang }}">
+            {% endif %}
+            {% if preserved_search_mode %}
+            <input type="hidden" name="search_mode" value="{{ preserved_search_mode }}">
             {% endif %}
             <input type="text" name="q" value="{{ q or '' }}" placeholder="{{ msg.placeholder }}" autofocus>
             <button type="submit">{{ msg.search_button }}</button>
@@ -105,12 +111,12 @@
 
         <div class="pagination">
             {% if result.page > 1 %}
-            <a href="?q={{ q }}&page={{ result.page-1 }}{% if mode %}&mode={{ mode }}{% endif %}">{{ msg.prev_page
+            <a href="{{ prev_page_url }}">{{ msg.prev_page
                 }}</a>
             {% endif %}
             <span>{{ msg.page_info.format(page=result.page, last_page=result.last_page) }}</span>
             {% if result.page < result.last_page %} <a
-                href="?q={{ q }}&page={{ result.page+1 }}{% if mode %}&mode={{ mode }}{% endif %}">{{ msg.next_page
+                href="{{ next_page_url }}">{{ msg.next_page
                 }}</a>
                 {% endif %}
         </div>

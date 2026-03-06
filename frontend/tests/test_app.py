@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 from frontend.api.main import app
+from frontend.services.search import search_service
 
 client = TestClient(app)
 
@@ -47,3 +48,99 @@ def test_search_api_with_query():
     assert "total" in data
     assert "query" in data
     assert data["query"] == "test"
+
+
+def test_search_page_pagination_links_encode_query_and_preserve_state(monkeypatch):
+    def fake_search(
+        q: str | None,
+        k: int = 10,
+        page: int = 1,
+        mode: str = "auto",
+        *,
+        include_content: bool = False,
+    ) -> dict:
+        return {
+            "query": q,
+            "total": 25,
+            "page": page,
+            "per_page": k,
+            "last_page": 3,
+            "hits": [
+                {
+                    "url": "https://example.com",
+                    "title": "Example",
+                    "snip": "snippet",
+                    "snip_plain": "snippet",
+                    "rank": 1.0,
+                }
+            ],
+            "mode": mode,
+        }
+
+    monkeypatch.setattr(search_service, "search", fake_search)
+
+    response = client.get(
+        "/",
+        params={
+            "q": "C++ & Rust",
+            "page": "2",
+            "mode": "modern",
+            "lang": "ja",
+            "search_mode": "hybrid",
+        },
+    )
+
+    assert response.status_code == 200
+    assert (
+        'href="/?q=C%2B%2B+%26+Rust&amp;page=1&amp;mode=modern&amp;lang=ja'
+        '&amp;search_mode=hybrid"'
+    ) in response.text
+    assert (
+        'href="/?q=C%2B%2B+%26+Rust&amp;page=3&amp;mode=modern&amp;lang=ja'
+        '&amp;search_mode=hybrid"'
+    ) in response.text
+
+
+def test_search_page_form_preserves_lang_and_search_mode(monkeypatch):
+    def fake_search(
+        q: str | None,
+        k: int = 10,
+        page: int = 1,
+        mode: str = "auto",
+        *,
+        include_content: bool = False,
+    ) -> dict:
+        return {
+            "query": q,
+            "total": 25,
+            "page": page,
+            "per_page": k,
+            "last_page": 3,
+            "hits": [
+                {
+                    "url": "https://example.com",
+                    "title": "Example",
+                    "snip": "snippet",
+                    "snip_plain": "snippet",
+                    "rank": 1.0,
+                }
+            ],
+            "mode": mode,
+        }
+
+    monkeypatch.setattr(search_service, "search", fake_search)
+
+    response = client.get(
+        "/",
+        params={
+            "q": "test",
+            "mode": "simple",
+            "lang": "ja",
+            "search_mode": "hybrid",
+        },
+    )
+
+    assert response.status_code == 200
+    assert '<input type="hidden" name="mode" value="simple">' in response.text
+    assert '<input type="hidden" name="lang" value="ja">' in response.text
+    assert '<input type="hidden" name="search_mode" value="hybrid">' in response.text
