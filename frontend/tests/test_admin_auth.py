@@ -314,8 +314,9 @@ class TestSessionSecurity:
         valid_token = create_session()
         assert valid_token
 
-        # Create an almost-correct token by flipping one character.
-        invalid_token = valid_token[:-1] + ("a" if valid_token[-1] != "a" else "b")
+        payload, timestamp, signature = valid_token.split(".")
+        replacement = "A" if signature[0] != "A" else "B"
+        invalid_token = ".".join([payload, timestamp, replacement + signature[1:]])
 
         # Use a fresh client to avoid dependency-override contamination
         # from other test modules (e.g. api_key tests).
