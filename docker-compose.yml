@@ -260,6 +260,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v3.2.1
+    pull_policy: always
     restart: unless-stopped
     profiles: ["monitoring"]
     user: "0:0"
@@ -291,6 +292,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.5.2
+    pull_policy: always
     restart: unless-stopped
     profiles: ["monitoring"]
     user: "0:0"
