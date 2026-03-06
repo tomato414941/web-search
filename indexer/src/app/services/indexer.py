@@ -339,8 +339,11 @@ class IndexerService:
         try:
             conn = get_connection(self.db_path)
             cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM documents")
-            total = cur.fetchone()[0]
+            cur.execute(
+                "SELECT reltuples::bigint FROM pg_class WHERE relname = 'documents'"
+            )
+            row = cur.fetchone()
+            total = row[0] if row and row[0] >= 0 else 0
             cur.close()
             conn.close()
             return {"total": total}

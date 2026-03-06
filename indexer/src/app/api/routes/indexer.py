@@ -1,7 +1,9 @@
 """Indexer API Router - for remote crawler to submit pages."""
 
+import asyncio
 import logging
 import secrets
+import time
 from fastapi import APIRouter, HTTPException, Header
 from app.core.config import settings
 from app.services.indexer import indexer_service
@@ -24,6 +26,8 @@ index_job_service = IndexJobService(
     retry_base_seconds=settings.INDEXER_JOB_RETRY_BASE_SEC,
     retry_max_seconds=settings.INDEXER_JOB_RETRY_MAX_SEC,
 )
+
+_stats_cache: dict[str, object] = {"data": None, "expires": 0.0}
 
 
 def verify_api_key(x_api_key: str) -> None:
@@ -146,13 +150,22 @@ async def indexer_stats(x_api_key: str = Header(..., alias="X-API-Key")) -> dict
     """Indexer statistics: page count and job queue metrics."""
     verify_api_key(x_api_key)
 
-    # Get index stats
-    stats = indexer_service.get_index_stats()
-    queue_stats = index_job_service.get_queue_stats()
+    now = time.monotonic()
+    cached = _stats_cache["data"]
+    if cached is not None and now < float(_stats_cache["expires"]):
+        return cached  # type: ignore[return-value]
 
-    return {
+    stats, queue_stats = await asyncio.gather(
+        asyncio.to_thread(indexer_service.get_index_stats),
+        asyncio.to_thread(index_job_service.get_queue_stats),
+    )
+
+    payload = {
         "ok": True,
         "service": "indexer",
         "indexed_pages": stats.get("total", 0),
         **queue_stats,
     }
+    _stats_cache["data"] = payload
+    _stats_cache["expires"] = now + max(1, settings.INDEXER_STATS_CACHE_TTL_SEC)
+    return payload

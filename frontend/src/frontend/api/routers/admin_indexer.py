@@ -1,5 +1,7 @@
 """Indexer-focused admin routes."""
 
+import asyncio
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 
@@ -21,8 +23,10 @@ async def indexer_page(
     request: Request,
     _auth: None = Depends(require_admin_session),
 ):
-    health = await fetch_indexer_stats()
-    failed_jobs = await fetch_failed_jobs(limit=50)
+    health, failed_jobs = await asyncio.gather(
+        fetch_indexer_stats(),
+        fetch_failed_jobs(limit=50),
+    )
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         request,

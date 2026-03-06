@@ -28,6 +28,7 @@ class Settings(InfrastructureSettings):
 
     # Indexer Service Integration (Admin stats UI, internal-only in docker)
     INDEXER_SERVICE_URL: str = "http://localhost:8081"
+    INDEXER_ADMIN_TIMEOUT_SEC: float = 10.0
 
     @property
     def CRAWLER_INSTANCES(self) -> list[dict[str, str]]:

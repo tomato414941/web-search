@@ -44,7 +44,9 @@ async def fetch_indexer_stats() -> dict[str, Any]:
     url = f"{base_url}/api/v1/indexer/stats"
     headers = {"X-API-Key": settings.INDEXER_API_KEY}
     try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.INDEXER_ADMIN_TIMEOUT_SEC
+        ) as client:
             resp = await client.get(url, headers=headers)
             result["http_status"] = resp.status_code
             if resp.status_code != 200:
