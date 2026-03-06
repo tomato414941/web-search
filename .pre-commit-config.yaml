@@ -34,7 +34,7 @@ repos:
         files: ^frontend/
       - id: pytest-crawler
         name: pytest (crawler)
-        entry: bash -c "export INDEXER_API_KEY=test && cd crawler && ../.venv/bin/pytest tests/ -v --tb=short"
+        entry: make ci-crawler
         language: system
         types: [python]
         pass_filenames: false
@@ -42,7 +42,7 @@ repos:
         files: ^crawler/
       - id: pytest-indexer
         name: pytest (indexer)
-        entry: bash -c "export INDEXER_API_KEY=test && cd indexer && ../.venv/bin/pytest tests/ -v --tb=short"
+        entry: make ci-indexer
         language: system
         types: [python]
         pass_filenames: false
@@ -50,7 +50,7 @@ repos:
         files: ^indexer/
       - id: pytest-shared
         name: pytest (shared)
-        entry: bash -c "cd shared && ../.venv/bin/pytest tests/ -v --tb=short"
+        entry: make ci-shared
         language: system
         types: [python]
         pass_filenames: false
@@ -58,7 +58,7 @@ repos:
         files: ^shared/
       - id: pytest-mcp
         name: pytest (mcp)
-        entry: bash -c "cd mcp && PYTHONPATH=src ../.venv/bin/pytest tests/ -v --tb=short"
+        entry: make ci-mcp
         language: system
         types: [python]
         pass_filenames: false
