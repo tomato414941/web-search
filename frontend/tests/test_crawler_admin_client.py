@@ -2,23 +2,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from frontend.services.crawler_admin_client import get_crawler_instance_status
+from frontend.services.crawler_admin_client import (
+    fetch_seeds_page,
+    get_crawler_instance_status,
+)
 
 
 @pytest.mark.asyncio
 async def test_get_crawler_instance_status_maps_extended_metrics():
-    queue_resp = MagicMock()
-    queue_resp.status_code = 200
-    queue_resp.json.return_value = {"queue_size": 11, "active_seen": 22}
-
-    worker_resp = MagicMock()
-    worker_resp.status_code = 200
-    worker_resp.json.return_value = {
-        "status": "running",
-        "uptime_seconds": 123.4,
-        "concurrency": 4,
-    }
-
     stats_resp = MagicMock()
     stats_resp.status_code = 200
     stats_resp.json.return_value = {
@@ -37,7 +28,7 @@ async def test_get_crawler_instance_status_maps_extended_metrics():
         "frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [queue_resp, worker_resp, stats_resp]
+        mock_instance.get.return_value = stats_resp
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         result = await get_crawler_instance_status("http://crawler:8000")
@@ -55,17 +46,11 @@ async def test_get_crawler_instance_status_maps_extended_metrics():
 
 @pytest.mark.asyncio
 async def test_get_crawler_instance_status_attempts_fallback_to_crawl_rate():
-    queue_resp = MagicMock()
-    queue_resp.status_code = 200
-    queue_resp.json.return_value = {"queue_size": 3, "active_seen": 9}
-
-    worker_resp = MagicMock()
-    worker_resp.status_code = 500
-    worker_resp.json.return_value = {}
-
     stats_resp = MagicMock()
     stats_resp.status_code = 200
     stats_resp.json.return_value = {
+        "queue_size": 3,
+        "active_seen": 9,
         "crawl_rate_1h": 12,
         "indexed_count_1h": 6,
         "success_rate_1h": 50.0,
@@ -79,7 +64,7 @@ async def test_get_crawler_instance_status_attempts_fallback_to_crawl_rate():
         "frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [queue_resp, worker_resp, stats_resp]
+        mock_instance.get.return_value = stats_resp
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         result = await get_crawler_instance_status("http://crawler:8000")
@@ -91,3 +76,33 @@ async def test_get_crawler_instance_status_attempts_fallback_to_crawl_rate():
     assert result["error_1h"] == 2
     assert result["uptime"] == 77.7
     assert result["concurrency"] == 2
+
+
+@pytest.mark.asyncio
+async def test_fetch_seeds_page_maps_paginated_response():
+    seeds_resp = MagicMock()
+    seeds_resp.status_code = 200
+    seeds_resp.json.return_value = {
+        "items": [
+            {"url": "https://example.com", "status": "done"},
+            {"url": "https://example.org", "status": "pending"},
+        ],
+        "total": 7,
+        "limit": 2,
+        "offset": 2,
+    }
+
+    with patch(
+        "frontend.services.crawler_admin_client.httpx.AsyncClient"
+    ) as mock_client:
+        mock_instance = AsyncMock()
+        mock_instance.get.return_value = seeds_resp
+        mock_client.return_value.__aenter__.return_value = mock_instance
+
+        result = await fetch_seeds_page(page=2, per_page=2)
+
+    assert result["items"][0]["url"] == "https://example.com"
+    assert result["total"] == 7
+    assert result["page"] == 2
+    assert result["per_page"] == 2
+    assert result["last_page"] == 4

@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from typing import Any
 
 from frontend.core.config import settings
@@ -73,10 +74,12 @@ async def get_dashboard_data() -> dict[str, Any]:
     except Exception as exc:
         logger.warning(f"Failed to get DB stats: {exc}")
 
-    data["status_breakdown"] = await fetch_status_breakdown()
+    data["status_breakdown"], stats = await asyncio.gather(
+        fetch_status_breakdown(),
+        fetch_stats(),
+    )
 
     crawler_reachable = False
-    stats = await fetch_stats()
     if stats:
         crawler_reachable = True
         data["queue_size"] = stats.get("queue_size", 0)

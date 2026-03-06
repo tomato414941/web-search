@@ -181,3 +181,56 @@ def test_stats_endpoint_includes_extended_metrics(test_client, reset_worker_mana
     assert data["success_rate_1h"] == 60.0
     assert data["error_count_1h"] == 1
     assert data["concurrency"] == 2
+
+
+def test_status_breakdown_endpoint_uses_cache(test_client):
+    from app.api.routes.stats import _breakdown_cache
+
+    _breakdown_cache.clear()
+
+    with patch(
+        "app.api.routes.stats.run_in_db_executor",
+        return_value={"indexed": 3, "blocked": 1},
+    ) as mock_exec:
+        first = test_client.get("/api/v1/stats/breakdown?hours=1")
+        second = test_client.get("/api/v1/stats/breakdown?hours=1")
+
+    _breakdown_cache.clear()
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["total"] == 4
+    assert second.json()["indexed"] == 3
+    assert mock_exec.call_count == 1
+
+
+def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
+    from app.api.routes.seeds import _clear_seeds_cache
+
+    _clear_seeds_cache()
+    test_url_store.add_batch(
+        [
+            "https://example.com/1",
+            "https://example.com/2",
+            "https://example.com/3",
+        ]
+    )
+    test_url_store.mark_seeds(
+        [
+            "https://example.com/1",
+            "https://example.com/2",
+            "https://example.com/3",
+        ]
+    )
+
+    with patch("app.api.deps._get_url_store", return_value=test_url_store):
+        response = test_client.get("/api/v1/seeds?limit=2&offset=0&include_total=true")
+
+    _clear_seeds_cache()
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 3
+    assert data["limit"] == 2
+    assert data["offset"] == 0
+    assert len(data["items"]) == 2

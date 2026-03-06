@@ -68,13 +68,28 @@ class UrlSeedsMixin:
             )
             return cur.rowcount
 
-    def get_seeds(self) -> list[dict]:
-        """Get all URLs marked as seeds."""
+    def count_seeds(self) -> int:
+        """Count URLs marked as seeds."""
         with db_connection(self.db_path) as cur:
-            cur.execute(
-                "SELECT url, domain, crawl_count, created_at, last_crawled_at"
-                " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
-            )
+            cur.execute("SELECT COUNT(*) FROM urls WHERE is_seed = TRUE")
+            return cur.fetchone()[0]
+
+    def get_seeds(self, limit: int | None = None, offset: int = 0) -> list[dict]:
+        """Get URLs marked as seeds."""
+        with db_connection(self.db_path) as cur:
+            if limit is None:
+                cur.execute(
+                    "SELECT url, domain, crawl_count, created_at, last_crawled_at"
+                    " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
+                )
+            else:
+                ph = sql_placeholder()
+                cur.execute(
+                    "SELECT url, domain, crawl_count, created_at, last_crawled_at"
+                    " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
+                    f" LIMIT {ph} OFFSET {ph}",
+                    (limit, max(0, offset)),
+                )
             return [
                 {
                     "url": row[0],

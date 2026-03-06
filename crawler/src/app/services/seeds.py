@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 
 from app.db.url_store import UrlStore
-from app.models.seeds import SeedItem
+from app.models.seeds import SeedItem, SeedListResponse
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,8 @@ class SeedService:
     def __init__(self, url_store: UrlStore):
         self.url_store = url_store
 
-    def list_seeds(self) -> list[SeedItem]:
-        """Get all registered seeds from the urls table."""
-        rows = self.url_store.get_seeds()
+    @staticmethod
+    def _build_seed_items(rows: list[dict]) -> list[SeedItem]:
         return [
             SeedItem(
                 url=row["url"],
@@ -33,6 +32,20 @@ class SeedService:
             )
             for row in rows
         ]
+
+    def list_seeds(self) -> list[SeedItem]:
+        """Get all registered seeds from the urls table."""
+        return self._build_seed_items(self.url_store.get_seeds())
+
+    def list_seeds_page(self, *, limit: int, offset: int) -> SeedListResponse:
+        """Get paginated seeds with total count."""
+        rows = self.url_store.get_seeds(limit=limit, offset=offset)
+        return SeedListResponse(
+            items=self._build_seed_items(rows),
+            total=self.url_store.count_seeds(),
+            limit=limit,
+            offset=offset,
+        )
 
     def add_seeds(self, urls: list[str]) -> int:
         """

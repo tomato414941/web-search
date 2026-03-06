@@ -18,8 +18,10 @@ router = APIRouter()
 
 _stats_cache: dict[str, Any] = {"data": None, "expires": 0}
 _frontier_cache: dict[str, Any] = {"data": None, "expires": 0}
+_breakdown_cache: dict[int | None, dict[str, Any]] = {}
 _STATS_TTL = 30
-_FRONTIER_TTL = 60
+_FRONTIER_TTL = 300
+_BREAKDOWN_TTL = 60
 
 
 @router.get("/stats")
@@ -129,6 +131,11 @@ async def get_status_breakdown(
     ),
 ):
     """Status breakdown of crawl attempts."""
+    now = time.monotonic()
+    cached = _breakdown_cache.get(hours)
+    if cached is not None and now < cached["expires"]:
+        return cached["data"]
+
     from app.utils.history import get_status_counts
 
     status_counts = await run_in_db_executor(get_status_counts, hours)
@@ -150,10 +157,12 @@ async def get_status_breakdown(
         reverse=True,
     )
 
-    return {
+    result = {
         "total": total,
         "indexed": indexed,
         "index_rate_pct": index_rate_pct,
         "hours": hours,
         "breakdown": breakdown,
     }
+    _breakdown_cache[hours] = {"data": result, "expires": now + _BREAKDOWN_TTL}
+    return result

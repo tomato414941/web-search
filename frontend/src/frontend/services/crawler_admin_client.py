@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 from typing import Any
 
 import httpx
@@ -56,16 +57,48 @@ async def fetch_status_breakdown(
 
 
 async def fetch_seeds() -> list[dict[str, Any]]:
+    """Backward-compatible helper returning the first seed page items."""
+    return (await fetch_seeds_page())["items"]
+
+
+async def fetch_seeds_page(
+    page: int = 1, per_page: int = settings.ADMIN_SEEDS_PER_PAGE
+) -> dict[str, Any]:
+    page = max(1, page)
+    per_page = max(1, per_page)
+    offset = (page - 1) * per_page
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds", headers=_auth_headers()
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/seeds",
+                params={"limit": per_page, "offset": offset, "include_total": "true"},
+                headers=_auth_headers(),
             )
             if resp.status_code == 200:
-                return resp.json()
+                data = resp.json()
+                items = data.get("items", []) if isinstance(data, dict) else data
+                total = (
+                    data.get("total", len(items))
+                    if isinstance(data, dict)
+                    else len(items)
+                )
+                last_page = max(1, math.ceil(total / per_page))
+                return {
+                    "items": items,
+                    "total": total,
+                    "page": page,
+                    "per_page": per_page,
+                    "last_page": last_page,
+                }
     except httpx.RequestError as exc:
         logger.warning(f"Failed to fetch seeds from crawler: {exc}")
-    return []
+    return {
+        "items": [],
+        "total": 0,
+        "page": page,
+        "per_page": per_page,
+        "last_page": 1,
+    }
 
 
 async def fetch_frontier_stats() -> dict[str, Any] | None:
@@ -192,37 +225,23 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
     try:
         headers = _auth_headers()
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{url}/api/v1/status", headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                status["queue_size"] = data.get("queue_size", 0)
-                status["active_seen"] = data.get("active_seen", 0)
-
-            resp = await client.get(f"{url}/api/v1/worker/status", headers=headers)
-            if resp.status_code == 200:
-                worker = resp.json()
-                status["state"] = worker.get("status", "unknown")
-                status["uptime"] = worker.get("uptime", worker.get("uptime_seconds"))
-                status["concurrency"] = worker.get("concurrency")
-
             resp = await client.get(f"{url}/api/v1/stats", headers=headers)
-            if resp.status_code == 200:
-                stats = resp.json()
-                status["attempts_1h"] = stats.get(
-                    "attempts_count_1h",
-                    stats.get("crawl_rate_1h"),
-                )
-                status["indexed_1h"] = stats.get("indexed_count_1h")
-                status["success_rate_1h"] = stats.get("success_rate_1h")
-                status["error_1h"] = stats.get("error_count_1h")
-                status["queue_size"] = stats.get("queue_size", status["queue_size"])
-                status["active_seen"] = stats.get("active_seen", status["active_seen"])
-                if status["state"] == "unreachable":
-                    status["state"] = stats.get("worker_status", "unknown")
-                if status["uptime"] is None:
-                    status["uptime"] = stats.get("uptime_seconds")
-                if status["concurrency"] is None:
-                    status["concurrency"] = stats.get("concurrency")
+            if resp.status_code != 200:
+                return status
+
+            stats = resp.json()
+            status["state"] = stats.get("worker_status", "unknown")
+            status["queue_size"] = stats.get("queue_size", 0)
+            status["active_seen"] = stats.get("active_seen", 0)
+            status["uptime"] = stats.get("uptime_seconds", stats.get("uptime"))
+            status["concurrency"] = stats.get("concurrency")
+            status["attempts_1h"] = stats.get(
+                "attempts_count_1h",
+                stats.get("crawl_rate_1h"),
+            )
+            status["indexed_1h"] = stats.get("indexed_count_1h")
+            status["success_rate_1h"] = stats.get("success_rate_1h")
+            status["error_1h"] = stats.get("error_count_1h")
     except httpx.RequestError as exc:
         logger.debug(f"Crawler instance {url} unreachable: {exc}")
     return status

@@ -53,3 +53,12 @@ class SeedResponse(BaseModel):
 
     status: str = Field(default="ok")
     count: int = Field(default=0, description="Number of seeds affected")
+
+
+class SeedListResponse(BaseModel):
+    """Paginated seed list response."""
+
+    items: list[SeedItem] = Field(default_factory=list)
+    total: int = Field(default=0)
+    limit: int = Field(default=0)
+    offset: int = Field(default=0)

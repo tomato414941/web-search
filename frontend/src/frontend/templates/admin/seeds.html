@@ -43,6 +43,7 @@
 
     <div class="card">
         <h2>Registered Seeds</h2>
+        {% set seeds = seed_page.items %}
         <div class="table-scroll">
             <table class="admin-table">
                 <thead>
@@ -76,6 +77,16 @@
                     {% endif %}
                 </tbody>
             </table>
+        </div>
+        <div class="muted" style="margin-top: 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <span>Total: {{ "{:,}".format(seed_page.total or 0) }}</span>
+            <span>Page {{ seed_page.page }} / {{ seed_page.last_page }}</span>
+            {% if seed_page.page > 1 %}
+            <a href="/admin/seeds?page={{ seed_page.page - 1 }}">Previous</a>
+            {% endif %}
+            {% if seed_page.page < seed_page.last_page %}
+            <a href="/admin/seeds?page={{ seed_page.page + 1 }}">Next</a>
+            {% endif %}
         </div>
     </div>
 </div>

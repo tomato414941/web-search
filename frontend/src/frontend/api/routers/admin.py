@@ -27,7 +27,7 @@ from frontend.services.api_key import (
 from frontend.services.crawler_admin_client import (
     fetch_frontier_stats,
     fetch_history,
-    fetch_seeds,
+    fetch_seeds_page,
     import_tranco as import_tranco_seeds,
     add_seed as crawler_add_seed,
     delete_seed as crawler_delete_seed,
@@ -127,18 +127,19 @@ async def dashboard(
 @router.get("/seeds")
 async def seeds_page(
     request: Request,
+    page: int = 1,
     success: str = "",
     error: str = "",
     _auth: None = Depends(require_admin_session),
 ):
-    seeds = await fetch_seeds()
+    seed_page = await fetch_seeds_page(page=page)
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         request,
         "admin/seeds.html",
         {
             "request": request,
-            "seeds": seeds,
+            "seed_page": seed_page,
             "success": success,
             "error": error,
             "csrf_token": csrf_token,
