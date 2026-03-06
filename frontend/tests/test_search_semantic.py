@@ -92,6 +92,50 @@ class TestHybridFallbackOnError:
         assert isinstance(result, dict)
         assert "hits" in result
 
+    def test_hybrid_search_strips_operators_before_embedding(self, monkeypatch):
+        import shared.opensearch.search as opensearch_search
+        from frontend.services.search import search_service
+
+        embed = MagicMock(return_value=np.zeros(1536, dtype=np.float32))
+        captured = {}
+
+        def fake_search_hybrid(
+            client,
+            query_tokens,
+            embedding,
+            limit,
+            offset,
+            site_filter=None,
+            exact_phrases=(),
+            exclude_terms=(),
+            exclude_phrases=(),
+        ):
+            captured["query_tokens"] = query_tokens
+            captured["site_filter"] = site_filter
+            captured["exact_phrases"] = exact_phrases
+            captured["exclude_terms"] = exclude_terms
+            captured["exclude_phrases"] = exclude_phrases
+            return {"total": 0, "hits": []}
+
+        monkeypatch.setattr(search_service, "_embed_query", embed)
+        monkeypatch.setattr(search_service, "_os_client", MagicMock())
+        monkeypatch.setattr(opensearch_search, "search_hybrid", fake_search_hybrid)
+
+        result = search_service._run_opensearch_query(
+            'site:github.com Python "open source" -java',
+            10,
+            1,
+            with_embedding=True,
+        )
+
+        embed.assert_called_once_with("Python open source")
+        assert captured["query_tokens"] == "python"
+        assert captured["site_filter"] == "github.com"
+        assert captured["exact_phrases"] == ("open source",)
+        assert captured["exclude_terms"] == ("java",)
+        assert captured["exclude_phrases"] == ()
+        assert result.total == 0
+
 
 class TestAPISearchMode:
     def test_api_accepts_mode_parameter(self):

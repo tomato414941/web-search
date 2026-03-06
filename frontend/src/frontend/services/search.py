@@ -232,8 +232,12 @@ class SearchService:
     def _format_result(
         self, q: str, result: Any, *, include_content: bool = False
     ) -> dict[str, Any]:
-        analyzed_q = analyzer.tokenize(q)
-        search_terms = analyzed_q.split() if analyzed_q.strip() else [q]
+        from shared.search_kernel.searcher import parse_query
+
+        parsed = parse_query(q)
+        positive_query = parsed.positive_text() or parsed.text or q
+        analyzed_q = analyzer.tokenize(positive_query)
+        search_terms = analyzed_q.split() if analyzed_q.strip() else [positive_query]
 
         hits = []
         for hit in result.hits:
@@ -302,8 +306,24 @@ class SearchService:
 
         parsed = parse_query(q)
         tokens = analyzer.tokenize(parsed.text) if parsed.text else ""
+        exact_phrases = tuple(
+            tokenized
+            for phrase in parsed.exact_phrases
+            if (tokenized := analyzer.tokenize(phrase).strip())
+        )
+        exclude_terms = tuple(
+            tokenized
+            for term in parsed.exclude_terms
+            if (tokenized := analyzer.tokenize(term).strip())
+        )
+        exclude_phrases = tuple(
+            tokenized
+            for phrase in parsed.exclude_phrases
+            if (tokenized := analyzer.tokenize(phrase).strip())
+        )
+        positive_query = parsed.positive_text()
 
-        if not tokens.strip():
+        if not tokens.strip() and not exact_phrases:
             return SearchResult(
                 query=q, total=0, hits=[], page=1, per_page=k, last_page=1
             )
@@ -311,7 +331,7 @@ class SearchService:
         embedding = None
         if with_embedding and self._embed_query is not None:
             try:
-                vec = self._embed_query(q)
+                vec = self._embed_query(positive_query)
                 if vec is not None:
                     embedding = vec.tolist()
             except Exception:
@@ -337,6 +357,9 @@ class SearchService:
                 limit=fetch_size,
                 offset=fetch_offset,
                 site_filter=parsed.site_filter,
+                exact_phrases=exact_phrases,
+                exclude_terms=exclude_terms,
+                exclude_phrases=exclude_phrases,
             )
         else:
             os_result = search_bm25(
@@ -345,6 +368,9 @@ class SearchService:
                 limit=fetch_size,
                 offset=fetch_offset,
                 site_filter=parsed.site_filter,
+                exact_phrases=exact_phrases,
+                exclude_terms=exclude_terms,
+                exclude_phrases=exclude_phrases,
             )
 
         hits = [
@@ -368,7 +394,7 @@ class SearchService:
         total = os_result["total"]
 
         # Scope match: re-rank by query intent × document type affinity
-        intent = classify_query_intent(q)
+        intent = classify_query_intent(positive_query or q)
         if intent.value != "unknown":
             for hit in hits:
                 doc_type = classify_document_type(hit.url)

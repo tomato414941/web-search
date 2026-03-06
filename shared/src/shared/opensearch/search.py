@@ -18,6 +18,9 @@ def search_bm25(
     limit: int = 10,
     offset: int = 0,
     site_filter: str | None = None,
+    exact_phrases: tuple[str, ...] = (),
+    exclude_terms: tuple[str, ...] = (),
+    exclude_phrases: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """BM25 search with authority and freshness boosting.
 
@@ -27,33 +30,23 @@ def search_bm25(
         limit: Number of results to return
         offset: Pagination offset
         site_filter: Optional domain filter (e.g. "example.com")
+        exact_phrases: Optional exact phrases that must match
+        exclude_terms: Optional terms that must not match
+        exclude_phrases: Optional exact phrases that must not match
 
     Returns:
         Dict with 'total', 'hits' list of {url, title, content, score}
     """
-    must_clause: dict[str, Any] = {
-        "multi_match": {
-            "query": query_tokens,
-            "fields": ["title^3", "content"],
-            "type": "cross_fields",
-            "operator": "and",
-            "minimum_should_match": _min_should_match(query_tokens),
-        }
-    }
-
-    filter_clauses: list[dict[str, Any]] = []
-    if site_filter:
-        filter_clauses.append({"wildcard": {"url": {"value": f"*{site_filter}*"}}})
-
     query: dict[str, Any] = {
         "query": {
             "function_score": {
-                "query": {
-                    "bool": {
-                        "must": [must_clause],
-                        "filter": filter_clauses,
-                    }
-                },
+                "query": _build_bm25_bool_query(
+                    query_tokens,
+                    site_filter=site_filter,
+                    exact_phrases=exact_phrases,
+                    exclude_terms=exclude_terms,
+                    exclude_phrases=exclude_phrases,
+                ),
                 "functions": [
                     {
                         "field_value_factor": {
@@ -139,6 +132,9 @@ def search_hybrid(
     limit: int = 10,
     offset: int = 0,
     site_filter: str | None = None,
+    exact_phrases: tuple[str, ...] = (),
+    exclude_terms: tuple[str, ...] = (),
+    exclude_phrases: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Hybrid search combining BM25 and k-NN vector search.
 
@@ -151,24 +147,13 @@ def search_hybrid(
         limit: Number of results
         offset: Pagination offset
         site_filter: Optional domain filter
+        exact_phrases: Optional exact phrases that must match
+        exclude_terms: Optional terms that must not match
+        exclude_phrases: Optional exact phrases that must not match
 
     Returns:
         Dict with 'total', 'hits' list
     """
-    filter_clauses: list[dict[str, Any]] = []
-    if site_filter:
-        filter_clauses.append({"wildcard": {"url": {"value": f"*{site_filter}*"}}})
-
-    bm25_query: dict[str, Any] = {
-        "multi_match": {
-            "query": query_tokens,
-            "fields": ["title^3", "content"],
-            "type": "cross_fields",
-            "operator": "and",
-            "minimum_should_match": _min_should_match(query_tokens),
-        }
-    }
-
     knn_query: dict[str, Any] = {
         "knn": {
             "embedding": {
@@ -180,11 +165,14 @@ def search_hybrid(
 
     query: dict[str, Any] = {
         "query": {
-            "bool": {
-                "should": [bm25_query, knn_query],
-                "filter": filter_clauses,
-                "minimum_should_match": 1,
-            }
+            "bool": _build_hybrid_bool_query(
+                query_tokens,
+                knn_query=knn_query,
+                site_filter=site_filter,
+                exact_phrases=exact_phrases,
+                exclude_terms=exclude_terms,
+                exclude_phrases=exclude_phrases,
+            )
         },
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
@@ -240,3 +228,112 @@ def _min_should_match(query_tokens: str) -> str:
         return "60%"
     else:
         return "50%"
+
+
+def _build_bm25_bool_query(
+    query_tokens: str,
+    *,
+    site_filter: str | None = None,
+    exact_phrases: tuple[str, ...] = (),
+    exclude_terms: tuple[str, ...] = (),
+    exclude_phrases: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    bool_query: dict[str, Any] = {}
+
+    must_clauses = _build_positive_clauses(query_tokens, exact_phrases)
+    if must_clauses:
+        bool_query["must"] = must_clauses
+
+    filter_clauses = _build_filter_clauses(site_filter)
+    if filter_clauses:
+        bool_query["filter"] = filter_clauses
+
+    must_not_clauses = _build_negative_clauses(exclude_terms, exclude_phrases)
+    if must_not_clauses:
+        bool_query["must_not"] = must_not_clauses
+
+    return {"bool": bool_query}
+
+
+def _build_hybrid_bool_query(
+    query_tokens: str,
+    *,
+    knn_query: dict[str, Any],
+    site_filter: str | None = None,
+    exact_phrases: tuple[str, ...] = (),
+    exclude_terms: tuple[str, ...] = (),
+    exclude_phrases: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    bool_query: dict[str, Any] = {
+        "should": _build_should_clauses(query_tokens, knn_query),
+        "minimum_should_match": 1,
+    }
+
+    must_clauses = [_build_phrase_clause(phrase) for phrase in exact_phrases if phrase]
+    if must_clauses:
+        bool_query["must"] = must_clauses
+
+    filter_clauses = _build_filter_clauses(site_filter)
+    if filter_clauses:
+        bool_query["filter"] = filter_clauses
+
+    must_not_clauses = _build_negative_clauses(exclude_terms, exclude_phrases)
+    if must_not_clauses:
+        bool_query["must_not"] = must_not_clauses
+
+    return bool_query
+
+
+def _build_should_clauses(
+    query_tokens: str, knn_query: dict[str, Any]
+) -> list[dict[str, Any]]:
+    should_clauses = [knn_query]
+    if query_tokens:
+        should_clauses.insert(0, _build_text_clause(query_tokens))
+    return should_clauses
+
+
+def _build_positive_clauses(
+    query_tokens: str, exact_phrases: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    clauses: list[dict[str, Any]] = []
+    if query_tokens:
+        clauses.append(_build_text_clause(query_tokens))
+    clauses.extend(_build_phrase_clause(phrase) for phrase in exact_phrases if phrase)
+    return clauses
+
+
+def _build_negative_clauses(
+    exclude_terms: tuple[str, ...], exclude_phrases: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    clauses = [_build_text_clause(term) for term in exclude_terms if term]
+    clauses.extend(_build_phrase_clause(phrase) for phrase in exclude_phrases if phrase)
+    return clauses
+
+
+def _build_filter_clauses(site_filter: str | None) -> list[dict[str, Any]]:
+    if not site_filter:
+        return []
+    return [{"wildcard": {"url": {"value": f"*{site_filter}*"}}}]
+
+
+def _build_text_clause(query_tokens: str) -> dict[str, Any]:
+    return {
+        "multi_match": {
+            "query": query_tokens,
+            "fields": ["title^3", "content"],
+            "type": "cross_fields",
+            "operator": "and",
+            "minimum_should_match": _min_should_match(query_tokens),
+        }
+    }
+
+
+def _build_phrase_clause(phrase_tokens: str) -> dict[str, Any]:
+    return {
+        "multi_match": {
+            "query": phrase_tokens,
+            "fields": ["title^3", "content"],
+            "type": "phrase",
+        }
+    }

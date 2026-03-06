@@ -155,6 +155,9 @@ class TestParseQuery:
         parsed = parse_query("Python tutorial")
         assert parsed.text == "Python tutorial"
         assert parsed.site_filter is None
+        assert parsed.exact_phrases == ()
+        assert parsed.exclude_terms == ()
+        assert parsed.exclude_phrases == ()
 
     def test_site_operator(self):
         parsed = parse_query("Python site:github.com")
@@ -174,3 +177,24 @@ class TestParseQuery:
         parsed = parse_query("site:example.com")
         assert parsed.text == ""
         assert parsed.site_filter == "example.com"
+
+    def test_exact_phrase_operator(self):
+        parsed = parse_query('Python "open source" tutorial')
+        assert parsed.text == "Python tutorial"
+        assert parsed.exact_phrases == ("open source",)
+
+    def test_exclude_term_operator(self):
+        parsed = parse_query("Python tutorial -java")
+        assert parsed.text == "Python tutorial"
+        assert parsed.exclude_terms == ("java",)
+
+    def test_combined_operators(self):
+        parsed = parse_query(
+            'site:github.com Python "open source" -java -"machine learning"'
+        )
+        assert parsed.text == "Python"
+        assert parsed.site_filter == "github.com"
+        assert parsed.exact_phrases == ("open source",)
+        assert parsed.exclude_terms == ("java",)
+        assert parsed.exclude_phrases == ("machine learning",)
+        assert parsed.positive_text() == "Python open source"

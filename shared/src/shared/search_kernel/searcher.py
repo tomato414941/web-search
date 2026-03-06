@@ -56,16 +56,56 @@ class ParsedQuery:
 
     text: str
     site_filter: str | None = None
+    exact_phrases: tuple[str, ...] = ()
+    exclude_terms: tuple[str, ...] = ()
+    exclude_phrases: tuple[str, ...] = ()
+
+    def positive_text(self) -> str:
+        """Return the positive query text without operators."""
+        parts = [self.text, *self.exact_phrases]
+        return " ".join(part for part in parts if part)
 
 
-_SITE_RE = re.compile(r"\bsite:(\S+)", re.IGNORECASE)
+_SITE_RE = re.compile(r"(?<!\S)site:(\S+)", re.IGNORECASE)
+_NEGATED_PHRASE_RE = re.compile(r'(?<!\S)-"([^"]+)"')
+_PHRASE_RE = re.compile(r'"([^"]+)"')
+_NEGATED_TERM_RE = re.compile(r"(?<!\S)-(\S+)")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _extract_values(
+    raw: str,
+    pattern: re.Pattern[str],
+    *,
+    normalize: Callable[[str], str] | None = None,
+) -> tuple[str, tuple[str, ...]]:
+    values: list[str] = []
+
+    def replace(match: re.Match[str]) -> str:
+        value = match.group(1).strip()
+        if normalize is not None:
+            value = normalize(value)
+        if value:
+            values.append(value)
+        return " "
+
+    return pattern.sub(replace, raw), tuple(values)
+
+
+def _normalize_whitespace(raw: str) -> str:
+    return _WHITESPACE_RE.sub(" ", raw).strip()
 
 
 def parse_query(raw: str) -> ParsedQuery:
-    """Extract query operators (site:) from raw query string."""
-    site_filter = None
-    match = _SITE_RE.search(raw)
-    if match:
-        site_filter = match.group(1).lower()
-        raw = raw[: match.start()] + raw[match.end() :]
-    return ParsedQuery(text=raw.strip(), site_filter=site_filter)
+    """Extract query operators from raw query string."""
+    raw, site_filters = _extract_values(raw, _SITE_RE, normalize=str.lower)
+    raw, exclude_phrases = _extract_values(raw, _NEGATED_PHRASE_RE)
+    raw, exact_phrases = _extract_values(raw, _PHRASE_RE)
+    raw, exclude_terms = _extract_values(raw, _NEGATED_TERM_RE)
+    return ParsedQuery(
+        text=_normalize_whitespace(raw),
+        site_filter=site_filters[-1] if site_filters else None,
+        exact_phrases=exact_phrases,
+        exclude_terms=exclude_terms,
+        exclude_phrases=exclude_phrases,
+    )

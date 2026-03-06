@@ -22,6 +22,12 @@ Full-text web search with BM25 ranking and AI-optimized ranking signals.
 *   `page` (int, default=1): Page number.
 *   `mode` (string, default=`auto`): Search mode — `auto`, `bm25`, `hybrid`, or `semantic`.
 
+**Query operators:**
+*   `site:example.com` limits results to a domain.
+*   `"exact phrase"` requires an exact phrase match.
+*   `-keyword` excludes results containing a term.
+*   `-"exact phrase"` excludes results containing an exact phrase.
+
 **Search Modes:**
 
 | Mode | Description |

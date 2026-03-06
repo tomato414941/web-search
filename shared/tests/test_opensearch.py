@@ -9,6 +9,7 @@ from shared.opensearch.client import (
     index_document,
 )
 from shared.opensearch.mapping import INDEX_SETTINGS, ensure_index
+from shared.opensearch.search import search_bm25, search_hybrid
 
 
 class TestIndexDocument:
@@ -116,3 +117,50 @@ class TestEnsureIndex:
         result = ensure_index(client)
         assert result is False
         client.indices.create.assert_not_called()
+
+
+class TestSearchQueries:
+    def test_search_bm25_includes_phrase_and_exclusions(self):
+        client = MagicMock()
+        client.search.return_value = {"hits": {"total": {"value": 0}, "hits": []}}
+
+        search_bm25(
+            client,
+            query_tokens="python tutorial",
+            site_filter="github.com",
+            exact_phrases=("open source",),
+            exclude_terms=("java",),
+            exclude_phrases=("machine learning",),
+        )
+
+        body = client.search.call_args.kwargs["body"]
+        bool_query = body["query"]["function_score"]["query"]["bool"]
+
+        assert bool_query["filter"] == [
+            {"wildcard": {"url": {"value": "*github.com*"}}}
+        ]
+        assert len(bool_query["must"]) == 2
+        assert bool_query["must"][0]["multi_match"]["type"] == "cross_fields"
+        assert bool_query["must"][1]["multi_match"]["type"] == "phrase"
+        assert len(bool_query["must_not"]) == 2
+        assert bool_query["must_not"][0]["multi_match"]["query"] == "java"
+        assert bool_query["must_not"][1]["multi_match"]["query"] == "machine learning"
+
+    def test_search_hybrid_allows_phrase_only_query(self):
+        client = MagicMock()
+        client.search.return_value = {"hits": {"total": {"value": 0}, "hits": []}}
+
+        search_hybrid(
+            client,
+            query_tokens="",
+            embedding=[0.1, 0.2],
+            exact_phrases=("open source",),
+        )
+
+        body = client.search.call_args.kwargs["body"]
+        bool_query = body["query"]["bool"]
+
+        assert bool_query["minimum_should_match"] == 1
+        assert len(bool_query["should"]) == 1
+        assert "knn" in bool_query["should"][0]
+        assert bool_query["must"][0]["multi_match"]["type"] == "phrase"
