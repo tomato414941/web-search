@@ -182,31 +182,19 @@ class TestHybridFallbackOnError:
 
 
 class TestAPISearchMode:
-    def test_api_accepts_mode_parameter(self):
-        from fastapi.testclient import TestClient
-        from frontend.api.main import app
-
-        client = TestClient(app)
+    def test_api_accepts_mode_parameter(self, client):
         resp = client.get("/api/v1/search", params={"q": "test", "mode": "bm25"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["mode"] == "bm25"
 
-    def test_api_invalid_mode_defaults_to_auto(self):
-        from fastapi.testclient import TestClient
-        from frontend.api.main import app
-
-        client = TestClient(app)
+    def test_api_invalid_mode_defaults_to_auto(self, client):
         resp = client.get("/api/v1/search", params={"q": "test", "mode": "invalid"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["mode"] == "auto"
 
-    def test_api_no_mode_defaults_to_auto(self):
-        from fastapi.testclient import TestClient
-        from frontend.api.main import app
-
-        client = TestClient(app)
+    def test_api_no_mode_defaults_to_auto(self, client):
         resp = client.get("/api/v1/search", params={"q": "test"})
         assert resp.status_code == 200
         data = resp.json()

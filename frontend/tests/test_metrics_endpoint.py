@@ -1,9 +1,4 @@
-from fastapi.testclient import TestClient
-
-from frontend.api.main import app
 from frontend.api.metrics import REQUEST_COUNT
-
-client = TestClient(app)
 
 
 def _request_count_total() -> float:
@@ -15,7 +10,7 @@ def _request_count_total() -> float:
     return total
 
 
-def test_metrics_scrape_does_not_increment_request_counter():
+def test_metrics_scrape_does_not_increment_request_counter(client):
     before = _request_count_total()
 
     response = client.get("/api/v1/metrics")

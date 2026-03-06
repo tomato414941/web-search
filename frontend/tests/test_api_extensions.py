@@ -1,11 +1,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
-from fastapi.testclient import TestClient
-from frontend.api.main import app
-
-client = TestClient(app)
 
 
-def test_api_stats():
+def test_api_stats(client):
     from frontend.api.routers.stats import _stats_cache
 
     _stats_cache["data"] = None
@@ -24,7 +20,7 @@ def test_api_stats():
     assert isinstance(data["index"]["indexed"], int)
 
 
-def test_api_crawl_success():
+def test_api_crawl_success(client):
     # Attempt to queue a valid URL
     # We use a unique URL to hopefully trigger "Queued" logic,
     # but even if "Already seen", it returns 200.
@@ -47,7 +43,7 @@ def test_api_crawl_success():
         assert data["message"] == "Queued"
 
 
-def test_api_stats_maps_crawler_contract_fields():
+def test_api_stats_maps_crawler_contract_fields(client):
     from frontend.api.routers.stats import _stats_cache
 
     _stats_cache["data"] = None
@@ -75,7 +71,7 @@ def test_api_stats_maps_crawler_contract_fields():
     assert data["index"]["indexed"] == 42
 
 
-def test_api_crawl_empty_url():
+def test_api_crawl_empty_url(client):
     # My code returns 400 if url is empty string
     payload = {"url": "   "}
     response = client.post("/api/v1/crawl", json=payload)
@@ -83,7 +79,7 @@ def test_api_crawl_empty_url():
     assert response.json() == {"error": "URL is required"}
 
 
-def test_api_crawl_missing_field():
+def test_api_crawl_missing_field(client):
     # Pydantic validation error (422)
     payload = {"other": "value"}
     response = client.post("/api/v1/crawl", json=payload)

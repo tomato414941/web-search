@@ -1,38 +1,34 @@
-from fastapi.testclient import TestClient
-from frontend.api.main import app
 from frontend.services.search import search_service
 
-client = TestClient(app)
 
-
-def test_health():
+def test_health(client):
     response = client.get("/healthz")
     assert response.status_code == 200
     data = response.json()
     assert data["ok"] is True
 
 
-def test_search_page_loads_default():
+def test_search_page_loads_default(client):
     response = client.get("/")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "Search" in response.text
 
 
-def test_search_page_lang_en():
+def test_search_page_lang_en(client):
     response = client.get("/?lang=en")
     assert response.status_code == 200
     assert "Search" in response.text
     assert "検索" not in response.text
 
 
-def test_search_page_lang_ja():
+def test_search_page_lang_ja(client):
     response = client.get("/?lang=ja")
     assert response.status_code == 200
     assert "検索" in response.text
 
 
-def test_search_api_empty_query():
+def test_search_api_empty_query(client):
     response = client.get("/api/v1/search")
     assert response.status_code == 200
     data = response.json()
@@ -40,7 +36,7 @@ def test_search_api_empty_query():
     assert data["total"] == 0
 
 
-def test_search_api_with_query():
+def test_search_api_with_query(client):
     response = client.get("/api/v1/search?q=test")
     assert response.status_code == 200
     data = response.json()
@@ -50,7 +46,9 @@ def test_search_api_with_query():
     assert data["query"] == "test"
 
 
-def test_search_page_pagination_links_encode_query_and_preserve_state(monkeypatch):
+def test_search_page_pagination_links_encode_query_and_preserve_state(
+    client, monkeypatch
+):
     def fake_search(
         q: str | None,
         k: int = 10,
@@ -101,7 +99,7 @@ def test_search_page_pagination_links_encode_query_and_preserve_state(monkeypatc
     ) in response.text
 
 
-def test_search_page_form_preserves_lang_and_search_mode(monkeypatch):
+def test_search_page_form_preserves_lang_and_search_mode(client, monkeypatch):
     def fake_search(
         q: str | None,
         k: int = 10,

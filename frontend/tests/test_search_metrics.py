@@ -1,12 +1,7 @@
-from fastapi.testclient import TestClient
-
-from frontend.api.main import app
 from shared.postgres.search import get_connection
 
-client = TestClient(app)
 
-
-def test_search_api_returns_request_id_and_logs_impression():
+def test_search_api_returns_request_id_and_logs_impression(client):
     response = client.get("/api/v1/search?q=metrics-impression")
     assert response.status_code == 200
     data = response.json()
@@ -36,7 +31,7 @@ def test_search_api_returns_request_id_and_logs_impression():
     assert row[2] == data["request_id"]
 
 
-def test_search_click_endpoint_logs_click_event():
+def test_search_click_endpoint_logs_click_event(client):
     search_response = client.get("/api/v1/search?q=metrics-click")
     request_id = search_response.json()["request_id"]
 
@@ -73,7 +68,7 @@ def test_search_click_endpoint_logs_click_event():
     assert row[2] == 2
 
 
-def test_quality_summary_endpoint_returns_metrics():
+def test_quality_summary_endpoint_returns_metrics(client):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute(
@@ -116,6 +111,6 @@ def test_quality_summary_endpoint_returns_metrics():
     assert data["search"]["avg_click_rank"] >= 3.0
 
 
-def test_quality_summary_endpoint_rejects_invalid_window():
+def test_quality_summary_endpoint_rejects_invalid_window(client):
     response = client.get("/api/v1/quality/summary?window=1h")
     assert response.status_code == 400
