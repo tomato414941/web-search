@@ -274,20 +274,20 @@ services:
       - prometheus_data:/prometheus
     depends_on:
       frontend:
-        condition: service_healthy
+        condition: service_started
       indexer:
-        condition: service_healthy
+        condition: service_started
       indexer-worker:
-        condition: service_healthy
+        condition: service_started
       indexer-maintenance-worker:
-        condition: service_healthy
+        condition: service_started
     mem_limit: ${PROMETHEUS_MEM_LIMIT:-256m}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 20s
+      retries: 5
+      start_period: 60s
 
   grafana:
     build:
@@ -308,14 +308,14 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       prometheus:
-        condition: service_healthy
+        condition: service_started
     mem_limit: ${GRAFANA_MEM_LIMIT:-256m}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 45s
 
 volumes:
   postgres_data:

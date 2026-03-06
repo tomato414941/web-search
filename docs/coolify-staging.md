@@ -22,6 +22,7 @@ Optional profiles:
 - `crawler`: starts `crawler` when you need crawl flow validation.
 - `embedding`: starts `embedding-backfill` for one-off embedding backfills.
 - `monitoring`: starts `prometheus` and `grafana` for temporary observability windows.
+  - Monitoring services are intentionally best-effort. They keep their own healthchecks, but they should not block the core app deployment if Prometheus needs extra time to settle.
 
 ## Coolify App Configuration
 1. Create a separate Coolify Project for staging (for example `web-search-staging`).
