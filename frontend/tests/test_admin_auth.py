@@ -11,43 +11,44 @@ from frontend.api.routers.admin import CSRF_COOKIE_NAME
 from shared.core.infrastructure_config import Environment
 
 
-client = TestClient(app)
-
-
-def get_csrf_token_from_login_page() -> str:
+def get_csrf_token_from_login_page(client: TestClient) -> str:
     """Get CSRF token from login page."""
     client.get("/admin/login")
     return client.cookies.get(CSRF_COOKIE_NAME, "")
 
 
+def login_as_admin(client: TestClient, *, follow_redirects: bool = True):
+    csrf_token = get_csrf_token_from_login_page(client)
+    return client.post(
+        "/admin/login",
+        data={
+            "username": settings.ADMIN_USERNAME,
+            "password": settings.ADMIN_PASSWORD,
+            "csrf_token": csrf_token,
+        },
+        follow_redirects=follow_redirects,
+    )
+
+
 class TestAdminAuthentication:
     """Test admin authentication flows."""
 
-    def test_login_page_loads(self):
+    def test_login_page_loads(self, client):
         """Login page should be accessible without authentication."""
         response = client.get("/admin/login")
         assert response.status_code == 200
         assert "Admin Login" in response.text
 
-    def test_login_with_valid_credentials(self):
+    def test_login_with_valid_credentials(self, client):
         """Valid credentials should create session and redirect to dashboard."""
-        csrf_token = get_csrf_token_from_login_page()
-        response = client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": csrf_token,
-            },
-            follow_redirects=False,
-        )
+        response = login_as_admin(client, follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/"
         assert "admin_session" in response.cookies
 
-    def test_login_with_invalid_username(self):
+    def test_login_with_invalid_username(self, client):
         """Invalid username should redirect to login with error."""
-        csrf_token = get_csrf_token_from_login_page()
+        csrf_token = get_csrf_token_from_login_page(client)
         response = client.post(
             "/admin/login",
             data={
@@ -60,9 +61,9 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert "Invalid+credentials" in response.headers["location"]
 
-    def test_login_with_invalid_password(self):
+    def test_login_with_invalid_password(self, client):
         """Invalid password should redirect to login with error."""
-        csrf_token = get_csrf_token_from_login_page()
+        csrf_token = get_csrf_token_from_login_page(client)
         response = client.post(
             "/admin/login",
             data={
@@ -75,14 +76,14 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert "Invalid+credentials" in response.headers["location"]
 
-    def test_dashboard_without_auth_redirects(self):
+    def test_dashboard_without_auth_redirects(self, client):
         """Dashboard should redirect to login when not authenticated."""
         client.cookies.clear()
         response = client.get("/admin/", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_dashboard_with_invalid_session(self):
+    def test_dashboard_with_invalid_session(self, client):
         """Dashboard should redirect when session token is invalid."""
         client.cookies.clear()
         client.cookies.set("admin_session", "invalid_token")
@@ -90,36 +91,18 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_dashboard_with_valid_session(self):
+    def test_dashboard_with_valid_session(self, client):
         """Dashboard should be accessible with valid session."""
-        # First login to get valid session
-        csrf_token = get_csrf_token_from_login_page()
-        client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": csrf_token,
-            },
-        )
+        login_as_admin(client)
         # Use the session cookie from login
         response = client.get("/admin/")
         assert response.status_code == 200
         assert "Pale Blue Search Admin" in response.text
 
-    def test_logout_clears_session(self):
+    def test_logout_clears_session(self, client):
         """Logout should clear session cookie."""
         client.cookies.clear()
-        # Login first
-        csrf_token = get_csrf_token_from_login_page()
-        client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": csrf_token,
-            },
-        )
+        login_as_admin(client)
         # Then logout
         response = client.get("/admin/logout", follow_redirects=False)
         assert response.status_code == 303
@@ -130,21 +113,21 @@ class TestAdminAuthentication:
             or client.cookies.get("admin_session") == ""
         )
 
-    def test_seeds_page_requires_auth(self):
+    def test_seeds_page_requires_auth(self, client):
         """Seeds page should require authentication."""
         client.cookies.clear()
         response = client.get("/admin/seeds", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_history_page_requires_auth(self):
+    def test_history_page_requires_auth(self, client):
         """History page should require authentication."""
         client.cookies.clear()
         response = client.get("/admin/history", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_add_seed_requires_auth(self):
+    def test_add_seed_requires_auth(self, client):
         """Adding seeds should require authentication."""
         client.cookies.clear()
         response = client.post(
@@ -155,32 +138,24 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_crawlers_page_requires_auth(self):
+    def test_crawlers_page_requires_auth(self, client):
         """Crawlers page should require authentication."""
         client.cookies.clear()
         response = client.get("/admin/crawlers", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_indexer_page_requires_auth(self):
+    def test_indexer_page_requires_auth(self, client):
         """Indexer page should require authentication."""
         client.cookies.clear()
         response = client.get("/admin/indexer", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_crawlers_page_with_valid_session(self):
+    def test_crawlers_page_with_valid_session(self, client):
         """Crawlers page should be accessible with valid session."""
         client.cookies.clear()
-        csrf_token = get_csrf_token_from_login_page()
-        client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": csrf_token,
-            },
-        )
+        login_as_admin(client)
         response = client.get("/admin/crawlers")
         assert response.status_code == 200
         assert "Crawler Instances" in response.text
@@ -190,24 +165,16 @@ class TestAdminAuthentication:
         assert "Success" in response.text
         assert "Errors/h" in response.text
 
-    def test_indexer_page_with_valid_session(self):
+    def test_indexer_page_with_valid_session(self, client):
         """Indexer page should be accessible with valid session."""
         client.cookies.clear()
-        csrf_token = get_csrf_token_from_login_page()
-        client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": csrf_token,
-            },
-        )
+        login_as_admin(client)
         response = client.get("/admin/indexer")
         assert response.status_code == 200
         assert "Indexer Status" in response.text
         assert "Job Queue" in response.text
 
-    def test_crawler_start_requires_auth(self):
+    def test_crawler_start_requires_auth(self, client):
         """Starting a crawler instance should require authentication."""
         client.cookies.clear()
         response = client.post(
@@ -218,7 +185,7 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_crawler_stop_requires_auth(self):
+    def test_crawler_stop_requires_auth(self, client):
         """Stopping a crawler instance should require authentication."""
         client.cookies.clear()
         response = client.post(
@@ -232,34 +199,16 @@ class TestAdminAuthentication:
 class TestSessionSecurity:
     """Test session security properties."""
 
-    def test_session_cookie_httponly(self):
+    def test_session_cookie_httponly(self, client):
         """Session cookie should have httponly flag."""
-        csrf_token = get_csrf_token_from_login_page()
-        response = client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": csrf_token,
-            },
-            follow_redirects=False,
-        )
+        response = login_as_admin(client, follow_redirects=False)
         # Check Set-Cookie header includes HttpOnly
         set_cookie = response.headers.get("set-cookie", "")
         assert "HttpOnly" in set_cookie
 
-    def test_session_cookie_samesite(self):
+    def test_session_cookie_samesite(self, client):
         """Session cookie should have SameSite=Strict."""
-        csrf_token = get_csrf_token_from_login_page()
-        response = client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": csrf_token,
-            },
-            follow_redirects=False,
-        )
+        response = login_as_admin(client, follow_redirects=False)
         set_cookie = response.headers.get("set-cookie", "")
         assert "samesite=strict" in set_cookie.lower()
 
@@ -287,7 +236,7 @@ class TestSessionSecurity:
                 assert response.status_code == 303
                 assert "secure" in response.headers.get("set-cookie", "").lower()
 
-    def test_cookies_do_not_force_secure_outside_production(self):
+    def test_cookies_do_not_force_secure_outside_production(self, client):
         """Session/CSRF cookies should keep non-production compatibility."""
         client.cookies.clear()
         with patch("frontend.api.routers.admin.settings.ENVIRONMENT", Environment.TEST):
@@ -307,7 +256,7 @@ class TestSessionSecurity:
             assert response.status_code == 303
             assert "secure" not in response.headers.get("set-cookie", "").lower()
 
-    def test_tampered_session_token_is_rejected(self):
+    def test_tampered_session_token_is_rejected(self, client):
         """Tampered session token should be rejected."""
         from frontend.api.routers.admin import create_session
 
@@ -318,13 +267,10 @@ class TestSessionSecurity:
         replacement = "A" if signature[0] != "A" else "B"
         invalid_token = ".".join([payload, timestamp, replacement + signature[1:]])
 
-        # Use a fresh client to avoid dependency-override contamination
-        # from other test modules (e.g. api_key tests).
-        with TestClient(app) as fresh_client:
-            fresh_client.cookies.set("admin_session", invalid_token)
-            response = fresh_client.get("/admin/", follow_redirects=False)
-            assert response.status_code == 303
-            assert response.headers["location"] == "/admin/login"
+        client.cookies.set("admin_session", invalid_token)
+        response = client.get("/admin/", follow_redirects=False)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/login"
 
 
 class TestCrawlerInstancesConfig:
@@ -376,17 +322,9 @@ class TestCrawlerInstancesConfig:
 
 
 class TestSeedImportValidation:
-    def test_import_tranco_with_invalid_count_redirects_with_error(self):
+    def test_import_tranco_with_invalid_count_redirects_with_error(self, client):
         client.cookies.clear()
-        login_csrf_token = get_csrf_token_from_login_page()
-        client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": login_csrf_token,
-            },
-        )
+        login_as_admin(client)
         csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
 
         response = client.post(
@@ -401,17 +339,9 @@ class TestSeedImportValidation:
             == "/admin/seeds?error=Count%20must%20be%20an%20integer%20between%201%20and%2010000"
         )
 
-    def test_import_tranco_accepts_comma_separated_count(self):
+    def test_import_tranco_accepts_comma_separated_count(self, client):
         client.cookies.clear()
-        login_csrf_token = get_csrf_token_from_login_page()
-        client.post(
-            "/admin/login",
-            data={
-                "username": settings.ADMIN_USERNAME,
-                "password": settings.ADMIN_PASSWORD,
-                "csrf_token": login_csrf_token,
-            },
-        )
+        login_as_admin(client)
         csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
 
         with patch(

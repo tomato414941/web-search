@@ -10,6 +10,8 @@ from shared.testing import ensure_test_pg
 ensure_test_pg()
 
 import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from frontend.api.main import app  # noqa: E402
 from shared.postgres.search import get_connection  # noqa: E402
 from shared.postgres.migrate import migrate  # noqa: E402
 
@@ -58,3 +60,9 @@ def _clean_tables():
 def test_db_path():
     """Provide database access (kept for backward compat, returns None)."""
     yield None
+
+
+@pytest.fixture
+def client():
+    with TestClient(app) as test_client:
+        yield test_client
