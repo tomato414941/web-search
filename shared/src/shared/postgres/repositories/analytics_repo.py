@@ -196,6 +196,33 @@ class AnalyticsRepository:
     # -- documents (read-only aggregates for analytics) -----------------------
 
     @staticmethod
+    def document_summary(conn: Any, cutoff: str) -> dict[str, Any]:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT"
+            "  COALESCE("
+            "    (SELECT reltuples::bigint FROM pg_class"
+            "     WHERE oid = to_regclass('documents')),"
+            "    0"
+            "  ) AS total_estimate,"
+            "  COUNT(*) FILTER ("
+            "    WHERE indexed_at IS NOT NULL AND indexed_at >= %s"
+            "  ) AS indexed_since,"
+            "  MAX(indexed_at) AS last_indexed_at"
+            " FROM documents",
+            (cutoff,),
+        )
+        row = cur.fetchone()
+        cur.close()
+        total_estimate = int(row[0] or 0)
+        indexed_since = int(row[1] or 0)
+        return {
+            "total_documents": max(total_estimate, indexed_since),
+            "indexed_since": indexed_since,
+            "max_indexed_at": row[2],
+        }
+
+    @staticmethod
     def count_indexed_since(conn: Any, cutoff: str) -> int:
         cur = conn.cursor()
         cur.execute(

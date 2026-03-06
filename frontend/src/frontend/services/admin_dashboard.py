@@ -1,5 +1,7 @@
 import logging
 import asyncio
+import copy
+import time
 from typing import Any
 
 from frontend.core.config import settings
@@ -14,10 +16,11 @@ from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 logger = logging.getLogger(__name__)
 
 _repo = AnalyticsRepository
+_dashboard_cache: dict[str, object] = {"data": None, "expires": 0.0}
 
 
-async def get_dashboard_data() -> dict[str, Any]:
-    data: dict[str, Any] = {
+def _empty_dashboard_data() -> dict[str, Any]:
+    return {
         "indexed_pages": 0,
         "indexed_delta": 0,
         "queue_size": 0,
@@ -39,14 +42,49 @@ async def get_dashboard_data() -> dict[str, Any]:
         "health": {"level": "ok", "messages": []},
     }
 
+
+def _clear_dashboard_cache() -> None:
+    _dashboard_cache["data"] = None
+    _dashboard_cache["expires"] = 0.0
+
+
+def _get_cached_dashboard_data(now: float) -> dict[str, Any] | None:
+    cached = _dashboard_cache["data"]
+    if cached is not None and now < float(_dashboard_cache["expires"]):
+        return copy.deepcopy(cached)  # type: ignore[arg-type]
+    return None
+
+
+def _set_cached_dashboard_data(data: dict[str, Any]) -> None:
+    ttl = max(0, settings.ADMIN_DASHBOARD_CACHE_TTL_SEC)
+    if ttl < 1:
+        return
+    _dashboard_cache["data"] = copy.deepcopy(data)
+    _dashboard_cache["expires"] = time.monotonic() + ttl
+
+
+def _get_db_dashboard_data() -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "indexed_pages": 0,
+        "indexed_delta": 0,
+        "last_crawl": None,
+        "today_searches": 0,
+        "today_unique_queries": 0,
+        "today_zero_hits": 0,
+        "zero_hit_rate": 0.0,
+        "top_query": None,
+        "zero_hit_queries": [],
+    }
+
     try:
         day_ago, _, today_start = time_boundaries()
         search_filter_sql, search_filter_params = build_analytics_exclusion_filters()
         conn = get_connection(settings.DB_PATH)
         try:
-            data["indexed_pages"] = _repo.count_total_documents(conn)
-            data["indexed_delta"] = _repo.count_indexed_since(conn, day_ago)
-            data["last_crawl"] = _repo.max_indexed_at(conn)
+            document_summary = _repo.document_summary(conn, day_ago)
+            data["indexed_pages"] = document_summary["total_documents"]
+            data["indexed_delta"] = document_summary["indexed_since"]
+            data["last_crawl"] = document_summary["max_indexed_at"]
 
             summary = _repo.today_summary(
                 conn, today_start, search_filter_sql, search_filter_params
@@ -74,10 +112,22 @@ async def get_dashboard_data() -> dict[str, Any]:
     except Exception as exc:
         logger.warning(f"Failed to get DB stats: {exc}")
 
-    data["status_breakdown"], stats = await asyncio.gather(
+    return data
+
+
+async def get_dashboard_data() -> dict[str, Any]:
+    now = time.monotonic()
+    cached = _get_cached_dashboard_data(now)
+    if cached is not None:
+        return cached
+
+    data = _empty_dashboard_data()
+    db_data, data["status_breakdown"], stats = await asyncio.gather(
+        asyncio.to_thread(_get_db_dashboard_data),
         fetch_status_breakdown(),
         fetch_stats(),
     )
+    data.update(db_data)
 
     crawler_reachable = False
     if stats:
@@ -110,4 +160,5 @@ async def get_dashboard_data() -> dict[str, Any]:
             data["health"]["level"] = "warning"
 
     data["health"]["messages"] = health_messages
-    return data
+    _set_cached_dashboard_data(data)
+    return copy.deepcopy(data)
