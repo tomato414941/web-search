@@ -247,7 +247,7 @@ services:
       context: .
       dockerfile: indexer/Dockerfile
     restart: "no"
-    profiles: ["search"]
+    profiles: ["search-backfill"]
     environment:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}

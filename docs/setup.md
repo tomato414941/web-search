@@ -23,10 +23,17 @@ Enable optional services only when needed:
 COMPOSE_PROFILES=search,crawler docker compose up --build -d
 ```
 
-- `search`: starts `opensearch` and `opensearch-backfill`
+- `search`: starts `opensearch`
+- `search-backfill`: runs `opensearch-backfill` as a one-off backfill job
 - `crawler`: starts `crawler`
 - `embedding`: starts `embedding-backfill`
 - `monitoring`: starts `prometheus` and `grafana`
+
+Run the OpenSearch backfill only when you explicitly need it:
+
+```bash
+COMPOSE_PROFILES=search,search-backfill docker compose up --build opensearch-backfill
+```
 
 Monitoring only:
 

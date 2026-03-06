@@ -148,11 +148,18 @@ To start the optional crawler and search stack as well:
 COMPOSE_PROFILES=search,crawler docker compose up --build -d
 ```
 
-- `search`: starts `opensearch` and `opensearch-backfill`
+- `search`: starts `opensearch`
+- `search-backfill`: runs `opensearch-backfill` as a one-off backfill job
 - `crawler`: starts `crawler`
 - `embedding`: starts `embedding-backfill`
 - `monitoring`: starts `prometheus` and `grafana`
 - **Crawler API**: [http://localhost:8082/docs](http://localhost:8082/docs) when the `crawler` profile is enabled
+
+To run the OpenSearch backfill manually:
+
+```bash
+COMPOSE_PROFILES=search,search-backfill docker compose up --build opensearch-backfill
+```
 
 To enable the monitoring stack locally:
 

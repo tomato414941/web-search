@@ -18,7 +18,8 @@ Default always-on services:
 - `postgres`: private (internal network only)
 
 Optional profiles:
-- `search`: starts `opensearch` and `opensearch-backfill` when you need to validate search retrieval.
+- `search`: starts `opensearch` when you need to validate search retrieval.
+- `search-backfill`: runs `opensearch-backfill` as a temporary one-off job when you explicitly need a rebuild.
 - `crawler`: starts `crawler` when you need crawl flow validation.
 - `embedding`: starts `embedding-backfill` for one-off embedding backfills.
 - `monitoring`: starts `prometheus` and `grafana` for temporary observability windows.
@@ -130,6 +131,8 @@ Enable `COMPOSE_PROFILES=search` and set `OPENSEARCH_ENABLED=true`, then redeplo
 - Re-run the smoke command above
 - Search from frontend UI and confirm indexed documents appear
 
+If you need to rebuild OpenSearch from PostgreSQL, enable `COMPOSE_PROFILES=search,search-backfill` only for that maintenance window, then remove `search-backfill` again after the one-off job finishes.
+
 ### 5) Optional: crawl -> index validation
 Enable `COMPOSE_PROFILES=crawler,search` only for the test window, then redeploy.
 
@@ -160,7 +163,7 @@ ssh -L 3001:127.0.0.1:3001 -L 9091:127.0.0.1:9091 root@5.223.74.201
 - Never reuse production DB or secrets.
 - Keep indexer/crawler private; expose only frontend publicly.
 - Keep `COMPOSE_PROFILES` empty by default on shared hosts.
-- Only enable `crawler` / `search` / `monitoring` profiles for short validation windows.
+- Only enable `crawler` / `search` / `search-backfill` / `monitoring` profiles for short validation windows.
 - Tune `INDEXER_JOB_WORKERS` and `CRAWL_CONCURRENCY` gradually while watching queue growth.
 
 ## Rollback Procedure
