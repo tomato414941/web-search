@@ -168,6 +168,23 @@ class SearchService:
 
     _PGVECTOR_MAX_PAGE = 10
 
+    def _parse_search_query(self, q: str) -> dict[str, Any]:
+        from shared.search_kernel.searcher import parse_query
+
+        parsed = parse_query(q)
+        tokens = analyzer.tokenize(parsed.text) if parsed.text else ""
+        exact_phrases = tuple(phrase for phrase in parsed.exact_phrases if phrase)
+        exclude_terms = tuple(term for term in parsed.exclude_terms if term)
+        exclude_phrases = tuple(phrase for phrase in parsed.exclude_phrases if phrase)
+        return {
+            "parsed": parsed,
+            "tokens": tokens,
+            "exact_phrases": exact_phrases,
+            "exclude_terms": exclude_terms,
+            "exclude_phrases": exclude_phrases,
+            "positive_query": parsed.positive_text(),
+        }
+
     def _pgvector_search(self, q: str, k: int, page: int) -> Any:
         """Semantic search using pgvector cosine distance."""
         from shared.embedding import to_pgvector
@@ -180,26 +197,60 @@ class SearchService:
             )
 
         page = min(page, self._PGVECTOR_MAX_PAGE)
+        search_query = self._parse_search_query(q)
+        positive_query = search_query["positive_query"] or search_query["tokens"]
+        if not positive_query:
+            return SearchResult(
+                query=q, total=0, hits=[], page=1, per_page=k, last_page=1
+            )
 
-        query_vec = self._embed_query(q)
+        query_vec = self._embed_query(positive_query)
         vec_str = to_pgvector(query_vec)
         offset = (page - 1) * k
+        where_clauses = ["pe.embedding IS NOT NULL"]
+        params: list[Any] = [vec_str]
+
+        if search_query["parsed"].site_filter:
+            where_clauses.append("d.url ILIKE %s")
+            params.append(f"%{search_query['parsed'].site_filter}%")
+
+        for phrase in search_query["exact_phrases"]:
+            where_clauses.append(
+                "(COALESCE(d.title, '') ILIKE %s OR COALESCE(d.content, '') ILIKE %s)"
+            )
+            phrase_pattern = f"%{phrase}%"
+            params.extend([phrase_pattern, phrase_pattern])
+
+        for term in search_query["exclude_terms"]:
+            where_clauses.append(
+                "NOT (COALESCE(d.title, '') ILIKE %s OR COALESCE(d.content, '') ILIKE %s)"
+            )
+            term_pattern = f"%{term}%"
+            params.extend([term_pattern, term_pattern])
+
+        for phrase in search_query["exclude_phrases"]:
+            where_clauses.append(
+                "NOT (COALESCE(d.title, '') ILIKE %s OR COALESCE(d.content, '') ILIKE %s)"
+            )
+            phrase_pattern = f"%{phrase}%"
+            params.extend([phrase_pattern, phrase_pattern])
+
         conn = get_connection()
         try:
             cur = conn.cursor()
             # Fetch k+1 to detect whether more results exist
             cur.execute(
-                """
+                f"""
                 SELECT pe.url, d.title, d.content,
                        1 - (pe.embedding <=> %s::vector) AS similarity,
                        d.indexed_at, d.published_at
                 FROM page_embeddings pe
                 JOIN documents d ON d.url = pe.url
-                WHERE pe.embedding IS NOT NULL
+                WHERE {' AND '.join(where_clauses)}
                 ORDER BY pe.embedding <=> %s::vector
                 LIMIT %s OFFSET %s
                 """,
-                (vec_str, vec_str, k + 1, offset),
+                (*params, vec_str, k + 1, offset),
             )
             rows = cur.fetchall()
             cur.close()
@@ -302,26 +353,27 @@ class SearchService:
             classify_query_intent,
             compute_scope_match,
         )
-        from shared.search_kernel.searcher import SearchHit, SearchResult, parse_query
+        from shared.search_kernel.searcher import SearchHit, SearchResult
 
-        parsed = parse_query(q)
-        tokens = analyzer.tokenize(parsed.text) if parsed.text else ""
+        search_query = self._parse_search_query(q)
+        parsed = search_query["parsed"]
+        tokens = search_query["tokens"]
         exact_phrases = tuple(
             tokenized
-            for phrase in parsed.exact_phrases
+            for phrase in search_query["exact_phrases"]
             if (tokenized := analyzer.tokenize(phrase).strip())
         )
         exclude_terms = tuple(
             tokenized
-            for term in parsed.exclude_terms
+            for term in search_query["exclude_terms"]
             if (tokenized := analyzer.tokenize(term).strip())
         )
         exclude_phrases = tuple(
             tokenized
-            for phrase in parsed.exclude_phrases
+            for phrase in search_query["exclude_phrases"]
             if (tokenized := analyzer.tokenize(phrase).strip())
         )
-        positive_query = parsed.positive_text()
+        positive_query = search_query["positive_query"]
 
         if not tokens.strip() and not exact_phrases:
             return SearchResult(

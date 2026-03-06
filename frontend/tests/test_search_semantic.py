@@ -136,6 +136,48 @@ class TestHybridFallbackOnError:
         assert captured["exclude_phrases"] == ()
         assert result.total == 0
 
+    def test_vector_search_strips_operators_before_embedding(self, monkeypatch):
+        import shared.embedding as shared_embedding
+        import shared.postgres.search as postgres_search
+        from frontend.services.search import search_service
+
+        embed = MagicMock(return_value=np.zeros(1536, dtype=np.float32))
+        cursor = MagicMock()
+        cursor.fetchall.return_value = []
+        conn = MagicMock()
+        conn.cursor.return_value = cursor
+
+        monkeypatch.setattr(search_service, "_embed_query", embed)
+        monkeypatch.setattr(shared_embedding, "to_pgvector", lambda _: "[0.0,0.0,0.0]")
+        monkeypatch.setattr(postgres_search, "get_connection", lambda *_: conn)
+
+        result = search_service._pgvector_search(
+            'site:github.com Python "open source" -java -"machine learning"',
+            10,
+            1,
+        )
+
+        embed.assert_called_once_with("Python open source")
+        sql, params = cursor.execute.call_args.args
+        assert "d.url ILIKE %s" in sql
+        assert "%github.com%" in params
+        assert "%open source%" in params
+        assert "%java%" in params
+        assert "%machine learning%" in params
+        assert result.total == 0
+
+    def test_vector_search_returns_empty_for_negative_only_query(self, monkeypatch):
+        from frontend.services.search import search_service
+
+        embed = MagicMock(return_value=np.zeros(1536, dtype=np.float32))
+        monkeypatch.setattr(search_service, "_embed_query", embed)
+
+        result = search_service._pgvector_search("site:github.com -java", 10, 1)
+
+        embed.assert_not_called()
+        assert result.total == 0
+        assert result.hits == []
+
 
 class TestAPISearchMode:
     def test_api_accepts_mode_parameter(self):
