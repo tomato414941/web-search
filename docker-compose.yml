@@ -51,7 +51,7 @@ services:
       - ADMIN_USERNAME=${ADMIN_USERNAME}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS},frontend,localhost,127.0.0.1
       - ANALYTICS_SALT=${ANALYTICS_SALT}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CRAWLER_SERVICE_URL=http://crawler:8000
@@ -303,7 +303,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_SERVER_HTTP_PORT=3000
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/web-search-overview.json
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/web-search-overview.json
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:

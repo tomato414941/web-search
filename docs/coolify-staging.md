@@ -43,7 +43,7 @@ Set these in Coolify application environment variables.
 | `ADMIN_USERNAME` | `admin` | Staging admin login user. |
 | `ADMIN_PASSWORD` | `change-me` | Staging-only credential. |
 | `ADMIN_SESSION_SECRET` | `change-me-long-random` | 32+ chars random string. |
-| `ALLOWED_HOSTS` | `stg-search.example.com` | Include staging domain only. |
+| `ALLOWED_HOSTS` | `stg-search.example.com,frontend` | Include the staging domain and the internal `frontend` hostname for Prometheus scraping. |
 | `ANALYTICS_SALT` | `change-me-random` | Random salt for analytics hashing. |
 | `INDEXER_API_KEY` | `change-me-random` | Shared secret between crawler/frontend and indexer. |
 | `OPENAI_API_KEY` | `` | Optional. Leave empty to disable embeddings. |
