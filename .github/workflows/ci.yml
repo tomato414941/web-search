@@ -179,7 +179,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install linters
-        run: pip install ruff
+        run: pip install ruff==0.15.5
       - name: Run ruff (linting)
         run: ruff check frontend/src/ shared/src/ crawler/src/ indexer/src/ mcp/src/
       - name: Run ruff (formatting check)

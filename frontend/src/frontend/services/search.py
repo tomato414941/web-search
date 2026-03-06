@@ -246,7 +246,7 @@ class SearchService:
                        d.indexed_at, d.published_at
                 FROM page_embeddings pe
                 JOIN documents d ON d.url = pe.url
-                WHERE {' AND '.join(where_clauses)}
+                WHERE {" AND ".join(where_clauses)}
                 ORDER BY pe.embedding <=> %s::vector
                 LIMIT %s OFFSET %s
                 """,
