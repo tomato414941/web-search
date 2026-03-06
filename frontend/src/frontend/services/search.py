@@ -8,6 +8,7 @@ Default (auto) mode uses BM25 for speed; hybrid/semantic available via explicit 
 import concurrent.futures
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 from frontend.api.metrics import (
@@ -17,9 +18,14 @@ from frontend.api.metrics import (
 )
 from frontend.core.config import settings
 from frontend.services.embedding import embed_query_func
-from shared.search_kernel.analyzer import analyzer
+from frontend.services.search_opensearch import run_opensearch_query
+from frontend.services.search_pgvector import run_pgvector_search
+from frontend.services.search_query import (
+    PreparedSearchQuery,
+    prepare_search_query,
+)
+from frontend.services.search_response import format_result
 from shared.contracts.enums import SearchMode
-from shared.search_kernel.snippet import generate_snippet
 
 logger = logging.getLogger(__name__)
 
@@ -70,437 +76,206 @@ class SearchService:
         if not q:
             return self._empty_result(k)
 
+        if mode == SearchMode.SEMANTIC and self.hybrid_available:
+            return self._vector_search(q, k, page, include_content=include_content)
         if mode == SearchMode.HYBRID and self.hybrid_available:
             return self._hybrid_search(q, k, page, include_content=include_content)
-        elif mode == SearchMode.SEMANTIC and self.hybrid_available:
-            return self._vector_search(q, k, page, include_content=include_content)
-        elif mode == SearchMode.AUTO:
-            return self._bm25_search(q, k, page, include_content=include_content)
-        else:
-            return self._bm25_search(q, k, page, include_content=include_content)
+        return self._bm25_search(q, k, page, include_content=include_content)
+
+    def _finalize_search_response(
+        self,
+        q: str,
+        result: Any,
+        *,
+        mode: str,
+        include_content: bool,
+        started_at: float,
+        fallback: bool = False,
+    ) -> dict[str, Any]:
+        SEARCH_SCORING_DURATION.observe(time.monotonic() - started_at)
+        SEARCH_RESULT_COUNT.observe(result.total)
+        payload = format_result(q, result, include_content=include_content)
+        if fallback:
+            payload["fallback"] = True
+        payload["mode"] = mode
+        return payload
+
+    def _log_search_error(
+        self,
+        error: BaseException,
+        handler: str | Callable[[BaseException], None] | None,
+    ) -> None:
+        if handler is None:
+            return
+        if callable(handler):
+            handler(error)
+            return
+        logger.warning(
+            handler,
+            exc_info=(type(error), error, error.__traceback__),
+        )
+
+    def _execute_search_flow(
+        self,
+        q: str,
+        k: int,
+        *,
+        metric_mode: str,
+        include_content: bool,
+        primary_search: Callable[[], Any],
+        primary_mode: str,
+        primary_error_handler: str | Callable[[BaseException], None] | None,
+        fallback_search: Callable[[], Any] | None = None,
+        fallback_mode: str | None = None,
+        fallback_error_handler: str | Callable[[BaseException], None] | None = None,
+        fallback_returns_payload: bool = False,
+        fallback_flag: bool = False,
+    ) -> dict[str, Any]:
+        SEARCH_QUERY_TOTAL.labels(mode=metric_mode).inc()
+        started_at = time.monotonic()
+
+        try:
+            result = primary_search()
+            return self._finalize_search_response(
+                q,
+                result,
+                mode=primary_mode,
+                include_content=include_content,
+                started_at=started_at,
+            )
+        except Exception as error:
+            self._log_search_error(error, primary_error_handler)
+
+        if fallback_search is None:
+            SEARCH_SCORING_DURATION.observe(time.monotonic() - started_at)
+            return self._empty_result(k, q)
+
+        try:
+            fallback_result = fallback_search()
+            if fallback_returns_payload:
+                return fallback_result
+            return self._finalize_search_response(
+                q,
+                fallback_result,
+                mode=fallback_mode or primary_mode,
+                include_content=include_content,
+                started_at=started_at,
+                fallback=fallback_flag,
+            )
+        except Exception as error:
+            self._log_search_error(error, fallback_error_handler)
+            SEARCH_SCORING_DURATION.observe(time.monotonic() - started_at)
+            return self._empty_result(k, q)
+
+    def _run_bm25_opensearch(self, q: str, k: int, page: int) -> Any:
+        return self._run_opensearch_query(q, k, page)
+
+    def _run_hybrid_opensearch(self, q: str, k: int, page: int) -> Any:
+        timeout = settings.HYBRID_SEARCH_TIMEOUT_SEC
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(self._run_opensearch_query, q, k, page, True)
+            return future.result(timeout=timeout)
+
+    def _log_hybrid_error(self, error: BaseException) -> None:
+        if isinstance(error, concurrent.futures.TimeoutError):
+            logger.warning(
+                "Hybrid search timed out after %.1fs, falling back to BM25",
+                settings.HYBRID_SEARCH_TIMEOUT_SEC,
+            )
+            return
+        logger.warning(
+            "OpenSearch hybrid failed, falling back to BM25",
+            exc_info=(type(error), error, error.__traceback__),
+        )
 
     def _bm25_search(
         self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
     ) -> dict[str, Any]:
-        SEARCH_QUERY_TOTAL.labels(mode="bm25").inc()
-        t0 = time.monotonic()
-
-        client = self._get_os_client()
-        if client is not None:
-            try:
-                result = self._run_opensearch_query(q, k, page)
-                SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
-                SEARCH_RESULT_COUNT.observe(result.total)
-                out = self._format_result(q, result, include_content=include_content)
-                out["mode"] = SearchMode.BM25
-                return out
-            except Exception:
-                logger.warning("OpenSearch BM25 failed", exc_info=True)
-
-        # Fall back to pgvector semantic search when available
-        if self._embed_query is not None:
-            logger.info("Falling back to pgvector for query: %s", q)
-            try:
-                result = self._pgvector_search(q, k, page)
-                SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
-                SEARCH_RESULT_COUNT.observe(result.total)
-                fallback_result = self._format_result(
-                    q, result, include_content=include_content
-                )
-                fallback_result["fallback"] = True
-                fallback_result["mode"] = SearchMode.SEMANTIC
-                return fallback_result
-            except Exception:
-                logger.warning("pgvector fallback also failed", exc_info=True)
-
-        SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
-        return self._empty_result(k, q)
+        fallback_search = (
+            (lambda: self._pgvector_search(q, k, page))
+            if self._embed_query is not None
+            else None
+        )
+        return self._execute_search_flow(
+            q,
+            k,
+            metric_mode="bm25",
+            include_content=include_content,
+            primary_search=lambda: self._run_bm25_opensearch(q, k, page),
+            primary_mode=SearchMode.BM25,
+            primary_error_handler="OpenSearch BM25 failed",
+            fallback_search=fallback_search,
+            fallback_mode=SearchMode.SEMANTIC,
+            fallback_error_handler="pgvector fallback also failed",
+            fallback_flag=True,
+        )
 
     def _hybrid_search(
         self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
     ) -> dict[str, Any]:
-        SEARCH_QUERY_TOTAL.labels(mode="hybrid").inc()
-        t0 = time.monotonic()
-        timeout = settings.HYBRID_SEARCH_TIMEOUT_SEC
-
-        client = self._get_os_client()
-        if client is not None:
-            pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            try:
-                future = pool.submit(
-                    self._run_opensearch_query, q, k, page, with_embedding=True
-                )
-                result = future.result(timeout=timeout)
-                SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
-                SEARCH_RESULT_COUNT.observe(result.total)
-                out = self._format_result(q, result, include_content=include_content)
-                out["mode"] = SearchMode.HYBRID
-                return out
-            except concurrent.futures.TimeoutError:
-                logger.warning(
-                    "Hybrid search timed out after %.1fs, falling back to BM25",
-                    timeout,
-                )
-            except Exception:
-                logger.warning(
-                    "OpenSearch hybrid failed, falling back to BM25", exc_info=True
-                )
-            finally:
-                pool.shutdown(wait=False)
-
-        return self._bm25_search(q, k, page, include_content=include_content)
+        return self._execute_search_flow(
+            q,
+            k,
+            metric_mode="hybrid",
+            include_content=include_content,
+            primary_search=lambda: self._run_hybrid_opensearch(q, k, page),
+            primary_mode=SearchMode.HYBRID,
+            primary_error_handler=self._log_hybrid_error,
+            fallback_search=lambda: self._bm25_search(
+                q, k, page, include_content=include_content
+            ),
+            fallback_returns_payload=True,
+        )
 
     def _vector_search(
         self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
     ) -> dict[str, Any]:
-        SEARCH_QUERY_TOTAL.labels(mode="semantic").inc()
-        t0 = time.monotonic()
-        try:
-            result = self._pgvector_search(q, k, page)
-        except Exception:
-            logger.warning("Vector search failed, falling back to BM25", exc_info=True)
-            return self._bm25_search(q, k, page, include_content=include_content)
-        SEARCH_SCORING_DURATION.observe(time.monotonic() - t0)
-        SEARCH_RESULT_COUNT.observe(result.total)
-        out = self._format_result(q, result, include_content=include_content)
-        out["mode"] = SearchMode.SEMANTIC
-        return out
+        return self._execute_search_flow(
+            q,
+            k,
+            metric_mode="semantic",
+            include_content=include_content,
+            primary_search=lambda: self._pgvector_search(q, k, page),
+            primary_mode=SearchMode.SEMANTIC,
+            primary_error_handler="Vector search failed, falling back to BM25",
+            fallback_search=lambda: self._bm25_search(
+                q, k, page, include_content=include_content
+            ),
+            fallback_returns_payload=True,
+        )
 
-    _PGVECTOR_MAX_PAGE = 10
+    def _parse_search_query(self, q: str) -> PreparedSearchQuery:
+        return prepare_search_query(q)
 
-    def _parse_search_query(self, q: str) -> dict[str, Any]:
-        from shared.search_kernel.searcher import parse_query
-
-        parsed = parse_query(q)
-        tokens = analyzer.tokenize(parsed.text) if parsed.text else ""
-        exact_phrases = tuple(phrase for phrase in parsed.exact_phrases if phrase)
-        exclude_terms = tuple(term for term in parsed.exclude_terms if term)
-        exclude_phrases = tuple(phrase for phrase in parsed.exclude_phrases if phrase)
-        return {
-            "parsed": parsed,
-            "tokens": tokens,
-            "exact_phrases": exact_phrases,
-            "exclude_terms": exclude_terms,
-            "exclude_phrases": exclude_phrases,
-            "positive_query": parsed.positive_text(),
-        }
+    def _run_opensearch_query(
+        self, q: str, k: int, page: int, with_embedding: bool = False
+    ) -> Any:
+        client = self._get_os_client()
+        if client is None:
+            raise RuntimeError("OpenSearch client unavailable")
+        return run_opensearch_query(
+            q,
+            k,
+            page,
+            client=client,
+            search_query=self._parse_search_query(q),
+            embed_query=self._embed_query,
+            with_embedding=with_embedding,
+        )
 
     def _pgvector_search(self, q: str, k: int, page: int) -> Any:
-        """Semantic search using pgvector cosine distance."""
-        from shared.embedding import to_pgvector
-        from shared.postgres.search import get_connection
-        from shared.search_kernel.searcher import SearchHit, SearchResult
-
-        if not q or not q.strip() or self._embed_query is None:
-            return SearchResult(
-                query=q, total=0, hits=[], page=1, per_page=k, last_page=1
-            )
-
-        page = min(page, self._PGVECTOR_MAX_PAGE)
-        search_query = self._parse_search_query(q)
-        positive_query = search_query["positive_query"] or search_query["tokens"]
-        if not positive_query:
-            return SearchResult(
-                query=q, total=0, hits=[], page=1, per_page=k, last_page=1
-            )
-
-        query_vec = self._embed_query(positive_query)
-        vec_str = to_pgvector(query_vec)
-        offset = (page - 1) * k
-        where_clauses = ["pe.embedding IS NOT NULL"]
-        params: list[Any] = [vec_str]
-
-        if search_query["parsed"].site_filter:
-            where_clauses.append("d.url ILIKE %s")
-            params.append(f"%{search_query['parsed'].site_filter}%")
-
-        for phrase in search_query["exact_phrases"]:
-            where_clauses.append(
-                "(COALESCE(d.title, '') ILIKE %s OR COALESCE(d.content, '') ILIKE %s)"
-            )
-            phrase_pattern = f"%{phrase}%"
-            params.extend([phrase_pattern, phrase_pattern])
-
-        for term in search_query["exclude_terms"]:
-            where_clauses.append(
-                "NOT (COALESCE(d.title, '') ILIKE %s OR COALESCE(d.content, '') ILIKE %s)"
-            )
-            term_pattern = f"%{term}%"
-            params.extend([term_pattern, term_pattern])
-
-        for phrase in search_query["exclude_phrases"]:
-            where_clauses.append(
-                "NOT (COALESCE(d.title, '') ILIKE %s OR COALESCE(d.content, '') ILIKE %s)"
-            )
-            phrase_pattern = f"%{phrase}%"
-            params.extend([phrase_pattern, phrase_pattern])
-
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            # Fetch k+1 to detect whether more results exist
-            cur.execute(
-                f"""
-                SELECT pe.url, d.title, d.content,
-                       1 - (pe.embedding <=> %s::vector) AS similarity,
-                       d.indexed_at, d.published_at
-                FROM page_embeddings pe
-                JOIN documents d ON d.url = pe.url
-                WHERE {" AND ".join(where_clauses)}
-                ORDER BY pe.embedding <=> %s::vector
-                LIMIT %s OFFSET %s
-                """,
-                (*params, vec_str, k + 1, offset),
-            )
-            rows = cur.fetchall()
-            cur.close()
-            has_more = len(rows) > k
-            rows = rows[:k]
-            hits = [
-                SearchHit(
-                    url=r[0],
-                    title=r[1],
-                    content=r[2],
-                    score=float(r[3]),
-                    indexed_at=r[4].isoformat() if r[4] else None,
-                    published_at=r[5].isoformat() if r[5] else None,
-                )
-                for r in rows
-            ]
-            total = offset + len(hits) + (1 if has_more else 0)
-            last_page = min(page + 1 if has_more else page, self._PGVECTOR_MAX_PAGE)
-            return SearchResult(
-                query=q,
-                total=total,
-                hits=hits,
-                page=page,
-                per_page=k,
-                last_page=last_page,
-            )
-        finally:
-            conn.close()
+        return run_pgvector_search(
+            q,
+            k,
+            page,
+            search_query=self._parse_search_query(q),
+            embed_query=self._embed_query,
+        )
 
     def _format_result(
         self, q: str, result: Any, *, include_content: bool = False
     ) -> dict[str, Any]:
-        from shared.search_kernel.searcher import parse_query
-
-        parsed = parse_query(q)
-        positive_query = parsed.positive_text() or parsed.text or q
-        analyzed_q = analyzer.tokenize(positive_query)
-        search_terms = analyzed_q.split() if analyzed_q.strip() else [positive_query]
-
-        hits = []
-        for hit in result.hits:
-            snippet = generate_snippet(hit.content, search_terms)
-            hit_dict = {
-                "url": hit.url,
-                "title": hit.title,
-                "snip": snippet.text,
-                "snip_plain": snippet.plain_text,
-                "rank": hit.score,
-            }
-            if include_content and hit.content:
-                hit_dict["content"] = hit.content
-            if hit.indexed_at:
-                hit_dict["indexed_at"] = hit.indexed_at
-            if hit.published_at:
-                hit_dict["published_at"] = hit.published_at
-            if hit.temporal_anchor is not None:
-                hit_dict["temporal_anchor"] = hit.temporal_anchor
-            if hit.authorship_clarity is not None:
-                hit_dict["authorship_clarity"] = hit.authorship_clarity
-            if hit.factual_density is not None:
-                hit_dict["factual_density"] = hit.factual_density
-            if hit.origin_score is not None:
-                hit_dict["origin_score"] = hit.origin_score
-            if hit.origin_type:
-                hit_dict["origin_type"] = hit.origin_type
-            if hit.author:
-                hit_dict["author"] = hit.author
-            if hit.organization:
-                hit_dict["organization"] = hit.organization
-            if hit.cluster_id is not None:
-                hit_dict["cluster_id"] = hit.cluster_id
-            if hit.sources_agreeing is not None:
-                hit_dict["sources_agreeing"] = hit.sources_agreeing
-            hits.append(hit_dict)
-
-        data: dict[str, Any] = {
-            "query": q,
-            "total": result.total,
-            "page": result.page,
-            "per_page": result.per_page,
-            "last_page": result.last_page,
-            "hits": hits,
-        }
-        if result.confidence:
-            data["confidence"] = result.confidence
-        if result.perspective_count is not None:
-            data["perspective_count"] = result.perspective_count
-        if result.query_intent:
-            data["query_intent"] = result.query_intent
-        return data
-
-    def _run_opensearch_query(
-        self, q: str, k: int, page: int, *, with_embedding: bool = False
-    ) -> Any:
-        """Execute OpenSearch query (BM25 or hybrid BM25 + k-NN)."""
-        from shared.opensearch.search import CANDIDATE_LIMIT, search_bm25, search_hybrid
-        from shared.search_kernel.claim_diversity import diversify_by_claims
-        from shared.search_kernel.scope_match import (
-            classify_document_type,
-            classify_query_intent,
-            compute_scope_match,
-        )
-        from shared.search_kernel.searcher import SearchHit, SearchResult
-
-        search_query = self._parse_search_query(q)
-        parsed = search_query["parsed"]
-        tokens = search_query["tokens"]
-        exact_phrases = tuple(
-            tokenized
-            for phrase in search_query["exact_phrases"]
-            if (tokenized := analyzer.tokenize(phrase).strip())
-        )
-        exclude_terms = tuple(
-            tokenized
-            for term in search_query["exclude_terms"]
-            if (tokenized := analyzer.tokenize(term).strip())
-        )
-        exclude_phrases = tuple(
-            tokenized
-            for phrase in search_query["exclude_phrases"]
-            if (tokenized := analyzer.tokenize(phrase).strip())
-        )
-        positive_query = search_query["positive_query"]
-
-        if not tokens.strip() and not exact_phrases:
-            return SearchResult(
-                query=q, total=0, hits=[], page=1, per_page=k, last_page=1
-            )
-
-        embedding = None
-        if with_embedding and self._embed_query is not None:
-            try:
-                vec = self._embed_query(positive_query)
-                if vec is not None:
-                    embedding = vec.tolist()
-            except Exception:
-                logger.warning("Query embedding failed, using BM25 only", exc_info=True)
-
-        client = self._get_os_client()
-        use_diversity = not parsed.site_filter
-
-        if use_diversity:
-            # Overscan: fetch extra candidates so we still have enough
-            # after per-domain capping.
-            fetch_size = min(page * k * settings.DIVERSITY_OVERSCAN, CANDIDATE_LIMIT)
-            fetch_offset = 0
-        else:
-            fetch_size = k
-            fetch_offset = (page - 1) * k
-
-        if embedding is not None:
-            os_result = search_hybrid(
-                client,
-                query_tokens=tokens,
-                embedding=embedding,
-                limit=fetch_size,
-                offset=fetch_offset,
-                site_filter=parsed.site_filter,
-                exact_phrases=exact_phrases,
-                exclude_terms=exclude_terms,
-                exclude_phrases=exclude_phrases,
-            )
-        else:
-            os_result = search_bm25(
-                client,
-                query_tokens=tokens,
-                limit=fetch_size,
-                offset=fetch_offset,
-                site_filter=parsed.site_filter,
-                exact_phrases=exact_phrases,
-                exclude_terms=exclude_terms,
-                exclude_phrases=exclude_phrases,
-            )
-
-        hits = [
-            SearchHit(
-                url=h["url"],
-                title=h["title"],
-                content=h["content"],
-                score=h["score"],
-                indexed_at=h.get("indexed_at"),
-                published_at=h.get("published_at"),
-                temporal_anchor=h.get("temporal_anchor"),
-                authorship_clarity=h.get("authorship_clarity"),
-                factual_density=h.get("factual_density"),
-                origin_score=h.get("origin_score"),
-                origin_type=h.get("origin_type"),
-                author=h.get("author"),
-                organization=h.get("organization"),
-            )
-            for h in os_result["hits"]
-        ]
-        total = os_result["total"]
-
-        # Scope match: re-rank by query intent × document type affinity
-        intent = classify_query_intent(positive_query or q)
-        if intent.value != "unknown":
-            for hit in hits:
-                doc_type = classify_document_type(hit.url)
-                boost = compute_scope_match(intent, doc_type)
-                hit.score *= 0.8 + 0.2 * boost
-            hits.sort(key=lambda h: h.score, reverse=True)
-
-        if use_diversity:
-            diversity_result = diversify_by_claims(
-                hits,
-                limit=page * k,
-                max_per_domain=settings.MAX_PER_DOMAIN,
-            )
-            diversified = diversity_result.hits
-            start = (page - 1) * k
-            page_hits = diversified[start : start + k]
-            diversified_total = len(diversified)
-            if len(hits) >= fetch_size:
-                estimated_total = max(total, diversified_total)
-            else:
-                estimated_total = diversified_total
-            last_page = max((estimated_total + k - 1) // k, 1)
-
-            # Attach cluster metadata to hits
-            for hit in page_hits:
-                meta = diversity_result.cluster_meta.get(hit.url)
-                if meta:
-                    hit.cluster_id = meta.cluster_id
-                    hit.sources_agreeing = meta.sources_agreeing
-
-            result = SearchResult(
-                query=q,
-                total=estimated_total,
-                hits=page_hits,
-                page=page,
-                per_page=k,
-                last_page=last_page,
-            )
-            result.confidence = diversity_result.confidence
-            result.perspective_count = diversity_result.perspective_count
-            result.query_intent = intent.value
-            return result
-
-        last_page = max((total + k - 1) // k, 1)
-        result = SearchResult(
-            query=q,
-            total=total,
-            hits=hits,
-            page=page,
-            per_page=k,
-            last_page=last_page,
-        )
-        result.query_intent = intent.value
-        return result
+        return format_result(q, result, include_content=include_content)
 
     def get_index_stats(self) -> dict[str, int]:
         """Return index stats: approximate total pages via pg_class."""
@@ -531,5 +306,4 @@ class SearchService:
         }
 
 
-# Global instance
 search_service = SearchService()

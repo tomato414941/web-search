@@ -1,8 +1,10 @@
 """Tests for hybrid/semantic search mode dispatch and fallback."""
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
 import numpy as np
 import pytest
-from unittest.mock import MagicMock
 
 
 @pytest.fixture
@@ -209,3 +211,77 @@ class TestAPISearchMode:
         assert resp.status_code == 200
         data = resp.json()
         assert data["mode"] == "auto"
+
+
+class TestResultFormatting:
+    def test_format_result_uses_positive_query_and_preserves_optional_fields(
+        self, monkeypatch
+    ):
+        import frontend.services.search_response as search_response
+        from frontend.services.search import search_service
+        from shared.search_kernel.searcher import SearchHit, SearchResult
+
+        captured = {}
+
+        def fake_generate_snippet(content, search_terms):
+            captured["content"] = content
+            captured["search_terms"] = search_terms
+            return SimpleNamespace(
+                text="<mark>Python</mark> snippet", plain_text="Python snippet"
+            )
+
+        monkeypatch.setattr(search_response, "generate_snippet", fake_generate_snippet)
+
+        result = SearchResult(
+            query='site:github.com Python "open source" -java',
+            total=1,
+            hits=[
+                SearchHit(
+                    url="https://example.com",
+                    title="Example",
+                    content="Python open source content",
+                    score=1.5,
+                    indexed_at="2026-03-01T00:00:00+00:00",
+                    published_at="2026-02-28T00:00:00+00:00",
+                    temporal_anchor=0.9,
+                    authorship_clarity=0.8,
+                    factual_density=0.7,
+                    origin_score=0.6,
+                    origin_type="spring",
+                    author="Alice",
+                    organization="Example Org",
+                    cluster_id=3,
+                    sources_agreeing=5,
+                )
+            ],
+            page=1,
+            per_page=10,
+            last_page=1,
+            confidence="high",
+            perspective_count=2,
+            query_intent="overview",
+        )
+
+        payload = search_service._format_result(
+            'site:github.com Python "open source" -java',
+            result,
+            include_content=True,
+        )
+
+        assert captured["content"] == "Python open source content"
+        assert "github.com" not in captured["search_terms"]
+        assert "java" not in captured["search_terms"]
+        assert "python" in captured["search_terms"]
+        assert payload["hits"][0]["content"] == "Python open source content"
+        assert payload["hits"][0]["temporal_anchor"] == 0.9
+        assert payload["hits"][0]["authorship_clarity"] == 0.8
+        assert payload["hits"][0]["factual_density"] == 0.7
+        assert payload["hits"][0]["origin_score"] == 0.6
+        assert payload["hits"][0]["origin_type"] == "spring"
+        assert payload["hits"][0]["author"] == "Alice"
+        assert payload["hits"][0]["organization"] == "Example Org"
+        assert payload["hits"][0]["cluster_id"] == 3
+        assert payload["hits"][0]["sources_agreeing"] == 5
+        assert payload["confidence"] == "high"
+        assert payload["perspective_count"] == 2
+        assert payload["query_intent"] == "overview"
