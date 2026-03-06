@@ -2,8 +2,15 @@ ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 VENV_BIN := $(ROOT_DIR)/.venv/bin
 PYTEST := $(if $(wildcard $(VENV_BIN)/pytest),$(VENV_BIN)/pytest,pytest)
 RUFF := $(if $(wildcard $(VENV_BIN)/ruff),$(VENV_BIN)/ruff,ruff)
+WATCH_REF ?= HEAD
+STG_REF ?= main
+PRD_REF ?= production
+STG_FRONTEND_URL ?= https://web-search-staging.5.223.74.201.sslip.io
+STG_INDEXER_URL ?= http://indexer:8000
+SMOKE_TEST_URL ?= https://example.com
 
 .PHONY: ci ci-lint ci-frontend ci-shared ci-crawler ci-indexer ci-mcp
+.PHONY: watch-ci verify-stg verify-prd release-check-stg release-check-prd
 
 ci: ci-lint ci-shared ci-frontend ci-crawler ci-indexer ci-mcp
 
@@ -43,3 +50,24 @@ ci-mcp:
 	cd $(ROOT_DIR)/mcp && \
 		PYTHONPATH=src \
 		$(PYTEST) tests/ -v --tb=short
+
+watch-ci:
+	cd $(ROOT_DIR) && ./scripts/ops/watch_latest_ci.sh $(WATCH_REF)
+
+verify-stg:
+	cd $(ROOT_DIR) && ./scripts/ops/verify_coolify_deploy.sh stg $(STG_REF)
+	cd $(ROOT_DIR) && ./scripts/ops/run_coolify_staging_smoke_via_frontend.sh \
+		"$(STG_FRONTEND_URL)" \
+		"$(STG_INDEXER_URL)" \
+		"$(SMOKE_TEST_URL)"
+
+verify-prd:
+	cd $(ROOT_DIR) && ./scripts/ops/verify_coolify_deploy.sh prd $(PRD_REF)
+
+release-check-stg:
+	$(MAKE) watch-ci WATCH_REF=$(STG_REF)
+	$(MAKE) verify-stg STG_REF=$(STG_REF)
+
+release-check-prd:
+	$(MAKE) watch-ci WATCH_REF=$(PRD_REF)
+	$(MAKE) verify-prd PRD_REF=$(PRD_REF)
