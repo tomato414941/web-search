@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from frontend.api.main import app
 from frontend.core.config import settings, Settings
-from frontend.api.routers.admin import CSRF_COOKIE_NAME
+from frontend.services.admin_auth import CSRF_COOKIE_NAME, create_session
 from shared.core.infrastructure_config import Environment
 
 
@@ -267,8 +267,6 @@ class TestSessionSecurity:
 
     def test_tampered_session_token_is_rejected(self, client):
         """Tampered session token should be rejected."""
-        from frontend.api.routers.admin import create_session
-
         valid_token = create_session()
         assert valid_token
 

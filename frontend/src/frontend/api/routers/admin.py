@@ -17,7 +17,16 @@ from frontend.api.routers.admin_indexer import router as indexer_router
 from frontend.api.templates import templates
 from frontend.core.config import settings
 from frontend.services.admin_analytics import get_analytics_data
-from frontend.services import admin_auth
+from frontend.services.admin_auth import (
+    CSRF_FORM_FIELD,
+    SESSION_COOKIE_NAME,
+    add_csrf_cookie,
+    add_session_cookie,
+    create_session,
+    generate_csrf_token,
+    get_csrf_token,
+    validate_csrf_token,
+)
 from frontend.services.admin_dashboard import get_dashboard_data
 from frontend.services.api_key import (
     create_api_key,
@@ -36,18 +45,6 @@ from frontend.services.crawler_admin_client import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
-
-# Re-export for backward compatibility with existing tests/imports.
-CSRF_COOKIE_NAME = admin_auth.CSRF_COOKIE_NAME
-CSRF_FORM_FIELD = admin_auth.CSRF_FORM_FIELD
-SESSION_COOKIE_NAME = admin_auth.SESSION_COOKIE_NAME
-create_session = admin_auth.create_session
-generate_csrf_token = admin_auth.generate_csrf_token
-get_csrf_token = admin_auth.get_csrf_token
-validate_csrf_token = admin_auth.validate_csrf_token
-validate_session = admin_auth.validate_session
-add_csrf_cookie = admin_auth.add_csrf_cookie
-add_session_cookie = admin_auth.add_session_cookie
 
 
 def _parse_tranco_count(raw_count: str | None) -> int:

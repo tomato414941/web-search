@@ -4,13 +4,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from frontend.api.routers.admin import get_analytics_data, get_dashboard_data
 from frontend.api.metrics import (
     ADMIN_DASHBOARD_CACHE_ACCESS,
     ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS,
     ADMIN_DASHBOARD_PREWARM_TOTAL,
 )
 from frontend.services import admin_dashboard
+from frontend.services.admin_analytics import get_analytics_data
+from frontend.services.admin_dashboard import get_dashboard_data
 from shared.core import background as background_module
 from shared.postgres.search import get_connection
 
