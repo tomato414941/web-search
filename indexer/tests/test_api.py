@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from app.core.config import settings
+from shared.core import background as background_module
 
 
 class TestIndexerAPIAuth:
@@ -406,7 +407,7 @@ class TestHealthEndpoint:
 
         with (
             patch.object(route_module, "prewarm_stats_cache", fake_prewarm),
-            patch.object(route_module.asyncio, "sleep", fake_sleep),
+            patch.object(background_module.asyncio, "sleep", fake_sleep),
         ):
             with pytest.raises(asyncio.CancelledError):
                 asyncio.run(

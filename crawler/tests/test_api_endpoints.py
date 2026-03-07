@@ -10,6 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
+from shared.core import background as background_module
+
 
 def test_root_health_endpoint(test_client):
     """Test GET /health endpoint (recommended)"""
@@ -334,7 +336,7 @@ def test_maintain_admin_caches_refreshes_periodically():
 
     with (
         patch.object(events, "_refresh_admin_caches", fake_refresh),
-        patch.object(events.asyncio, "sleep", fake_sleep),
+        patch.object(background_module.asyncio, "sleep", fake_sleep),
     ):
         with pytest.raises(asyncio.CancelledError):
             asyncio.run(events.maintain_admin_caches(refresh_interval_seconds=15))

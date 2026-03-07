@@ -11,6 +11,7 @@ from frontend.api.metrics import (
     ADMIN_DASHBOARD_PREWARM_TOTAL,
 )
 from frontend.services import admin_dashboard
+from shared.core import background as background_module
 from shared.postgres.search import get_connection
 
 
@@ -455,7 +456,7 @@ async def test_maintain_dashboard_cache_refreshes_periodically(monkeypatch):
         return None
 
     monkeypatch.setattr(admin_dashboard, "prewarm_dashboard_cache", fake_prewarm)
-    monkeypatch.setattr(admin_dashboard.asyncio, "sleep", fake_sleep)
+    monkeypatch.setattr(background_module.asyncio, "sleep", fake_sleep)
 
     with pytest.raises(asyncio.CancelledError):
         await admin_dashboard.maintain_dashboard_cache(refresh_interval_seconds=15)

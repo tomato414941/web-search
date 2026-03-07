@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
+from shared.core.background import maintain_refresh_loop
 from shared.core.infrastructure_config import Environment
 
 logger = logging.getLogger(__name__)
@@ -27,9 +28,7 @@ async def _refresh_admin_caches() -> None:
 
 
 async def maintain_admin_caches(*, refresh_interval_seconds: float) -> None:
-    refresh_interval_seconds = max(1.0, refresh_interval_seconds)
-    await asyncio.sleep(2)
-    while True:
+    async def refresh_once() -> None:
         try:
             await _refresh_admin_caches()
         except asyncio.CancelledError:
@@ -38,11 +37,13 @@ async def maintain_admin_caches(*, refresh_interval_seconds: float) -> None:
             logger.warning("Failed to prewarm crawler admin caches", exc_info=True)
         else:
             logger.info("Prewarmed crawler admin caches")
-        await asyncio.sleep(refresh_interval_seconds)
 
-
-async def _prewarm_admin_caches() -> None:
-    await maintain_admin_caches(refresh_interval_seconds=60)
+    await maintain_refresh_loop(
+        initial_call=refresh_once,
+        periodic_call=refresh_once,
+        refresh_interval_seconds=refresh_interval_seconds,
+        initial_delay_seconds=2.0,
+    )
 
 
 @asynccontextmanager

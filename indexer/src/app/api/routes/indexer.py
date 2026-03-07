@@ -10,6 +10,7 @@ from app.metrics import update_indexed_pages_metric, update_queue_metrics
 from app.services.indexer import indexer_service
 from app.services.index_jobs import IndexJobService
 from shared.contracts.indexer_api import IndexPageRequest
+from shared.core.background import maintain_refresh_loop
 from shared.search_kernel.information_origin import calculate_information_origin
 from shared.search_kernel.pagerank import calculate_pagerank, calculate_domain_pagerank
 
@@ -242,8 +243,11 @@ async def prewarm_stats_cache(
 
 
 async def maintain_stats_cache(*, refresh_interval_seconds: float) -> None:
-    await prewarm_stats_cache()
-    refresh_interval_seconds = max(1.0, refresh_interval_seconds)
-    while True:
-        await asyncio.sleep(refresh_interval_seconds)
+    async def refresh_once() -> None:
         await prewarm_stats_cache(attempts=1, delay_seconds=0)
+
+    await maintain_refresh_loop(
+        initial_call=prewarm_stats_cache,
+        periodic_call=refresh_once,
+        refresh_interval_seconds=refresh_interval_seconds,
+    )

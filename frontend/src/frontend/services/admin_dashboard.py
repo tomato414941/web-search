@@ -18,6 +18,7 @@ from frontend.services.admin_analytics import (
     time_boundaries,
 )
 from frontend.services.crawler_admin_client import fetch_stats, fetch_status_breakdown
+from shared.core.background import maintain_refresh_loop
 from shared.postgres.search import get_connection
 from shared.postgres.repositories.analytics_repo import AnalyticsRepository
 
@@ -296,8 +297,11 @@ async def prewarm_dashboard_cache(
 
 
 async def maintain_dashboard_cache(*, refresh_interval_seconds: float) -> None:
-    await prewarm_dashboard_cache()
-    refresh_interval_seconds = max(1.0, refresh_interval_seconds)
-    while True:
-        await asyncio.sleep(refresh_interval_seconds)
+    async def refresh_once() -> None:
         await prewarm_dashboard_cache(attempts=1, delay_seconds=0)
+
+    await maintain_refresh_loop(
+        initial_call=prewarm_dashboard_cache,
+        periodic_call=refresh_once,
+        refresh_interval_seconds=refresh_interval_seconds,
+    )
