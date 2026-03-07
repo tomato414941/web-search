@@ -165,7 +165,7 @@ async def get_dashboard_data() -> dict[str, Any]:
 
 
 async def prewarm_dashboard_cache(
-    *, attempts: int = 6, delay_seconds: float = 5.0
+    *, attempts: int = 60, delay_seconds: float = 5.0
 ) -> None:
     for attempt in range(attempts):
         if delay_seconds > 0:
@@ -180,13 +180,10 @@ async def prewarm_dashboard_cache(
             continue
 
         if data["worker_status"] == "unknown" or data["status_breakdown"] is None:
-            logger.info(
-                "Admin dashboard prewarm skipped on attempt %d/%d; crawler not ready",
-                attempt + 1,
-                attempts,
-            )
             _clear_dashboard_cache()
             continue
 
         logger.info("Prewarmed admin dashboard cache")
         return
+
+    logger.warning("Admin dashboard prewarm gave up after %d attempts", attempts)

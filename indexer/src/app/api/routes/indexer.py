@@ -191,15 +191,21 @@ async def indexer_stats(x_api_key: str = Header(..., alias="X-API-Key")) -> dict
     return await _refresh_stats_cache()
 
 
-async def prewarm_stats_cache(*, delay_seconds: float = 2.0) -> None:
-    if delay_seconds > 0:
-        await asyncio.sleep(delay_seconds)
-    try:
-        await _refresh_stats_cache()
-    except asyncio.CancelledError:
-        raise
-    except Exception as exc:
-        logger.warning("Failed to prewarm indexer stats cache: %s", exc)
-        _clear_stats_cache()
+async def prewarm_stats_cache(
+    *, attempts: int = 60, delay_seconds: float = 5.0
+) -> None:
+    for _attempt in range(attempts):
+        if delay_seconds > 0:
+            await asyncio.sleep(delay_seconds)
+        try:
+            await _refresh_stats_cache()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("Failed to prewarm indexer stats cache: %s", exc)
+            _clear_stats_cache()
+            continue
+        logger.info("Prewarmed indexer stats cache")
         return
-    logger.info("Prewarmed indexer stats cache")
+
+    logger.warning("Indexer stats prewarm gave up after %d attempts", attempts)
