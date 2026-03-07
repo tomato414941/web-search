@@ -48,12 +48,6 @@ def _clean_crawler_tables():
 
 
 @pytest.fixture
-def temp_db_path():
-    """Kept for backward compatibility. Returns None."""
-    return None
-
-
-@pytest.fixture
 def test_url_store():
     from app.db import UrlStore
 

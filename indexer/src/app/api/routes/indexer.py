@@ -18,9 +18,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/indexer")
 
-# Backward-compatible alias
-PageSubmission = IndexPageRequest
-
 
 index_job_service = IndexJobService(
     settings.DB_PATH,
@@ -91,7 +88,7 @@ def verify_api_key(x_api_key: str) -> None:
 
 @router.post("/page", status_code=202)
 async def submit_page(
-    page: PageSubmission, x_api_key: str = Header(..., alias="X-API-Key")
+    page: IndexPageRequest, x_api_key: str = Header(..., alias="X-API-Key")
 ) -> dict:
     """
     Queue a crawled page for asynchronous indexing.

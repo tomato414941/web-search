@@ -57,12 +57,6 @@ def _clean_tables():
 
 
 @pytest.fixture
-def test_db_path():
-    """Provide database access (kept for backward compat, returns None)."""
-    yield None
-
-
-@pytest.fixture
 def client():
     with TestClient(app) as test_client:
         yield test_client

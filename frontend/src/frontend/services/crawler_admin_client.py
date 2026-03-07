@@ -121,11 +121,6 @@ async def fetch_status_breakdown(
     return None
 
 
-async def fetch_seeds() -> list[dict[str, Any]]:
-    """Backward-compatible helper returning the first seed page items."""
-    return (await fetch_seeds_page())["items"]
-
-
 async def fetch_seeds_page(
     page: int = 1, per_page: int = settings.ADMIN_SEEDS_PER_PAGE
 ) -> dict[str, Any]:
