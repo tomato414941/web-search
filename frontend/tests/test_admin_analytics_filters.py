@@ -130,6 +130,64 @@ async def test_dashboard_uses_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_dashboard_uses_shared_file_cache_across_workers(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard._SHARED_CACHE_PATH",
+        str(tmp_path / "admin-dashboard-cache.json"),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
+        30,
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard._get_db_dashboard_data",
+        MagicMock(
+            return_value={
+                "indexed_pages": 456,
+                "indexed_delta": 11,
+                "last_crawl": "2026-03-07T00:00:00Z",
+                "today_searches": 3,
+                "today_unique_queries": 3,
+                "today_zero_hits": 1,
+                "zero_hit_rate": 33.3,
+                "top_query": {"query": "shared", "count": 2},
+                "zero_hit_queries": [{"query": "miss", "count": 1}],
+            }
+        ),
+    )
+    mock_fetch_stats = AsyncMock(
+        return_value={
+            "queue_size": 1,
+            "active_seen": 2,
+            "worker_status": "running",
+            "uptime_seconds": 10,
+            "active_tasks": 0,
+            "crawl_rate_1h": 0,
+            "error_count_1h": 0,
+            "recent_errors": [],
+        }
+    )
+    mock_fetch_breakdown = AsyncMock(return_value={"pending": 1})
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_stats", mock_fetch_stats
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_status_breakdown",
+        mock_fetch_breakdown,
+    )
+
+    first = await admin_dashboard.get_dashboard_data()
+    admin_dashboard._clear_dashboard_memory_cache()
+    second = await admin_dashboard.get_dashboard_data()
+
+    assert first["indexed_pages"] == 456
+    assert second["indexed_pages"] == 456
+    assert admin_dashboard._get_db_dashboard_data.call_count == 1  # type: ignore[attr-defined]
+    assert mock_fetch_stats.await_count == 1
+    assert mock_fetch_breakdown.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
     monkeypatch.setattr(
         "frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",

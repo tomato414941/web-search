@@ -309,10 +309,48 @@ class TestHealthEndpoint:
         assert mock_stats.call_count == first_stats_calls
         assert mock_queue.call_count == first_queue_calls
 
+    def test_failed_jobs_uses_short_ttl_cache(self, test_client):
+        from app.api.routes import indexer as route_module
+
+        route_module._clear_failed_jobs_cache()
+        jobs = [
+            {
+                "job_id": "job-1",
+                "url": "https://example.com",
+                "last_error": "boom",
+                "retry_count": 5,
+                "created_at": "2026-03-07T00:00:00Z",
+                "updated_at": "2026-03-07T00:01:00Z",
+            }
+        ]
+
+        with patch(
+            "app.api.routes.indexer.index_job_service.get_failed_permanent_jobs"
+        ) as mock_jobs:
+            mock_jobs.return_value = jobs
+
+            first = test_client.get(
+                "/api/v1/indexer/jobs/failed?limit=50",
+                headers={"X-API-Key": settings.INDEXER_API_KEY},
+            )
+            second = test_client.get(
+                "/api/v1/indexer/jobs/failed?limit=50",
+                headers={"X-API-Key": settings.INDEXER_API_KEY},
+            )
+
+        route_module._clear_failed_jobs_cache()
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()["jobs"] == jobs
+        assert second.json()["jobs"] == jobs
+        assert mock_jobs.call_count == 1
+
     def test_prewarm_stats_cache_populates_cache(self):
         from app.api.routes import indexer as route_module
 
         route_module._clear_stats_cache()
+        route_module._clear_failed_jobs_cache()
         queue_stats = {
             "pending_jobs": 2,
             "processing_jobs": 1,
@@ -331,11 +369,25 @@ class TestHealthEndpoint:
                 "app.api.routes.indexer.index_job_service.get_queue_stats",
                 return_value=queue_stats,
             ),
+            patch(
+                "app.api.routes.indexer.index_job_service.get_failed_permanent_jobs",
+                return_value=[
+                    {
+                        "job_id": "job-1",
+                        "url": "https://example.com",
+                        "last_error": "boom",
+                        "retry_count": 5,
+                        "created_at": "2026-03-07T00:00:00Z",
+                        "updated_at": "2026-03-07T00:01:00Z",
+                    }
+                ],
+            ),
         ):
             asyncio.run(route_module.prewarm_stats_cache(delay_seconds=0))
 
         assert route_module._stats_cache["data"] is not None
         assert route_module._stats_cache["data"]["indexed_pages"] == 24
+        assert route_module._failed_jobs_cache[(50, 0)]["data"]["count"] == 1
 
     def test_metrics_endpoint_exposes_queue_metrics(self, test_client):
         enqueue_resp = test_client.post(

@@ -29,11 +29,16 @@ index_job_service = IndexJobService(
 )
 
 _stats_cache: dict[str, object] = {"data": None, "expires": 0.0}
+_failed_jobs_cache: dict[tuple[int, int], dict[str, object]] = {}
 
 
 def _clear_stats_cache() -> None:
     _stats_cache["data"] = None
     _stats_cache["expires"] = 0.0
+
+
+def _clear_failed_jobs_cache() -> None:
+    _failed_jobs_cache.clear()
 
 
 def _cache_stats_payload(payload: dict) -> dict:
@@ -59,6 +64,22 @@ async def _refresh_stats_cache() -> dict:
     update_indexed_pages_metric(payload["indexed_pages"])
     update_queue_metrics(queue_stats)
     return _cache_stats_payload(payload)
+
+
+def _cache_failed_jobs_payload(limit: int, offset: int, jobs: list[dict]) -> dict:
+    payload = {"ok": True, "jobs": jobs, "count": len(jobs)}
+    _failed_jobs_cache[(limit, offset)] = {
+        "data": payload,
+        "expires": time.monotonic() + max(1, settings.INDEXER_STATS_CACHE_TTL_SEC),
+    }
+    return payload
+
+
+async def _refresh_failed_jobs_cache(limit: int, offset: int) -> dict:
+    jobs = await asyncio.to_thread(
+        index_job_service.get_failed_permanent_jobs, limit=limit, offset=offset
+    )
+    return _cache_failed_jobs_payload(limit, offset, jobs)
 
 
 def verify_api_key(x_api_key: str) -> None:
@@ -111,8 +132,12 @@ async def get_failed_jobs(
     """List permanently failed indexing jobs."""
     verify_api_key(x_api_key)
     limit = min(limit, 500)
-    jobs = index_job_service.get_failed_permanent_jobs(limit=limit, offset=offset)
-    return {"ok": True, "jobs": jobs, "count": len(jobs)}
+    cached = _failed_jobs_cache.get((limit, offset))
+    now = time.monotonic()
+    if cached is not None and now < float(cached["expires"]):
+        return cached["data"]  # type: ignore[return-value]
+
+    return await _refresh_failed_jobs_cache(limit, offset)
 
 
 @router.get("/jobs/{job_id}")
@@ -142,6 +167,7 @@ async def retry_failed_job(
             status_code=404,
             detail="Job not found or not in failed_permanent status",
         )
+    _clear_failed_jobs_cache()
     return {"ok": True, "job_id": job_id, "message": "Job reset to pending"}
 
 
@@ -198,12 +224,16 @@ async def prewarm_stats_cache(
         if delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
         try:
-            await _refresh_stats_cache()
+            await asyncio.gather(
+                _refresh_stats_cache(),
+                _refresh_failed_jobs_cache(limit=50, offset=0),
+            )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             logger.warning("Failed to prewarm indexer stats cache: %s", exc)
             _clear_stats_cache()
+            _clear_failed_jobs_cache()
             continue
         logger.info("Prewarmed indexer stats cache")
         return

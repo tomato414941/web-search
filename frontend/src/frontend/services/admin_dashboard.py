@@ -1,6 +1,9 @@
-import logging
 import asyncio
 import copy
+import json
+import logging
+import os
+import tempfile
 import time
 from typing import Any
 
@@ -17,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 _repo = AnalyticsRepository
 _dashboard_cache: dict[str, object] = {"data": None, "expires": 0.0}
+_SHARED_CACHE_PATH = os.path.join(
+    tempfile.gettempdir(), "pbs-admin-dashboard-cache.json"
+)
 
 
 def _empty_dashboard_data() -> dict[str, Any]:
@@ -43,24 +49,90 @@ def _empty_dashboard_data() -> dict[str, Any]:
     }
 
 
-def _clear_dashboard_cache() -> None:
+def _clear_dashboard_memory_cache() -> None:
     _dashboard_cache["data"] = None
     _dashboard_cache["expires"] = 0.0
+
+
+def _clear_dashboard_cache() -> None:
+    _clear_dashboard_memory_cache()
+    try:
+        os.remove(_SHARED_CACHE_PATH)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        logger.warning("Failed to clear shared admin dashboard cache: %s", exc)
+
+
+def _serialize_dashboard_data(data: dict[str, Any]) -> dict[str, Any]:
+    return json.loads(json.dumps(data, default=str))
+
+
+def _set_memory_cache(data: dict[str, Any], ttl: float) -> None:
+    if ttl < 1:
+        return
+    _dashboard_cache["data"] = copy.deepcopy(data)
+    _dashboard_cache["expires"] = time.monotonic() + ttl
+
+
+def _load_shared_dashboard_cache() -> tuple[dict[str, Any] | None, float]:
+    try:
+        with open(_SHARED_CACHE_PATH, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except FileNotFoundError:
+        return None, 0.0
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("Failed to read shared admin dashboard cache: %s", exc)
+        return None, 0.0
+
+    data = payload.get("data")
+    expires_at = float(payload.get("expires_at", 0.0))
+    remaining_ttl = expires_at - time.time()
+    if not isinstance(data, dict) or remaining_ttl <= 0:
+        return None, 0.0
+
+    return data, remaining_ttl
+
+
+def _write_shared_dashboard_cache(data: dict[str, Any], ttl: float) -> None:
+    if ttl < 1:
+        return
+
+    payload = {"expires_at": time.time() + ttl, "data": data}
+    tmp_path = f"{_SHARED_CACHE_PATH}.{os.getpid()}.tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+        os.replace(tmp_path, _SHARED_CACHE_PATH)
+    except OSError as exc:
+        logger.warning("Failed to write shared admin dashboard cache: %s", exc)
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
 
 
 def _get_cached_dashboard_data(now: float) -> dict[str, Any] | None:
     cached = _dashboard_cache["data"]
     if cached is not None and now < float(_dashboard_cache["expires"]):
         return copy.deepcopy(cached)  # type: ignore[arg-type]
-    return None
+
+    shared_cached, remaining_ttl = _load_shared_dashboard_cache()
+    if shared_cached is None:
+        return None
+
+    _set_memory_cache(shared_cached, remaining_ttl)
+    return copy.deepcopy(shared_cached)
 
 
 def _set_cached_dashboard_data(data: dict[str, Any]) -> None:
     ttl = max(0, settings.ADMIN_DASHBOARD_CACHE_TTL_SEC)
     if ttl < 1:
         return
-    _dashboard_cache["data"] = copy.deepcopy(data)
-    _dashboard_cache["expires"] = time.monotonic() + ttl
+
+    serialized = _serialize_dashboard_data(data)
+    _set_memory_cache(serialized, ttl)
+    _write_shared_dashboard_cache(serialized, ttl)
 
 
 def _get_db_dashboard_data() -> dict[str, Any]:
@@ -115,12 +187,7 @@ def _get_db_dashboard_data() -> dict[str, Any]:
     return data
 
 
-async def get_dashboard_data() -> dict[str, Any]:
-    now = time.monotonic()
-    cached = _get_cached_dashboard_data(now)
-    if cached is not None:
-        return cached
-
+async def _build_dashboard_data() -> dict[str, Any]:
     data = _empty_dashboard_data()
     db_data, data["status_breakdown"], stats = await asyncio.gather(
         asyncio.to_thread(_get_db_dashboard_data),
@@ -160,6 +227,16 @@ async def get_dashboard_data() -> dict[str, Any]:
             data["health"]["level"] = "warning"
 
     data["health"]["messages"] = health_messages
+    return data
+
+
+async def get_dashboard_data() -> dict[str, Any]:
+    now = time.monotonic()
+    cached = _get_cached_dashboard_data(now)
+    if cached is not None:
+        return cached
+
+    data = await _build_dashboard_data()
     _set_cached_dashboard_data(data)
     return copy.deepcopy(data)
 
@@ -171,18 +248,19 @@ async def prewarm_dashboard_cache(
         if delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
         try:
-            data = await get_dashboard_data()
+            data = await _build_dashboard_data()
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             logger.warning("Failed to prewarm admin dashboard cache: %s", exc)
-            _clear_dashboard_cache()
+            _clear_dashboard_memory_cache()
             continue
 
         if data["worker_status"] == "unknown" or data["status_breakdown"] is None:
-            _clear_dashboard_cache()
+            _clear_dashboard_memory_cache()
             continue
 
+        _set_cached_dashboard_data(data)
         logger.info("Prewarmed admin dashboard cache")
         return
 
