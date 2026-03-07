@@ -30,6 +30,7 @@ class Settings(InfrastructureSettings):
     INDEXER_SERVICE_URL: str = "http://localhost:8081"
     INDEXER_ADMIN_TIMEOUT_SEC: float = 10.0
     ADMIN_DASHBOARD_CACHE_TTL_SEC: int = 120
+    ADMIN_DASHBOARD_REFRESH_SEC: int = 60
     ADMIN_SEEDS_PER_PAGE: int = 50
 
     @property

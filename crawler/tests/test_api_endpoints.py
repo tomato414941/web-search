@@ -8,6 +8,8 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 
 def test_root_health_endpoint(test_client):
     """Test GET /health endpoint (recommended)"""
@@ -313,3 +315,29 @@ def test_prewarm_seeds_page_cache_populates_first_page(test_url_store):
     payload = _seeds_cache[(50, 0)]["data"]
     assert payload.total == 3
     assert len(payload.items) == 3
+
+
+def test_maintain_admin_caches_refreshes_periodically():
+    from app.core import events
+
+    refresh_calls: list[str] = []
+    sleep_calls: list[float] = []
+
+    async def fake_refresh() -> None:
+        refresh_calls.append("refresh")
+        if len(refresh_calls) >= 2:
+            raise asyncio.CancelledError
+
+    async def fake_sleep(delay: float) -> None:
+        sleep_calls.append(delay)
+        return None
+
+    with (
+        patch.object(events, "_refresh_admin_caches", fake_refresh),
+        patch.object(events.asyncio, "sleep", fake_sleep),
+    ):
+        with pytest.raises(asyncio.CancelledError):
+            asyncio.run(events.maintain_admin_caches(refresh_interval_seconds=15))
+
+    assert refresh_calls == ["refresh", "refresh"]
+    assert sleep_calls == [2, 15]

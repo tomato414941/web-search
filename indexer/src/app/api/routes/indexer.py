@@ -239,3 +239,11 @@ async def prewarm_stats_cache(
         return
 
     logger.warning("Indexer stats prewarm gave up after %d attempts", attempts)
+
+
+async def maintain_stats_cache(*, refresh_interval_seconds: float) -> None:
+    await prewarm_stats_cache()
+    refresh_interval_seconds = max(1.0, refresh_interval_seconds)
+    while True:
+        await asyncio.sleep(refresh_interval_seconds)
+        await prewarm_stats_cache(attempts=1, delay_seconds=0)

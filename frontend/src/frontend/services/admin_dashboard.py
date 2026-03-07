@@ -8,6 +8,11 @@ import time
 from typing import Any
 
 from frontend.core.config import settings
+from frontend.api.metrics import (
+    record_admin_dashboard_cache_access,
+    record_admin_dashboard_prewarm_result,
+    set_admin_dashboard_last_prewarm_success,
+)
 from frontend.services.admin_analytics import (
     build_analytics_exclusion_filters,
     time_boundaries,
@@ -94,6 +99,22 @@ def _load_shared_dashboard_cache() -> tuple[dict[str, Any] | None, float]:
     return data, remaining_ttl
 
 
+def _get_memory_cached_dashboard_data(now: float) -> dict[str, Any] | None:
+    cached = _dashboard_cache["data"]
+    if cached is not None and now < float(_dashboard_cache["expires"]):
+        return copy.deepcopy(cached)  # type: ignore[arg-type]
+    return None
+
+
+def _get_shared_cached_dashboard_data() -> dict[str, Any] | None:
+    shared_cached, remaining_ttl = _load_shared_dashboard_cache()
+    if shared_cached is None:
+        return None
+
+    _set_memory_cache(shared_cached, remaining_ttl)
+    return copy.deepcopy(shared_cached)
+
+
 def _write_shared_dashboard_cache(data: dict[str, Any], ttl: float) -> None:
     if ttl < 1:
         return
@@ -113,16 +134,11 @@ def _write_shared_dashboard_cache(data: dict[str, Any], ttl: float) -> None:
 
 
 def _get_cached_dashboard_data(now: float) -> dict[str, Any] | None:
-    cached = _dashboard_cache["data"]
-    if cached is not None and now < float(_dashboard_cache["expires"]):
-        return copy.deepcopy(cached)  # type: ignore[arg-type]
+    cached = _get_memory_cached_dashboard_data(now)
+    if cached is not None:
+        return cached
 
-    shared_cached, remaining_ttl = _load_shared_dashboard_cache()
-    if shared_cached is None:
-        return None
-
-    _set_memory_cache(shared_cached, remaining_ttl)
-    return copy.deepcopy(shared_cached)
+    return _get_shared_cached_dashboard_data()
 
 
 def _set_cached_dashboard_data(data: dict[str, Any]) -> None:
@@ -232,10 +248,17 @@ async def _build_dashboard_data() -> dict[str, Any]:
 
 async def get_dashboard_data() -> dict[str, Any]:
     now = time.monotonic()
-    cached = _get_cached_dashboard_data(now)
+    cached = _get_memory_cached_dashboard_data(now)
     if cached is not None:
+        record_admin_dashboard_cache_access("memory")
         return cached
 
+    shared_cached = _get_shared_cached_dashboard_data()
+    if shared_cached is not None:
+        record_admin_dashboard_cache_access("shared")
+        return shared_cached
+
+    record_admin_dashboard_cache_access("miss")
     data = await _build_dashboard_data()
     _set_cached_dashboard_data(data)
     return copy.deepcopy(data)
@@ -253,15 +276,28 @@ async def prewarm_dashboard_cache(
             raise
         except Exception as exc:
             logger.warning("Failed to prewarm admin dashboard cache: %s", exc)
+            record_admin_dashboard_prewarm_result("error")
             _clear_dashboard_memory_cache()
             continue
 
         if data["worker_status"] == "unknown" or data["status_breakdown"] is None:
+            record_admin_dashboard_prewarm_result("skipped")
             _clear_dashboard_memory_cache()
             continue
 
         _set_cached_dashboard_data(data)
+        record_admin_dashboard_prewarm_result("success")
+        set_admin_dashboard_last_prewarm_success()
         logger.info("Prewarmed admin dashboard cache")
         return
 
+    record_admin_dashboard_prewarm_result("gave_up")
     logger.warning("Admin dashboard prewarm gave up after %d attempts", attempts)
+
+
+async def maintain_dashboard_cache(*, refresh_interval_seconds: float) -> None:
+    await prewarm_dashboard_cache()
+    refresh_interval_seconds = max(1.0, refresh_interval_seconds)
+    while True:
+        await asyncio.sleep(refresh_interval_seconds)
+        await prewarm_dashboard_cache(attempts=1, delay_seconds=0)

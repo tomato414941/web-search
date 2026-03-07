@@ -52,6 +52,37 @@ SEARCH_SCORING_DURATION = Histogram(
     buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
 
+# --- Admin dashboard metrics ---
+
+ADMIN_DASHBOARD_CACHE_ACCESS = Counter(
+    "admin_dashboard_cache_access_total",
+    "Admin dashboard cache lookups by result",
+    ["result"],
+)
+
+ADMIN_DASHBOARD_PREWARM_TOTAL = Counter(
+    "admin_dashboard_prewarm_total",
+    "Admin dashboard prewarm attempts by result",
+    ["result"],
+)
+
+ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS = Gauge(
+    "admin_dashboard_prewarm_last_success_timestamp_seconds",
+    "Unix timestamp of the last successful admin dashboard prewarm",
+)
+
+
+def record_admin_dashboard_cache_access(result: str) -> None:
+    ADMIN_DASHBOARD_CACHE_ACCESS.labels(result=result).inc()
+
+
+def record_admin_dashboard_prewarm_result(result: str) -> None:
+    ADMIN_DASHBOARD_PREWARM_TOTAL.labels(result=result).inc()
+
+
+def set_admin_dashboard_last_prewarm_success(timestamp: float | None = None) -> None:
+    ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS.set(timestamp or time.time())
+
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     """Middleware to collect request metrics."""

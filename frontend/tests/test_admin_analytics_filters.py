@@ -1,9 +1,15 @@
+import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from frontend.api.routers.admin import get_analytics_data, get_dashboard_data
+from frontend.api.metrics import (
+    ADMIN_DASHBOARD_CACHE_ACCESS,
+    ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS,
+    ADMIN_DASHBOARD_PREWARM_TOTAL,
+)
 from frontend.services import admin_dashboard
 from shared.postgres.search import get_connection
 
@@ -21,6 +27,14 @@ def _insert_search_log(query: str, result_count: int, user_agent: str) -> None:
     conn.commit()
     cur.close()
     conn.close()
+
+
+def _metric_value(metric, sample_name: str, **labels: str) -> float:
+    for family in metric.collect():
+        for sample in family.samples:
+            if sample.name == sample_name and sample.labels == labels:
+                return float(sample.value)
+    return 0.0
 
 
 @pytest.fixture(autouse=True)
@@ -127,6 +141,99 @@ async def test_dashboard_uses_cache(monkeypatch):
     )
     assert mock_fetch_stats.await_count == 1
     assert mock_fetch_breakdown.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_dashboard_records_cache_access_metrics(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard._SHARED_CACHE_PATH",
+        str(tmp_path / "admin-dashboard-cache.json"),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
+        30,
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard._get_db_dashboard_data",
+        MagicMock(
+            return_value={
+                "indexed_pages": 111,
+                "indexed_delta": 2,
+                "last_crawl": "2026-03-07T00:00:00Z",
+                "today_searches": 1,
+                "today_unique_queries": 1,
+                "today_zero_hits": 0,
+                "zero_hit_rate": 0.0,
+                "top_query": {"query": "metrics", "count": 1},
+                "zero_hit_queries": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_stats",
+        AsyncMock(
+            return_value={
+                "queue_size": 0,
+                "active_seen": 0,
+                "worker_status": "running",
+                "uptime_seconds": 1,
+                "active_tasks": 0,
+                "crawl_rate_1h": 0,
+                "error_count_1h": 0,
+                "recent_errors": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_status_breakdown",
+        AsyncMock(return_value={"pending": 1}),
+    )
+
+    miss_before = _metric_value(
+        ADMIN_DASHBOARD_CACHE_ACCESS,
+        "admin_dashboard_cache_access_total",
+        result="miss",
+    )
+    memory_before = _metric_value(
+        ADMIN_DASHBOARD_CACHE_ACCESS,
+        "admin_dashboard_cache_access_total",
+        result="memory",
+    )
+    shared_before = _metric_value(
+        ADMIN_DASHBOARD_CACHE_ACCESS,
+        "admin_dashboard_cache_access_total",
+        result="shared",
+    )
+
+    await admin_dashboard.get_dashboard_data()
+    await admin_dashboard.get_dashboard_data()
+    admin_dashboard._clear_dashboard_memory_cache()
+    await admin_dashboard.get_dashboard_data()
+
+    assert (
+        _metric_value(
+            ADMIN_DASHBOARD_CACHE_ACCESS,
+            "admin_dashboard_cache_access_total",
+            result="miss",
+        )
+        == miss_before + 1
+    )
+    assert (
+        _metric_value(
+            ADMIN_DASHBOARD_CACHE_ACCESS,
+            "admin_dashboard_cache_access_total",
+            result="memory",
+        )
+        == memory_before + 1
+    )
+    assert (
+        _metric_value(
+            ADMIN_DASHBOARD_CACHE_ACCESS,
+            "admin_dashboard_cache_access_total",
+            result="shared",
+        )
+        == shared_before + 1
+    )
 
 
 @pytest.mark.asyncio
@@ -241,6 +348,77 @@ async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_prewarm_dashboard_cache_records_metrics(monkeypatch):
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
+        30,
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard._get_db_dashboard_data",
+        MagicMock(
+            return_value={
+                "indexed_pages": 20,
+                "indexed_delta": 1,
+                "last_crawl": "2026-03-07T00:00:00Z",
+                "today_searches": 0,
+                "today_unique_queries": 0,
+                "today_zero_hits": 0,
+                "zero_hit_rate": 0.0,
+                "top_query": None,
+                "zero_hit_queries": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_stats",
+        AsyncMock(
+            return_value={
+                "queue_size": 0,
+                "active_seen": 0,
+                "worker_status": "running",
+                "uptime_seconds": 5,
+                "active_tasks": 0,
+                "crawl_rate_1h": 0,
+                "error_count_1h": 0,
+                "recent_errors": [],
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_status_breakdown",
+        AsyncMock(return_value={"pending": 1}),
+    )
+
+    success_before = _metric_value(
+        ADMIN_DASHBOARD_PREWARM_TOTAL,
+        "admin_dashboard_prewarm_total",
+        result="success",
+    )
+    last_success_before = _metric_value(
+        ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS,
+        "admin_dashboard_prewarm_last_success_timestamp_seconds",
+    )
+
+    await admin_dashboard.prewarm_dashboard_cache(attempts=1, delay_seconds=0)
+
+    assert (
+        _metric_value(
+            ADMIN_DASHBOARD_PREWARM_TOTAL,
+            "admin_dashboard_prewarm_total",
+            result="success",
+        )
+        == success_before + 1
+    )
+    assert (
+        _metric_value(
+            ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS,
+            "admin_dashboard_prewarm_last_success_timestamp_seconds",
+        )
+        >= last_success_before
+    )
+
+
+@pytest.mark.asyncio
 async def test_prewarm_dashboard_cache_skips_unreachable_crawler(monkeypatch):
     monkeypatch.setattr(
         "frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
@@ -262,6 +440,27 @@ async def test_prewarm_dashboard_cache_skips_unreachable_crawler(monkeypatch):
     await admin_dashboard.prewarm_dashboard_cache(attempts=1, delay_seconds=0)
 
     assert admin_dashboard._get_cached_dashboard_data(time.monotonic()) is None
+
+
+@pytest.mark.asyncio
+async def test_maintain_dashboard_cache_refreshes_periodically(monkeypatch):
+    calls: list[tuple[int, float]] = []
+
+    async def fake_prewarm(*, attempts: int = 60, delay_seconds: float = 5.0) -> None:
+        calls.append((attempts, delay_seconds))
+        if len(calls) >= 2:
+            raise asyncio.CancelledError
+
+    async def fake_sleep(_: float) -> None:
+        return None
+
+    monkeypatch.setattr(admin_dashboard, "prewarm_dashboard_cache", fake_prewarm)
+    monkeypatch.setattr(admin_dashboard.asyncio, "sleep", fake_sleep)
+
+    with pytest.raises(asyncio.CancelledError):
+        await admin_dashboard.maintain_dashboard_cache(refresh_interval_seconds=15)
+
+    assert calls == [(60, 5.0), (1, 0)]
 
 
 def test_analytics_excludes_noise_queries():

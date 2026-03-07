@@ -8,9 +8,11 @@ PRD_REF ?= production
 STG_FRONTEND_URL ?= https://web-search-staging.5.223.74.201.sslip.io
 STG_INDEXER_URL ?= http://indexer:8000
 SMOKE_TEST_URL ?= https://example.com
+VERIFY_ADMIN_MAX_SECONDS ?= 2.0
 
 .PHONY: ci ci-lint ci-frontend ci-shared ci-crawler ci-indexer ci-mcp
-.PHONY: watch-ci verify-stg verify-prd release-check-stg release-check-prd
+.PHONY: watch-ci verify-stg verify-prd verify-admin-stg verify-admin-prd
+.PHONY: release-check-stg release-check-prd
 
 ci: ci-lint ci-shared ci-frontend ci-crawler ci-indexer ci-mcp
 
@@ -64,10 +66,18 @@ verify-stg:
 verify-prd:
 	cd $(ROOT_DIR) && ./scripts/ops/verify_coolify_deploy.sh prd $(PRD_REF)
 
+verify-admin-stg:
+	cd $(ROOT_DIR) && ./scripts/ops/verify_admin_pages.sh stg $(VERIFY_ADMIN_MAX_SECONDS)
+
+verify-admin-prd:
+	cd $(ROOT_DIR) && ./scripts/ops/verify_admin_pages.sh prd $(VERIFY_ADMIN_MAX_SECONDS)
+
 release-check-stg:
 	$(MAKE) watch-ci WATCH_REF=$(STG_REF)
 	$(MAKE) verify-stg STG_REF=$(STG_REF)
+	$(MAKE) verify-admin-stg VERIFY_ADMIN_MAX_SECONDS=$(VERIFY_ADMIN_MAX_SECONDS)
 
 release-check-prd:
 	$(MAKE) watch-ci WATCH_REF=$(PRD_REF)
 	$(MAKE) verify-prd PRD_REF=$(PRD_REF)
+	$(MAKE) verify-admin-prd VERIFY_ADMIN_MAX_SECONDS=$(VERIFY_ADMIN_MAX_SECONDS)

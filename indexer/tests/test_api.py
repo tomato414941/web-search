@@ -3,6 +3,8 @@
 import asyncio
 from unittest.mock import patch
 
+import pytest
+
 from app.core.config import settings
 
 
@@ -388,6 +390,30 @@ class TestHealthEndpoint:
         assert route_module._stats_cache["data"] is not None
         assert route_module._stats_cache["data"]["indexed_pages"] == 24
         assert route_module._failed_jobs_cache[(50, 0)]["data"]["count"] == 1
+
+    def test_maintain_stats_cache_refreshes_periodically(self):
+        from app.api.routes import indexer as route_module
+
+        calls = []
+
+        async def fake_prewarm(*, attempts=60, delay_seconds=5.0):
+            calls.append((attempts, delay_seconds))
+            if len(calls) >= 2:
+                raise asyncio.CancelledError
+
+        async def fake_sleep(_):
+            return None
+
+        with (
+            patch.object(route_module, "prewarm_stats_cache", fake_prewarm),
+            patch.object(route_module.asyncio, "sleep", fake_sleep),
+        ):
+            with pytest.raises(asyncio.CancelledError):
+                asyncio.run(
+                    route_module.maintain_stats_cache(refresh_interval_seconds=15)
+                )
+
+        assert calls == [(60, 5.0), (1, 0)]
 
     def test_metrics_endpoint_exposes_queue_metrics(self, test_client):
         enqueue_resp = test_client.post(

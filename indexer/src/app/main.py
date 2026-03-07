@@ -36,7 +36,11 @@ async def lifespan(app: FastAPI):
     indexer.index_job_service.retry_max_seconds = settings.INDEXER_JOB_RETRY_MAX_SEC
     prewarm_task: asyncio.Task[None] | None = None
     if settings.ENVIRONMENT != Environment.TEST:
-        prewarm_task = asyncio.create_task(indexer.prewarm_stats_cache())
+        prewarm_task = asyncio.create_task(
+            indexer.maintain_stats_cache(
+                refresh_interval_seconds=settings.INDEXER_STATS_REFRESH_SEC
+            )
+        )
 
     try:
         yield

@@ -15,23 +15,34 @@ from shared.core.infrastructure_config import Environment
 logger = logging.getLogger(__name__)
 
 
-async def _prewarm_admin_caches() -> None:
-    await asyncio.sleep(2)
-    try:
-        from app.api.deps import get_queue_service, get_seed_service
-        from app.api.routes.seeds import prewarm_seeds_page_cache
-        from app.api.routes.stats import prewarm_admin_stats_caches
+async def _refresh_admin_caches() -> None:
+    from app.api.deps import get_queue_service, get_seed_service
+    from app.api.routes.seeds import prewarm_seeds_page_cache
+    from app.api.routes.stats import prewarm_admin_stats_caches
 
-        await asyncio.gather(
-            prewarm_admin_stats_caches(get_queue_service()),
-            prewarm_seeds_page_cache(get_seed_service()),
-        )
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        logger.warning("Failed to prewarm crawler admin caches", exc_info=True)
-        return
-    logger.info("Prewarmed crawler admin caches")
+    await asyncio.gather(
+        prewarm_admin_stats_caches(get_queue_service()),
+        prewarm_seeds_page_cache(get_seed_service()),
+    )
+
+
+async def maintain_admin_caches(*, refresh_interval_seconds: float) -> None:
+    refresh_interval_seconds = max(1.0, refresh_interval_seconds)
+    await asyncio.sleep(2)
+    while True:
+        try:
+            await _refresh_admin_caches()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("Failed to prewarm crawler admin caches", exc_info=True)
+        else:
+            logger.info("Prewarmed crawler admin caches")
+        await asyncio.sleep(refresh_interval_seconds)
+
+
+async def _prewarm_admin_caches() -> None:
+    await maintain_admin_caches(refresh_interval_seconds=60)
 
 
 @asynccontextmanager
@@ -64,7 +75,11 @@ async def lifespan(app: FastAPI):
         logger.info("Use POST /worker/start to begin crawling")
 
     if settings.ENVIRONMENT != Environment.TEST:
-        prewarm_task = asyncio.create_task(_prewarm_admin_caches())
+        prewarm_task = asyncio.create_task(
+            maintain_admin_caches(
+                refresh_interval_seconds=settings.ADMIN_CACHE_REFRESH_SEC
+            )
+        )
 
     try:
         yield  # Application runs here

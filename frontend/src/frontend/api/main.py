@@ -28,7 +28,7 @@ from frontend.api.routers.system import root_router as health_root_router
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from frontend.api.metrics import router as metrics_router, MetricsMiddleware
-from frontend.services.admin_dashboard import prewarm_dashboard_cache
+from frontend.services.admin_dashboard import maintain_dashboard_cache
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -57,7 +57,11 @@ async def lifespan(app: FastAPI):
         migrate()
     prewarm_task: asyncio.Task[None] | None = None
     if settings.ENVIRONMENT != Environment.TEST:
-        prewarm_task = asyncio.create_task(prewarm_dashboard_cache())
+        prewarm_task = asyncio.create_task(
+            maintain_dashboard_cache(
+                refresh_interval_seconds=settings.ADMIN_DASHBOARD_REFRESH_SEC
+            )
+        )
     try:
         yield
     finally:

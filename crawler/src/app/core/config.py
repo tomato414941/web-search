@@ -24,6 +24,7 @@ class CrawlerSettings(InfrastructureSettings):
 
     # Auto-start crawl workers on service startup
     CRAWL_AUTO_START: bool = False
+    ADMIN_CACHE_REFRESH_SEC: int = 60
 
     # Recrawl settings
     CRAWL_RECRAWL_AFTER_DAYS: int = 30
