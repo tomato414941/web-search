@@ -1,6 +1,7 @@
 import os
+import asyncio
 import uvicorn
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -27,6 +28,7 @@ from frontend.api.routers.system import root_router as health_root_router
 from frontend.api.middleware.rate_limiter import limiter, rate_limit_exceeded_handler
 from frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from frontend.api.metrics import router as metrics_router, MetricsMiddleware
+from frontend.services.admin_dashboard import prewarm_dashboard_cache
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -53,7 +55,16 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     if settings.RUN_MIGRATIONS:
         migrate()
-    yield
+    prewarm_task: asyncio.Task[None] | None = None
+    if settings.ENVIRONMENT != Environment.TEST:
+        prewarm_task = asyncio.create_task(prewarm_dashboard_cache())
+    try:
+        yield
+    finally:
+        if prewarm_task is not None:
+            prewarm_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await prewarm_task
 
 
 # --- OpenAPI Metadata ---

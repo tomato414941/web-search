@@ -4,11 +4,34 @@ Application Lifecycle Events
 Manages FastAPI lifespan events for startup and shutdown.
 """
 
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
+import asyncio
 import logging
+from contextlib import asynccontextmanager, suppress
+
+from fastapi import FastAPI
+
+from shared.core.infrastructure_config import Environment
 
 logger = logging.getLogger(__name__)
+
+
+async def _prewarm_admin_caches() -> None:
+    await asyncio.sleep(2)
+    try:
+        from app.api.deps import get_queue_service, get_seed_service
+        from app.api.routes.seeds import prewarm_seeds_page_cache
+        from app.api.routes.stats import prewarm_admin_stats_caches
+
+        await asyncio.gather(
+            prewarm_admin_stats_caches(get_queue_service()),
+            prewarm_seeds_page_cache(get_seed_service()),
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.warning("Failed to prewarm crawler admin caches", exc_info=True)
+        return
+    logger.info("Prewarmed crawler admin caches")
 
 
 @asynccontextmanager
@@ -29,6 +52,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize worker manager
     await worker_manager.initialize()
+    prewarm_task: asyncio.Task[None] | None = None
 
     if settings.CRAWL_AUTO_START:
         await worker_manager.start(concurrency=settings.CRAWL_CONCURRENCY)
@@ -39,13 +63,22 @@ async def lifespan(app: FastAPI):
         logger.info("Worker manager initialized (workers not started)")
         logger.info("Use POST /worker/start to begin crawling")
 
-    yield  # Application runs here
+    if settings.ENVIRONMENT != Environment.TEST:
+        prewarm_task = asyncio.create_task(_prewarm_admin_caches())
 
-    # Shutdown
-    logger.info("🛑 Shutting down Crawler Service...")
-    await worker_manager.stop(graceful=True)
+    try:
+        yield  # Application runs here
+    finally:
+        if prewarm_task is not None:
+            prewarm_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await prewarm_task
 
-    from app.db.executor import shutdown_db_executor
+        # Shutdown
+        logger.info("🛑 Shutting down Crawler Service...")
+        await worker_manager.stop(graceful=True)
 
-    shutdown_db_executor()
-    logger.info("✅ Shutdown complete")
+        from app.db.executor import shutdown_db_executor
+
+        shutdown_db_executor()
+        logger.info("✅ Shutdown complete")

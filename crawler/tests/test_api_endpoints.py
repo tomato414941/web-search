@@ -4,6 +4,8 @@ API Endpoint Tests
 Tests for all FastAPI routes in the crawler service.
 """
 
+import asyncio
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -234,3 +236,80 @@ def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
     assert data["limit"] == 2
     assert data["offset"] == 0
     assert len(data["items"]) == 2
+
+
+def test_prewarm_admin_stats_caches_populates_route_caches(test_url_store):
+    from app.api.routes.stats import (
+        _breakdown_cache,
+        _clear_stats_caches,
+        _frontier_cache,
+        _stats_cache,
+        prewarm_admin_stats_caches,
+    )
+    from app.services.queue import QueueService
+
+    async def passthrough(func, *args):
+        return func(*args)
+
+    _clear_stats_caches()
+    queue_service = QueueService(test_url_store)
+
+    with (
+        patch(
+            "app.api.routes.stats.run_in_db_executor",
+            side_effect=passthrough,
+        ),
+        patch(
+            "app.api.routes.stats.worker_manager.get_status",
+            return_value=SimpleNamespace(
+                status="stopped",
+                uptime_seconds=None,
+                active_tasks=0,
+                concurrency=None,
+            ),
+        ),
+        patch("app.utils.history.get_status_counts", return_value={"indexed": 3}),
+        patch("app.utils.history.get_crawl_rate", return_value=2),
+        patch("app.utils.history.get_error_count", return_value=0),
+        patch("app.utils.history.get_recent_errors", return_value=[]),
+        patch(
+            "app.utils.history.get_robots_blocked_domains_with_counts", return_value=[]
+        ),
+        patch("app.utils.history.get_high_failure_domains", return_value=[]),
+    ):
+        asyncio.run(prewarm_admin_stats_caches(queue_service))
+
+    assert _stats_cache["data"] is not None
+    assert _frontier_cache["data"] is not None
+    assert None in _breakdown_cache
+
+
+def test_prewarm_seeds_page_cache_populates_first_page(test_url_store):
+    from app.api.routes.seeds import (
+        _clear_seeds_cache,
+        _seeds_cache,
+        prewarm_seeds_page_cache,
+    )
+    from app.services.seeds import SeedService
+
+    _clear_seeds_cache()
+    test_url_store.add_batch(
+        [
+            "https://example.com/1",
+            "https://example.com/2",
+            "https://example.com/3",
+        ]
+    )
+    test_url_store.mark_seeds(
+        [
+            "https://example.com/1",
+            "https://example.com/2",
+            "https://example.com/3",
+        ]
+    )
+
+    asyncio.run(prewarm_seeds_page_cache(SeedService(test_url_store)))
+
+    payload = _seeds_cache[(50, 0)]["data"]
+    assert payload.total == 3
+    assert len(payload.items) == 3

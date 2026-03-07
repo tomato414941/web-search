@@ -1,5 +1,6 @@
 """Test Indexer API security and async queue behavior."""
 
+import asyncio
 from unittest.mock import patch
 
 from app.core.config import settings
@@ -303,10 +304,38 @@ class TestHealthEndpoint:
         assert second.status_code == 200
         assert first.json()["indexed_pages"] == 42
         assert second.json()["indexed_pages"] == 42
-        assert first_stats_calls == 2
-        assert first_queue_calls == 2
-        assert mock_stats.call_count == first_stats_calls + 1
-        assert mock_queue.call_count == first_queue_calls + 1
+        assert first_stats_calls == 1
+        assert first_queue_calls == 1
+        assert mock_stats.call_count == first_stats_calls
+        assert mock_queue.call_count == first_queue_calls
+
+    def test_prewarm_stats_cache_populates_cache(self):
+        from app.api.routes import indexer as route_module
+
+        route_module._clear_stats_cache()
+        queue_stats = {
+            "pending_jobs": 2,
+            "processing_jobs": 1,
+            "done_jobs": 8,
+            "failed_permanent_jobs": 0,
+            "total_jobs": 11,
+            "oldest_pending_seconds": 4,
+        }
+
+        with (
+            patch(
+                "app.api.routes.indexer.indexer_service.get_index_stats",
+                return_value={"total": 24},
+            ),
+            patch(
+                "app.api.routes.indexer.index_job_service.get_queue_stats",
+                return_value=queue_stats,
+            ),
+        ):
+            asyncio.run(route_module.prewarm_stats_cache(delay_seconds=0))
+
+        assert route_module._stats_cache["data"] is not None
+        assert route_module._stats_cache["data"]["indexed_pages"] == 24
 
     def test_metrics_endpoint_exposes_queue_metrics(self, test_client):
         enqueue_resp = test_client.post(

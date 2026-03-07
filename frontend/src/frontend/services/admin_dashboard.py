@@ -162,3 +162,31 @@ async def get_dashboard_data() -> dict[str, Any]:
     data["health"]["messages"] = health_messages
     _set_cached_dashboard_data(data)
     return copy.deepcopy(data)
+
+
+async def prewarm_dashboard_cache(
+    *, attempts: int = 6, delay_seconds: float = 5.0
+) -> None:
+    for attempt in range(attempts):
+        if delay_seconds > 0:
+            await asyncio.sleep(delay_seconds)
+        try:
+            data = await get_dashboard_data()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("Failed to prewarm admin dashboard cache: %s", exc)
+            _clear_dashboard_cache()
+            continue
+
+        if data["worker_status"] == "unknown" or data["status_breakdown"] is None:
+            logger.info(
+                "Admin dashboard prewarm skipped on attempt %d/%d; crawler not ready",
+                attempt + 1,
+                attempts,
+            )
+            _clear_dashboard_cache()
+            continue
+
+        logger.info("Prewarmed admin dashboard cache")
+        return

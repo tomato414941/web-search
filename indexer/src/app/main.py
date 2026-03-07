@@ -1,18 +1,24 @@
 """Indexer Service - FastAPI Application (API-only)."""
 
+import asyncio
 import logging
 import os
 import uvicorn
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.metrics import router as metrics_router, update_indexed_pages_metric
+from app.metrics import (
+    router as metrics_router,
+    update_indexed_pages_metric,
+    update_queue_metrics,
+)
 from shared.postgres.migrate import migrate
 from app.api.routes import indexer
 from app.api.routes.health import root_router as health_root_router
 from app.services.indexer import indexer_service
+from shared.core.infrastructure_config import Environment
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +34,17 @@ async def lifespan(app: FastAPI):
     indexer.index_job_service.max_retries = settings.INDEXER_JOB_MAX_RETRIES
     indexer.index_job_service.retry_base_seconds = settings.INDEXER_JOB_RETRY_BASE_SEC
     indexer.index_job_service.retry_max_seconds = settings.INDEXER_JOB_RETRY_MAX_SEC
+    prewarm_task: asyncio.Task[None] | None = None
+    if settings.ENVIRONMENT != Environment.TEST:
+        prewarm_task = asyncio.create_task(indexer.prewarm_stats_cache())
 
-    yield
+    try:
+        yield
+    finally:
+        if prewarm_task is not None:
+            prewarm_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await prewarm_task
 
 
 # --- FastAPI Application ---
@@ -70,9 +85,9 @@ app.include_router(indexer.router, prefix="/api/v1", tags=["indexer"])
 
 @app.middleware("http")
 async def refresh_metrics_on_write_requests(request, call_next):
-    if request.url.path in {"/metrics", "/api/v1/indexer/stats"}:
+    if request.url.path == "/metrics":
         update_indexed_pages_metric(indexer_service.get_index_stats().get("total", 0))
-        indexer.index_job_service.get_queue_stats()
+        update_queue_metrics(indexer.index_job_service.get_queue_stats())
     response = await call_next(request)
     return response
 

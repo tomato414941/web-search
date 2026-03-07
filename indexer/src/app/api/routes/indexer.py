@@ -6,6 +6,7 @@ import secrets
 import time
 from fastapi import APIRouter, HTTPException, Header
 from app.core.config import settings
+from app.metrics import update_indexed_pages_metric, update_queue_metrics
 from app.services.indexer import indexer_service
 from app.services.index_jobs import IndexJobService
 from shared.contracts.indexer_api import IndexPageRequest
@@ -28,6 +29,36 @@ index_job_service = IndexJobService(
 )
 
 _stats_cache: dict[str, object] = {"data": None, "expires": 0.0}
+
+
+def _clear_stats_cache() -> None:
+    _stats_cache["data"] = None
+    _stats_cache["expires"] = 0.0
+
+
+def _cache_stats_payload(payload: dict) -> dict:
+    _stats_cache["data"] = payload
+    _stats_cache["expires"] = time.monotonic() + max(
+        1, settings.INDEXER_STATS_CACHE_TTL_SEC
+    )
+    return payload
+
+
+async def _refresh_stats_cache() -> dict:
+    stats, queue_stats = await asyncio.gather(
+        asyncio.to_thread(indexer_service.get_index_stats),
+        asyncio.to_thread(index_job_service.get_queue_stats),
+    )
+
+    payload = {
+        "ok": True,
+        "service": "indexer",
+        "indexed_pages": stats.get("total", 0),
+        **queue_stats,
+    }
+    update_indexed_pages_metric(payload["indexed_pages"])
+    update_queue_metrics(queue_stats)
+    return _cache_stats_payload(payload)
 
 
 def verify_api_key(x_api_key: str) -> None:
@@ -153,19 +184,22 @@ async def indexer_stats(x_api_key: str = Header(..., alias="X-API-Key")) -> dict
     now = time.monotonic()
     cached = _stats_cache["data"]
     if cached is not None and now < float(_stats_cache["expires"]):
+        update_indexed_pages_metric(cached["indexed_pages"])  # type: ignore[index]
+        update_queue_metrics(cached)  # type: ignore[arg-type]
         return cached  # type: ignore[return-value]
 
-    stats, queue_stats = await asyncio.gather(
-        asyncio.to_thread(indexer_service.get_index_stats),
-        asyncio.to_thread(index_job_service.get_queue_stats),
-    )
+    return await _refresh_stats_cache()
 
-    payload = {
-        "ok": True,
-        "service": "indexer",
-        "indexed_pages": stats.get("total", 0),
-        **queue_stats,
-    }
-    _stats_cache["data"] = payload
-    _stats_cache["expires"] = now + max(1, settings.INDEXER_STATS_CACHE_TTL_SEC)
-    return payload
+
+async def prewarm_stats_cache(*, delay_seconds: float = 2.0) -> None:
+    if delay_seconds > 0:
+        await asyncio.sleep(delay_seconds)
+    try:
+        await _refresh_stats_cache()
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        logger.warning("Failed to prewarm indexer stats cache: %s", exc)
+        _clear_stats_cache()
+        return
+    logger.info("Prewarmed indexer stats cache")

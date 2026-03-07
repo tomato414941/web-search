@@ -1,3 +1,4 @@
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -126,6 +127,83 @@ async def test_dashboard_uses_cache(monkeypatch):
     )
     assert mock_fetch_stats.await_count == 1
     assert mock_fetch_breakdown.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
+        30,
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard._get_db_dashboard_data",
+        MagicMock(
+            return_value={
+                "indexed_pages": 321,
+                "indexed_delta": 8,
+                "last_crawl": "2026-03-07T00:00:00Z",
+                "today_searches": 4,
+                "today_unique_queries": 4,
+                "today_zero_hits": 1,
+                "zero_hit_rate": 25.0,
+                "top_query": {"query": "prewarm", "count": 2},
+                "zero_hit_queries": [{"query": "miss", "count": 1}],
+            }
+        ),
+    )
+    mock_fetch_stats = AsyncMock(
+        return_value={
+            "queue_size": 1,
+            "active_seen": 2,
+            "worker_status": "stopped",
+            "uptime_seconds": 10,
+            "active_tasks": 0,
+            "crawl_rate_1h": 0,
+            "error_count_1h": 0,
+            "recent_errors": [],
+        }
+    )
+    mock_fetch_breakdown = AsyncMock(return_value={"indexed": 1})
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_stats", mock_fetch_stats
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_status_breakdown",
+        mock_fetch_breakdown,
+    )
+
+    await admin_dashboard.prewarm_dashboard_cache(attempts=1, delay_seconds=0)
+    cached = admin_dashboard._get_cached_dashboard_data(time.monotonic())
+
+    assert cached is not None
+    assert cached["indexed_pages"] == 321
+    assert cached["status_breakdown"] == {"indexed": 1}
+    assert mock_fetch_stats.await_count == 1
+    assert mock_fetch_breakdown.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_prewarm_dashboard_cache_skips_unreachable_crawler(monkeypatch):
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
+        30,
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard._get_db_dashboard_data",
+        MagicMock(return_value={"indexed_pages": 10, "indexed_delta": 1}),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_stats",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "frontend.services.admin_dashboard.fetch_status_breakdown",
+        AsyncMock(return_value=None),
+    )
+
+    await admin_dashboard.prewarm_dashboard_cache(attempts=1, delay_seconds=0)
+
+    assert admin_dashboard._get_cached_dashboard_data(time.monotonic()) is None
 
 
 def test_analytics_excludes_noise_queries():

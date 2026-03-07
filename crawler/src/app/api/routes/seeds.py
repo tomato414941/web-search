@@ -102,3 +102,14 @@ async def import_tranco(
         raise HTTPException(
             status_code=500, detail=f"Failed to import Tranco list: {str(e)}"
         )
+
+
+async def prewarm_seeds_page_cache(
+    seed_service: SeedService, *, limit: int = 50, offset: int = 0
+) -> None:
+    await list_seeds(
+        seed_service=seed_service,
+        limit=limit,
+        offset=offset,
+        include_total=True,
+    )

@@ -24,6 +24,14 @@ _FRONTIER_TTL = 300
 _BREAKDOWN_TTL = 60
 
 
+def _clear_stats_caches() -> None:
+    _stats_cache["data"] = None
+    _stats_cache["expires"] = 0
+    _frontier_cache["data"] = None
+    _frontier_cache["expires"] = 0
+    _breakdown_cache.clear()
+
+
 @router.get("/stats")
 async def get_stats(queue_service: QueueService = Depends(get_queue_service)):
     """Return aggregated crawler stats in a single response."""
@@ -166,3 +174,11 @@ async def get_status_breakdown(
     }
     _breakdown_cache[hours] = {"data": result, "expires": now + _BREAKDOWN_TTL}
     return result
+
+
+async def prewarm_admin_stats_caches(queue_service: QueueService) -> None:
+    await asyncio.gather(
+        get_stats(queue_service),
+        get_frontier_stats(queue_service),
+        get_status_breakdown(hours=None),
+    )
