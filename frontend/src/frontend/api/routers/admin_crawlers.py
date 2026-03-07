@@ -8,6 +8,7 @@ from frontend.api.templates import templates
 from frontend.core.config import settings
 from frontend.services.admin_auth import CSRF_FORM_FIELD, get_csrf_token
 from frontend.services.crawler_admin_client import (
+    clear_crawler_instances_cache,
     find_crawler_url as _find_crawler_url,
     get_all_crawler_instances as _get_all_crawler_instances,
     start_crawler_instance,
@@ -35,6 +36,7 @@ async def crawler_start(
 ):
     check_csrf_or_redirect(request, csrf_token, "/admin/")
     await start_worker()
+    clear_crawler_instances_cache()
     return RedirectResponse(url="/admin/", status_code=303)
 
 
@@ -46,6 +48,7 @@ async def crawler_stop(
 ):
     check_csrf_or_redirect(request, csrf_token, "/admin/")
     await stop_worker()
+    clear_crawler_instances_cache()
     return RedirectResponse(url="/admin/", status_code=303)
 
 
@@ -81,6 +84,7 @@ async def crawler_instance_start(
         return RedirectResponse(url="/admin/crawlers", status_code=303)
 
     await start_crawler_instance(url, concurrency)
+    clear_crawler_instances_cache()
     return RedirectResponse(url="/admin/crawlers", status_code=303)
 
 
@@ -97,4 +101,5 @@ async def crawler_instance_stop(
         return RedirectResponse(url="/admin/crawlers", status_code=303)
 
     await stop_crawler_instance(url)
+    clear_crawler_instances_cache()
     return RedirectResponse(url="/admin/crawlers", status_code=303)
