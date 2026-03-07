@@ -1,27 +1,25 @@
 import asyncio
-import copy
-import json
 import logging
 import math
 import os
 import tempfile
-import time
 from typing import Any
 
 import httpx
 
 from frontend.core.config import settings
+from frontend.services.shared_json_cache import SharedJsonTtlCache
 from shared.core.background import maintain_refresh_loop
 
 logger = logging.getLogger(__name__)
 
-_crawler_instances_cache: dict[str, object] = {
-    "data": None,
-    "expires": 0.0,
-    "key": None,
-}
 _SHARED_CRAWLER_INSTANCES_CACHE_PATH = os.path.join(
     tempfile.gettempdir(), "pbs-admin-crawler-instances-cache.json"
+)
+_crawler_instances_cache = SharedJsonTtlCache(
+    _SHARED_CRAWLER_INSTANCES_CACHE_PATH,
+    logger=logger,
+    label="crawler instances cache",
 )
 
 
@@ -50,107 +48,31 @@ def _crawler_instances_cache_key(
 
 
 def _clear_crawler_instances_memory_cache() -> None:
-    _crawler_instances_cache["data"] = None
-    _crawler_instances_cache["expires"] = 0.0
-    _crawler_instances_cache["key"] = None
+    _crawler_instances_cache.clear_memory()
 
 
 def clear_crawler_instances_cache() -> None:
-    _clear_crawler_instances_memory_cache()
-    try:
-        os.remove(_SHARED_CRAWLER_INSTANCES_CACHE_PATH)
-    except FileNotFoundError:
-        pass
-    except OSError as exc:
-        logger.warning("Failed to clear crawler instances cache: %s", exc)
-
-
-def _serialize_crawler_instances(
-    instances: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    return json.loads(json.dumps(instances, default=str))
-
-
-def _set_crawler_instances_memory_cache(
-    cache_key: list[dict[str, str]], instances: list[dict[str, Any]], ttl: float
-) -> None:
-    if ttl < 1:
-        return
-    _crawler_instances_cache["data"] = copy.deepcopy(instances)
-    _crawler_instances_cache["expires"] = time.monotonic() + ttl
-    _crawler_instances_cache["key"] = copy.deepcopy(cache_key)
-
-
-def _load_shared_crawler_instances_cache(
-    cache_key: list[dict[str, str]],
-) -> tuple[list[dict[str, Any]] | None, float]:
-    try:
-        with open(
-            _SHARED_CRAWLER_INSTANCES_CACHE_PATH, "r", encoding="utf-8"
-        ) as handle:
-            payload = json.load(handle)
-    except FileNotFoundError:
-        return None, 0.0
-    except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("Failed to read crawler instances cache: %s", exc)
-        return None, 0.0
-
-    data = payload.get("data")
-    expires_at = float(payload.get("expires_at", 0.0))
-    stored_key = payload.get("cache_key")
-    remaining_ttl = expires_at - time.time()
-    if not isinstance(data, list) or stored_key != cache_key or remaining_ttl <= 0:
-        return None, 0.0
-
-    return data, remaining_ttl
+    _sync_crawler_instances_cache_path()
+    _crawler_instances_cache.clear()
 
 
 def _get_memory_cached_crawler_instances(
-    cache_key: list[dict[str, str]], now: float
+    cache_key: list[dict[str, str]], now: float | None
 ) -> list[dict[str, Any]] | None:
-    cached = _crawler_instances_cache["data"]
-    if (
-        cached is not None
-        and _crawler_instances_cache["key"] == cache_key
-        and now < float(_crawler_instances_cache["expires"])
-    ):
-        return copy.deepcopy(cached)  # type: ignore[arg-type]
-    return None
+    return _crawler_instances_cache.get_memory(now=now, cache_key=cache_key)
 
 
 def _get_shared_cached_crawler_instances(
     cache_key: list[dict[str, str]],
 ) -> list[dict[str, Any]] | None:
-    cached, remaining_ttl = _load_shared_crawler_instances_cache(cache_key)
+    _sync_crawler_instances_cache_path()
+    cached = _crawler_instances_cache.get_shared(
+        cache_key=cache_key,
+        validator=lambda data: isinstance(data, list),
+    )
     if cached is None:
         return None
-
-    _set_crawler_instances_memory_cache(cache_key, cached, remaining_ttl)
-    return copy.deepcopy(cached)
-
-
-def _write_shared_crawler_instances_cache(
-    cache_key: list[dict[str, str]], instances: list[dict[str, Any]], ttl: float
-) -> None:
-    if ttl < 1:
-        return
-
-    payload = {
-        "expires_at": time.time() + ttl,
-        "cache_key": cache_key,
-        "data": instances,
-    }
-    tmp_path = f"{_SHARED_CRAWLER_INSTANCES_CACHE_PATH}.{os.getpid()}.tmp"
-    try:
-        with open(tmp_path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle)
-        os.replace(tmp_path, _SHARED_CRAWLER_INSTANCES_CACHE_PATH)
-    except OSError as exc:
-        logger.warning("Failed to write crawler instances cache: %s", exc)
-        try:
-            os.remove(tmp_path)
-        except OSError:
-            pass
+    return cached
 
 
 def _set_cached_crawler_instances(
@@ -160,9 +82,12 @@ def _set_cached_crawler_instances(
     if ttl < 1:
         return
 
-    serialized = _serialize_crawler_instances(instances)
-    _set_crawler_instances_memory_cache(cache_key, serialized, ttl)
-    _write_shared_crawler_instances_cache(cache_key, serialized, ttl)
+    _sync_crawler_instances_cache_path()
+    _crawler_instances_cache.set(instances, ttl, cache_key=cache_key)
+
+
+def _sync_crawler_instances_cache_path() -> None:
+    _crawler_instances_cache.path = _SHARED_CRAWLER_INSTANCES_CACHE_PATH
 
 
 async def fetch_stats() -> dict[str, Any] | None:
@@ -407,7 +332,7 @@ async def get_all_crawler_instances(
     instances_config: list[dict[str, str]],
 ) -> list[dict[str, Any]]:
     cache_key = _crawler_instances_cache_key(instances_config)
-    cached = _get_memory_cached_crawler_instances(cache_key, time.monotonic())
+    cached = _get_memory_cached_crawler_instances(cache_key, None)
     if cached is not None:
         return cached
 
@@ -417,7 +342,7 @@ async def get_all_crawler_instances(
 
     instances = await _build_all_crawler_instances(instances_config)
     _set_cached_crawler_instances(cache_key, instances)
-    return copy.deepcopy(instances)
+    return instances
 
 
 async def prewarm_crawler_instances_cache(
