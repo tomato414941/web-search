@@ -58,6 +58,25 @@ def _parse_tranco_count(raw_count: str | None) -> int:
     return count
 
 
+def _build_admin_redirect_url(
+    path: str, *, success: str | None = None, error: str | None = None
+) -> str:
+    if success is not None:
+        return f"{path}?success={quote(success, safe='')}"
+    if error is not None:
+        return f"{path}?error={quote(error, safe='')}"
+    return path
+
+
+def _redirect_admin(
+    path: str, *, success: str | None = None, error: str | None = None
+) -> RedirectResponse:
+    return RedirectResponse(
+        url=_build_admin_redirect_url(path, success=success, error=error),
+        status_code=303,
+    )
+
+
 @router.get("/login")
 async def login_page(request: Request, error: str = ""):
     csrf_token = get_csrf_token(request)
@@ -197,21 +216,12 @@ async def add_seed(
     check_csrf_or_redirect(request, csrf_token, "/admin/seeds?error=Invalid+request")
     try:
         await crawler_add_seed(url)
-        return RedirectResponse(
-            url=f"/admin/seeds?success={quote(f'Added seed {url}', safe='')}",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", success=f"Added seed {url}")
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", error=str(exc))
     except Exception:
         logger.exception("Failed to add seed %s", url)
-        return RedirectResponse(
-            url="/admin/seeds?error=An+unexpected+error+occurred",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", error="An unexpected error occurred")
 
 
 @router.post("/seeds/delete")
@@ -224,21 +234,12 @@ async def delete_seed(
     check_csrf_or_redirect(request, csrf_token, "/admin/seeds?error=Invalid+request")
     try:
         await crawler_delete_seed(url)
-        return RedirectResponse(
-            url=f"/admin/seeds?success={quote('Seed deleted', safe='')}",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", success="Seed deleted")
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", error=str(exc))
     except Exception:
         logger.exception("Failed to delete seed %s", url)
-        return RedirectResponse(
-            url="/admin/seeds?error=An+unexpected+error+occurred",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", error="An unexpected error occurred")
 
 
 @router.post("/seeds/import-tranco")
@@ -252,23 +253,17 @@ async def import_tranco(
     try:
         count_value = _parse_tranco_count(count)
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"/admin/seeds?error={quote(str(exc), safe='')}",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", error=str(exc))
 
     try:
         added = await import_tranco_seeds(count_value)
-        return RedirectResponse(
-            url=f"/admin/seeds?success={quote(f'Imported {added} seeds from Tranco top {count_value}', safe='')}",
-            status_code=303,
+        return _redirect_admin(
+            "/admin/seeds",
+            success=f"Imported {added} seeds from Tranco top {count_value}",
         )
     except Exception:
         logger.exception("Failed to import Tranco seeds")
-        return RedirectResponse(
-            url="/admin/seeds?error=An+unexpected+error+occurred",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/seeds", error="An unexpected error occurred")
 
 
 @router.post("/queue")
@@ -281,21 +276,12 @@ async def add_to_queue(
     check_csrf_or_redirect(request, csrf_token, "/admin/queue?error=Invalid+request")
     try:
         await enqueue_url(url)
-        return RedirectResponse(
-            url=f"/admin/queue?success={quote(f'Added {url} to queue', safe='')}",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/queue", success=f"Added {url} to queue")
     except ValueError as exc:
-        return RedirectResponse(
-            url=f"/admin/queue?error={quote(str(exc), safe='')}",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/queue", error=str(exc))
     except Exception:
         logger.exception("Failed to enqueue URL %s", url)
-        return RedirectResponse(
-            url="/admin/queue?error=An+unexpected+error+occurred",
-            status_code=303,
-        )
+        return _redirect_admin("/admin/queue", error="An unexpected error occurred")
 
 
 @router.get("/analytics")

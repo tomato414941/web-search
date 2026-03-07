@@ -373,3 +373,74 @@ class TestSeedImportValidation:
             == "/admin/seeds?success=Imported%201234%20seeds%20from%20Tranco%20top%201234"
         )
         assert mock_instance.post.await_args.kwargs["json"] == {"count": 1234}
+
+
+class TestAdminMutationRedirects:
+    def test_add_seed_success_redirects_with_success_message(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with patch("frontend.api.routers.admin.crawler_add_seed", new=AsyncMock()):
+            response = client.post(
+                "/admin/seeds",
+                data={"url": "https://example.com", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert (
+            response.headers["location"]
+            == "/admin/seeds?success=Added%20seed%20https%3A%2F%2Fexample.com"
+        )
+
+    def test_add_seed_validation_error_redirects_with_error_message(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with patch(
+            "frontend.api.routers.admin.crawler_add_seed",
+            new=AsyncMock(side_effect=ValueError("Duplicate seed")),
+        ):
+            response = client.post(
+                "/admin/seeds",
+                data={"url": "https://example.com", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/seeds?error=Duplicate%20seed"
+
+    def test_delete_seed_success_redirects_with_success_message(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with patch("frontend.api.routers.admin.crawler_delete_seed", new=AsyncMock()):
+            response = client.post(
+                "/admin/seeds/delete",
+                data={"url": "https://example.com", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/seeds?success=Seed%20deleted"
+
+    def test_add_to_queue_success_redirects_with_success_message(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with patch("frontend.api.routers.admin.enqueue_url", new=AsyncMock()):
+            response = client.post(
+                "/admin/queue",
+                data={"url": "https://example.com", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert (
+            response.headers["location"]
+            == "/admin/queue?success=Added%20https%3A%2F%2Fexample.com%20to%20queue"
+        )
