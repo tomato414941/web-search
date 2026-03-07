@@ -24,7 +24,8 @@ Examples:
 
 Notes:
   - Runs the existing staging smoke script inside the staging frontend container.
-  - Requires INDEXER_API_KEY in the local environment.
+  - Uses local INDEXER_API_KEY when set.
+  - Otherwise resolves INDEXER_API_KEY from the staging frontend container env.
 USAGE
 }
 
@@ -43,24 +44,37 @@ fi
 
 require_cmd ssh
 
+resolve_frontend_container() {
+  ssh "$SERVER" \
+    "docker ps --format '{{.Names}}' | grep '^frontend-${APP_UUID}-' | head -n1" \
+    || true
+}
+
+read_container_env() {
+  local container="$1"
+  local key="$2"
+  ssh "$SERVER" \
+    "docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' ${container} | sed -n 's/^${key}=//p'" \
+    || true
+}
+
 FRONTEND_URL="${1:-$DEFAULT_FRONTEND_URL}"
 INDEXER_URL="${2:-$DEFAULT_INDEXER_URL}"
 TEST_URL="${3:-$DEFAULT_TEST_URL}"
 
-if [ -z "${INDEXER_API_KEY:-}" ]; then
-  echo "INDEXER_API_KEY is required" >&2
-  exit 1
-fi
-
-FRONTEND_CONTAINER="$(
-  ssh "$SERVER" \
-    "docker ps --format '{{.Names}}' | grep '^frontend-${APP_UUID}-' | head -n1" \
-    || true
-)"
+FRONTEND_CONTAINER="$(resolve_frontend_container)"
 
 if [ -z "$FRONTEND_CONTAINER" ]; then
   echo "Could not find staging frontend container for app ${APP_UUID} on ${SERVER}" >&2
   exit 1
+fi
+
+if [ -z "${INDEXER_API_KEY:-}" ]; then
+  INDEXER_API_KEY="$(read_container_env "$FRONTEND_CONTAINER" "INDEXER_API_KEY")"
+  if [ -z "$INDEXER_API_KEY" ]; then
+    echo "Failed to resolve INDEXER_API_KEY from ${FRONTEND_CONTAINER}" >&2
+    exit 1
+  fi
 fi
 
 echo "Running staging smoke inside ${FRONTEND_CONTAINER} on ${SERVER}"
