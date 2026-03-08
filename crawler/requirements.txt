@@ -13,6 +13,7 @@ cachetools>=6.2
 # Parsing
 beautifulsoup4>=4.14
 trafilatura>=2.0
+protego>=0.6.0
 
 # HTTP Client (for calling Web Server API)
 httpx>=0.28

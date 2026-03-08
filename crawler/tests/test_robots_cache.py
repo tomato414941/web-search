@@ -44,6 +44,36 @@ async def test_robots_cache_disallow():
 
 
 @pytest.mark.asyncio
+async def test_robots_cache_google_style_query_rules():
+    """Google-style query rules should not block the homepage."""
+    mock_session = MagicMock()
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(
+        return_value=(
+            "User-agent: *\n"
+            "Disallow: /search\n"
+            "Disallow: /?\n"
+            "Allow: /?hl=\n"
+            "Disallow: /maps/\n"
+            "Allow: /maps/$\n"
+        )
+    )
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+
+    assert await cache.can_fetch("https://www.google.com/", "PaleblueBot") is True
+    assert await cache.can_fetch("https://www.google.com/?hl=en", "PaleblueBot") is True
+    assert (
+        await cache.can_fetch("https://www.google.com/search?q=test", "PaleblueBot")
+        is False
+    )
+    assert await cache.can_fetch("https://www.google.com/maps/", "PaleblueBot") is True
+
+
+@pytest.mark.asyncio
 async def test_robots_cache_hit():
     """Test in-memory cache hit (no second HTTP request)"""
     mock_session = MagicMock()

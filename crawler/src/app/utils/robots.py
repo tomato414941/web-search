@@ -5,11 +5,11 @@ Async robots.txt parser with in-memory LRU caching.
 """
 
 import logging
-import urllib.robotparser
 from urllib.parse import urlparse
 
 import aiohttp
 from cachetools import LRUCache, TTLCache
+from protego import Protego
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +20,21 @@ MAX_FETCH_FAILURES = 3
 BLOCKED_DOMAIN_TTL = 3600
 
 
+def _allow_all_parser() -> Protego:
+    return Protego.parse("User-agent: *\nAllow: /")
+
+
+def _disallow_all_parser() -> Protego:
+    return Protego.parse("User-agent: *\nDisallow: /")
+
+
 class AsyncRobotsCache:
     """Async wrapper for robots.txt parsing with LRU eviction"""
 
     def __init__(self, session: aiohttp.ClientSession, cache_size: int = 0):
         self._session = session
         effective_size = cache_size if cache_size > 0 else MAX_CACHED_DOMAINS
-        self._parsers: LRUCache[str, urllib.robotparser.RobotFileParser] = LRUCache(
-            maxsize=effective_size
-        )
+        self._parsers: LRUCache[str, Protego] = LRUCache(maxsize=effective_size)
         # TTL cache for blocked domains (expires after 1 hour)
         self._blocked_domains: TTLCache[str, bool] = TTLCache(
             maxsize=effective_size, ttl=BLOCKED_DOMAIN_TTL
@@ -58,7 +64,7 @@ class AsyncRobotsCache:
                 return False
 
             if domain not in self._parsers:
-                rp = urllib.robotparser.RobotFileParser()
+                parser = _allow_all_parser()
 
                 scheme = parsed.scheme or "http"
                 robots_url = f"{scheme}://{domain}/robots.txt"
@@ -71,12 +77,9 @@ class AsyncRobotsCache:
                     ) as resp:
                         if resp.status == 200:
                             content = await resp.text()
-                            rp.parse(content.splitlines())
+                            parser = Protego.parse(content)
                             # Reset failure count on success
                             self._fetch_failures.pop(domain, None)
-                        else:
-                            # No robots.txt or error - allow all
-                            rp.allow_all = True
 
                 except Exception as e:
                     logger.warning(f"Robots fetch error for {domain}: {e}")
@@ -88,8 +91,7 @@ class AsyncRobotsCache:
                     if self._fetch_failures[domain] >= MAX_FETCH_FAILURES:
                         # Block domain after repeated failures
                         self._block_domain(domain)
-                        # Create a disallow-all parser
-                        rp.disallow_all = True
+                        parser = _disallow_all_parser()
                     else:
                         # Temporary skip, don't cache parser
                         logger.info(
@@ -97,9 +99,9 @@ class AsyncRobotsCache:
                         )
                         return False
 
-                self._parsers[domain] = rp
+                self._parsers[domain] = parser
 
-            return self._parsers[domain].can_fetch(user_agent, url)
+            return self._parsers[domain].can_fetch(url, user_agent)
 
         except Exception as e:
             logger.warning(f"Robots.txt check failed for {url}: {e}")
