@@ -238,16 +238,11 @@ class TestResultFormatting:
                     origin_type="spring",
                     author="Alice",
                     organization="Example Org",
-                    cluster_id=3,
-                    sources_agreeing=5,
                 )
             ],
             page=1,
             per_page=10,
             last_page=1,
-            confidence="high",
-            perspective_count=2,
-            query_intent="overview",
         )
 
         payload = search_service._format_result(
@@ -268,8 +263,3 @@ class TestResultFormatting:
         assert payload["hits"][0]["origin_type"] == "spring"
         assert payload["hits"][0]["author"] == "Alice"
         assert payload["hits"][0]["organization"] == "Example Org"
-        assert payload["hits"][0]["cluster_id"] == 3
-        assert payload["hits"][0]["sources_agreeing"] == 5
-        assert payload["confidence"] == "high"
-        assert payload["perspective_count"] == 2
-        assert payload["query_intent"] == "overview"

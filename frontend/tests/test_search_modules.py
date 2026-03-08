@@ -1,10 +1,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-import pytest
-
 from frontend.services.search_opensearch import (
-    apply_scope_match,
     execute_opensearch_search,
     run_opensearch_query,
 )
@@ -71,54 +68,6 @@ def test_execute_opensearch_search_uses_hybrid_with_embedding(monkeypatch):
     assert hybrid_search.call_args.kwargs["embedding"] == embedding
 
 
-def test_apply_scope_match_skips_overview_queries():
-    hits = [
-        SearchHit(
-            url="https://example.com/news/python-3-13",
-            title="News",
-            content="news",
-            score=1.0,
-        ),
-        SearchHit(
-            url="https://docs.example.com/api/python",
-            title="Reference",
-            content="docs",
-            score=0.9,
-        ),
-    ]
-
-    query_intent = apply_scope_match(hits, query="what is python")
-
-    assert query_intent == "overview"
-    assert hits[0].url == "https://example.com/news/python-3-13"
-    assert hits[0].score == pytest.approx(1.0)
-    assert hits[1].score == pytest.approx(0.9)
-
-
-def test_apply_scope_match_reorders_troubleshooting_queries():
-    hits = [
-        SearchHit(
-            url="https://docs.example.com/api/python",
-            title="Reference",
-            content="docs",
-            score=1.0,
-        ),
-        SearchHit(
-            url="https://community.example.com/forum/python-error",
-            title="Forum",
-            content="fix",
-            score=0.95,
-        ),
-    ]
-
-    query_intent = apply_scope_match(hits, query="python error")
-
-    assert query_intent == "troubleshoot"
-    assert hits[0].url == "https://community.example.com/forum/python-error"
-    assert hits[0].score == pytest.approx(0.931)
-    assert hits[1].score == pytest.approx(0.9)
-
-
 def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
     import frontend.services.search_opensearch as search_opensearch
 
@@ -139,7 +88,6 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
         page=3,
         per_page=10,
         last_page=3,
-        query_intent="reference",
     )
 
     def fake_execute(client, search_query, plan, embedding):
@@ -154,17 +102,9 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
         search_opensearch, "build_search_hits", lambda hits: search_hits
     )
     monkeypatch.setattr(
-        search_opensearch, "apply_scope_match", lambda hits, query: "reference"
-    )
-    monkeypatch.setattr(
         search_opensearch,
         "build_plain_opensearch_result",
         lambda *args, **kwargs: expected_result,
-    )
-    monkeypatch.setattr(
-        search_opensearch,
-        "build_diversified_result",
-        lambda *args, **kwargs: pytest.fail("diversity path should not be used"),
     )
 
     result = run_opensearch_query(
@@ -178,7 +118,6 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
 
     assert result is expected_result
     assert captured["search_query"].parsed.site_filter == "github.com"
-    assert captured["plan"].use_diversity is False
     assert captured["plan"].fetch_size == 10
     assert captured["plan"].fetch_offset == 20
     assert captured["embedding"] is None

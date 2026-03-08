@@ -11,8 +11,6 @@ high-quality content that AI agents can trust.
 - **AI-Agent-Optimized Ranking**: Every hit includes transparency metadata (`temporal_anchor`, `authorship_clarity`, `factual_density`, `origin_score`) so AI agents can make informed decisions.
 - **Information Origin**: Documents classified as spring/river/delta/swamp based on link direction — primary sources rank higher than aggregation.
 - **Factual Density**: Scores verifiable facts per unit of text (numbers, dates, citations, code, named entities) — replaces shallow word-count quality.
-- **Claim Diversity**: Results clustered by content similarity (TF-IDF cosine) — no wasted slots on paraphrases of the same claim.
-- **Scope Match**: Query intent (overview/tutorial/troubleshoot/reference/news/comparison) matched with document type for better relevance.
 - **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
 - **Hybrid Search**: BM25 keyword matching + vector semantic search with RRF fusion.
 - **Million-scale Indexing**: Own crawler with robots.txt compliance and authorship metadata extraction.
@@ -52,8 +50,6 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
     }
   ],
   "mode": "auto",
-  "confidence": "high",
-  "query_intent": "overview",
   "request_id": "a1b2c3d4e5f6"
 }
 ```

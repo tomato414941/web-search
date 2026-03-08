@@ -67,15 +67,10 @@ API key users get 1,000 requests/day and usage info in the response.
       "origin_score": 0.85,
       "origin_type": "spring",
       "author": "Sebastián Ramírez",
-      "organization": "FastAPI",
-      "cluster_id": 0,
-      "sources_agreeing": 3
+      "organization": "FastAPI"
     }
   ],
   "mode": "auto",
-  "confidence": "high",
-  "perspective_count": 8,
-  "query_intent": "overview",
   "request_id": "a1b2c3d4e5f6"
 }
 ```
@@ -91,16 +86,6 @@ API key users get 1,000 requests/day and usage info in the response.
 | `origin_type` | `spring` / `river` / `delta` / `swamp` |
 | `author` | Author name from HTML metadata |
 | `organization` | Publisher/organization from HTML metadata |
-| `cluster_id` | Claim cluster ID within result set |
-| `sources_agreeing` | Number of pages with similar claims |
-
-**Response-level fields:**
-
-| Field | Description |
-|---|---|
-| `confidence` | Result-set confidence: `high` / `low` / `contested` / `none` |
-| `perspective_count` | Number of distinct claim clusters |
-| `query_intent` | Detected query intent: `overview` / `tutorial` / `troubleshoot` / `reference` / `news` / `comparison` / `unknown` |
 
 With a valid API key, the response also includes:
 ```json

@@ -31,8 +31,6 @@ class SearchHit:
     origin_type: str | None = None
     author: str | None = None
     organization: str | None = None
-    cluster_id: int | None = None
-    sources_agreeing: int | None = None
 
 
 @dataclass
@@ -45,9 +43,6 @@ class SearchResult:
     page: int
     per_page: int
     last_page: int
-    confidence: str | None = None
-    perspective_count: int | None = None
-    query_intent: str | None = None
 
 
 @dataclass

@@ -30,14 +30,7 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
     mode = data.get("mode", "unknown")
     hits = data.get("hits", [])
 
-    confidence = data.get("confidence")
-    perspective_count = data.get("perspective_count")
-
     header = f"**{total} results** (page {page}/{last_page}, mode: {mode})"
-    if confidence:
-        header += f" | confidence: {confidence}"
-    if perspective_count is not None:
-        header += f" | {perspective_count} perspectives"
 
     lines = [
         f"## Search: {query}",
@@ -74,11 +67,8 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
             meta_parts.append(f"Published: {published_at}")
         if indexed_at:
             meta_parts.append(f"Indexed: {indexed_at}")
-        sources_agreeing = hit.get("sources_agreeing")
         if temporal_anchor is not None:
             meta_parts.append(f"Temporal anchor: {temporal_anchor}")
-        if sources_agreeing is not None and sources_agreeing > 1:
-            meta_parts.append(f"Sources agreeing: {sources_agreeing}")
         if meta_parts:
             lines.append(f"*{' | '.join(meta_parts)}*")
 

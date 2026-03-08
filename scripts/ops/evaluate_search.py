@@ -156,10 +156,9 @@ def _classify_case(case: QueryCase, payload: dict) -> tuple[str, str]:
 def _print_case(case: QueryCase, payload: dict, status: str, reason: str) -> None:
     hits = payload.get("hits") or []
     mode = payload.get("mode", "?")
-    intent = payload.get("query_intent", "?")
     total = payload.get("total", 0)
     print(f"[{status.upper()}] {case.query}")
-    print(f"  type={case.query_type} total={total} mode={mode} intent={intent}")
+    print(f"  type={case.query_type} total={total} mode={mode}")
     print(f"  expected={case.expected}")
     print(f"  notes={case.notes}")
     print(f"  reason={reason}")

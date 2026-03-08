@@ -91,11 +91,6 @@ score = BM25(clean_content, title^3) × Σ weighted signals
 
 Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/opensearch/search.py`.
 
-**Phase B — Post-retrieval re-ranking**
-
-1. **Scope Match**: Boost results where document type matches query intent (±20%). Intents: overview, tutorial, troubleshoot, reference, news, comparison. See `shared/src/shared/search_kernel/scope_match.py`.
-2. **Claim Diversity**: Cluster results by content similarity (TF-IDF cosine), pick best representative per cluster (origin_score × factual_density). Replaces domain-only diversity cap. See `shared/src/shared/search_kernel/claim_diversity.py`.
-
 **Metadata passed to API consumers (not used in scoring)**
 
 | Field | Description |
@@ -103,9 +98,6 @@ Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/o
 | `authorship_clarity` | Author/org presence score (0.0-1.0) |
 | `author` / `organization` | Extracted from HTML metadata (JSON-LD, meta tags) |
 | `origin_type` | spring / river / delta / swamp |
-| `cluster_id` / `sources_agreeing` | Claim cluster metadata |
-| `confidence` | Result-set confidence (high / low / contested) |
-| `query_intent` | Detected query intent |
 
 ## What We Don't Need (and Why)
 
@@ -144,10 +136,10 @@ Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/o
 - `information_origin` replaces PageRank (`shared/src/shared/search_kernel/information_origin.py`)
 - DB migrations: 008 (authorship metadata), 009 (information_origins table)
 
-### Phase 5: Result-set intelligence — DONE
+### Phase 5: Result-set intelligence — REMOVED
 
-- `claim_diversity` replaces domain-only diversity (`shared/src/shared/search_kernel/claim_diversity.py`)
-- `scope_match` for query intent × document type matching (`shared/src/shared/search_kernel/scope_match.py`)
+- Query-intent reranking and claim-clustering were removed.
+- The search flow now stays closer to retrieval order until stronger evidence justifies reintroducing post-retrieval ranking.
 
 ### Future
 

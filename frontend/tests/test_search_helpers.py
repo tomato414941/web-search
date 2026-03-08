@@ -3,10 +3,7 @@ import pytest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from frontend.services.search_opensearch import (
-    build_diversified_result,
-    build_query_embedding,
-)
+from frontend.services.search_opensearch import build_query_embedding
 from frontend.services.search_query import build_opensearch_plan, prepare_search_query
 from frontend.services.search_response import serialize_hit
 from shared.search_kernel.searcher import SearchHit
@@ -84,8 +81,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         origin_type="spring",
         author="Alice",
         organization="Example Org",
-        cluster_id=3,
-        sources_agreeing=5,
     )
 
     payload = serialize_hit(hit, ["python"], include_content=True)
@@ -94,60 +89,3 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
     assert payload["snip_plain"] == "Python content"
     assert payload["content"] == "Python content"
     assert payload["origin_type"] == "spring"
-    assert payload["cluster_id"] == 3
-    assert payload["sources_agreeing"] == 5
-
-
-def test_build_diversified_result_attaches_cluster_metadata(monkeypatch):
-    import frontend.services.search_opensearch as search_opensearch
-
-    hits = [
-        SearchHit(
-            url="https://example.com/a",
-            title="A",
-            content="alpha",
-            score=2.0,
-        ),
-        SearchHit(
-            url="https://example.com/b",
-            title="B",
-            content="beta",
-            score=1.0,
-        ),
-    ]
-    plan = SimpleNamespace(fetch_size=2)
-
-    monkeypatch.setattr(
-        search_opensearch,
-        "diversify_by_claims",
-        lambda *args, **kwargs: SimpleNamespace(
-            hits=hits,
-            cluster_meta={
-                "https://example.com/a": SimpleNamespace(
-                    cluster_id=7, sources_agreeing=4
-                ),
-                "https://example.com/b": SimpleNamespace(
-                    cluster_id=8, sources_agreeing=2
-                ),
-            },
-            confidence="high",
-            perspective_count=2,
-        ),
-    )
-
-    result = build_diversified_result(
-        "python",
-        10,
-        1,
-        hits,
-        2,
-        plan,
-        query_intent="overview",
-    )
-
-    assert result.total == 2
-    assert result.hits[0].cluster_id == 7
-    assert result.hits[0].sources_agreeing == 4
-    assert result.confidence == "high"
-    assert result.perspective_count == 2
-    assert result.query_intent == "overview"

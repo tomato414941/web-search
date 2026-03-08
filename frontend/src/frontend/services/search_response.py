@@ -46,10 +46,6 @@ def append_hit_metadata(hit_dict: dict[str, Any], hit: SearchHit) -> None:
         hit_dict["author"] = hit.author
     if hit.organization:
         hit_dict["organization"] = hit.organization
-    if hit.cluster_id is not None:
-        hit_dict["cluster_id"] = hit.cluster_id
-    if hit.sources_agreeing is not None:
-        hit_dict["sources_agreeing"] = hit.sources_agreeing
 
 
 def serialize_hit(
@@ -80,12 +76,6 @@ def build_result_payload(
         "last_page": result.last_page,
         "hits": hits,
     }
-    if result.confidence:
-        data["confidence"] = result.confidence
-    if result.perspective_count is not None:
-        data["perspective_count"] = result.perspective_count
-    if result.query_intent:
-        data["query_intent"] = result.query_intent
     return data
 
 
