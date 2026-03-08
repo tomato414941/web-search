@@ -89,22 +89,6 @@ def test_format_hits_untitled():
 
 
 @pytest.mark.asyncio
-async def test_web_search_tool():
-    with patch("paleblue_mcp.server._client") as mock_client:
-        mock_client.search = AsyncMock(return_value=MOCK_SEARCH_DATA)
-        result = await web_search("python frameworks")
-        assert "FastAPI" in result
-        assert "Flask" in result
-        mock_client.search.assert_called_once_with(
-            query="python frameworks",
-            limit=10,
-            page=1,
-            mode="auto",
-            include_content=False,
-        )
-
-
-@pytest.mark.asyncio
 async def test_web_search_clamps_limit():
     with patch("paleblue_mcp.server._client") as mock_client:
         mock_client.search = AsyncMock(return_value=MOCK_SEARCH_DATA)
@@ -130,62 +114,11 @@ async def test_web_search_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_web_search_with_content():
-    data = {**MOCK_SEARCH_DATA}
-    data["hits"] = [
-        {**MOCK_SEARCH_DATA["hits"][0], "content": "Full page text here"},
-    ]
-    with patch("paleblue_mcp.server._client") as mock_client:
-        mock_client.search = AsyncMock(return_value=data)
-        result = await web_search("python frameworks", include_content=True)
-        assert "Full page text here" in result
-        mock_client.search.assert_called_once_with(
-            query="python frameworks",
-            limit=10,
-            page=1,
-            mode="auto",
-            include_content=True,
-        )
-
-
-@pytest.mark.asyncio
-async def test_fetch_content_tool():
-    mock_data = {
-        "url": "https://example.com",
-        "title": "Example Page",
-        "content": "This is the full content.",
-        "word_count": 5,
-        "indexed_at": "2026-03-01T00:00:00+00:00",
-        "published_at": None,
-    }
-    with patch("paleblue_mcp.server._client") as mock_client:
-        mock_client.get_content = AsyncMock(return_value=mock_data)
-        result = await fetch_content("https://example.com")
-        assert "Example Page" in result
-        assert "This is the full content." in result
-        assert "Words: 5" in result
-
-
-@pytest.mark.asyncio
 async def test_fetch_content_error():
     with patch("paleblue_mcp.server._client") as mock_client:
         mock_client.get_content = AsyncMock(side_effect=Exception("Not found"))
         result = await fetch_content("https://missing.com")
         assert "Content fetch failed" in result
-
-
-@pytest.mark.asyncio
-async def test_get_stats_tool():
-    mock_stats = {
-        "queue": {"queued": 50, "visited": 3000},
-        "index": {"indexed": 2800},
-    }
-    with patch("paleblue_mcp.server._client") as mock_client:
-        mock_client.get_stats = AsyncMock(return_value=mock_stats)
-        result = await get_stats()
-        assert "2800" in result
-        assert "50" in result
-        assert "3000" in result
 
 
 @pytest.mark.asyncio

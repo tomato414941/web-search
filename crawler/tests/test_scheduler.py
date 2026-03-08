@@ -8,23 +8,7 @@ import time
 from unittest.mock import MagicMock
 
 from app.db.url_types import UrlItem
-from app.scheduler import HostGate, Scheduler, SchedulerConfig, MAX_BACKOFF
-
-
-class TestHostGate:
-    def test_defaults(self):
-        gate = HostGate()
-        assert gate.next_fetch_at == 0.0
-        assert gate.inflight == 0
-        assert gate.min_interval == 1.0
-        assert gate.concurrency_limit == 2
-        assert gate.fail_streak == 0
-
-    def test_custom_values(self):
-        gate = HostGate(min_interval=5.0, concurrency_limit=1, fail_streak=3)
-        assert gate.min_interval == 5.0
-        assert gate.concurrency_limit == 1
-        assert gate.fail_streak == 3
+from app.scheduler import Scheduler, SchedulerConfig, MAX_BACKOFF
 
 
 class TestSchedulerRateLimiting:

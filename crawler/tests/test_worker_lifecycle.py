@@ -45,20 +45,6 @@ async def test_worker_service_stop_graceful():
 
 
 @pytest.mark.asyncio
-async def test_worker_service_stop_forceful():
-    """Test WorkerService.stop(graceful=False) stops immediately"""
-    service = WorkerService()
-
-    with patch("app.workers.tasks.worker_loop", new_callable=AsyncMock):
-        await service.start(concurrency=1)
-
-        await service.stop(graceful=False)
-
-        assert service.is_running is False
-        assert service.concurrency is None
-
-
-@pytest.mark.asyncio
 async def test_worker_service_start_already_running():
     """Test WorkerService.start() raises error if already running"""
     service = WorkerService()

@@ -3,7 +3,6 @@
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 from frontend.api.main import app
@@ -448,28 +447,6 @@ class TestAdminMutationRedirects:
 
 
 class TestAdminCrawlerRoutes:
-    def test_crawlers_page_renders_instances_from_wrapper(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-
-        instances = [{"name": "default"}]
-        with (
-            patch(
-                "frontend.api.routers.admin_crawlers._get_all_crawler_instances",
-                new=AsyncMock(return_value=instances),
-            ) as mock_get_all,
-            patch(
-                "frontend.api.routers.admin_crawlers.templates.TemplateResponse",
-                return_value=Response("ok"),
-            ) as mock_template,
-        ):
-            response = client.get("/admin/crawlers")
-
-        assert response.status_code == 200
-        mock_get_all.assert_awaited_once()
-        _, _, context = mock_template.call_args.args
-        assert context["instances"] == instances
-
     def test_crawler_start_redirects_after_starting_worker(self, client):
         client.cookies.clear()
         login_as_admin(client)

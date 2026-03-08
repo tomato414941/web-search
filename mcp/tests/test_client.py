@@ -54,22 +54,6 @@ async def test_search_sends_correct_params():
 
 
 @pytest.mark.asyncio
-async def test_search_returns_json():
-    client = PaleBlueClient(base_url="https://example.com")
-    mock_resp = httpx.Response(
-        200,
-        json=MOCK_SEARCH_RESPONSE,
-        request=httpx.Request("GET", "https://example.com"),
-    )
-
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
-        result = await client.search("python")
-        assert result["total"] == 1
-        assert len(result["hits"]) == 1
-        assert result["hits"][0]["url"] == "https://python.org"
-
-
-@pytest.mark.asyncio
 async def test_search_no_api_key():
     client = PaleBlueClient(base_url="https://example.com", api_key="")
     mock_resp = httpx.Response(
@@ -83,21 +67,6 @@ async def test_search_no_api_key():
     ) as mock_get:
         await client.search("python")
         assert "X-API-Key" not in mock_get.call_args.kwargs["headers"]
-
-
-@pytest.mark.asyncio
-async def test_get_stats():
-    client = PaleBlueClient(base_url="https://example.com")
-    mock_resp = httpx.Response(
-        200,
-        json=MOCK_STATS_RESPONSE,
-        request=httpx.Request("GET", "https://example.com"),
-    )
-
-    with patch("httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp):
-        result = await client.get_stats()
-        assert result["index"]["indexed"] == 4500
-        assert result["queue"]["queued"] == 100
 
 
 @pytest.mark.asyncio

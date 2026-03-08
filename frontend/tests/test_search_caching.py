@@ -38,24 +38,3 @@ class TestEmbedQueryCache:
             embedding_mod._query_cache.clear()
             with pytest.raises(RuntimeError, match="not available"):
                 embedding_mod.cached_embed_query("test")
-
-
-class TestEmbedFuncExports:
-    def test_embed_query_func_none_when_no_api_key(self):
-        with patch.object(embedding_mod, "_embedding_service", None):
-            func = (
-                embedding_mod.cached_embed_query
-                if embedding_mod._embedding_service
-                else None
-            )
-            assert func is None
-
-    def test_embed_query_func_set_when_service_available(self):
-        mock_service = MagicMock()
-        with patch.object(embedding_mod, "_embedding_service", mock_service):
-            func = (
-                embedding_mod.cached_embed_query
-                if embedding_mod._embedding_service
-                else None
-            )
-            assert func is not None

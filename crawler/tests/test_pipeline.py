@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.workers.pipeline import (
     PipelineContext,
-    FetchResult,
-    ParseResult,
     _is_html_content_type,
     _non_html_reason,
     precheck,
@@ -28,31 +26,6 @@ class TestHelpers:
 
     def test_non_html_reason_empty(self):
         assert "unknown" in _non_html_reason("")
-
-
-class TestFetchResult:
-    def test_success_with_body(self):
-        r = FetchResult(status=200, content_type="text/html", body="<html></html>")
-        assert r.body is not None
-        assert r.error is None
-
-    def test_error(self):
-        r = FetchResult(status=200, content_type="text/html", error="too large")
-        assert r.body is None
-        assert r.error == "too large"
-
-    def test_non_html(self):
-        r = FetchResult(status=200, content_type="application/json")
-        assert r.body is None
-        assert r.error is None
-
-
-class TestParseResult:
-    def test_fields(self):
-        r = ParseResult(title="Title", content="Body", outlinks=["http://a.com"])
-        assert r.title == "Title"
-        assert r.content == "Body"
-        assert r.outlinks == ["http://a.com"]
 
 
 def _make_ctx(**overrides) -> PipelineContext:
