@@ -119,6 +119,7 @@ curl -X POST "https://palebluesearch.com/api/v1/search/click" \
 ## Documentation
 
 *   **[Product Direction](./docs/product-direction.md)**: Core problem statement, mission, principles, and anti-goals.
+*   **[Search Evaluation](./docs/search-evaluation.md)**: Golden queries and manual relevance checks.
 *   **[Architecture](./docs/architecture.md)**: System design and modules.
 *   **[Content Quality](./docs/content-quality.md)**: Quality scoring strategy and ranking integration.
 *   **[Setup Guide](./docs/setup.md)**: Installation, Docker, local development, and CI entrypoints.
