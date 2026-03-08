@@ -134,7 +134,7 @@ class TestSearchQueries:
         )
 
         body = client.search.call_args.kwargs["body"]
-        bool_query = body["query"]["function_score"]["query"]["bool"]
+        bool_query = body["query"]["bool"]
 
         assert bool_query["filter"] == [
             {"wildcard": {"url": {"value": "*github.com*"}}}

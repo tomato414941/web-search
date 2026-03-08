@@ -71,7 +71,7 @@ def test_execute_opensearch_search_uses_hybrid_with_embedding(monkeypatch):
     assert hybrid_search.call_args.kwargs["embedding"] == embedding
 
 
-def test_apply_scope_match_reorders_hits_for_known_intent():
+def test_apply_scope_match_skips_overview_queries():
     hits = [
         SearchHit(
             url="https://example.com/news/python-3-13",
@@ -90,9 +90,33 @@ def test_apply_scope_match_reorders_hits_for_known_intent():
     query_intent = apply_scope_match(hits, query="what is python")
 
     assert query_intent == "overview"
-    assert hits[0].url == "https://docs.example.com/api/python"
-    assert hits[0].score == pytest.approx(0.9)
-    assert hits[1].score == pytest.approx(0.88)
+    assert hits[0].url == "https://example.com/news/python-3-13"
+    assert hits[0].score == pytest.approx(1.0)
+    assert hits[1].score == pytest.approx(0.9)
+
+
+def test_apply_scope_match_reorders_troubleshooting_queries():
+    hits = [
+        SearchHit(
+            url="https://docs.example.com/api/python",
+            title="Reference",
+            content="docs",
+            score=1.0,
+        ),
+        SearchHit(
+            url="https://community.example.com/forum/python-error",
+            title="Forum",
+            content="fix",
+            score=0.95,
+        ),
+    ]
+
+    query_intent = apply_scope_match(hits, query="python error")
+
+    assert query_intent == "troubleshoot"
+    assert hits[0].url == "https://community.example.com/forum/python-error"
+    assert hits[0].score == pytest.approx(0.931)
+    assert hits[1].score == pytest.approx(0.9)
 
 
 def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):

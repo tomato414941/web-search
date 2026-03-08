@@ -63,12 +63,14 @@ def execute_opensearch_search(
 
 def apply_scope_match(hits: list[SearchHit], *, query: str) -> str | None:
     intent = classify_query_intent(query)
-    if intent.value != "unknown":
-        for hit in hits:
-            doc_type = classify_document_type(hit.url)
-            boost = compute_scope_match(intent, doc_type)
-            hit.score *= 0.8 + 0.2 * boost
-        hits.sort(key=lambda hit: hit.score, reverse=True)
+    if intent.value not in {"tutorial", "troubleshoot"}:
+        return intent.value
+
+    for hit in hits:
+        doc_type = classify_document_type(hit.url)
+        boost = compute_scope_match(intent, doc_type)
+        hit.score *= 0.8 + 0.2 * boost
+    hits.sort(key=lambda hit: hit.score, reverse=True)
     return intent.value
 
 

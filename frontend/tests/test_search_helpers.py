@@ -12,7 +12,7 @@ from frontend.services.search_response import serialize_hit
 from shared.search_kernel.searcher import SearchHit
 
 
-def test_build_opensearch_plan_uses_overscan_without_site_filter():
+def test_build_opensearch_plan_disables_diversity_without_site_filter():
     search_query = prepare_search_query("python")
 
     plan = build_opensearch_plan(
@@ -23,9 +23,9 @@ def test_build_opensearch_plan_uses_overscan_without_site_filter():
         candidate_limit=200,
     )
 
-    assert plan.use_diversity is True
-    assert plan.fetch_size == 120
-    assert plan.fetch_offset == 0
+    assert plan.use_diversity is False
+    assert plan.fetch_size == 10
+    assert plan.fetch_offset == 20
 
 
 def test_build_opensearch_plan_disables_overscan_for_site_filter():

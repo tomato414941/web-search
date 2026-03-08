@@ -74,13 +74,6 @@ def build_opensearch_plan(
     overscan: int,
     candidate_limit: int,
 ) -> OpenSearchExecutionPlan:
-    use_diversity = not search_query.parsed.site_filter
-    if use_diversity:
-        return OpenSearchExecutionPlan(
-            use_diversity=True,
-            fetch_size=min(page * k * overscan, candidate_limit),
-            fetch_offset=0,
-        )
     return OpenSearchExecutionPlan(
         use_diversity=False,
         fetch_size=k,

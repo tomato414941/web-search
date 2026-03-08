@@ -22,7 +22,7 @@ def search_bm25(
     exclude_terms: tuple[str, ...] = (),
     exclude_phrases: tuple[str, ...] = (),
 ) -> dict[str, Any]:
-    """BM25 search with authority and freshness boosting.
+    """BM25 search with operator-aware filtering.
 
     Args:
         client: OpenSearch client
@@ -38,48 +38,13 @@ def search_bm25(
         Dict with 'total', 'hits' list of {url, title, content, score}
     """
     query: dict[str, Any] = {
-        "query": {
-            "function_score": {
-                "query": _build_bm25_bool_query(
-                    query_tokens,
-                    site_filter=site_filter,
-                    exact_phrases=exact_phrases,
-                    exclude_terms=exclude_terms,
-                    exclude_phrases=exclude_phrases,
-                ),
-                "functions": [
-                    {
-                        "field_value_factor": {
-                            "field": "origin_score",
-                            "modifier": "none",
-                            "factor": 0.5,
-                            "missing": 0.5,
-                        },
-                        "weight": 1,
-                    },
-                    {
-                        "field_value_factor": {
-                            "field": "temporal_anchor",
-                            "modifier": "none",
-                            "factor": 1,
-                            "missing": 0.5,
-                        },
-                        "weight": 0.1,
-                    },
-                    {
-                        "field_value_factor": {
-                            "field": "factual_density",
-                            "modifier": "none",
-                            "factor": 1,
-                            "missing": 0.5,
-                        },
-                        "weight": 0.3,
-                    },
-                ],
-                "score_mode": "sum",
-                "boost_mode": "multiply",
-            }
-        },
+        "query": _build_bm25_bool_query(
+            query_tokens,
+            site_filter=site_filter,
+            exact_phrases=exact_phrases,
+            exclude_terms=exclude_terms,
+            exclude_phrases=exclude_phrases,
+        ),
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
         "_source": [
