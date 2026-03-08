@@ -1,10 +1,9 @@
 """
 Health Check Router
 
-Provides Kubernetes-compatible health check endpoints:
+Provides canonical health check endpoints:
 - /health: Simple health for load balancers
-- /health/live: Liveness probe (process alive)
-- /health/ready: Readiness probe (dependencies healthy)
+- /readyz: Readiness probe (dependencies healthy)
 """
 
 import logging
@@ -38,7 +37,7 @@ async def _check_db() -> bool:
         return False
 
 
-# --- Root-level endpoints (Kubernetes probes) ---
+# --- Root-level endpoints ---
 
 
 @root_router.get("/health")
@@ -47,15 +46,9 @@ async def health():
     return {"status": "ok"}
 
 
-@root_router.get("/health/live")
-async def liveness():
-    """Kubernetes liveness probe - is the process running?"""
-    return {"status": "ok"}
-
-
-@root_router.get("/health/ready")
-async def readiness():
-    """Kubernetes readiness probe - are dependencies healthy?"""
+@root_router.get("/readyz")
+async def readyz():
+    """Readiness probe for dependency health."""
     checks = {
         "database": "ok" if await _check_db() else "unhealthy",
     }

@@ -250,6 +250,13 @@ class TestHealthEndpoint:
         data = response.json()
         assert data["status"] == "ok"
 
+    def test_root_readiness_check(self, test_client):
+        response = test_client.get("/readyz")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert "checks" in data
+
     def test_indexer_stats_contains_job_stats(self, test_client):
         response = test_client.get(
             "/api/v1/indexer/stats",

@@ -21,6 +21,14 @@ def test_root_health_endpoint(test_client):
     assert data["status"] == "ok"
 
 
+def test_root_readiness_endpoint(test_client):
+    response = test_client.get("/readyz")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "checks" in data
+
+
 def test_crawl_urls_endpoint(test_client, test_url_store):
     """Test POST /api/v1/urls endpoint"""
     with patch("app.api.deps._get_url_store", return_value=test_url_store):
