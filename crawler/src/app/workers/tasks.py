@@ -16,7 +16,7 @@ from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
 from app.scheduler import Scheduler, SchedulerConfig
-from app.domain.scoring import (  # noqa: F401 - used for periodic refresh
+from app.domain.domain_ranks import (
     domain_rank_cache_size,
     load_domain_rank_cache,
 )

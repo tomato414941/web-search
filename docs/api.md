@@ -266,6 +266,3 @@ Inspect the frontier queue (peek at pending URLs).
 
 ### `GET /api/v1/history`
 Recent crawl history.
-
-### `POST /api/v1/scoring/predict`
-Predict URL priority score.

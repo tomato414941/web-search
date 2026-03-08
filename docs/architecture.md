@@ -72,21 +72,15 @@ We separate the "Write" path (Indexer) from the "Read" path (Frontend).
 *   **Frontend**: Fast reads via PostgreSQL BM25 or OpenSearch.
 *   Both services share the same PostgreSQL database.
 
-### 2. URL Lifecycle (Unified `urls` Table)
-The crawler manages URLs in a single `urls` table with status transitions:
+### 2. URL Lifecycle (`urls` Ledger + `crawl_queue`)
+The crawler keeps discovery state in `urls` and pending work in `crawl_queue`.
 
-```
-pending → crawling → done
-                  → failed
-          → pending (retry)
-```
+*   `urls`: all discovered URLs, with crawl history fields such as `last_crawled_at`
+*   `crawl_queue`: URLs waiting to be processed
 
-**Database indexes** are designed for HOT (Heap Only Tuple) updates:
-*   `idx_urls_pending_claim(status, priority DESC, created_at) WHERE status = 'pending'`
-*   `idx_urls_pending_domain(domain) WHERE status = 'pending'`
-*   `idx_urls_domain(domain)`
-
-The `crawling → done` transition has zero index operations, enabling PostgreSQL HOT updates with `fillfactor=70`.
+The current queue is intentionally simple: FIFO by `created_at`, plus scheduler-level
+domain diversity and rate limiting. The old status/priority queue design has been
+removed.
 
 ### 3. Shared Library (`shared/`)
 *   **Database**: PostgreSQL 16 with pgvector extension. Connection pooling via `psycopg2.pool.ThreadedConnectionPool`.

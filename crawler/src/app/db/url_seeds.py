@@ -95,7 +95,6 @@ class UrlSeedsMixin:
                     "url": row[0],
                     "domain": row[1],
                     "status": "done" if row[2] > 0 else "pending",
-                    "priority": 0,
                     "created_at": row[3],
                     "last_crawled_at": row[4],
                 }

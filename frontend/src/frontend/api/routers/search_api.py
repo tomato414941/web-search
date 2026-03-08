@@ -4,7 +4,6 @@ import asyncio
 import logging
 import time
 import uuid
-import httpx
 from fastapi import APIRouter, Depends, Request, BackgroundTasks, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
@@ -270,43 +269,3 @@ async def api_search_click(request: Request, payload: SearchClickRequest):
         session_hash=session_hash,
     )
     return response
-
-
-@router.get("/predict", include_in_schema=False)
-@limiter.limit("30/minute")
-async def api_predict(
-    request: Request, url: str, parent_score: float = 100.0, visits: int = 0
-):
-    """
-    Predict Crawler Score for a URL.
-
-    Proxies the request to the Crawler Service's scoring endpoint.
-
-    Args:
-        url: The URL to evaluate
-        parent_score: Score of the parent page (default 100.0)
-        visits: Number of times this domain has been visited (default 0)
-    """
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/score/predict",
-                json={
-                    "url": url,
-                    "parent_score": parent_score,
-                    "visits": visits,
-                },
-            )
-            if resp.status_code == 200:
-                return JSONResponse(resp.json())
-            else:
-                logger.error(f"Crawler service error: {resp.text}")
-                return JSONResponse(
-                    {"error": "Crawler service unavailable"},
-                    status_code=502,
-                )
-    except httpx.RequestError as e:
-        return JSONResponse(
-            {"error": "Crawler service unavailable", "detail": str(e)},
-            status_code=503,
-        )
