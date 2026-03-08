@@ -9,10 +9,11 @@ STG_FRONTEND_URL ?= https://web-search-staging.5.223.74.201.sslip.io
 STG_INDEXER_URL ?= http://indexer:8000
 SMOKE_TEST_URL ?= https://example.com
 VERIFY_ADMIN_MAX_SECONDS ?= 2.0
+SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 
 .PHONY: ci ci-lint ci-frontend ci-shared ci-crawler ci-indexer ci-mcp
 .PHONY: watch-ci verify-stg verify-prd verify-admin-stg verify-admin-prd
-.PHONY: release-check-stg release-check-prd
+.PHONY: release-check-stg release-check-prd evaluate-search
 
 ci: ci-lint ci-shared ci-frontend ci-crawler ci-indexer ci-mcp
 
@@ -81,3 +82,6 @@ release-check-prd:
 	$(MAKE) watch-ci WATCH_REF=$(PRD_REF)
 	$(MAKE) verify-prd PRD_REF=$(PRD_REF)
 	$(MAKE) verify-admin-prd VERIFY_ADMIN_MAX_SECONDS=$(VERIFY_ADMIN_MAX_SECONDS)
+
+evaluate-search:
+	cd $(ROOT_DIR) && ./scripts/ops/evaluate_search.py --base-url "$(SEARCH_EVAL_BASE_URL)"
