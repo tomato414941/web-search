@@ -1,10 +1,9 @@
 """
 System Router
 
-Provides Kubernetes-compatible health check endpoints:
+Provides canonical health check endpoints:
 - /health: Simple health for load balancers
-- /health/live: Liveness probe (process alive)
-- /health/ready: Readiness probe (dependencies healthy)
+- /readyz: Readiness probe (dependencies healthy)
 """
 
 import httpx
@@ -111,7 +110,7 @@ async def sitemap_xml():
     return Response(content=SITEMAP_XML, media_type="application/xml")
 
 
-# --- Root-level endpoints (Kubernetes probes) ---
+# --- Root-level endpoints ---
 
 
 @root_router.get("/health")
@@ -120,26 +119,7 @@ async def health():
     return {"status": "ok"}
 
 
-@root_router.get("/health/live")
-async def liveness():
-    """Kubernetes liveness probe - is the process running?"""
-    return {"status": "ok"}
-
-
-@root_router.get("/health/ready")
-async def readiness():
-    """Kubernetes readiness probe - are dependencies healthy?"""
-    return await _get_readiness_response()
-
-
-# Kubernetes-style short aliases
-@root_router.get("/healthz")
-async def healthz():
-    """Liveness probe alias (/healthz)."""
-    return {"ok": True}
-
-
 @root_router.get("/readyz")
 async def readyz():
-    """Readiness probe alias (/readyz)."""
+    """Readiness probe for dependency health."""
     return await _get_readiness_response()

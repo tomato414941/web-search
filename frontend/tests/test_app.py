@@ -2,10 +2,18 @@ from frontend.services.search import search_service
 
 
 def test_health(client):
-    response = client.get("/healthz")
+    response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["ok"] is True
+    assert data["status"] == "ok"
+
+
+def test_readyz(client):
+    response = client.get("/readyz")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "checks" in data
 
 
 def test_search_page_loads_default(client):
