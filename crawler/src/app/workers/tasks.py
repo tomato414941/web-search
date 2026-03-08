@@ -16,10 +16,6 @@ from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
 from app.scheduler import Scheduler, SchedulerConfig
-from app.domain.domain_ranks import (
-    domain_rank_cache_size,
-    load_domain_rank_cache,
-)
 from app.core.config import settings
 from app.utils.robots import AsyncRobotsCache
 from app.utils import history as history_log
@@ -35,9 +31,6 @@ from app.workers.pipeline import (
 from shared.contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
 
 logger = logging.getLogger(__name__)
-
-# Domain rank cache refresh interval (30 minutes)
-DOMAIN_RANK_REFRESH_SECS = 1800
 
 # Maximum retries for failed URLs
 MAX_RETRIES = 3
@@ -231,10 +224,6 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     # Initialize history log database
     await run_in_db_executor(history_log.init_db)
 
-    # Load domain PageRank cache (best-effort, empty if no data yet)
-    await run_in_db_executor(load_domain_rank_cache, settings.DB_PATH)
-    domain_rank_refreshed_at = time.monotonic()
-
     # Initialize UrlStore
     url_store = UrlStore(
         settings.CRAWLER_DB_PATH,
@@ -307,20 +296,6 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
 
         try:
             while True:
-                # Periodic domain rank cache refresh
-                if (
-                    time.monotonic() - domain_rank_refreshed_at
-                    > DOMAIN_RANK_REFRESH_SECS
-                ):
-                    old_count = domain_rank_cache_size()
-                    await run_in_db_executor(load_domain_rank_cache, settings.DB_PATH)
-                    domain_rank_refreshed_at = time.monotonic()
-                    logger.info(
-                        "Refreshed domain rank cache: %d -> %d entries",
-                        old_count,
-                        domain_rank_cache_size(),
-                    )
-
                 # Periodic robots block filter refresh
                 if (
                     time.monotonic() - robots_block_refreshed_at
