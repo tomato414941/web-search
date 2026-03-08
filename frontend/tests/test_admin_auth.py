@@ -3,6 +3,7 @@
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from fastapi.responses import Response
 from fastapi.testclient import TestClient
 
 from frontend.api.main import app
@@ -444,3 +445,204 @@ class TestAdminMutationRedirects:
             response.headers["location"]
             == "/admin/queue?success=Added%20https%3A%2F%2Fexample.com%20to%20queue"
         )
+
+
+class TestAdminCrawlerRoutes:
+    def test_crawlers_page_renders_instances_from_wrapper(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+
+        instances = [{"name": "default"}]
+        with (
+            patch(
+                "frontend.api.routers.admin_crawlers._get_all_crawler_instances",
+                new=AsyncMock(return_value=instances),
+            ) as mock_get_all,
+            patch(
+                "frontend.api.routers.admin_crawlers.templates.TemplateResponse",
+                return_value=Response("ok"),
+            ) as mock_template,
+        ):
+            response = client.get("/admin/crawlers")
+
+        assert response.status_code == 200
+        mock_get_all.assert_awaited_once()
+        _, _, context = mock_template.call_args.args
+        assert context["instances"] == instances
+
+    def test_crawler_start_redirects_after_starting_worker(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with (
+            patch(
+                "frontend.api.routers.admin_crawlers.start_worker", new=AsyncMock()
+            ) as mock_start,
+            patch(
+                "frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
+            ) as mock_clear,
+        ):
+            response = client.post(
+                "/admin/crawler/start",
+                data={"csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/"
+        mock_start.assert_awaited_once()
+        mock_clear.assert_called_once_with()
+
+    def test_crawler_stop_redirects_after_stopping_worker(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with (
+            patch(
+                "frontend.api.routers.admin_crawlers.stop_worker", new=AsyncMock()
+            ) as mock_stop,
+            patch(
+                "frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
+            ) as mock_clear,
+        ):
+            response = client.post(
+                "/admin/crawler/stop",
+                data={"csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/"
+        mock_stop.assert_awaited_once()
+        mock_clear.assert_called_once_with()
+
+    def test_crawler_instance_start_ignores_unknown_name(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with (
+            patch(
+                "frontend.api.routers.admin_crawlers._find_crawler_url",
+                return_value=None,
+            ) as mock_find,
+            patch(
+                "frontend.api.routers.admin_crawlers.start_crawler_instance",
+                new=AsyncMock(),
+            ) as mock_start,
+        ):
+            response = client.post(
+                "/admin/crawlers/missing/start",
+                data={"concurrency": 3, "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/crawlers"
+        mock_find.assert_called_once()
+        mock_start.assert_not_awaited()
+
+    def test_crawler_instance_start_redirects_after_starting_instance(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with (
+            patch(
+                "frontend.api.routers.admin_crawlers._find_crawler_url",
+                return_value="http://crawler:8000",
+            ) as mock_find,
+            patch(
+                "frontend.api.routers.admin_crawlers.start_crawler_instance",
+                new=AsyncMock(),
+            ) as mock_start,
+            patch(
+                "frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
+            ) as mock_clear,
+        ):
+            response = client.post(
+                "/admin/crawlers/default/start",
+                data={"concurrency": 3, "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/crawlers"
+        mock_find.assert_called_once_with("default", settings.CRAWLER_INSTANCES)
+        mock_start.assert_awaited_once_with("http://crawler:8000", 3)
+        mock_clear.assert_called_once_with()
+
+    def test_crawler_instance_stop_redirects_after_stopping_instance(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with (
+            patch(
+                "frontend.api.routers.admin_crawlers._find_crawler_url",
+                return_value="http://crawler:8000",
+            ) as mock_find,
+            patch(
+                "frontend.api.routers.admin_crawlers.stop_crawler_instance",
+                new=AsyncMock(),
+            ) as mock_stop,
+            patch(
+                "frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
+            ) as mock_clear,
+        ):
+            response = client.post(
+                "/admin/crawlers/default/stop",
+                data={"csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/crawlers"
+        mock_find.assert_called_once_with("default", settings.CRAWLER_INSTANCES)
+        mock_stop.assert_awaited_once_with("http://crawler:8000")
+        mock_clear.assert_called_once_with()
+
+
+class TestAdminIndexerRoutes:
+    def test_indexer_page_renders_stats_and_failed_jobs(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+
+        health = {"status": "ok"}
+        failed_jobs = [{"job_id": "job-1"}]
+        with (
+            patch(
+                "frontend.api.routers.admin_indexer.fetch_indexer_stats",
+                new=AsyncMock(return_value=health),
+            ) as mock_stats,
+            patch(
+                "frontend.api.routers.admin_indexer.fetch_failed_jobs",
+                new=AsyncMock(return_value=failed_jobs),
+            ) as mock_failed,
+        ):
+            response = client.get("/admin/indexer")
+
+        assert response.status_code == 200
+        assert "Indexer Status" in response.text
+        mock_stats.assert_awaited_once_with()
+        mock_failed.assert_awaited_once_with(limit=50)
+
+    def test_retry_job_redirects_after_retrying_failed_job(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with patch(
+            "frontend.api.routers.admin_indexer.retry_failed_job", new=AsyncMock()
+        ) as mock_retry:
+            response = client.post(
+                "/admin/indexer/retry-job",
+                data={"job_id": "job-1", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/indexer"
+        mock_retry.assert_awaited_once_with("job-1")
