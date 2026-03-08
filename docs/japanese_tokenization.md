@@ -8,7 +8,7 @@ Japanese text is tokenized with **SudachiPy** before indexing and searching. Tok
 ### 1. Tokenizer: SudachiPy (Shared Logic)
 We use `sudachidict_core` with SudachiPy to split Japanese text into tokens.
 
-**Code Location**: `shared/src/shared/analyzer.py`
+**Code Location**: `shared/src/shared/search_kernel/analyzer.py`
 
 Example:
 - Input: `東京都へ行く`
@@ -31,3 +31,4 @@ Search queries are analyzed with the same tokenizer and matched against the inve
 ## Development Notes
 - **Dictionary**: Uses `sudachidict_core` by default.
 - **Performance**: Tokenization happens in Python before database writes and reads.
+- **Storage Backend**: Production uses PostgreSQL via `shared.postgres.search`; local development can still use SQLite-backed paths for lightweight runs.

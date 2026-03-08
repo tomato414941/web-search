@@ -98,6 +98,19 @@ uvicorn app.main:app --reload --port 8082
 
 ## Linting and Formatting
 
+The preferred local CI entrypoints are the `Makefile` targets:
+
+```bash
+make ci
+make ci-frontend
+make ci-shared
+make ci-crawler
+make ci-indexer
+make ci-mcp
+```
+
+You can still run the underlying tools directly when needed:
+
 ```bash
 ruff check frontend/src/ shared/src/ crawler/src/ indexer/src/
 ruff format frontend/src/ shared/src/ crawler/src/ indexer/src/
@@ -116,6 +129,19 @@ This runs `ruff` (lint + format) and service-specific `pytest` on every commit.
 
 ## Running Tests
 Tests are split by service.
+
+Preferred entrypoints:
+
+```bash
+make ci
+make ci-frontend
+make ci-shared
+make ci-crawler
+make ci-indexer
+make ci-mcp
+```
+
+Direct test commands:
 
 ```bash
 pytest shared/tests

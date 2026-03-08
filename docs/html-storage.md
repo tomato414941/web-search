@@ -1,9 +1,11 @@
 # HTML Storage Design (Cloudflare R2)
 
+> Status: design note only. This document describes a possible future direction and is not implemented in the current runtime.
+
 ## Problem
 
 Raw HTML is discarded after text extraction. When we improve extraction logic
-(e.g. trafilatura, content_quality), we must re-crawl all 600K+ pages to
+(e.g. trafilatura, content quality), we must re-crawl large parts of the corpus to
 apply changes. This wastes bandwidth, time, and is unfriendly to target sites.
 
 ## Solution

@@ -15,7 +15,7 @@ high-quality content that AI agents can trust.
 - **Scope Match**: Query intent (overview/tutorial/troubleshoot/reference/news/comparison) matched with document type for better relevance.
 - **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
 - **Hybrid Search**: BM25 keyword matching + vector semantic search with RRF fusion.
-- **600K+ Indexed Pages**: Own crawler with robots.txt compliance and authorship metadata extraction.
+- **Million-scale Indexing**: Own crawler with robots.txt compliance and authorship metadata extraction.
 - **Japanese NLP**: SudachiPy morphological analysis for high-quality Japanese search.
 - **Free API**: Anonymous access with IP-based rate limiting (100 req/min).
 
@@ -118,11 +118,14 @@ curl -X POST "https://palebluesearch.com/api/v1/search/click" \
 
 ## Documentation
 
+*   **[Product Direction](./docs/product-direction.md)**: Core problem statement, mission, principles, and anti-goals.
 *   **[Architecture](./docs/architecture.md)**: System design and modules.
 *   **[Content Quality](./docs/content-quality.md)**: Quality scoring strategy and ranking integration.
-*   **[Setup Guide](./docs/setup.md)**: Installation, Docker, and local development.
+*   **[Setup Guide](./docs/setup.md)**: Installation, Docker, local development, and CI entrypoints.
 *   **[API Reference](./docs/api.md)**: Endpoints and usage details.
 *   **[Japanese Tokenization](./docs/japanese_tokenization.md)**: Details on SudachiPy and custom indexing.
+*   **[Coolify Staging](./docs/coolify-staging.md)**: Staging topology and deployment model.
+*   **[HTML Storage Design Note](./docs/html-storage.md)**: Archived design idea, not part of the current runtime.
 
 ## Quick Start
 

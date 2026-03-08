@@ -2,12 +2,19 @@
 
 The Indexer Service is a write-optimized microservice responsible for ingesting, processing, and storing web pages.
 
+This document is intentionally service-specific.
+For project-wide product goals and system structure, start with:
+
+- `../README.md`
+- `../docs/product-direction.md`
+- `../docs/architecture.md`
+
 ## Responsibilities
 
 1.  **Ingestion**: Receives crawled data (URL, Title, Content) from the Crawler Service via HTTP API and queues async jobs.
-2.  **Tokenization**: Uses `shared.analyzer` (SudachiPy) to tokenize Japanese text for the custom inverted index.
+2.  **Tokenization**: Uses `shared.search_kernel.analyzer` (SudachiPy) to tokenize Japanese text for the custom inverted index.
 3.  **Embedding**: Uses OpenAI API to generate vector embeddings for semantic search.
-4.  **Storage**: Writes data to the shared DB (`shared.db.search`) using PostgreSQL (production) or SQLite (local dev).
+4.  **Storage**: Writes data through `shared.postgres.search` using PostgreSQL (production) or SQLite-compatible local paths where supported.
 
 ## Directory Structure
 
