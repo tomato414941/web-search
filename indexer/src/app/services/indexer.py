@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from urllib.parse import urlparse
 
 from app.core.config import settings
 from app.services.scoring import (
@@ -44,6 +45,14 @@ def _sanitize_outlinks(outlinks: list[str] | None) -> list[str]:
             continue
         cleaned.append(outlink.replace("\x00", ""))
     return cleaned
+
+
+def _opensearch_url_metadata(url: str) -> tuple[str, str, bool]:
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+    path = parsed.path or "/"
+    is_homepage = path in {"", "/"}
+    return host, path, is_homepage
 
 
 class IndexerService:
@@ -257,6 +266,7 @@ class IndexerService:
             origin_score, origin_type = self._get_origin_score(url)
             # Keep authority as fallback for documents not yet scored
             authority = self._get_authority(url)
+            host, path, is_homepage = _opensearch_url_metadata(url)
 
             from datetime import datetime, timezone
 
@@ -280,6 +290,9 @@ class IndexerService:
                 origin_type=origin_type,
                 author=author,
                 organization=organization,
+                host=host,
+                path=path,
+                is_homepage=is_homepage,
             )
         except Exception:
             logger.warning("OpenSearch index failed for %s", url, exc_info=True)

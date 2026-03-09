@@ -26,6 +26,8 @@ def test_execute_opensearch_search_uses_bm25_without_embedding(monkeypatch):
             'site:github.com Python "open source" -java -"machine learning"'
         ),
         plan=SimpleNamespace(fetch_size=10, fetch_offset=20),
+        canonical_domains=("github.com",),
+        canonical_paths=("/docs",),
     )
 
     assert result == {"total": 0, "hits": []}
@@ -36,6 +38,8 @@ def test_execute_opensearch_search_uses_bm25_without_embedding(monkeypatch):
     assert captured["exclude_phrases"] == ("machine learning",)
     assert captured["limit"] == 10
     assert captured["offset"] == 20
+    assert captured["canonical_domains"] == ("github.com",)
+    assert captured["canonical_paths"] == ("/docs",)
 
 
 def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
@@ -60,10 +64,14 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
         last_page=3,
     )
 
-    def fake_execute(client, search_query, plan):
+    def fake_execute(
+        client, search_query, plan, canonical_domains=(), canonical_paths=()
+    ):
         captured["client"] = client
         captured["plan"] = plan
         captured["search_query"] = search_query
+        captured["canonical_domains"] = canonical_domains
+        captured["canonical_paths"] = canonical_paths
         return {"total": 25, "hits": raw_hits}
 
     monkeypatch.setattr(search_opensearch, "execute_opensearch_search", fake_execute)
@@ -88,6 +96,8 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
     assert captured["search_query"].parsed.site_filter == "github.com"
     assert captured["plan"].fetch_size == 10
     assert captured["plan"].fetch_offset == 20
+    assert captured["canonical_domains"] == ()
+    assert captured["canonical_paths"] == ()
 
 
 def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
@@ -111,8 +121,13 @@ def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
         },
     ]
 
-    def fake_execute(client, search_query, plan):
+    def fake_execute(
+        client, search_query, plan, canonical_domains=(), canonical_paths=()
+    ):
         captured["plan"] = plan
+        captured["client"] = client
+        captured["canonical_domains"] = canonical_domains
+        captured["canonical_paths"] = canonical_paths
         return {"total": 25, "hits": raw_hits}
 
     monkeypatch.setattr(search_opensearch, "execute_opensearch_search", fake_execute)
@@ -126,6 +141,8 @@ def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
     )
 
     assert captured["plan"].fetch_size == 100
+    assert captured["canonical_domains"] == ("github.com",)
+    assert captured["canonical_paths"] == ("/",)
     assert [hit.url for hit in result.hits] == [
         "https://github.com/",
         "https://github.com/org/repo",

@@ -10,6 +10,9 @@ from shared.opensearch.client import INDEX_NAME
 logger = logging.getLogger(__name__)
 
 CANDIDATE_LIMIT = 200
+CANONICAL_HOST_BOOST = 3.0
+CANONICAL_PATH_BOOST = 4.0
+CANONICAL_HOMEPAGE_BOOST = 6.0
 
 
 def search_bm25(
@@ -21,6 +24,8 @@ def search_bm25(
     exact_phrases: tuple[str, ...] = (),
     exclude_terms: tuple[str, ...] = (),
     exclude_phrases: tuple[str, ...] = (),
+    canonical_domains: tuple[str, ...] = (),
+    canonical_paths: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """BM25 search with operator-aware filtering.
 
@@ -44,11 +49,16 @@ def search_bm25(
             exact_phrases=exact_phrases,
             exclude_terms=exclude_terms,
             exclude_phrases=exclude_phrases,
+            canonical_domains=canonical_domains,
+            canonical_paths=canonical_paths,
         ),
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
         "_source": [
             "url",
+            "host",
+            "path",
+            "is_homepage",
             "title",
             "content",
             "indexed_at",
@@ -108,6 +118,8 @@ def _build_bm25_bool_query(
     exact_phrases: tuple[str, ...] = (),
     exclude_terms: tuple[str, ...] = (),
     exclude_phrases: tuple[str, ...] = (),
+    canonical_domains: tuple[str, ...] = (),
+    canonical_paths: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     bool_query: dict[str, Any] = {}
 
@@ -122,6 +134,10 @@ def _build_bm25_bool_query(
     must_not_clauses = _build_negative_clauses(exclude_terms, exclude_phrases)
     if must_not_clauses:
         bool_query["must_not"] = must_not_clauses
+
+    should_clauses = _build_canonical_should_clauses(canonical_domains, canonical_paths)
+    if should_clauses:
+        bool_query["should"] = should_clauses
 
     return {"bool": bool_query}
 
@@ -148,6 +164,44 @@ def _build_filter_clauses(site_filter: str | None) -> list[dict[str, Any]]:
     if not site_filter:
         return []
     return [{"wildcard": {"url": {"value": f"*{site_filter}*"}}}]
+
+
+def _build_canonical_should_clauses(
+    canonical_domains: tuple[str, ...], canonical_paths: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    clauses: list[dict[str, Any]] = []
+    for domain in canonical_domains:
+        if not domain:
+            continue
+        clauses.append(
+            {"term": {"host": {"value": domain, "boost": CANONICAL_HOST_BOOST}}}
+        )
+        clauses.append(
+            {
+                "term": {
+                    "host": {"value": f"www.{domain}", "boost": CANONICAL_HOST_BOOST}
+                }
+            }
+        )
+    for path in canonical_paths:
+        if not path:
+            continue
+        if path == "/":
+            clauses.append(
+                {
+                    "term": {
+                        "is_homepage": {
+                            "value": True,
+                            "boost": CANONICAL_HOMEPAGE_BOOST,
+                        }
+                    }
+                }
+            )
+            continue
+        clauses.append(
+            {"prefix": {"path": {"value": path, "boost": CANONICAL_PATH_BOOST}}}
+        )
+    return clauses
 
 
 def _build_text_clause(query_tokens: str) -> dict[str, Any]:

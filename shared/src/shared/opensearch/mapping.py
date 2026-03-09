@@ -33,6 +33,9 @@ INDEX_SETTINGS = {
     "mappings": {
         "properties": {
             "url": {"type": "keyword"},
+            "host": {"type": "keyword"},
+            "path": {"type": "keyword"},
+            "is_homepage": {"type": "boolean"},
             "title": {
                 "type": "text",
                 "analyzer": "sudachi_whitespace",
@@ -69,6 +72,15 @@ INDEX_SETTINGS = {
 }
 
 
+def _missing_properties(client: OpenSearch) -> dict[str, object]:
+    response = client.indices.get_mapping(index=INDEX_NAME)
+    properties = response.get(INDEX_NAME, {}).get("mappings", {}).get("properties", {})
+    expected = INDEX_SETTINGS["mappings"]["properties"]
+    return {
+        field: schema for field, schema in expected.items() if field not in properties
+    }
+
+
 def ensure_index(client: OpenSearch) -> bool:
     """Create the documents index if it doesn't exist.
 
@@ -76,6 +88,14 @@ def ensure_index(client: OpenSearch) -> bool:
         True if index was created, False if it already existed.
     """
     if client.indices.exists(index=INDEX_NAME):
+        missing = _missing_properties(client)
+        if missing:
+            client.indices.put_mapping(index=INDEX_NAME, body={"properties": missing})
+            logger.info(
+                "Updated OpenSearch index '%s' with fields: %s",
+                INDEX_NAME,
+                ", ".join(sorted(missing)),
+            )
         logger.info("OpenSearch index '%s' already exists", INDEX_NAME)
         return False
 

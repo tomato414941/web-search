@@ -58,6 +58,9 @@ def index_document(
     origin_type: str = "river",
     author: str | None = None,
     organization: str | None = None,
+    host: str | None = None,
+    path: str | None = None,
+    is_homepage: bool | None = None,
 ) -> None:
     """Index a single document into OpenSearch."""
     body: dict[str, Any] = {
@@ -74,6 +77,12 @@ def index_document(
         "origin_score": origin_score,
         "origin_type": origin_type,
     }
+    if host is not None:
+        body["host"] = host
+    if path is not None:
+        body["path"] = path
+    if is_homepage is not None:
+        body["is_homepage"] = is_homepage
     if embedding is not None:
         body["embedding"] = embedding
     if published_at is not None:
