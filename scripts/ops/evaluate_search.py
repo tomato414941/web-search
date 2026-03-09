@@ -27,7 +27,17 @@ QUERY_KEYWORD_RULES = {
         "required_terms": ("bm25",),
         "pass_reason": "top 3 include an explicitly BM25-focused result",
         "fail_reason": "top 3 do not include a clearly BM25-focused result",
-    }
+    },
+    "site reliability engineering": {
+        "required_domains": (
+            "usenix.org",
+            "sre.google",
+            "training.linuxfoundation.org",
+        ),
+        "minimum_domain_matches": 2,
+        "pass_reason": "top 3 include at least two strong SRE sources",
+        "fail_reason": "top 3 do not include enough strong SRE sources",
+    },
 }
 
 
@@ -133,12 +143,28 @@ def _classify_case(case: QueryCase, payload: dict) -> tuple[str, str]:
         return "fail", "0 hits"
 
     if keyword_rule:
-        if any(
-            all(term in _hit_text(hit) for term in keyword_rule["required_terms"])
-            for hit in hits[:3]
-        ):
-            return "pass", keyword_rule["pass_reason"]
-        return "fail", keyword_rule["fail_reason"]
+        required_domains = keyword_rule.get("required_domains")
+        minimum_domain_matches = int(keyword_rule.get("minimum_domain_matches") or 1)
+        if required_domains:
+            matches = sum(
+                any(
+                    _domain_matches(expected, domain, allow_subdomain=True)
+                    for expected in required_domains
+                )
+                for domain in top_domains
+            )
+            if matches >= minimum_domain_matches:
+                return "pass", keyword_rule["pass_reason"]
+            return "fail", keyword_rule["fail_reason"]
+
+        required_terms = keyword_rule.get("required_terms")
+        if required_terms:
+            if any(
+                all(term in _hit_text(hit) for term in required_terms)
+                for hit in hits[:3]
+            ):
+                return "pass", keyword_rule["pass_reason"]
+            return "fail", keyword_rule["fail_reason"]
 
     if case.query_type == "navigational":
         if not expected_domain:
