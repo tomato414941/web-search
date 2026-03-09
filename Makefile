@@ -14,7 +14,7 @@ SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 .PHONY: ci ci-lint ci-frontend ci-shared ci-crawler ci-indexer ci-mcp
 .PHONY: watch-ci verify-stg verify-prd verify-admin-stg verify-admin-prd
 .PHONY: release-check-stg release-check-prd evaluate-search
-.PHONY: repair-robots-stg repair-robots-prd
+.PHONY: repair-robots-stg repair-robots-prd repair-canonical-stg repair-canonical-prd
 
 ci: ci-lint ci-shared ci-frontend ci-crawler ci-indexer ci-mcp
 
@@ -92,3 +92,9 @@ repair-robots-stg:
 
 repair-robots-prd:
 	cd $(ROOT_DIR) && ./scripts/ops/requeue_blocked_robots_urls.py prd $(REPAIR_ARGS)
+
+repair-canonical-stg:
+	cd $(ROOT_DIR) && ./scripts/ops/repair_canonical_search_urls.py stg $(REPAIR_ARGS)
+
+repair-canonical-prd:
+	cd $(ROOT_DIR) && ./scripts/ops/repair_canonical_search_urls.py prd $(REPAIR_ARGS)
