@@ -85,7 +85,7 @@ removed.
 ### 3. Shared Library (`shared/`)
 *   **Database**: PostgreSQL 16 with pgvector extension. Connection pooling via `psycopg2.pool.ThreadedConnectionPool`.
 *   **Search Engine (`shared.search_kernel`)**:
-    *   **Hybrid Search**: Combines BM25 (Keyword) and Vector (Semantic) scores using Reciprocal Rank Fusion (RRF).
+    *   **Search**: Uses BM25 keyword ranking in OpenSearch for query-time retrieval.
     *   **Tokenizer**: `SudachiPy` for Japanese morphological analysis.
     *   **Scoring**: BM25 + Information Origin + Factual Density + Temporal Anchor + Scope Match re-ranking + Claim Diversity.
     *   **Snippet Generation**: Context-aware snippet extraction with `<mark>` highlighting.

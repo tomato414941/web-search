@@ -11,10 +11,9 @@ The goal is to make quality regressions and obvious ranking failures visible.
 
 PaleBlueSearch already has ranking features such as:
 
-- hybrid retrieval
+- lexical retrieval
 - source-oriented ranking signals
-- scope match
-- claim diversity
+- canonical source promotion
 
 But having ranking machinery is not the same as having strong search quality.
 

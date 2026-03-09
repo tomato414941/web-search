@@ -17,10 +17,6 @@ class PreparedSearchQuery:
     tokenized_exclude_phrases: tuple[str, ...]
 
     @property
-    def embedding_query(self) -> str:
-        return self.positive_query or self.tokens
-
-    @property
     def has_opensearch_terms(self) -> bool:
         return bool(self.tokens.strip() or self.tokenized_exact_phrases)
 
@@ -59,7 +55,7 @@ def prepare_search_query(q: str) -> PreparedSearchQuery:
 
 def build_snippet_terms(q: str) -> list[str]:
     search_query = prepare_search_query(q)
-    snippet_query = search_query.embedding_query or q
+    snippet_query = search_query.positive_query or q
     analyzed_q = analyzer.tokenize(snippet_query)
     if analyzed_q.strip():
         return analyzed_q.split()

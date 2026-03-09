@@ -95,7 +95,7 @@ def classify_query_policy(
     if search_query.parsed.site_filter:
         return SearchRankingPolicy(query_class="other")
 
-    query_text = _normalize_query_text(search_query.embedding_query or q)
+    query_text = _normalize_query_text(search_query.positive_query or q)
     if not query_text:
         return SearchRankingPolicy(query_class="other")
 

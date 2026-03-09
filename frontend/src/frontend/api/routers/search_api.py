@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-VALID_SEARCH_MODES = {SearchMode.BM25, SearchMode.HYBRID, SearchMode.SEMANTIC}
+VALID_SEARCH_MODES = {SearchMode.BM25}
 
 
 # --- Response Models ---
@@ -92,11 +92,9 @@ class SearchResponse(BaseModel):
     per_page: int = Field(description="Results per page")
     last_page: int = Field(description="Last available page")
     hits: list[SearchHit] = Field(description="Search results")
-    mode: str = Field(
-        description="Actual search mode executed (bm25, hybrid, semantic)"
-    )
+    mode: str = Field(description="Actual search mode executed (bm25)")
     requested_mode: str = Field(
-        description="Search mode requested by client (bm25, hybrid, semantic, auto)"
+        description="Search mode requested by client (bm25 or auto)"
     )
     request_id: str | None = Field(
         default=None, description="Request ID for click tracking"
@@ -160,9 +158,8 @@ async def api_search(
     Anonymous requests are allowed but do not include usage info.
 
     **Search modes**:
-    - `bm25` — keyword-based (default)
-    - `hybrid` — BM25 + vector semantic search via RRF
-    - `semantic` — pure vector similarity search
+    - `bm25` — keyword-based search
+    - `auto` — alias of `bm25`
 
     **Rate limits**: 100 requests/minute (IP-based), 1000 requests/day (per API key).
     """
@@ -173,7 +170,7 @@ async def api_search(
 
     per_page = min(_parse_pos_int(limit, settings.RESULTS_LIMIT), settings.MAX_PER_PAGE)
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
-    search_mode = mode if mode in VALID_SEARCH_MODES else "auto"
+    search_mode = mode if mode in VALID_SEARCH_MODES else SearchMode.AUTO
 
     want_content = include_content == "true" and api_key_info is not None
 
@@ -190,9 +187,8 @@ async def api_search(
         else search_service._empty_result(per_page)
     )
     data["requested_mode"] = search_mode
-    # data["mode"] is set by the search service to reflect the actual executed mode
     if "mode" not in data:
-        data["mode"] = search_mode
+        data["mode"] = SearchMode.BM25
 
     if query:
         request_id = uuid.uuid4().hex

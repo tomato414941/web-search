@@ -75,7 +75,7 @@ Required variables for local runs:
 - `CRAWLER_SERVICE_URL` and `INDEXER_API_URL` when running multiple services locally
 
 Optional:
-- `OPENAI_API_KEY` for semantic search
+- `OPENAI_API_KEY` for indexing-time embeddings
 - `DATABASE_URL` if you want to use PostgreSQL locally (otherwise SQLite is used)
 
 ### Running Services

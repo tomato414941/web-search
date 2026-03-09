@@ -26,7 +26,7 @@ Tokens are stored in the `inverted_index` table alongside per-token statistics:
 This keeps indexing logic explicit and predictable, with full control over scoring and ranking.
 
 ### 3. Query Processing
-Search queries are analyzed with the same tokenizer and matched against the inverted index tables. For hybrid search, the token-based results are combined with embedding-based results using Reciprocal Rank Fusion (RRF).
+Search queries are analyzed with the same tokenizer and matched against the inverted index tables.
 
 ## Development Notes
 - **Dictionary**: Uses `sudachidict_core` by default.

@@ -1,11 +1,5 @@
-"""
-Search Service - Frontend search functionality.
+"""Search Service - Frontend search functionality."""
 
-Supports BM25 (OpenSearch), vector (pgvector), and hybrid (OpenSearch BM25 + k-NN) modes.
-Default (auto) mode uses BM25 for speed; hybrid/semantic available via explicit mode.
-"""
-
-import concurrent.futures
 import logging
 import time
 from collections.abc import Callable
@@ -17,9 +11,7 @@ from frontend.api.metrics import (
     SEARCH_SCORING_DURATION,
 )
 from frontend.core.config import settings
-from frontend.services.embedding import embed_query_func
 from frontend.services.search_opensearch import run_opensearch_query
-from frontend.services.search_pgvector import run_pgvector_search
 from frontend.services.search_query import (
     PreparedSearchQuery,
     prepare_search_query,
@@ -33,7 +25,6 @@ logger = logging.getLogger(__name__)
 class SearchService:
     def __init__(self, db_path: str = settings.DB_PATH):
         self.db_path = db_path
-        self._embed_query = embed_query_func
         self._os_client = None
         self._os_enabled = settings.OPENSEARCH_ENABLED
         if self._os_enabled:
@@ -60,10 +51,6 @@ class SearchService:
             self._init_opensearch()
         return self._os_client
 
-    @property
-    def hybrid_available(self) -> bool:
-        return self._embed_query is not None
-
     def search(
         self,
         q: str | None,
@@ -75,11 +62,6 @@ class SearchService:
     ) -> dict[str, Any]:
         if not q:
             return self._empty_result(k)
-
-        if mode == SearchMode.SEMANTIC and self.hybrid_available:
-            return self._vector_search(q, k, page, include_content=include_content)
-        if mode == SearchMode.HYBRID and self.hybrid_available:
-            return self._hybrid_search(q, k, page, include_content=include_content)
         return self._bm25_search(q, k, page, include_content=include_content)
 
     def _finalize_search_response(
@@ -170,32 +152,9 @@ class SearchService:
     def _run_bm25_opensearch(self, q: str, k: int, page: int) -> Any:
         return self._run_opensearch_query(q, k, page)
 
-    def _run_hybrid_opensearch(self, q: str, k: int, page: int) -> Any:
-        timeout = settings.HYBRID_SEARCH_TIMEOUT_SEC
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(self._run_opensearch_query, q, k, page, True)
-            return future.result(timeout=timeout)
-
-    def _log_hybrid_error(self, error: BaseException) -> None:
-        if isinstance(error, concurrent.futures.TimeoutError):
-            logger.warning(
-                "Hybrid search timed out after %.1fs, falling back to BM25",
-                settings.HYBRID_SEARCH_TIMEOUT_SEC,
-            )
-            return
-        logger.warning(
-            "OpenSearch hybrid failed, falling back to BM25",
-            exc_info=(type(error), error, error.__traceback__),
-        )
-
     def _bm25_search(
         self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
     ) -> dict[str, Any]:
-        fallback_search = (
-            (lambda: self._pgvector_search(q, k, page))
-            if self._embed_query is not None
-            else None
-        )
         return self._execute_search_flow(
             q,
             k,
@@ -204,52 +163,12 @@ class SearchService:
             primary_search=lambda: self._run_bm25_opensearch(q, k, page),
             primary_mode=SearchMode.BM25,
             primary_error_handler="OpenSearch BM25 failed",
-            fallback_search=fallback_search,
-            fallback_mode=SearchMode.SEMANTIC,
-            fallback_error_handler="pgvector fallback also failed",
-            fallback_flag=True,
-        )
-
-    def _hybrid_search(
-        self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
-    ) -> dict[str, Any]:
-        return self._execute_search_flow(
-            q,
-            k,
-            metric_mode="hybrid",
-            include_content=include_content,
-            primary_search=lambda: self._run_hybrid_opensearch(q, k, page),
-            primary_mode=SearchMode.HYBRID,
-            primary_error_handler=self._log_hybrid_error,
-            fallback_search=lambda: self._bm25_search(
-                q, k, page, include_content=include_content
-            ),
-            fallback_returns_payload=True,
-        )
-
-    def _vector_search(
-        self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
-    ) -> dict[str, Any]:
-        return self._execute_search_flow(
-            q,
-            k,
-            metric_mode="semantic",
-            include_content=include_content,
-            primary_search=lambda: self._pgvector_search(q, k, page),
-            primary_mode=SearchMode.SEMANTIC,
-            primary_error_handler="Vector search failed, falling back to BM25",
-            fallback_search=lambda: self._bm25_search(
-                q, k, page, include_content=include_content
-            ),
-            fallback_returns_payload=True,
         )
 
     def _parse_search_query(self, q: str) -> PreparedSearchQuery:
         return prepare_search_query(q)
 
-    def _run_opensearch_query(
-        self, q: str, k: int, page: int, with_embedding: bool = False
-    ) -> Any:
+    def _run_opensearch_query(self, q: str, k: int, page: int) -> Any:
         client = self._get_os_client()
         if client is None:
             raise RuntimeError("OpenSearch client unavailable")
@@ -259,17 +178,6 @@ class SearchService:
             page,
             client=client,
             search_query=self._parse_search_query(q),
-            embed_query=self._embed_query,
-            with_embedding=with_embedding,
-        )
-
-    def _pgvector_search(self, q: str, k: int, page: int) -> Any:
-        return run_pgvector_search(
-            q,
-            k,
-            page,
-            search_query=self._parse_search_query(q),
-            embed_query=self._embed_query,
         )
 
     def _format_result(

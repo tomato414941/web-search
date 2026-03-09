@@ -38,7 +38,6 @@ def _build_search_url(
     page: int | None = None,
     mode: str | None = None,
     lang: str | None = None,
-    search_mode: str | None = None,
 ) -> str:
     params: list[tuple[str, str]] = []
     if query:
@@ -49,9 +48,6 @@ def _build_search_url(
         params.append(("mode", mode))
     if lang:
         params.append(("lang", lang))
-    if search_mode:
-        params.append(("search_mode", search_mode))
-
     encoded = urlencode(params)
     return f"/?{encoded}" if encoded else "/"
 
@@ -78,7 +74,6 @@ async def search_page(
     q: str | None = None,
     page: str | None = None,
     mode: str | None = None,
-    search_mode: str | None = None,
     ui_mode: str | None = Cookie(default="modern"),
     lang: str | None = None,
     user_lang: str | None = Cookie(default=None, alias="lang"),
@@ -102,14 +97,8 @@ async def search_page(
     per_page = min(settings.RESULTS_LIMIT, settings.MAX_PER_PAGE)
     request_id = uuid.uuid4().hex if query else None
 
-    valid_search_modes = {SearchMode.BM25, SearchMode.HYBRID, SearchMode.SEMANTIC}
-    effective_search_mode = (
-        search_mode if search_mode in valid_search_modes else SearchMode.AUTO
-    )
+    effective_search_mode = SearchMode.AUTO
     current_page = page_number
-    preserved_search_mode = (
-        effective_search_mode if effective_search_mode in valid_search_modes else None
-    )
 
     result = (
         await asyncio.to_thread(
@@ -132,21 +121,18 @@ async def search_page(
             "lang": current_lang,
             "msg": msg,
             "request_id": request_id,
-            "preserved_search_mode": preserved_search_mode,
             "mode_urls": {
                 "modern": _build_search_url(
                     query=query,
                     page=current_page if query else None,
                     mode="modern",
                     lang=current_lang,
-                    search_mode=preserved_search_mode,
                 ),
                 "simple": _build_search_url(
                     query=query,
                     page=current_page if query else None,
                     mode="simple",
                     lang=current_lang,
-                    search_mode=preserved_search_mode,
                 ),
             },
             "lang_urls": {
@@ -155,14 +141,12 @@ async def search_page(
                     page=current_page if query else None,
                     mode=current_mode,
                     lang="en",
-                    search_mode=preserved_search_mode,
                 ),
                 "ja": _build_search_url(
                     query=query,
                     page=current_page if query else None,
                     mode=current_mode,
                     lang="ja",
-                    search_mode=preserved_search_mode,
                 ),
             },
             "prev_page_url": (
@@ -171,7 +155,6 @@ async def search_page(
                     page=result["page"] - 1,
                     mode=current_mode,
                     lang=current_lang,
-                    search_mode=preserved_search_mode,
                 )
                 if result is not None and result["page"] > 1
                 else None
@@ -182,7 +165,6 @@ async def search_page(
                     page=result["page"] + 1,
                     mode=current_mode,
                     lang=current_lang,
-                    search_mode=preserved_search_mode,
                 )
                 if result is not None and result["page"] < result["last_page"]
                 else None

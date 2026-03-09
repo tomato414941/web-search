@@ -2,7 +2,7 @@
 
 **Web Search API for AI Agents** — Quality-focused search built for LLMs and autonomous agents.
 
-A full-stack search engine with its own crawler, BM25 + vector hybrid ranking,
+A full-stack search engine with its own crawler, BM25 ranking,
 content quality scoring, and Japanese NLP support. Designed to return clean,
 high-quality content that AI agents can trust.
 
@@ -12,7 +12,6 @@ high-quality content that AI agents can trust.
 - **Information Origin**: Documents classified as spring/river/delta/swamp based on link direction — primary sources rank higher than aggregation.
 - **Factual Density**: Scores verifiable facts per unit of text (numbers, dates, citations, code, named entities) — replaces shallow word-count quality.
 - **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
-- **Hybrid Search**: BM25 keyword matching + vector semantic search with RRF fusion.
 - **Million-scale Indexing**: Own crawler with robots.txt compliance and authorship metadata extraction.
 - **Japanese NLP**: SudachiPy morphological analysis for high-quality Japanese search.
 - **Free API**: Anonymous access with IP-based rate limiting (100 req/min).
@@ -49,7 +48,7 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
       "origin_type": "spring"
     }
   ],
-  "mode": "auto",
+  "mode": "bm25",
   "request_id": "a1b2c3d4e5f6"
 }
 ```
@@ -80,13 +79,11 @@ With a valid key, the response includes usage info:
 
 | Mode | Description |
 |---|---|
-| `auto` | Automatically selects the best mode (default) |
+| `auto` | Alias of `bm25` (default) |
 | `bm25` | Classic keyword matching with BM25 scoring |
-| `hybrid` | BM25 + vector semantic search with RRF fusion |
-| `semantic` | Pure vector similarity search |
 
 ```bash
-curl "https://palebluesearch.com/api/v1/search?q=machine+learning&mode=hybrid"
+curl "https://palebluesearch.com/api/v1/search?q=machine+learning&mode=bm25"
 ```
 
 ### Pagination

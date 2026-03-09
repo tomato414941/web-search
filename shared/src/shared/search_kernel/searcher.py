@@ -1,9 +1,4 @@
-"""
-Search data types and query parsing.
-
-BM25 and hybrid search are handled by OpenSearch.
-Vector (semantic) search is handled by pgvector in SearchService.
-"""
+"""Search data types and query parsing."""
 
 import re
 from dataclasses import dataclass

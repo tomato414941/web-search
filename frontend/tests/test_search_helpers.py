@@ -1,9 +1,5 @@
-import numpy as np
-import pytest
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
-from frontend.services.search_opensearch import build_query_embedding
 from frontend.services.search_query import build_opensearch_plan, prepare_search_query
 from frontend.services.search_response import serialize_hit
 from shared.search_kernel.searcher import SearchHit
@@ -39,20 +35,6 @@ def test_build_opensearch_plan_disables_overscan_for_site_filter():
     assert plan.use_diversity is False
     assert plan.fetch_size == 10
     assert plan.fetch_offset == 20
-
-
-def test_build_query_embedding_returns_list():
-    search_query = prepare_search_query('site:github.com Python "open source" -java')
-    embed_query = MagicMock(return_value=np.array([0.1, 0.2, 0.3], dtype=np.float32))
-
-    embedding = build_query_embedding(
-        search_query,
-        embed_query,
-        with_embedding=True,
-    )
-
-    embed_query.assert_called_once_with("Python open source")
-    assert embedding == pytest.approx([0.1, 0.2, 0.3])
 
 
 def test_serialize_hit_preserves_optional_fields(monkeypatch):

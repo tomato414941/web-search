@@ -64,13 +64,10 @@ async def _get_readiness_response():
     crawler_ok = await _check_crawler()
     opensearch = _check_opensearch()
 
-    from frontend.services.embedding import _embedding_service
-
     checks = {
         "database": "ok" if db_ok else "unhealthy",
         "crawler": "ok" if crawler_ok else "degraded",
         "opensearch": opensearch,
-        "embeddings": "ok" if _embedding_service else "disabled",
     }
 
     status = "ok" if db_ok else "unhealthy"

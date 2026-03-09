@@ -53,6 +53,4 @@ class SearchMode(StrEnum):
     """Search mode for query execution."""
 
     BM25 = "bm25"
-    SEMANTIC = "semantic"
-    HYBRID = "hybrid"
     AUTO = "auto"

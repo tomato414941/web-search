@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from frontend.services.search_query import (
     OpenSearchExecutionPlan,
@@ -18,31 +18,12 @@ from shared.search_kernel.searcher import SearchHit, SearchResult
 logger = logging.getLogger(__name__)
 
 
-def build_query_embedding(
-    search_query: PreparedSearchQuery,
-    embed_query: Callable[[str], Any] | None,
-    *,
-    with_embedding: bool,
-) -> list[float] | None:
-    if not with_embedding or embed_query is None:
-        return None
-    try:
-        vec = embed_query(search_query.embedding_query)
-        if vec is None:
-            return None
-        return vec.tolist()
-    except Exception:
-        logger.warning("Query embedding failed, using BM25 only", exc_info=True)
-        return None
-
-
 def execute_opensearch_search(
     client: Any,
     search_query: PreparedSearchQuery,
     plan: OpenSearchExecutionPlan,
-    embedding: list[float] | None,
 ) -> dict[str, Any]:
-    from shared.opensearch.search import search_bm25, search_hybrid
+    from shared.opensearch.search import search_bm25
 
     search_args = {
         "client": client,
@@ -54,8 +35,6 @@ def execute_opensearch_search(
         "exclude_terms": search_query.tokenized_exclude_terms,
         "exclude_phrases": search_query.tokenized_exclude_phrases,
     }
-    if embedding is not None:
-        return search_hybrid(embedding=embedding, **search_args)
     return search_bm25(**search_args)
 
 
@@ -80,8 +59,6 @@ def run_opensearch_query(
     *,
     client: Any,
     search_query: PreparedSearchQuery,
-    embed_query: Callable[[str], Any] | None,
-    with_embedding: bool = False,
 ) -> SearchResult:
     from shared.opensearch.search import CANDIDATE_LIMIT
 
@@ -96,10 +73,7 @@ def run_opensearch_query(
         overscan=0,
         candidate_limit=CANDIDATE_LIMIT,
     )
-    embedding = build_query_embedding(
-        search_query, embed_query, with_embedding=with_embedding
-    )
-    os_result = execute_opensearch_search(client, search_query, plan, embedding)
+    os_result = execute_opensearch_search(client, search_query, plan)
     hits = rerank_hits(build_search_hits(os_result["hits"]), policy, limit=k)
     total = os_result["total"]
     return build_plain_opensearch_result(q, k, page, hits, total)

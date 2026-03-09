@@ -98,7 +98,7 @@ async def web_search(
     Args:
         query: Search query string.
         limit: Number of results (1-50, default 10).
-        mode: Search mode - "auto", "bm25", "hybrid", or "semantic".
+        mode: Search mode - "auto" or "bm25".
         page: Page number for pagination (default 1).
         include_content: Include full page text in results (default false).
     """

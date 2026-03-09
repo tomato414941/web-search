@@ -92,22 +92,19 @@ def test_search_page_pagination_links_encode_query_and_preserve_state(
             "page": "2",
             "mode": "modern",
             "lang": "ja",
-            "search_mode": "hybrid",
         },
     )
 
     assert response.status_code == 200
     assert (
-        'href="/?q=C%2B%2B+%26+Rust&amp;page=1&amp;mode=modern&amp;lang=ja'
-        '&amp;search_mode=hybrid"'
+        'href="/?q=C%2B%2B+%26+Rust&amp;page=1&amp;mode=modern&amp;lang=ja"'
     ) in response.text
     assert (
-        'href="/?q=C%2B%2B+%26+Rust&amp;page=3&amp;mode=modern&amp;lang=ja'
-        '&amp;search_mode=hybrid"'
+        'href="/?q=C%2B%2B+%26+Rust&amp;page=3&amp;mode=modern&amp;lang=ja"'
     ) in response.text
 
 
-def test_search_page_form_preserves_lang_and_search_mode(client, monkeypatch):
+def test_search_page_form_preserves_lang(client, monkeypatch):
     def fake_search(
         q: str | None,
         k: int = 10,
@@ -142,11 +139,9 @@ def test_search_page_form_preserves_lang_and_search_mode(client, monkeypatch):
             "q": "test",
             "mode": "simple",
             "lang": "ja",
-            "search_mode": "hybrid",
         },
     )
 
     assert response.status_code == 200
     assert '<input type="hidden" name="mode" value="simple">' in response.text
     assert '<input type="hidden" name="lang" value="ja">' in response.text
-    assert '<input type="hidden" name="search_mode" value="hybrid">' in response.text

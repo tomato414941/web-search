@@ -45,11 +45,11 @@ async def test_search_sends_correct_params():
     with patch(
         "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp
     ) as mock_get:
-        await client.search("python", limit=5, mode="hybrid")
+        await client.search("python", limit=5, mode="bm25")
         call_kwargs = mock_get.call_args
         assert call_kwargs.kwargs["params"]["q"] == "python"
         assert call_kwargs.kwargs["params"]["limit"] == 5
-        assert call_kwargs.kwargs["params"]["mode"] == "hybrid"
+        assert call_kwargs.kwargs["params"]["mode"] == "bm25"
         assert call_kwargs.kwargs["headers"]["X-API-Key"] == "pbs_test"
 
 

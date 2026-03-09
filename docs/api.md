@@ -20,7 +20,7 @@ Full-text web search with BM25 ranking and AI-optimized ranking signals.
 *   `q` (string, required): The search query.
 *   `limit` (int, default=10, max=50): Number of results per page.
 *   `page` (int, default=1): Page number.
-*   `mode` (string, default=`auto`): Search mode — `auto`, `bm25`, `hybrid`, or `semantic`.
+*   `mode` (string, default=`auto`): Search mode — `auto` or `bm25`.
 
 **Query operators:**
 *   `site:example.com` limits results to a domain.
@@ -32,10 +32,8 @@ Full-text web search with BM25 ranking and AI-optimized ranking signals.
 
 | Mode | Description |
 |---|---|
-| `auto` | Automatically selects the best mode (default) |
+| `auto` | Alias of `bm25` (default) |
 | `bm25` | Classic keyword matching with BM25 scoring |
-| `hybrid` | BM25 + vector semantic search with RRF fusion |
-| `semantic` | Pure vector similarity search |
 
 **Authentication** (optional):
 *   Header: `X-API-Key: pbs_...`
@@ -70,7 +68,7 @@ API key users get 1,000 requests/day and usage info in the response.
       "organization": "FastAPI"
     }
   ],
-  "mode": "auto",
+  "mode": "bm25",
   "request_id": "a1b2c3d4e5f6"
 }
 ```
