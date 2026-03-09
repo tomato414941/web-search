@@ -38,6 +38,11 @@ QUERY_KEYWORD_RULES = {
         "pass_reason": "top 3 include at least two strong SRE sources",
         "fail_reason": "top 3 do not include enough strong SRE sources",
     },
+    "fastapi vs django": {
+        "required_terms": ("fastapi", "django"),
+        "pass_reason": "top 3 include an explicit FastAPI and Django comparison",
+        "fail_reason": "top 3 do not include an explicit FastAPI and Django comparison",
+    },
 }
 
 

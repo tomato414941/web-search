@@ -64,7 +64,7 @@ These queries should be checked manually and reused over time.
 | `site reliability engineering` | overview/reference | canonical or explanatory SRE sources | Top 3 should include at least two strong SRE sources |
 | `pytest fixture not found` | reference/troubleshooting | `docs.pytest.org` | Official pytest docs should be in top 3 |
 | `docker compose orphan containers` | reference/troubleshooting | `docs.docker.com` | Official Docker docs should be in top 3 |
-| `FastAPI vs Django` | comparison | a true comparison page | Results should contain trade-offs |
+| `FastAPI vs Django` | comparison | a page that explicitly compares FastAPI and Django | Top 3 should include a result that names both FastAPI and Django |
 | `OpenSearch vs Elasticsearch` | comparison | a true comparison page | Avoid pages that only define one side |
 | `OpenAI news` | news | recent official or primary reporting | Recency and source quality matter |
 | `Python 3.13 release` | news/reference | `docs.python.org` release notes | Official release page should rank high |
