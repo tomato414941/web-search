@@ -9,6 +9,7 @@ from frontend.services.search_query import (
 )
 from frontend.services.search_ranking_policy import (
     candidate_window_size,
+    canonical_paths_for_policy,
     classify_query_policy,
     rerank_hits,
 )
@@ -78,7 +79,7 @@ def run_opensearch_query(
         candidate_limit=CANDIDATE_LIMIT,
     )
     canonical_domains = policy.source.domains if policy.source is not None else ()
-    canonical_paths = policy.source.preferred_paths if policy.source is not None else ()
+    canonical_paths = canonical_paths_for_policy(policy)
     os_result = execute_opensearch_search(
         client,
         search_query,

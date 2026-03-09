@@ -193,6 +193,14 @@ def candidate_window_size(
     return min(candidate_limit, max(k, 20))
 
 
+def canonical_paths_for_policy(policy: SearchRankingPolicy) -> tuple[str, ...]:
+    if policy.source is None:
+        return ()
+    if policy.query_class == "news":
+        return policy.source.news_paths
+    return policy.source.preferred_paths
+
+
 def _domain_matches(candidate_domains: tuple[str, ...], host: str) -> bool:
     return any(
         host == domain or host == f"www.{domain}" for domain in candidate_domains

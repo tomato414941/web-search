@@ -1,6 +1,7 @@
 from frontend.services.search_query import prepare_search_query
 from frontend.services.search_ranking_policy import (
     candidate_window_size,
+    canonical_paths_for_policy,
     classify_query_policy,
     rerank_hits,
 )
@@ -64,6 +65,14 @@ def test_candidate_window_size_expands_first_page_for_news_queries():
     size = candidate_window_size(3, 1, policy, candidate_limit=200)
 
     assert size == 100
+
+
+def test_canonical_paths_for_news_policy_uses_news_paths():
+    policy = classify_query_policy("OpenAI news", prepare_search_query("OpenAI news"))
+
+    paths = canonical_paths_for_policy(policy)
+
+    assert paths == ("/blog", "/api/docs/changelog")
 
 
 def test_candidate_window_size_keeps_reference_queries_smaller():
