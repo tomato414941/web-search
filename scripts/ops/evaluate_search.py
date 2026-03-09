@@ -72,7 +72,7 @@ def _extract_domain(text: str) -> str | None:
         "google.com",
         "github.com",
         "fastapi.tiangolo.com",
-        "platform.openai.com",
+        "developers.openai.com",
         "docs.python.org",
         "postgresql.org",
     ]

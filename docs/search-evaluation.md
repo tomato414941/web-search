@@ -56,7 +56,7 @@ These queries should be checked manually and reused over time.
 | `Google` | navigational | `google.com` | Official homepage should be first |
 | `GitHub` | navigational | `github.com` | Official homepage should be first |
 | `FastAPI docs` | navigational | `fastapi.tiangolo.com` | Official docs should beat tutorials |
-| `OpenAI API` | navigational | `platform.openai.com` or official OpenAI docs | Official API docs should be first |
+| `OpenAI API` | navigational | `developers.openai.com` or official OpenAI docs | Official API docs should be first |
 | `Python documentation` | reference | `docs.python.org` | Official docs should be first |
 | `PostgreSQL jsonb` | reference | `postgresql.org` docs | Official docs should rank very high |
 | `FastAPI background tasks` | reference | `fastapi.tiangolo.com` docs | Official docs should beat blog posts |

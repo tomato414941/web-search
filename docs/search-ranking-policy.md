@@ -91,7 +91,7 @@ Examples:
 - `google` -> `google.com`
 - `github` -> `github.com`
 - `fastapi` -> `fastapi.tiangolo.com`
-- `openai api` -> `platform.openai.com`
+- `openai api` -> `developers.openai.com`
 - `python documentation` -> `docs.python.org`
 - `postgresql` -> `postgresql.org`
 
@@ -138,7 +138,7 @@ This policy is successful if the following improve on the golden query set in [s
 - `Google` -> `google.com` in top 3
 - `GitHub` -> `github.com` in top 3
 - `FastAPI docs` -> `fastapi.tiangolo.com` in top 3
-- `OpenAI API` -> `platform.openai.com` in top 3
+- `OpenAI API` -> `developers.openai.com` in top 3
 - `PostgreSQL jsonb` -> `postgresql.org` docs in top 3
 
 At this stage, top 1 is desirable but not required.

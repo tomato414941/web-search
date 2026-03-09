@@ -17,8 +17,8 @@ APP_UUIDS = {
 DEFAULT_URLS = (
     "https://fastapi.tiangolo.com/",
     "https://fastapi.tiangolo.com/tutorial/background-tasks/",
-    "https://platform.openai.com/docs/overview",
-    "https://platform.openai.com/docs/api-reference/introduction",
+    "https://developers.openai.com/api/reference/overview",
+    "https://developers.openai.com/resources/",
     "https://www.postgresql.org/docs/current/datatype-json.html",
     "https://docs.docker.com/reference/cli/docker/compose/up/",
 )

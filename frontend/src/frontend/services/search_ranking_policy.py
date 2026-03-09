@@ -54,8 +54,8 @@ _CANONICAL_SOURCES = (
     CanonicalSource(
         key="openai",
         aliases=("openai api", "openai docs", "openai"),
-        domains=("platform.openai.com",),
-        preferred_paths=("/docs",),
+        domains=("developers.openai.com", "platform.openai.com"),
+        preferred_paths=("/api/", "/docs"),
         default_class="navigational",
     ),
     CanonicalSource(

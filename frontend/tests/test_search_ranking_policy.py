@@ -26,6 +26,19 @@ def test_classify_query_policy_marks_postgresql_jsonb_as_reference():
     assert policy.source.key == "postgresql"
 
 
+def test_classify_query_policy_maps_openai_api_to_developers_docs():
+    policy = classify_query_policy(
+        "OpenAI API",
+        prepare_search_query("OpenAI API"),
+    )
+
+    assert policy.query_class == "navigational"
+    assert policy.source is not None
+    assert policy.source.key == "openai"
+    assert "developers.openai.com" in policy.source.domains
+    assert "/api/" in policy.source.preferred_paths
+
+
 def test_classify_query_policy_skips_news_queries():
     policy = classify_query_policy(
         "OpenAI news",
