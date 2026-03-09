@@ -24,6 +24,22 @@ We need a simple reference set that answers questions like:
 - Does a comparison query return pages that actually compare things?
 - Does a news query avoid stale or generic background pages?
 
+## Current Scope
+
+PaleBlueSearch currently treats these query classes as the primary product scope:
+
+- navigational
+- reference
+
+These classes should be held to a higher standard and are expected to pass.
+
+The following classes are still evaluated, but they are not yet considered first-class product scope:
+
+- comparison
+- news
+
+They remain in the golden set as visibility checks, not as current release gates.
+
 ## Evaluation Principles
 
 1. Start small.
@@ -84,7 +100,12 @@ For now, use a simple manual rubric.
 - Pass: official or canonical documentation is in ranks 1-3
 - Fail: unofficial summaries consistently outrank official docs without a clear reason
 
-### Overview / Troubleshooting / Comparison / News
+### Overview / Troubleshooting
+
+- Pass: the top results are useful for the query type
+- Fail: the top results are generic, stale, thin, or mismatched to intent
+
+### Comparison / News
 
 - Pass: the top results are useful for the query type
 - Fail: the top results are generic, stale, thin, or mismatched to intent
@@ -97,6 +118,8 @@ At minimum, PaleBlueSearch should satisfy two baseline expectations:
 2. Official or primary sources should not be systematically buried.
 
 If those fail, more advanced ranking ideas do not matter yet.
+
+At the current stage, comparison and news remain visible stretch goals rather than release-blocking scope.
 
 ## Next Step
 

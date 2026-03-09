@@ -2,10 +2,9 @@
 
 ## Status
 
-Proposed.
+Current.
 
-This document defines the next ranking change after the current search simplification work.
-It is intentionally narrow.
+This document defines the current narrow ranking policy after the recent search simplification work.
 
 ## Problem
 
@@ -26,17 +25,19 @@ Fix the minimum baseline for navigational and reference queries without reintrod
 
 ## Non-Goals
 
-- Do not redesign ranking for overview, troubleshooting, comparison, or news queries in this change.
+- Do not redesign ranking for comparison queries in this change.
+- Do not turn news handling into a broader freshness ranking system in this change.
 - Do not add a large site-specific whitelist with query-specific hacks.
 - Do not reintroduce heavy post-retrieval reranking layers such as the removed scope-match and claim-diversity logic.
 - Do not change crawler queueing, indexing, or document quality scoring in this change.
 
 ## Query Classes
 
-This policy introduces only three query classes:
+This policy introduces four small query classes:
 
 - `navigational`
 - `reference`
+- `news`
 - `other`
 
 The classifier should stay rule-based and small.
@@ -79,6 +80,18 @@ Everything else.
 
 This class must keep the current simpler ranking behavior.
 
+### News
+
+Only narrow source-aware handling is allowed here.
+
+Examples:
+
+- `OpenAI news`
+- `Python 3.13 release`
+
+This is currently limited to lightweight official-source promotion.
+It is not a general freshness or recency ranking framework.
+
 ## Canonical Source Registry
 
 Introduce a small registry of canonical sources.
@@ -104,7 +117,8 @@ Rules:
 
 ## Ranking Rule
 
-Apply this policy only to `navigational` and `reference` queries.
+Apply this policy primarily to `navigational` and `reference` queries.
+Use `news` only for narrow official-source promotion.
 
 ### Retrieval
 
@@ -124,9 +138,12 @@ After retrieval, apply a single thin rerank pass:
 
 This should be implemented as a stable rerank, not as a full second ranking system.
 
+For some narrow source-aware cases, retrieval may also receive a small canonical host/path hint so that official pages can enter the candidate set at all.
+
 ### Guardrails
 
-- canonical boost applies only to `navigational` and `reference`
+- canonical boost applies mainly to `navigational` and `reference`
+- `news` is allowed only when it points to a small official source set
 - canonical boost should not reorder canonical hits among themselves except by original score
 - canonical boost should be strong enough to move the official destination into the top 3 for baseline queries
 - canonical boost should not require document body inspection
@@ -143,6 +160,8 @@ This policy is successful if the following improve on the golden query set in [s
 
 At this stage, top 1 is desirable but not required.
 Top 3 is the minimum bar.
+
+Comparison and broader news quality remain outside the main acceptance scope for now.
 
 ## Implementation Constraints
 
