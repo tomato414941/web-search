@@ -98,3 +98,38 @@ def test_rerank_hits_promotes_canonical_homepage():
         "https://vr.google.com/intl/ja_jp/cardboard/",
         "https://cardboard.google.com/",
     ]
+
+
+def test_rerank_hits_demotes_recruiting_pages_for_non_recruiting_queries():
+    policy = classify_query_policy(
+        "site reliability engineering",
+        prepare_search_query("site reliability engineering"),
+    )
+    hits = [
+        SearchHit(
+            url="https://open.talentio.com/r/1/c/smsc/pages/58450",
+            title="Site Reliability Engineering",
+            content="x",
+            score=10.0,
+        ),
+        SearchHit(
+            url="https://www.usenix.org/conference/srecon18asia/presentation/purgason",
+            title="The Evolution of Site Reliability Engineering",
+            content="x",
+            score=9.0,
+        ),
+        SearchHit(
+            url="https://training.linuxfoundation.org/devops-site-reliability/",
+            title="DevOps & Site Reliability",
+            content="x",
+            score=8.0,
+        ),
+    ]
+
+    reranked = rerank_hits(hits, policy, limit=3)
+
+    assert [hit.url for hit in reranked] == [
+        "https://www.usenix.org/conference/srecon18asia/presentation/purgason",
+        "https://training.linuxfoundation.org/devops-site-reliability/",
+        "https://open.talentio.com/r/1/c/smsc/pages/58450",
+    ]

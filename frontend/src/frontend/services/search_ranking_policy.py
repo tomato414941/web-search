@@ -28,6 +28,7 @@ class CanonicalSource:
 class SearchRankingPolicy:
     query_class: QueryClass
     source: CanonicalSource | None = None
+    demote_recruiting: bool = True
 
 
 _CANONICAL_SOURCES = (
@@ -73,6 +74,28 @@ _CANONICAL_SOURCES = (
     ),
 )
 
+_RECRUITING_QUERY_TERMS = frozenset(
+    {"job", "jobs", "career", "careers", "hiring", "recruiting", "recruitment"}
+)
+_RECRUITING_HOST_TERMS = ("talentio.com", "wantedly.com", "breezy.hr")
+_RECRUITING_PATH_TERMS = (
+    "/careers",
+    "/career",
+    "/jobs",
+    "/job",
+    "/hiring",
+    "/recruit",
+    "/career_page",
+)
+_RECRUITING_TITLE_TERMS = (
+    "career",
+    "careers",
+    "hiring",
+    "job",
+    "jobs",
+    "recruit",
+)
+
 
 def _normalize_query_text(query: str) -> str:
     return " ".join(_QUERY_TOKEN_RE.findall(query.lower()))
@@ -99,21 +122,43 @@ def classify_query_policy(
     if not query_text:
         return SearchRankingPolicy(query_class="other")
 
+    demote_recruiting = not any(
+        term in _RECRUITING_QUERY_TERMS for term in query_text.split()
+    )
+
     match = _match_source(query_text)
     if match is None:
-        return SearchRankingPolicy(query_class="other")
+        return SearchRankingPolicy(
+            query_class="other",
+            demote_recruiting=demote_recruiting,
+        )
 
     source, alias = match
     remainder = query_text[len(alias) :].strip()
     if not remainder:
-        return SearchRankingPolicy(query_class=source.default_class, source=source)
+        return SearchRankingPolicy(
+            query_class=source.default_class,
+            source=source,
+            demote_recruiting=demote_recruiting,
+        )
 
     remainder_terms = tuple(remainder.split())
     if any(term in _OTHER_QUERY_MARKERS for term in remainder_terms):
-        return SearchRankingPolicy(query_class="other")
+        return SearchRankingPolicy(
+            query_class="other",
+            demote_recruiting=demote_recruiting,
+        )
     if all(term in _NAVIGATIONAL_SUFFIXES for term in remainder_terms):
-        return SearchRankingPolicy(query_class=source.default_class, source=source)
-    return SearchRankingPolicy(query_class="reference", source=source)
+        return SearchRankingPolicy(
+            query_class=source.default_class,
+            source=source,
+            demote_recruiting=demote_recruiting,
+        )
+    return SearchRankingPolicy(
+        query_class="reference",
+        source=source,
+        demote_recruiting=demote_recruiting,
+    )
 
 
 def candidate_window_size(
@@ -150,14 +195,34 @@ def _canonical_match_score(hit: SearchHit, source: CanonicalSource) -> int:
     return 1
 
 
+def _is_recruiting_hit(hit: SearchHit) -> bool:
+    parsed = urlparse(hit.url)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower() or "/"
+    title = hit.title.lower()
+    if any(
+        host == domain or host.endswith(f".{domain}")
+        for domain in _RECRUITING_HOST_TERMS
+    ):
+        return True
+    if any(term in path for term in _RECRUITING_PATH_TERMS):
+        return True
+    return any(term in title for term in _RECRUITING_TITLE_TERMS)
+
+
 def rerank_hits(
     hits: list[SearchHit], policy: SearchRankingPolicy, *, limit: int
 ) -> list[SearchHit]:
-    if policy.query_class == "other" or policy.source is None or not hits:
+    if not hits:
         return hits[:limit]
-    ranked = sorted(
-        hits,
-        key=lambda hit: _canonical_match_score(hit, policy.source),
-        reverse=True,
-    )
+
+    ranked = hits
+    if policy.query_class != "other" and policy.source is not None:
+        ranked = sorted(
+            ranked,
+            key=lambda hit: _canonical_match_score(hit, policy.source),
+            reverse=True,
+        )
+    if policy.demote_recruiting:
+        ranked = sorted(ranked, key=_is_recruiting_hit)
     return ranked[:limit]
