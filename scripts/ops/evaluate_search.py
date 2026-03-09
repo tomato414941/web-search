@@ -22,6 +22,15 @@ class QueryCase:
     notes: str
 
 
+QUERY_KEYWORD_RULES = {
+    "what is bm25": {
+        "required_terms": ("bm25",),
+        "pass_reason": "top 3 include an explicitly BM25-focused result",
+        "fail_reason": "top 3 do not include a clearly BM25-focused result",
+    }
+}
+
+
 def _parse_query_cases(doc_path: Path) -> list[QueryCase]:
     text = doc_path.read_text(encoding="utf-8")
     start = text.index(QUERY_SET_HEADER)
@@ -95,6 +104,12 @@ def _normalize_url_path(url: str) -> str:
     return parsed.path or "/"
 
 
+def _hit_text(hit: dict) -> str:
+    return " ".join(
+        str(hit.get(field, "")) for field in ("title", "url", "snip_plain", "snip")
+    ).lower()
+
+
 def _domain_matches(
     expected_domain: str, actual_domain: str, *, allow_subdomain: bool
 ) -> bool:
@@ -112,9 +127,18 @@ def _classify_case(case: QueryCase, payload: dict) -> tuple[str, str]:
     top_urls = [hit.get("url", "") for hit in hits[:3]]
     top_domains = [_normalize_url_domain(url) for url in top_urls]
     top_paths = [_normalize_url_path(url) for url in top_urls]
+    keyword_rule = QUERY_KEYWORD_RULES.get(case.query.lower())
 
     if total == 0:
         return "fail", "0 hits"
+
+    if keyword_rule:
+        if any(
+            all(term in _hit_text(hit) for term in keyword_rule["required_terms"])
+            for hit in hits[:3]
+        ):
+            return "pass", keyword_rule["pass_reason"]
+        return "fail", keyword_rule["fail_reason"]
 
     if case.query_type == "navigational":
         if not expected_domain:

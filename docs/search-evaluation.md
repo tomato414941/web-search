@@ -60,7 +60,7 @@ These queries should be checked manually and reused over time.
 | `Python documentation` | reference | `docs.python.org` | Official docs should be first |
 | `PostgreSQL jsonb` | reference | `postgresql.org` docs | Official docs should rank very high |
 | `FastAPI background tasks` | reference | `fastapi.tiangolo.com` docs | Official docs should beat blog posts |
-| `What is BM25` | overview | a high-quality explanatory source | Should not return thin SEO pages |
+| `What is BM25` | overview/reference | a BM25-focused explanatory source | Top 3 should explicitly mention BM25 |
 | `site reliability engineering` | overview | a strong explanatory or canonical source | High-signal overview expected |
 | `pytest fixture not found` | reference/troubleshooting | `docs.pytest.org` | Official pytest docs should be in top 3 |
 | `docker compose orphan containers` | reference/troubleshooting | `docs.docker.com` | Official Docker docs should be in top 3 |
