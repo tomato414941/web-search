@@ -39,18 +39,27 @@ def test_classify_query_policy_maps_openai_api_to_developers_docs():
     assert "/api/" in policy.source.preferred_paths
 
 
-def test_classify_query_policy_skips_news_queries():
+def test_classify_query_policy_maps_openai_news_to_news_policy():
     policy = classify_query_policy(
         "OpenAI news",
         prepare_search_query("OpenAI news"),
     )
 
-    assert policy.query_class == "other"
-    assert policy.source is None
+    assert policy.query_class == "news"
+    assert policy.source is not None
+    assert policy.source.key == "openai"
 
 
 def test_candidate_window_size_expands_first_page_for_canonical_queries():
     policy = classify_query_policy("GitHub", prepare_search_query("GitHub"))
+
+    size = candidate_window_size(3, 1, policy, candidate_limit=200)
+
+    assert size == 100
+
+
+def test_candidate_window_size_expands_first_page_for_news_queries():
+    policy = classify_query_policy("OpenAI news", prepare_search_query("OpenAI news"))
 
     size = candidate_window_size(3, 1, policy, candidate_limit=200)
 
@@ -143,4 +152,36 @@ def test_rerank_hits_demotes_recruiting_pages_for_non_recruiting_queries():
         "https://www.usenix.org/conference/srecon18asia/presentation/purgason",
         "https://training.linuxfoundation.org/devops-site-reliability/",
         "https://open.talentio.com/r/1/c/smsc/pages/58450",
+    ]
+
+
+def test_rerank_hits_promotes_openai_news_sources():
+    policy = classify_query_policy("OpenAI news", prepare_search_query("OpenAI news"))
+    hits = [
+        SearchHit(
+            url="https://community.openai.com/t/openai-dev-day-2023-announcement/472706",
+            title="OpenAI dev-day 2023: announcement!",
+            content="x",
+            score=10.0,
+        ),
+        SearchHit(
+            url="https://developers.openai.com/blog",
+            title="Blog",
+            content="x",
+            score=5.0,
+        ),
+        SearchHit(
+            url="https://developers.openai.com/api/docs/changelog",
+            title="Changelog | OpenAI API",
+            content="x",
+            score=4.0,
+        ),
+    ]
+
+    reranked = rerank_hits(hits, policy, limit=3)
+
+    assert [hit.url for hit in reranked] == [
+        "https://developers.openai.com/blog",
+        "https://developers.openai.com/api/docs/changelog",
+        "https://community.openai.com/t/openai-dev-day-2023-announcement/472706",
     ]

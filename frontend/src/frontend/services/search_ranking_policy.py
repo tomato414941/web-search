@@ -6,13 +6,14 @@ from urllib.parse import urlparse
 from frontend.services.search_query import PreparedSearchQuery
 from shared.search_kernel.searcher import SearchHit
 
-QueryClass = Literal["navigational", "reference", "other"]
+QueryClass = Literal["navigational", "reference", "news", "other"]
 
 _QUERY_TOKEN_RE = re.compile(r"[a-z0-9]+")
 _NAVIGATIONAL_SUFFIXES = frozenset(
     {"api", "docs", "documentation", "homepage", "official"}
 )
-_OTHER_QUERY_MARKERS = frozenset({"compare", "comparison", "how", "news", "vs", "what"})
+_OTHER_QUERY_MARKERS = frozenset({"compare", "comparison", "how", "vs", "what"})
+_NEWS_QUERY_MARKERS = frozenset({"news"})
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,7 @@ class CanonicalSource:
     aliases: tuple[str, ...]
     domains: tuple[str, ...]
     preferred_paths: tuple[str, ...] = ()
+    news_paths: tuple[str, ...] = ()
     default_class: QueryClass = "reference"
 
 
@@ -57,6 +59,7 @@ _CANONICAL_SOURCES = (
         aliases=("openai api", "openai docs", "openai"),
         domains=("developers.openai.com", "platform.openai.com"),
         preferred_paths=("/api/", "/docs"),
+        news_paths=("/blog", "/api/docs/changelog"),
         default_class="navigational",
     ),
     CanonicalSource(
@@ -143,6 +146,15 @@ def classify_query_policy(
         )
 
     remainder_terms = tuple(remainder.split())
+    if (
+        all(term in _NEWS_QUERY_MARKERS for term in remainder_terms)
+        and source.news_paths
+    ):
+        return SearchRankingPolicy(
+            query_class="news",
+            source=source,
+            demote_recruiting=demote_recruiting,
+        )
     if any(term in _OTHER_QUERY_MARKERS for term in remainder_terms):
         return SearchRankingPolicy(
             query_class="other",
@@ -176,6 +188,8 @@ def candidate_window_size(
         return k
     if policy.query_class == "navigational":
         return min(candidate_limit, max(k, 100))
+    if policy.query_class == "news":
+        return min(candidate_limit, max(k, 100))
     return min(candidate_limit, max(k, 20))
 
 
@@ -185,15 +199,20 @@ def _domain_matches(candidate_domains: tuple[str, ...], host: str) -> bool:
     )
 
 
-def _canonical_match_score(hit: SearchHit, source: CanonicalSource) -> int:
+def _canonical_match_score(
+    hit: SearchHit, source: CanonicalSource, query_class: QueryClass
+) -> int:
     parsed = urlparse(hit.url)
     host = parsed.netloc.lower()
     path = parsed.path or "/"
     if not _domain_matches(source.domains, host):
         return 0
+    preferred_paths = (
+        source.news_paths if query_class == "news" else source.preferred_paths
+    )
     if any(
         path in {"", "/"} if prefix == "/" else path.startswith(prefix)
-        for prefix in source.preferred_paths
+        for prefix in preferred_paths
     ):
         return 2
     return 1
@@ -224,7 +243,9 @@ def rerank_hits(
     if policy.query_class != "other" and policy.source is not None:
         ranked = sorted(
             ranked,
-            key=lambda hit: _canonical_match_score(hit, policy.source),
+            key=lambda hit: _canonical_match_score(
+                hit, policy.source, policy.query_class
+            ),
             reverse=True,
         )
     if policy.demote_recruiting:
