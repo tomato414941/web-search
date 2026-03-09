@@ -43,6 +43,12 @@ QUERY_KEYWORD_RULES = {
         "pass_reason": "top 3 include an explicit FastAPI and Django comparison",
         "fail_reason": "top 3 do not include an explicit FastAPI and Django comparison",
     },
+    "opensearch vs elasticsearch": {
+        "required_terms": ("opensearch", "elasticsearch"),
+        "any_of_terms": (" vs ", "versus", "compare", "comparison"),
+        "pass_reason": "top 3 include an explicit OpenSearch and Elasticsearch comparison",
+        "fail_reason": "top 3 do not include an explicit OpenSearch and Elasticsearch comparison",
+    },
 }
 
 
@@ -166,6 +172,12 @@ def _classify_case(case: QueryCase, payload: dict) -> tuple[str, str]:
         if required_terms:
             if any(
                 all(term in _hit_text(hit) for term in required_terms)
+                and (
+                    not keyword_rule.get("any_of_terms")
+                    or any(
+                        cue in _hit_text(hit) for cue in keyword_rule["any_of_terms"]
+                    )
+                )
                 for hit in hits[:3]
             ):
                 return "pass", keyword_rule["pass_reason"]

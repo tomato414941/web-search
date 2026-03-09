@@ -65,7 +65,7 @@ These queries should be checked manually and reused over time.
 | `pytest fixture not found` | reference/troubleshooting | `docs.pytest.org` | Official pytest docs should be in top 3 |
 | `docker compose orphan containers` | reference/troubleshooting | `docs.docker.com` | Official Docker docs should be in top 3 |
 | `FastAPI vs Django` | comparison | a page that explicitly compares FastAPI and Django | Top 3 should include a result that names both FastAPI and Django |
-| `OpenSearch vs Elasticsearch` | comparison | a true comparison page | Avoid pages that only define one side |
+| `OpenSearch vs Elasticsearch` | comparison | a page that explicitly compares OpenSearch and Elasticsearch | Top 3 should include a result with both names and a comparison cue |
 | `OpenAI news` | news | recent official or primary reporting | Recency and source quality matter |
 | `Python 3.13 release` | news/reference | `docs.python.org` release notes | Official release page should rank high |
 
