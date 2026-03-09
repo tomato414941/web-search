@@ -126,6 +126,26 @@ If those fail, more advanced ranking ideas do not matter yet.
 
 At the current stage, comparison and news remain visible stretch goals rather than release-blocking scope.
 
+## Tier-2 Work Trigger
+
+Tier-2 failures should not be addressed ad hoc.
+They become active work only when one of the following is true:
+
+1. The tier-1 baseline passes in production across 3 consecutive production changes that affect search behavior.
+   A qualifying change is any production deployment that touches search, crawler, indexer, or retrieval/ranking code.
+   "Passes" means every tier-1 query in the current golden set is still passing at production after the deploy.
+2. Product scope is explicitly expanded to include comparison or news quality.
+   This should be a deliberate decision, not a side effect of unrelated ranking work.
+
+Until one of those conditions is met, tier-2 failures remain visible but non-blocking.
+
+If tier-2 work starts, the default order is:
+
+1. comparison queries
+2. news queries
+
+News comes later because it requires source and recency policy, which is broader than the current narrow ranking scope.
+
 ## Next Step
 
 Once this document is stable, add a lightweight evaluation workflow:
