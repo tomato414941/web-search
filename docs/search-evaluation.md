@@ -73,9 +73,14 @@ These queries should be checked manually and reused over time.
 | `GitHub` | navigational | `github.com` | Official homepage should be first |
 | `FastAPI docs` | navigational | `fastapi.tiangolo.com` | Official docs should beat tutorials |
 | `OpenAI API` | navigational | `developers.openai.com` or official OpenAI docs | Official API docs should be first |
+| `Docker docs` | reference | `docs.docker.com` | Official Docker docs should be in top 3 |
+| `GitHub docs` | reference | `docs.github.com` | Official GitHub docs should be in top 3 |
+| `GitHub Actions docs` | reference | `docs.github.com` | GitHub Actions docs should be in top 3 |
 | `Python documentation` | reference | `docs.python.org` | Official docs should be first |
+| `Python asyncio docs` | reference | `docs.python.org` | asyncio docs should be in top 3 |
 | `PostgreSQL jsonb` | reference | `postgresql.org` docs | Official docs should rank very high |
 | `FastAPI background tasks` | reference | `fastapi.tiangolo.com` docs | Official docs should beat blog posts |
+| `pytest markers` | reference | `docs.pytest.org` | pytest mark docs should be in top 3 |
 | `What is BM25` | overview/reference | a BM25-focused explanatory source | Top 3 should explicitly mention BM25 |
 | `site reliability engineering` | overview/reference | canonical or explanatory SRE sources | Top 3 should include at least two strong SRE sources |
 | `pytest fixture not found` | reference/troubleshooting | `docs.pytest.org` | Official pytest docs should be in top 3 |
