@@ -1,4 +1,4 @@
-"""Shared enums for status codes and modes across services.
+"""Shared enums for statuses and modes across services.
 
 Uses StrEnum so values work transparently as strings in SQL, JSON, and comparisons.
 """
