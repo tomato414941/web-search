@@ -12,7 +12,7 @@ Search the web and get results with publication and indexing timestamps.
 |-----------|------|---------|-------------|
 | `query` | string | (required) | Search query |
 | `limit` | int | 10 | Results per page (1-50) |
-| `mode` | string | "auto" | `auto` or `bm25` |
+| `mode` | string | "bm25" | `bm25` |
 | `page` | int | 1 | Page number |
 
 ### `get_stats`

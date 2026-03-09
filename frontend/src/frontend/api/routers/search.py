@@ -97,7 +97,7 @@ async def search_page(
     per_page = min(settings.RESULTS_LIMIT, settings.MAX_PER_PAGE)
     request_id = uuid.uuid4().hex if query else None
 
-    effective_search_mode = SearchMode.AUTO
+    effective_search_mode = SearchMode.BM25
     current_page = page_number
 
     result = (

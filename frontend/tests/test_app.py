@@ -61,7 +61,7 @@ def test_search_page_pagination_links_encode_query_and_preserve_state(
         q: str | None,
         k: int = 10,
         page: int = 1,
-        mode: str = "auto",
+        mode: str = "bm25",
         *,
         include_content: bool = False,
     ) -> dict:
@@ -109,7 +109,7 @@ def test_search_page_form_preserves_lang(client, monkeypatch):
         q: str | None,
         k: int = 10,
         page: int = 1,
-        mode: str = "auto",
+        mode: str = "bm25",
         *,
         include_content: bool = False,
     ) -> dict:

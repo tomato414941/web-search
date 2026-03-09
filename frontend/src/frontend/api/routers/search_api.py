@@ -93,9 +93,7 @@ class SearchResponse(BaseModel):
     last_page: int = Field(description="Last available page")
     hits: list[SearchHit] = Field(description="Search results")
     mode: str = Field(description="Actual search mode executed (bm25)")
-    requested_mode: str = Field(
-        description="Search mode requested by client (bm25 or auto)"
-    )
+    requested_mode: str = Field(description="Search mode requested by client (bm25)")
     request_id: str | None = Field(
         default=None, description="Request ID for click tracking"
     )
@@ -159,7 +157,6 @@ async def api_search(
 
     **Search modes**:
     - `bm25` — keyword-based search
-    - `auto` — alias of `bm25`
 
     **Rate limits**: 100 requests/minute (IP-based), 1000 requests/day (per API key).
     """
@@ -170,7 +167,7 @@ async def api_search(
 
     per_page = min(_parse_pos_int(limit, settings.RESULTS_LIMIT), settings.MAX_PER_PAGE)
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
-    search_mode = mode if mode in VALID_SEARCH_MODES else SearchMode.AUTO
+    search_mode = SearchMode.BM25
 
     want_content = include_content == "true" and api_key_info is not None
 

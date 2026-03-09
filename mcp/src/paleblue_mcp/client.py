@@ -22,7 +22,7 @@ class PaleBlueClient:
         query: str,
         limit: int = 10,
         page: int = 1,
-        mode: str = "auto",
+        mode: str = "bm25",
         include_content: bool = False,
     ) -> dict:
         params: dict = {"q": query, "limit": limit, "page": page, "mode": mode}

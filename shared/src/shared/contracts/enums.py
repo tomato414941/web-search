@@ -53,4 +53,3 @@ class SearchMode(StrEnum):
     """Search mode for query execution."""
 
     BM25 = "bm25"
-    AUTO = "auto"

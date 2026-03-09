@@ -23,7 +23,7 @@ MOCK_SEARCH_RESPONSE = {
         }
     ],
     "mode": "bm25",
-    "requested_mode": "auto",
+    "requested_mode": "bm25",
     "request_id": "abc123",
 }
 

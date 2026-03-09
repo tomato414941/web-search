@@ -56,7 +56,7 @@ class SearchService:
         q: str | None,
         k: int = 10,
         page: int = 1,
-        mode: str = SearchMode.AUTO,
+        mode: str = SearchMode.BM25,
         *,
         include_content: bool = False,
     ) -> dict[str, Any]:

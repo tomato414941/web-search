@@ -20,7 +20,7 @@ Full-text web search with BM25 ranking and AI-optimized ranking signals.
 *   `q` (string, required): The search query.
 *   `limit` (int, default=10, max=50): Number of results per page.
 *   `page` (int, default=1): Page number.
-*   `mode` (string, default=`auto`): Search mode — `auto` or `bm25`.
+*   `mode` (string, default=`bm25`): Search mode — `bm25`.
 
 **Query operators:**
 *   `site:example.com` limits results to a domain.
@@ -32,8 +32,7 @@ Full-text web search with BM25 ranking and AI-optimized ranking signals.
 
 | Mode | Description |
 |---|---|
-| `auto` | Alias of `bm25` (default) |
-| `bm25` | Classic keyword matching with BM25 scoring |
+| `bm25` | Classic keyword matching with BM25 scoring (default) |
 
 **Authentication** (optional):
 *   Header: `X-API-Key: pbs_...`

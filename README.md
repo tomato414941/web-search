@@ -79,8 +79,7 @@ With a valid key, the response includes usage info:
 
 | Mode | Description |
 |---|---|
-| `auto` | Alias of `bm25` (default) |
-| `bm25` | Classic keyword matching with BM25 scoring |
+| `bm25` | Classic keyword matching with BM25 scoring (default) |
 
 ```bash
 curl "https://palebluesearch.com/api/v1/search?q=machine+learning&mode=bm25"

@@ -86,7 +86,7 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
 async def web_search(
     query: str,
     limit: int = 10,
-    mode: str = "auto",
+    mode: str = "bm25",
     page: int = 1,
     include_content: bool = False,
 ) -> str:
@@ -98,7 +98,7 @@ async def web_search(
     Args:
         query: Search query string.
         limit: Number of results (1-50, default 10).
-        mode: Search mode - "auto" or "bm25".
+        mode: Search mode - "bm25".
         page: Page number for pagination (default 1).
         include_content: Include full page text in results (default false).
     """
