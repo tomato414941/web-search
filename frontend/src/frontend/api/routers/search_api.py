@@ -1,4 +1,4 @@
-"""Search API Router - JSON endpoints for search and prediction."""
+"""Search API Router - JSON endpoints for search."""
 
 import asyncio
 import logging
