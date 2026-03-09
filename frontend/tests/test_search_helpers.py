@@ -37,6 +37,13 @@ def test_build_opensearch_plan_disables_overscan_for_site_filter():
     assert plan.fetch_offset == 20
 
 
+def test_prepare_search_query_strips_english_question_prefix():
+    search_query = prepare_search_query("What is BM25")
+
+    assert search_query.tokens == "bm25"
+    assert search_query.positive_query == "BM25"
+
+
 def test_serialize_hit_preserves_optional_fields(monkeypatch):
     import frontend.services.search_response as search_response
 

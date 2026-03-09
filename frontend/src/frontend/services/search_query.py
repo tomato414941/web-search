@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import re
 
 from shared.search_kernel.analyzer import analyzer
 from shared.search_kernel.searcher import SearchResult, parse_query
@@ -28,22 +29,33 @@ class OpenSearchExecutionPlan:
     fetch_offset: int
 
 
+_QUESTION_PREFIX_RE = re.compile(r"^(what\s+(?:is|are))\s+", re.IGNORECASE)
+
+
 def _tokenize_search_values(values: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(
         tokenized for value in values if (tokenized := analyzer.tokenize(value).strip())
     )
 
 
+def _normalize_search_text(text: str) -> str:
+    return _QUESTION_PREFIX_RE.sub("", text).strip()
+
+
 def prepare_search_query(q: str) -> PreparedSearchQuery:
     parsed = parse_query(q)
-    tokens = analyzer.tokenize(parsed.text) if parsed.text else ""
+    normalized_text = _normalize_search_text(parsed.text)
+    tokens = analyzer.tokenize(normalized_text) if normalized_text else ""
     exact_phrases = tuple(phrase for phrase in parsed.exact_phrases if phrase)
     exclude_terms = tuple(term for term in parsed.exclude_terms if term)
     exclude_phrases = tuple(phrase for phrase in parsed.exclude_phrases if phrase)
+    positive_query = " ".join(
+        part for part in (normalized_text, *exact_phrases) if part
+    )
     return PreparedSearchQuery(
         parsed=parsed,
         tokens=tokens,
-        positive_query=parsed.positive_text(),
+        positive_query=positive_query,
         exact_phrases=exact_phrases,
         exclude_terms=exclude_terms,
         exclude_phrases=exclude_phrases,
