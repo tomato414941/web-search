@@ -86,3 +86,12 @@ def test_build_bm25_bool_query_adds_canonical_retrieval_signals():
     assert {"term": {"host": {"value": "www.github.com", "boost": 3.0}}} in should
     assert {"term": {"is_homepage": {"value": True, "boost": 6.0}}} in should
     assert {"prefix": {"path": {"value": "/docs", "boost": 4.0}}} in should
+
+
+def test_build_bm25_bool_query_uses_minimum_should_match():
+    query = _build_bm25_bool_query("docker compose orphan containers")
+
+    text_clause = query["bool"]["must"][0]["multi_match"]
+
+    assert text_clause["operator"] == "or"
+    assert text_clause["minimum_should_match"] == "60%"

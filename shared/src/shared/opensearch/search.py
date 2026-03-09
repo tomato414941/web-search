@@ -210,7 +210,7 @@ def _build_text_clause(query_tokens: str) -> dict[str, Any]:
             "query": query_tokens,
             "fields": ["title^3", "content"],
             "type": "cross_fields",
-            "operator": "and",
+            "operator": "or",
             "minimum_should_match": _min_should_match(query_tokens),
         }
     }
