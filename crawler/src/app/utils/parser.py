@@ -8,6 +8,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 import trafilatura
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
@@ -26,6 +27,74 @@ _DATE_FORMATS = (
 
 def _strip_nul(text: str) -> str:
     return text.replace("\x00", " ")
+
+
+def _normalize_space(text: str) -> str:
+    return re.sub(r"\s+", " ", _strip_nul(text)).strip()
+
+
+def _is_homepage(url: str) -> bool:
+    path = urlparse(url).path or "/"
+    return path in {"", "/"}
+
+
+def _extract_meta_description(soup: BeautifulSoup) -> str:
+    selectors = (
+        {"name": "description"},
+        {"property": "og:description"},
+        {"name": "twitter:description"},
+    )
+    for attrs in selectors:
+        tag = soup.find("meta", attrs=attrs)
+        if tag and tag.get("content"):
+            return _normalize_space(tag["content"])
+    return ""
+
+
+def _extract_heading_text(
+    soup: BeautifulSoup, names: tuple[str, ...], limit: int
+) -> list[str]:
+    values: list[str] = []
+    for tag in soup.find_all(names):
+        text = _normalize_space(tag.get_text(" ", strip=True))
+        if not text or text in values:
+            continue
+        values.append(text)
+        if len(values) >= limit:
+            break
+    return values
+
+
+def _build_homepage_search_fallback(soup: BeautifulSoup, title: str) -> str:
+    parts: list[str] = []
+    for value in (
+        _normalize_space(title),
+        _extract_meta_description(soup),
+        *_extract_heading_text(soup, ("h1",), limit=2),
+        *_extract_heading_text(soup, ("h2", "h3"), limit=6),
+    ):
+        if not value or value in parts:
+            continue
+        parts.append(value)
+    return " ".join(parts)
+
+
+def _maybe_enrich_homepage_text(
+    text: str, soup: BeautifulSoup, title: str, url: str
+) -> str:
+    if not _is_homepage(url):
+        return text
+    if len(text.split()) >= 40:
+        return text
+
+    fallback = _build_homepage_search_fallback(soup, title)
+    if not fallback:
+        return text
+    if not text:
+        return fallback
+    if fallback in text:
+        return text
+    return _normalize_space(f"{text} {fallback}")
 
 
 def _parse_date(raw: str) -> str | None:
@@ -260,14 +329,14 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
     )
 
     if text:
-        text = _strip_nul(text)
-        text = re.sub(r"\s+", " ", text).strip()
+        text = _normalize_space(text)
     else:
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
         text = soup.get_text(" ", strip=True)
-        text = _strip_nul(text)
-        text = re.sub(r"\s+", " ", text).strip()
+        text = _normalize_space(text)
+
+    text = _maybe_enrich_homepage_text(text, soup, title, base_url)
 
     # Extract links from the same soup (already parsed)
     outlinks: list[str] = []

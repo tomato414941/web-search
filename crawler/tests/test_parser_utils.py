@@ -4,6 +4,7 @@ Parser Utility Tests
 Tests for HTML parsing and link extraction utilities.
 """
 
+from app.utils import parser as parser_module
 from app.utils.parser import parse_page
 from shared.core.utils import normalize_url
 
@@ -151,6 +152,55 @@ def test_parse_page_fallback_on_minimal_html():
     html = "<p>Just a short paragraph</p>"
     doc = parse_page(html, "http://example.com")
     assert "Just a short paragraph" in doc.content
+
+
+def test_parse_page_enriches_sparse_homepage_content(monkeypatch):
+    html = """
+    <html>
+    <head>
+        <title>GitHub</title>
+        <meta name="description" content="The platform for developers to build software together.">
+    </head>
+    <body>
+        <h1>Build and ship software</h1>
+        <h2>Code</h2>
+        <h2>Collaborate</h2>
+    </body>
+    </html>
+    """
+
+    monkeypatch.setattr(
+        parser_module.trafilatura, "extract", lambda *args, **kwargs: "GitHub"
+    )
+
+    doc = parse_page(html, "https://github.com/")
+
+    assert "The platform for developers to build software together." in doc.content
+    assert "Build and ship software" in doc.content
+    assert "Collaborate" in doc.content
+
+
+def test_parse_page_does_not_enrich_sparse_non_homepage(monkeypatch):
+    html = """
+    <html>
+    <head>
+        <title>GitHub Docs</title>
+        <meta name="description" content="Developer documentation for GitHub.">
+    </head>
+    <body>
+        <h1>GitHub Docs</h1>
+        <h2>Actions</h2>
+    </body>
+    </html>
+    """
+
+    monkeypatch.setattr(
+        parser_module.trafilatura, "extract", lambda *args, **kwargs: "GitHub Docs"
+    )
+
+    doc = parse_page(html, "https://docs.github.com/en")
+
+    assert doc.content == "GitHub Docs"
 
 
 def test_parse_page_preserves_table_content():
