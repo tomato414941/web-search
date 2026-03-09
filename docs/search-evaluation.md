@@ -62,12 +62,12 @@ These queries should be checked manually and reused over time.
 | `FastAPI background tasks` | reference | `fastapi.tiangolo.com` docs | Official docs should beat blog posts |
 | `What is BM25` | overview | a high-quality explanatory source | Should not return thin SEO pages |
 | `site reliability engineering` | overview | a strong explanatory or canonical source | High-signal overview expected |
-| `pytest fixture not found` | troubleshooting | pages with direct diagnosis/fix | Should not return vague intros |
-| `docker compose orphan containers` | troubleshooting | docs or direct fix pages | Actionable result expected |
+| `pytest fixture not found` | reference/troubleshooting | `docs.pytest.org` | Official pytest docs should be in top 3 |
+| `docker compose orphan containers` | reference/troubleshooting | `docs.docker.com` | Official Docker docs should be in top 3 |
 | `FastAPI vs Django` | comparison | a true comparison page | Results should contain trade-offs |
 | `OpenSearch vs Elasticsearch` | comparison | a true comparison page | Avoid pages that only define one side |
 | `OpenAI news` | news | recent official or primary reporting | Recency and source quality matter |
-| `Python 3.13 release` | news/reference | official Python release notes | Official release page should rank high |
+| `Python 3.13 release` | news/reference | `docs.python.org` release notes | Official release page should rank high |
 
 ## Pass Criteria
 

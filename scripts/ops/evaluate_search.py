@@ -74,6 +74,8 @@ def _extract_domain(text: str) -> str | None:
         "fastapi.tiangolo.com",
         "developers.openai.com",
         "docs.python.org",
+        "docs.pytest.org",
+        "docs.docker.com",
         "postgresql.org",
     ]
     lowered = text.lower()
