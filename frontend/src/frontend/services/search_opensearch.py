@@ -7,6 +7,11 @@ from frontend.services.search_query import (
     build_opensearch_plan,
     empty_search_result,
 )
+from frontend.services.search_ranking_policy import (
+    candidate_window_size,
+    classify_query_policy,
+    rerank_hits,
+)
 from frontend.services.search_response import build_search_hits
 from shared.search_kernel.searcher import SearchHit, SearchResult
 
@@ -83,9 +88,10 @@ def run_opensearch_query(
     if not search_query.has_opensearch_terms:
         return empty_search_result(q, k)
 
+    policy = classify_query_policy(q, search_query)
     plan = build_opensearch_plan(
         search_query,
-        k,
+        candidate_window_size(k, page, policy, candidate_limit=CANDIDATE_LIMIT),
         page,
         overscan=0,
         candidate_limit=CANDIDATE_LIMIT,
@@ -94,6 +100,6 @@ def run_opensearch_query(
         search_query, embed_query, with_embedding=with_embedding
     )
     os_result = execute_opensearch_search(client, search_query, plan, embedding)
-    hits = build_search_hits(os_result["hits"])
+    hits = rerank_hits(build_search_hits(os_result["hits"]), policy, limit=k)
     total = os_result["total"]
     return build_plain_opensearch_result(q, k, page, hits, total)

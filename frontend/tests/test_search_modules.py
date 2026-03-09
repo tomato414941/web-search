@@ -123,6 +123,49 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
     assert captured["embedding"] is None
 
 
+def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
+    monkeypatch,
+):
+    import frontend.services.search_opensearch as search_opensearch
+
+    captured = {}
+    raw_hits = [
+        {
+            "url": "https://github.com/org/repo",
+            "title": "Repo",
+            "content": "x",
+            "score": 10.0,
+        },
+        {
+            "url": "https://github.com/",
+            "title": "GitHub",
+            "content": "x",
+            "score": 5.0,
+        },
+    ]
+
+    def fake_execute(client, search_query, plan, embedding):
+        captured["plan"] = plan
+        return {"total": 25, "hits": raw_hits}
+
+    monkeypatch.setattr(search_opensearch, "execute_opensearch_search", fake_execute)
+
+    result = run_opensearch_query(
+        "GitHub",
+        3,
+        1,
+        client=MagicMock(),
+        search_query=prepare_search_query("GitHub"),
+        embed_query=MagicMock(),
+    )
+
+    assert captured["plan"].fetch_size == 20
+    assert [hit.url for hit in result.hits] == [
+        "https://github.com/",
+        "https://github.com/org/repo",
+    ]
+
+
 def test_append_document_filters_uses_negated_clause_when_requested():
     where_clauses: list[str] = []
     params: list[str] = []
