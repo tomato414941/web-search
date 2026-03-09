@@ -66,7 +66,7 @@ These queries should be checked manually and reused over time.
 | `docker compose orphan containers` | reference/troubleshooting | `docs.docker.com` | Official Docker docs should be in top 3 |
 | `FastAPI vs Django` | comparison | a page that explicitly compares FastAPI and Django | Top 3 should include a result that names both FastAPI and Django |
 | `OpenSearch vs Elasticsearch` | comparison | a page that explicitly compares OpenSearch and Elasticsearch | Top 3 should include a result with both names and a comparison cue |
-| `OpenAI news` | news | recent official or primary reporting | Recency and source quality matter |
+| `OpenAI news` | news/reference | recent official OpenAI news or blog reporting | Top 3 should include an official OpenAI news/blog result |
 | `Python 3.13 release` | news/reference | `docs.python.org` release notes | Official release page should rank high |
 
 ## Pass Criteria

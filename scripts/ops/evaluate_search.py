@@ -49,6 +49,14 @@ QUERY_KEYWORD_RULES = {
         "pass_reason": "top 3 include an explicit OpenSearch and Elasticsearch comparison",
         "fail_reason": "top 3 do not include an explicit OpenSearch and Elasticsearch comparison",
     },
+    "openai news": {
+        "required_domains": ("openai.com",),
+        "minimum_domain_matches": 1,
+        "required_path_terms": ("/blog", "/news", "/index", "/announcements"),
+        "excluded_domains": ("community.openai.com",),
+        "pass_reason": "top 3 include an official OpenAI news or blog result",
+        "fail_reason": "top 3 do not include an official OpenAI news or blog result",
+    },
 }
 
 
@@ -157,12 +165,22 @@ def _classify_case(case: QueryCase, payload: dict) -> tuple[str, str]:
         required_domains = keyword_rule.get("required_domains")
         minimum_domain_matches = int(keyword_rule.get("minimum_domain_matches") or 1)
         if required_domains:
+            excluded_domains = tuple(keyword_rule.get("excluded_domains") or ())
+            required_path_terms = tuple(keyword_rule.get("required_path_terms") or ())
             matches = sum(
                 any(
                     _domain_matches(expected, domain, allow_subdomain=True)
                     for expected in required_domains
                 )
-                for domain in top_domains
+                and not any(
+                    _domain_matches(excluded, domain, allow_subdomain=True)
+                    for excluded in excluded_domains
+                )
+                and (
+                    not required_path_terms
+                    or any(term in path for term in required_path_terms)
+                )
+                for domain, path in zip(top_domains, top_paths)
             )
             if matches >= minimum_domain_matches:
                 return "pass", keyword_rule["pass_reason"]
