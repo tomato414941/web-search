@@ -168,7 +168,11 @@ def candidate_window_size(
     *,
     candidate_limit: int,
 ) -> int:
-    if page != 1 or policy.query_class == "other" or policy.source is None:
+    if page != 1:
+        return k
+    if policy.query_class == "other" or policy.source is None:
+        if policy.demote_recruiting:
+            return min(candidate_limit, max(k, 20))
         return k
     if policy.query_class == "navigational":
         return min(candidate_limit, max(k, 100))

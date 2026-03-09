@@ -68,6 +68,17 @@ def test_candidate_window_size_keeps_reference_queries_smaller():
     assert size == 20
 
 
+def test_candidate_window_size_expands_other_queries_for_recruiting_demotion():
+    policy = classify_query_policy(
+        "site reliability engineering",
+        prepare_search_query("site reliability engineering"),
+    )
+
+    size = candidate_window_size(3, 1, policy, candidate_limit=200)
+
+    assert size == 20
+
+
 def test_rerank_hits_promotes_canonical_homepage():
     policy = classify_query_policy("Google", prepare_search_query("Google"))
     hits = [
