@@ -7,7 +7,53 @@ on:
     branches: [main, master, production]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      force-all: ${{ steps.filter.outputs.force-all }}
+      shared: ${{ steps.filter.outputs.shared }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      crawler: ${{ steps.filter.outputs.crawler }}
+      indexer: ${{ steps.filter.outputs.indexer }}
+      mcp: ${{ steps.filter.outputs.mcp }}
+      lint: ${{ steps.filter.outputs.lint }}
+      security: ${{ steps.filter.outputs.security }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            force-all:
+              - '.github/workflows/**'
+              - 'Makefile'
+              - 'requirements-dev.txt'
+            shared:
+              - 'shared/**'
+            frontend:
+              - 'frontend/**'
+            crawler:
+              - 'crawler/**'
+            indexer:
+              - 'indexer/**'
+            mcp:
+              - 'mcp/**'
+            lint:
+              - 'frontend/**'
+              - 'shared/**'
+              - 'crawler/**'
+              - 'indexer/**'
+              - 'mcp/**'
+            security:
+              - 'frontend/requirements.txt'
+              - 'crawler/requirements.txt'
+              - 'indexer/requirements.txt'
+              - 'mcp/requirements.txt'
+              - 'requirements-dev.txt'
+
   test-shared:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.shared == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -43,6 +89,8 @@ jobs:
         run: make ci-shared
 
   test-frontend:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -83,6 +131,8 @@ jobs:
         run: make ci-frontend
 
   test-crawler:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.crawler == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -120,6 +170,8 @@ jobs:
         run: make ci-crawler
 
   test-mcp:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.mcp == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -139,6 +191,8 @@ jobs:
         run: make ci-mcp
 
   test-indexer:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.shared == 'true' || needs.changes.outputs.indexer == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -176,6 +230,8 @@ jobs:
         run: make ci-indexer
 
   lint:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.lint == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -188,6 +244,8 @@ jobs:
         run: make ci-lint
 
   security:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.security == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
