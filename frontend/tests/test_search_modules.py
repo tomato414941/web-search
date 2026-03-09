@@ -125,7 +125,7 @@ def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
         search_query=prepare_search_query("GitHub"),
     )
 
-    assert captured["plan"].fetch_size == 20
+    assert captured["plan"].fetch_size == 100
     assert [hit.url for hit in result.hits] == [
         "https://github.com/",
         "https://github.com/org/repo",

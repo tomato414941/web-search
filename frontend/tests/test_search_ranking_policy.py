@@ -41,6 +41,17 @@ def test_candidate_window_size_expands_first_page_for_canonical_queries():
 
     size = candidate_window_size(3, 1, policy, candidate_limit=200)
 
+    assert size == 100
+
+
+def test_candidate_window_size_keeps_reference_queries_smaller():
+    policy = classify_query_policy(
+        "PostgreSQL jsonb",
+        prepare_search_query("PostgreSQL jsonb"),
+    )
+
+    size = candidate_window_size(3, 1, policy, candidate_limit=200)
+
     assert size == 20
 
 

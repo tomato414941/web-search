@@ -125,6 +125,8 @@ def candidate_window_size(
 ) -> int:
     if page != 1 or policy.query_class == "other" or policy.source is None:
         return k
+    if policy.query_class == "navigational":
+        return min(candidate_limit, max(k, 100))
     return min(candidate_limit, max(k, 20))
 
 
