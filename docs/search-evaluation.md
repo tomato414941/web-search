@@ -146,6 +146,26 @@ If tier-2 work starts, the default order is:
 
 News comes later because it requires source and recency policy, which is broader than the current narrow ranking scope.
 
+## Tier-1 Stability Tracking
+
+Track search-affecting production changes here.
+
+A row should be added only when a production deployment changes search behavior.
+This includes changes to search query handling, ranking, retrieval, crawler coverage, indexing behavior, or canonical source policy.
+
+For each qualifying deployment:
+
+1. run `make evaluate-search` against production
+2. record whether all tier-1 queries passed
+3. update the tier-1 streak
+
+The tier-1 streak resets to `0/3` on any tier-1 failure.
+It advances only when a qualifying production change still passes the full tier-1 set.
+
+| Date | Commit | Change Summary | Tier-1 Result | Tier-1 Streak |
+|---|---|---|---|---|
+| 2026-03-09 | `5feba37` | Defined explicit tier-2 trigger policy | Baseline rule created; streak starts here | `0/3` |
+
 ## Next Step
 
 Once this document is stable, add a lightweight evaluation workflow:
