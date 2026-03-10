@@ -111,7 +111,7 @@ curl -X POST "https://palebluesearch.com/api/v1/search/click" \
 ## Documentation
 
 *   **[Product Direction](./docs/product-direction.md)**: Core problem statement, mission, principles, and anti-goals.
-*   **[Search Evaluation](./docs/search-evaluation.md)**: Golden queries and manual relevance checks.
+*   **[Search Evaluation](./docs/search-evaluation.md)**: Evaluation policy and the versioned golden query set.
 *   **[Search Ranking Policy](./docs/search-ranking-policy.md)**: Current minimal ranking policy for navigational and reference queries.
 *   **[Architecture](./docs/architecture.md)**: System design and modules.
 *   **[Content Quality](./docs/content-quality.md)**: Quality scoring strategy and ranking integration.

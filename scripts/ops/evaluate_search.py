@@ -10,81 +10,34 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-QUERY_SET_HEADER = "## Minimum Golden Query Set"
-PASS_CRITERIA_HEADER = "## Pass Criteria"
-
-
 @dataclass
 class QueryCase:
     query: str
     query_type: str
     expected: str
     notes: str
+    tier: int
 
 
-QUERY_KEYWORD_RULES = {
-    "what is bm25": {
-        "required_terms": ("bm25",),
-        "pass_reason": "top 3 include an explicitly BM25-focused result",
-        "fail_reason": "top 3 do not include a clearly BM25-focused result",
-    },
-    "site reliability engineering": {
-        "required_domains": (
-            "usenix.org",
-            "sre.google",
-            "training.linuxfoundation.org",
-        ),
-        "minimum_domain_matches": 2,
-        "pass_reason": "top 3 include at least two strong SRE sources",
-        "fail_reason": "top 3 do not include enough strong SRE sources",
-    },
-    "fastapi vs django": {
-        "required_terms": ("fastapi", "django"),
-        "pass_reason": "top 3 include an explicit FastAPI and Django comparison",
-        "fail_reason": "top 3 do not include an explicit FastAPI and Django comparison",
-    },
-    "opensearch vs elasticsearch": {
-        "required_terms": ("opensearch", "elasticsearch"),
-        "any_of_terms": (" vs ", "versus", "compare", "comparison"),
-        "pass_reason": "top 3 include an explicit OpenSearch and Elasticsearch comparison",
-        "fail_reason": "top 3 do not include an explicit OpenSearch and Elasticsearch comparison",
-    },
-    "openai news": {
-        "required_domains": ("openai.com",),
-        "minimum_domain_matches": 1,
-        "required_path_terms": ("/blog", "/news", "/index", "/announcements"),
-        "excluded_domains": ("community.openai.com",),
-        "pass_reason": "top 3 include an official OpenAI news or blog result",
-        "fail_reason": "top 3 do not include an official OpenAI news or blog result",
-    },
-}
-
-
-def _parse_query_cases(doc_path: Path) -> list[QueryCase]:
-    text = doc_path.read_text(encoding="utf-8")
-    start = text.index(QUERY_SET_HEADER)
-    end = text.index(PASS_CRITERIA_HEADER, start)
-    section = text[start:end]
-
-    cases: list[QueryCase] = []
-    for line in section.splitlines():
-        if not line.startswith("| `"):
-            continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) != 4:
-            continue
-        query, query_type, expected, notes = cells
-        cases.append(
-            QueryCase(
-                query=query.strip("`"),
-                query_type=query_type,
-                expected=expected.strip("`"),
-                notes=notes,
-            )
+def _load_config(
+    config_path: Path,
+) -> tuple[list[QueryCase], dict[str, dict], list[str]]:
+    raw = json.loads(config_path.read_text(encoding="utf-8"))
+    cases = [
+        QueryCase(
+            query=case["query"],
+            query_type=case["query_type"],
+            expected=case["expected"],
+            notes=case["notes"],
+            tier=int(case["tier"]),
         )
+        for case in raw["query_cases"]
+    ]
     if not cases:
-        raise ValueError(f"No query cases found in {doc_path}")
-    return cases
+        raise ValueError(f"No query cases found in {config_path}")
+    keyword_rules = raw.get("query_keyword_rules", {})
+    known_domains = [domain.lower() for domain in raw.get("known_domains", [])]
+    return cases, keyword_rules, known_domains
 
 
 def _fetch_results(base_url: str, query: str, limit: int) -> dict:
@@ -101,22 +54,11 @@ def _fetch_results(base_url: str, query: str, limit: int) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _extract_domain(text: str) -> str | None:
+def _extract_domain(text: str, known_domains: list[str]) -> str | None:
     match = re.search(r"`([^`]+)`", text)
     if match:
         return match.group(1).lower()
 
-    known_domains = [
-        "google.com",
-        "github.com",
-        "fastapi.tiangolo.com",
-        "developers.openai.com",
-        "docs.djangoproject.com",
-        "docs.python.org",
-        "docs.pytest.org",
-        "docs.docker.com",
-        "postgresql.org",
-    ]
     lowered = text.lower()
     for domain in known_domains:
         if domain in lowered:
@@ -150,14 +92,20 @@ def _domain_matches(
     return False
 
 
-def _classify_case(case: QueryCase, payload: dict) -> tuple[str, str]:
+def _classify_case(
+    case: QueryCase,
+    payload: dict,
+    *,
+    keyword_rules: dict[str, dict],
+    known_domains: list[str],
+) -> tuple[str, str]:
     hits = payload.get("hits") or []
     total = int(payload.get("total") or 0)
-    expected_domain = _extract_domain(case.expected)
+    expected_domain = _extract_domain(case.expected, known_domains)
     top_urls = [hit.get("url", "") for hit in hits[:3]]
     top_domains = [_normalize_url_domain(url) for url in top_urls]
     top_paths = [_normalize_url_path(url) for url in top_urls]
-    keyword_rule = QUERY_KEYWORD_RULES.get(case.query.lower())
+    keyword_rule = keyword_rules.get(case.query.lower())
 
     if total == 0:
         return "fail", "0 hits"
@@ -246,7 +194,7 @@ def _print_case(case: QueryCase, payload: dict, status: str, reason: str) -> Non
     mode = payload.get("mode", "?")
     total = payload.get("total", 0)
     print(f"[{status.upper()}] {case.query}")
-    print(f"  type={case.query_type} total={total} mode={mode}")
+    print(f"  type={case.query_type} tier={case.tier} total={total} mode={mode}")
     print(f"  expected={case.expected}")
     print(f"  notes={case.notes}")
     print(f"  reason={reason}")
@@ -262,9 +210,9 @@ def main() -> int:
         help="Frontend base URL",
     )
     parser.add_argument(
-        "--doc",
-        default="docs/search-evaluation.md",
-        help="Path to the query set document",
+        "--config",
+        default="config/search_eval_cases.json",
+        help="Path to the evaluation config JSON file",
     )
     parser.add_argument(
         "--limit",
@@ -272,10 +220,18 @@ def main() -> int:
         default=3,
         help="Result count to fetch for each query",
     )
+    parser.add_argument(
+        "--tier",
+        choices=("all", "1", "2"),
+        default="all",
+        help="Optional tier filter",
+    )
     args = parser.parse_args()
 
-    doc_path = Path(args.doc)
-    cases = _parse_query_cases(doc_path)
+    config_path = Path(args.config)
+    cases, keyword_rules, known_domains = _load_config(config_path)
+    if args.tier != "all":
+        cases = [case for case in cases if case.tier == int(args.tier)]
 
     counts = {"pass": 0, "warning": 0, "fail": 0, "manual": 0}
     errors = 0
@@ -283,7 +239,12 @@ def main() -> int:
     for case in cases:
         try:
             payload = _fetch_results(args.base_url, case.query, args.limit)
-            status, reason = _classify_case(case, payload)
+            status, reason = _classify_case(
+                case,
+                payload,
+                keyword_rules=keyword_rules,
+                known_domains=known_domains,
+            )
             counts[status] += 1
             _print_case(case, payload, status, reason)
         except Exception as exc:

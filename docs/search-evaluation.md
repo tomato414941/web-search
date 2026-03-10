@@ -63,39 +63,46 @@ They remain in the golden set as visibility checks, not as current release gates
 - Comparison: the user wants trade-offs between alternatives
 - News: the user wants recent, source-grounded updates
 
-## Minimum Golden Query Set
+## Evaluation Data Source
 
-These queries should be checked manually and reused over time.
+The canonical evaluation set lives in:
 
-| Query | Type | Expected top result or domain | Notes |
-|---|---|---|---|
-| `Google` | navigational | `google.com` | Official homepage should be first |
-| `GitHub` | navigational | `github.com` | Official homepage should be first |
-| `FastAPI docs` | navigational | `fastapi.tiangolo.com` | Official docs should beat tutorials |
-| `OpenAI API` | navigational | `developers.openai.com` or official OpenAI docs | Official API docs should be first |
-| `Docker docs` | reference | `docs.docker.com` | Official Docker docs should be in top 3 |
-| `Docker install` | reference | `docs.docker.com` | Official Docker install docs should be in top 3 |
-| `django documentation` | reference | `docs.djangoproject.com` | Official Django docs should be in top 3 |
-| `GitHub docs` | reference | `docs.github.com` | Official GitHub docs should be in top 3 |
-| `GitHub Actions docs` | reference | `docs.github.com` | GitHub Actions docs should be in top 3 |
-| `GitHub Actions` | reference | `github.com` | Official GitHub Actions pages should be in top 3 |
-| `Python documentation` | reference | `docs.python.org` | Official docs should be first |
-| `Python asyncio docs` | reference | `docs.python.org` | asyncio docs should be in top 3 |
-| `Python download` | reference | `docs.python.org` | Official Python download docs should be in top 3 |
-| `PostgreSQL jsonb` | reference | `postgresql.org` docs | Official docs should rank very high |
-| `PostgreSQL data types` | reference | `postgresql.org` | Official PostgreSQL docs should be in top 3 |
-| `FastAPI background tasks` | reference | `fastapi.tiangolo.com` docs | Official docs should beat blog posts |
-| `pytest fixture` | reference | `docs.pytest.org` | Official pytest fixture docs should be in top 3 |
-| `pytest markers` | reference | `docs.pytest.org` | pytest mark docs should be in top 3 |
-| `pytest parametrize` | reference | `docs.pytest.org` | Official pytest parametrize docs should be in top 3 |
-| `What is BM25` | overview/reference | a BM25-focused explanatory source | Top 3 should explicitly mention BM25 |
-| `site reliability engineering` | overview/reference | canonical or explanatory SRE sources | Top 3 should include at least two strong SRE sources |
-| `pytest fixture not found` | reference/troubleshooting | `docs.pytest.org` | Official pytest docs should be in top 3 |
-| `docker compose orphan containers` | reference/troubleshooting | `docs.docker.com` | Official Docker docs should be in top 3 |
-| `FastAPI vs Django` | comparison | a page that explicitly compares FastAPI and Django | Top 3 should include a result that names both FastAPI and Django |
-| `OpenSearch vs Elasticsearch` | comparison | a page that explicitly compares OpenSearch and Elasticsearch | Top 3 should include a result with both names and a comparison cue |
-| `OpenAI news` | news/reference | recent official OpenAI news or blog reporting | Top 3 should include an official OpenAI news/blog result |
-| `Python 3.13 release` | news/reference | `docs.python.org` release notes | Official release page should rank high |
+- [config/search_eval_cases.json](../config/search_eval_cases.json)
+
+That file is the source of truth for:
+
+- query text
+- query type
+- tier
+- expected domain/source
+- query-specific pass/fail rules
+
+This document is intentionally not the primary data source anymore.
+It exists to explain the evaluation policy and how the set is used.
+
+## Current Set Shape
+
+The current evaluation set contains:
+
+- tier-1 navigational/reference baseline queries
+- tier-2 comparison/news visibility queries
+
+At the current stage:
+
+- tier-1 is the release-relevant baseline
+- tier-2 remains visible but non-blocking
+
+Run the current set with:
+
+```bash
+make evaluate-search
+```
+
+Run only tier-1 with:
+
+```bash
+./scripts/ops/evaluate_search.py --tier 1
+```
 
 ## Pass Criteria
 

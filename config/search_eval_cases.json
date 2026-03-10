@@ -1,0 +1,262 @@
+{
+  "known_domains": [
+    "google.com",
+    "github.com",
+    "fastapi.tiangolo.com",
+    "developers.openai.com",
+    "docs.djangoproject.com",
+    "docs.python.org",
+    "docs.pytest.org",
+    "docs.docker.com",
+    "postgresql.org"
+  ],
+  "query_keyword_rules": {
+    "what is bm25": {
+      "required_terms": [
+        "bm25"
+      ],
+      "pass_reason": "top 3 include an explicitly BM25-focused result",
+      "fail_reason": "top 3 do not include a clearly BM25-focused result"
+    },
+    "site reliability engineering": {
+      "required_domains": [
+        "usenix.org",
+        "sre.google",
+        "training.linuxfoundation.org"
+      ],
+      "minimum_domain_matches": 2,
+      "pass_reason": "top 3 include at least two strong SRE sources",
+      "fail_reason": "top 3 do not include enough strong SRE sources"
+    },
+    "fastapi vs django": {
+      "required_terms": [
+        "fastapi",
+        "django"
+      ],
+      "pass_reason": "top 3 include an explicit FastAPI and Django comparison",
+      "fail_reason": "top 3 do not include an explicit FastAPI and Django comparison"
+    },
+    "opensearch vs elasticsearch": {
+      "required_terms": [
+        "opensearch",
+        "elasticsearch"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "pass_reason": "top 3 include an explicit OpenSearch and Elasticsearch comparison",
+      "fail_reason": "top 3 do not include an explicit OpenSearch and Elasticsearch comparison"
+    },
+    "openai news": {
+      "required_domains": [
+        "openai.com"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/blog",
+        "/news",
+        "/index",
+        "/announcements"
+      ],
+      "excluded_domains": [
+        "community.openai.com"
+      ],
+      "pass_reason": "top 3 include an official OpenAI news or blog result",
+      "fail_reason": "top 3 do not include an official OpenAI news or blog result"
+    }
+  },
+  "query_cases": [
+    {
+      "query": "Google",
+      "query_type": "navigational",
+      "expected": "google.com",
+      "notes": "Official homepage should be first",
+      "tier": 1
+    },
+    {
+      "query": "GitHub",
+      "query_type": "navigational",
+      "expected": "github.com",
+      "notes": "Official homepage should be first",
+      "tier": 1
+    },
+    {
+      "query": "FastAPI docs",
+      "query_type": "navigational",
+      "expected": "fastapi.tiangolo.com",
+      "notes": "Official docs should beat tutorials",
+      "tier": 1
+    },
+    {
+      "query": "OpenAI API",
+      "query_type": "navigational",
+      "expected": "developers.openai.com or official OpenAI docs",
+      "notes": "Official API docs should be first",
+      "tier": 1
+    },
+    {
+      "query": "Docker docs",
+      "query_type": "reference",
+      "expected": "docs.docker.com",
+      "notes": "Official Docker docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "Docker install",
+      "query_type": "reference",
+      "expected": "docs.docker.com",
+      "notes": "Official Docker install docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "django documentation",
+      "query_type": "reference",
+      "expected": "docs.djangoproject.com",
+      "notes": "Official Django docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "GitHub docs",
+      "query_type": "reference",
+      "expected": "docs.github.com",
+      "notes": "Official GitHub docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "GitHub Actions docs",
+      "query_type": "reference",
+      "expected": "docs.github.com",
+      "notes": "GitHub Actions docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "GitHub Actions",
+      "query_type": "reference",
+      "expected": "github.com",
+      "notes": "Official GitHub Actions pages should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "Python documentation",
+      "query_type": "reference",
+      "expected": "docs.python.org",
+      "notes": "Official docs should be first",
+      "tier": 1
+    },
+    {
+      "query": "Python asyncio docs",
+      "query_type": "reference",
+      "expected": "docs.python.org",
+      "notes": "asyncio docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "Python download",
+      "query_type": "reference",
+      "expected": "docs.python.org",
+      "notes": "Official Python download docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "PostgreSQL jsonb",
+      "query_type": "reference",
+      "expected": "postgresql.org docs",
+      "notes": "Official docs should rank very high",
+      "tier": 1
+    },
+    {
+      "query": "PostgreSQL data types",
+      "query_type": "reference",
+      "expected": "postgresql.org",
+      "notes": "Official PostgreSQL docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "FastAPI background tasks",
+      "query_type": "reference",
+      "expected": "fastapi.tiangolo.com docs",
+      "notes": "Official docs should beat blog posts",
+      "tier": 1
+    },
+    {
+      "query": "pytest fixture",
+      "query_type": "reference",
+      "expected": "docs.pytest.org",
+      "notes": "Official pytest fixture docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "pytest markers",
+      "query_type": "reference",
+      "expected": "docs.pytest.org",
+      "notes": "pytest mark docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "pytest parametrize",
+      "query_type": "reference",
+      "expected": "docs.pytest.org",
+      "notes": "Official pytest parametrize docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "What is BM25",
+      "query_type": "overview/reference",
+      "expected": "a BM25-focused explanatory source",
+      "notes": "Top 3 should explicitly mention BM25",
+      "tier": 1
+    },
+    {
+      "query": "site reliability engineering",
+      "query_type": "overview/reference",
+      "expected": "canonical or explanatory SRE sources",
+      "notes": "Top 3 should include at least two strong SRE sources",
+      "tier": 1
+    },
+    {
+      "query": "pytest fixture not found",
+      "query_type": "reference/troubleshooting",
+      "expected": "docs.pytest.org",
+      "notes": "Official pytest docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "docker compose orphan containers",
+      "query_type": "reference/troubleshooting",
+      "expected": "docs.docker.com",
+      "notes": "Official Docker docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "FastAPI vs Django",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares FastAPI and Django",
+      "notes": "Top 3 should include a result that names both FastAPI and Django",
+      "tier": 2
+    },
+    {
+      "query": "OpenSearch vs Elasticsearch",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares OpenSearch and Elasticsearch",
+      "notes": "Top 3 should include a result with both names and a comparison cue",
+      "tier": 2
+    },
+    {
+      "query": "OpenAI news",
+      "query_type": "news/reference",
+      "expected": "recent official OpenAI news or blog reporting",
+      "notes": "Top 3 should include an official OpenAI news/blog result",
+      "tier": 2
+    },
+    {
+      "query": "Python 3.13 release",
+      "query_type": "news/reference",
+      "expected": "docs.python.org release notes",
+      "notes": "Official release page should rank high",
+      "tier": 1
+    }
+  ]
+}
