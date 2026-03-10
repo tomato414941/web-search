@@ -74,13 +74,20 @@ These queries should be checked manually and reused over time.
 | `FastAPI docs` | navigational | `fastapi.tiangolo.com` | Official docs should beat tutorials |
 | `OpenAI API` | navigational | `developers.openai.com` or official OpenAI docs | Official API docs should be first |
 | `Docker docs` | reference | `docs.docker.com` | Official Docker docs should be in top 3 |
+| `Docker install` | reference | `docs.docker.com` | Official Docker install docs should be in top 3 |
+| `django documentation` | reference | `docs.djangoproject.com` | Official Django docs should be in top 3 |
 | `GitHub docs` | reference | `docs.github.com` | Official GitHub docs should be in top 3 |
 | `GitHub Actions docs` | reference | `docs.github.com` | GitHub Actions docs should be in top 3 |
+| `GitHub Actions` | reference | `github.com` | Official GitHub Actions pages should be in top 3 |
 | `Python documentation` | reference | `docs.python.org` | Official docs should be first |
 | `Python asyncio docs` | reference | `docs.python.org` | asyncio docs should be in top 3 |
+| `Python download` | reference | `docs.python.org` | Official Python download docs should be in top 3 |
 | `PostgreSQL jsonb` | reference | `postgresql.org` docs | Official docs should rank very high |
+| `PostgreSQL data types` | reference | `postgresql.org` | Official PostgreSQL docs should be in top 3 |
 | `FastAPI background tasks` | reference | `fastapi.tiangolo.com` docs | Official docs should beat blog posts |
+| `pytest fixture` | reference | `docs.pytest.org` | Official pytest fixture docs should be in top 3 |
 | `pytest markers` | reference | `docs.pytest.org` | pytest mark docs should be in top 3 |
+| `pytest parametrize` | reference | `docs.pytest.org` | Official pytest parametrize docs should be in top 3 |
 | `What is BM25` | overview/reference | a BM25-focused explanatory source | Top 3 should explicitly mention BM25 |
 | `site reliability engineering` | overview/reference | canonical or explanatory SRE sources | Top 3 should include at least two strong SRE sources |
 | `pytest fixture not found` | reference/troubleshooting | `docs.pytest.org` | Official pytest docs should be in top 3 |

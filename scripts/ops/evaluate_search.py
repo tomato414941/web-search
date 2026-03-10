@@ -111,6 +111,7 @@ def _extract_domain(text: str) -> str | None:
         "github.com",
         "fastapi.tiangolo.com",
         "developers.openai.com",
+        "docs.djangoproject.com",
         "docs.python.org",
         "docs.pytest.org",
         "docs.docker.com",
