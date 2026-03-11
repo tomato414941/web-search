@@ -384,6 +384,34 @@ def test_requeue_noop_if_already_queued(tmp_path):
     assert result is False
 
 
+def test_pop_batch_respects_max_per_domain(tmp_path):
+    """pop_batch should cap the number of URLs returned per domain."""
+    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+
+    urls = [
+        "http://a.example.com/1",
+        "http://a.example.com/2",
+        "http://a.example.com/3",
+        "http://a.example.com/4",
+        "http://b.example.com/1",
+        "http://b.example.com/2",
+        "http://c.example.com/1",
+    ]
+    assert url_store.add_batch(urls) == len(urls)
+
+    popped = url_store.pop_batch(5, max_per_domain=2)
+
+    assert len(popped) == 5
+
+    per_domain: dict[str, int] = {}
+    for item in popped:
+        per_domain[item.domain] = per_domain.get(item.domain, 0) + 1
+
+    assert per_domain["a.example.com"] == 2
+    assert max(per_domain.values()) <= 2
+    assert url_store.get_stats()["pending"] == len(urls) - len(popped)
+
+
 @pytest.mark.asyncio
 async def test_process_url_too_long_is_skipped_before_fetch(test_components):
     """Overly long URLs should be skipped before robots/fetch/indexer."""

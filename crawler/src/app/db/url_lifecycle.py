@@ -152,21 +152,21 @@ class UrlLifecycleMixin:
         ph = sql_placeholder()
 
         with db_transaction(self.db_path) as cur:
-            # Overscan then filter by domain diversity
+            # Fetch a small candidate window cheaply, then apply diversity locally.
+            # This avoids a global queue sort, which becomes too expensive at scale.
             overscan = count * max_per_domain * 3
             cur.execute(
                 f"""
                 WITH candidates AS (
                     SELECT url_hash, url, domain, created_at
                     FROM crawl_queue
-                    ORDER BY created_at
                     LIMIT {ph}
                     FOR UPDATE SKIP LOCKED
                 ),
                 per_domain AS (
                     SELECT url_hash, url, domain, created_at,
                            ROW_NUMBER() OVER (
-                               PARTITION BY domain ORDER BY created_at
+                               PARTITION BY domain ORDER BY created_at, url_hash
                            ) AS rn
                     FROM candidates
                 ),
@@ -174,7 +174,7 @@ class UrlLifecycleMixin:
                     SELECT url_hash
                     FROM per_domain
                     WHERE rn <= {ph}
-                    ORDER BY created_at
+                    ORDER BY created_at, url_hash
                     LIMIT {ph}
                 )
                 DELETE FROM crawl_queue
