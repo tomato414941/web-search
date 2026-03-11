@@ -101,7 +101,13 @@ make evaluate-search
 Run only tier-1 with:
 
 ```bash
-./scripts/ops/evaluate_search.py --tier 1
+make evaluate-search-tier1
+```
+
+Validate the config before changing it:
+
+```bash
+make validate-search-eval
 ```
 
 ## Pass Criteria

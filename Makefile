@@ -13,7 +13,8 @@ SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 
 .PHONY: ci ci-lint ci-frontend ci-shared ci-crawler ci-indexer ci-mcp
 .PHONY: watch-ci verify-stg verify-prd verify-admin-stg verify-admin-prd
-.PHONY: release-check-stg release-check-prd evaluate-search
+.PHONY: release-check-stg release-check-prd evaluate-search evaluate-search-tier1
+.PHONY: validate-search-eval
 .PHONY: collect-query-candidates
 .PHONY: repair-robots-stg repair-robots-prd repair-canonical-stg repair-canonical-prd
 
@@ -87,6 +88,12 @@ release-check-prd:
 
 evaluate-search:
 	cd $(ROOT_DIR) && ./scripts/ops/evaluate_search.py --base-url "$(SEARCH_EVAL_BASE_URL)"
+
+evaluate-search-tier1:
+	cd $(ROOT_DIR) && ./scripts/ops/evaluate_search.py --base-url "$(SEARCH_EVAL_BASE_URL)" --tier 1
+
+validate-search-eval:
+	cd $(ROOT_DIR) && ./scripts/ops/validate_search_eval_config.py
 
 collect-query-candidates:
 	cd $(ROOT_DIR) && ./scripts/ops/collect_query_candidates.py $(QUERY_CANDIDATE_ARGS)
