@@ -4,3 +4,4 @@ accounts.hatena.ne.jp
 stat.ameba.jp
 b.hatena.ne.jp
 web.archive.org
+f.hatena.ne.jp
