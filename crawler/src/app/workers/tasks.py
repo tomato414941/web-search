@@ -244,7 +244,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     # Load static crawler denylist
     static_denylist = load_crawl_denylist(settings.CRAWL_DENYLIST_PATH)
     logger.info("Static crawler denylist: %d domains", len(static_denylist))
-    scheduler.set_blocked_domains(static_denylist)
+    scheduler.set_denied_domains(static_denylist)
 
     # Layer 3: Purge existing pending URLs from blocked domains
     if static_denylist:
@@ -319,11 +319,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                         hours=settings.CRAWL_ROBOTS_BLOCK_WINDOW_HOURS,
                         min_count=settings.CRAWL_ROBOTS_BLOCK_MIN_COUNT,
                     )
-                    # Combine static crawler denylist + dynamic robots-blocked
                     dynamic_blocked = frozenset(runtime_state.robots_blocked_domains)
-                    combined = static_denylist | dynamic_blocked
-                    runtime_state.blocked_domains = combined
-                    scheduler.set_blocked_domains(combined)
+                    runtime_state.blocked_domains = static_denylist | dynamic_blocked
+                    scheduler.set_temporarily_blocked_domains(dynamic_blocked)
 
                     # Layer 3: Purge newly denied domains from queue
                     new_dynamic = dynamic_blocked - static_denylist
@@ -342,7 +340,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                         "Domain block filter: %d static + %d dynamic = %d total",
                         len(static_denylist),
                         len(dynamic_blocked),
-                        len(combined),
+                        len(runtime_state.blocked_domains),
                     )
 
                 # Calculate available concurrency slots

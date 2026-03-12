@@ -299,3 +299,20 @@ class TestGetReadyUrls:
         assert result[0].domain == "example.com"
         # Blocked items should NOT be added to buffer
         assert s.buffer_size() == 0
+
+    def test_denied_domains_are_dropped_without_release(self):
+        denied_item = self._make_item(
+            "http://accounts.example.com/1", "accounts.example.com"
+        )
+        good_item = self._make_item("http://example.com/1", "example.com")
+        url_store = MagicMock()
+        url_store.pop_batch.side_effect = [[denied_item, good_item], []]
+        url_store.pending_count.return_value = 0
+        config = SchedulerConfig()
+        s = Scheduler(url_store, config)
+        s.set_denied_domains(frozenset({"accounts.example.com"}))
+        result = s.get_ready_urls(2)
+        assert len(result) == 1
+        assert result[0].domain == "example.com"
+        assert s.buffer_size() == 0
+        url_store.release_urls.assert_not_called()

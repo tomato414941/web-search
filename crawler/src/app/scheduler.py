@@ -56,16 +56,29 @@ class Scheduler:
         # Buffer of URLs fetched from url_store but not yet ready
         self._buffer: list[UrlItem] = []
 
-        # Combined denied domains (static crawler denylist + dynamic robots-blocked)
+        # Static crawler denylist: obvious low-value domains we never want to crawl.
+        self._denied_domains: frozenset[str] = frozenset()
+        self._denied_version: int = 0
+        # Dynamic robots-blocked domains: temporary suppression based on recent failures.
         self._blocked_domains: frozenset[str] = frozenset()
         self._blocked_version: int = 0
         self._purged_version: int = 0
 
-    def set_blocked_domains(self, domains: frozenset[str]) -> None:
-        """Update the set of denied domains (static + dynamic combined)."""
+    def set_denied_domains(self, domains: frozenset[str]) -> None:
+        """Update the static crawler denylist."""
+        if domains != self._denied_domains:
+            self._denied_domains = domains
+            self._denied_version += 1
+
+    def set_temporarily_blocked_domains(self, domains: frozenset[str]) -> None:
+        """Update the temporary robots-blocked domains."""
         if domains != self._blocked_domains:
             self._blocked_domains = domains
             self._blocked_version += 1
+
+    def set_blocked_domains(self, domains: frozenset[str]) -> None:
+        """Backward-compatible alias for temporary blocked domains."""
+        self.set_temporarily_blocked_domains(domains)
 
     def _get_gate(self, domain: str) -> HostGate:
         gate = self._gates.get(domain)
@@ -81,15 +94,23 @@ class Scheduler:
         """Check if domain is in the blocked set."""
         return is_domain_denied(domain, self._blocked_domains)
 
+    def _is_denied(self, domain: str) -> bool:
+        """Check if domain is in the static crawler denylist."""
+        return is_domain_denied(domain, self._denied_domains)
+
     def _purge_blocked_from_buffer(self) -> None:
         """Remove denied domains from internal buffer (skips if unchanged)."""
-        if self._purged_version == self._blocked_version:
+        current_version = max(self._purged_version, 0)
+        latest_version = max(self._denied_version, self._blocked_version)
+        if current_version == latest_version:
             return
-        self._purged_version = self._blocked_version
-        if not self._blocked_domains:
+        self._purged_version = latest_version
+        if not self._denied_domains and not self._blocked_domains:
             return
         self._buffer = [
-            item for item in self._buffer if not self._is_blocked(item.domain)
+            item
+            for item in self._buffer
+            if not self._is_denied(item.domain) and not self._is_blocked(item.domain)
         ]
 
     def get_ready_urls(self, count: int) -> list[UrlItem]:
@@ -113,9 +134,12 @@ class Scheduler:
         to_remove = []
         selected_per_domain: dict[str, int] = {}
 
+        denied = self._denied_domains
         blocked = self._blocked_domains
 
         def _can_select(domain: str) -> bool:
+            if denied and is_domain_denied(domain, denied):
+                return False
             if blocked and is_domain_denied(domain, blocked):
                 return False
             gate = self._get_gate(domain)
@@ -125,11 +149,15 @@ class Scheduler:
             return effective_inflight < gate.concurrency_limit
 
         # Check buffer — collect selected AND blocked indices for removal
+        denied_indices: list[int] = []
         blocked_indices: list[int] = []
         blocked_urls: list[str] = []
         for i, item in enumerate(self._buffer):
             if len(result) >= count:
                 break
+            if denied and is_domain_denied(item.domain, denied):
+                denied_indices.append(i)
+                continue
             if blocked and is_domain_denied(item.domain, blocked):
                 blocked_indices.append(i)
                 blocked_urls.append(item.url)
@@ -142,7 +170,7 @@ class Scheduler:
                 )
 
         # Remove selected + blocked items from buffer (reverse order)
-        for i in reversed(sorted(to_remove + blocked_indices)):
+        for i in reversed(sorted(to_remove + blocked_indices + denied_indices)):
             self._buffer.pop(i)
 
         # Release blocked URLs back to DB
@@ -156,10 +184,14 @@ class Scheduler:
                 break
 
             to_remove = []
+            denied_idx: list[int] = []
             blocked_idx: list[int] = []
             for i, item in enumerate(items):
                 if len(result) >= count:
                     break
+                if denied and is_domain_denied(item.domain, denied):
+                    denied_idx.append(i)
+                    continue
                 if blocked and is_domain_denied(item.domain, blocked):
                     blocked_idx.append(i)
                     continue
@@ -177,7 +209,7 @@ class Scheduler:
                 )
 
             # Add remaining to buffer (skip blocked)
-            skip_set = set(to_remove) | set(blocked_idx)
+            skip_set = set(to_remove) | set(blocked_idx) | set(denied_idx)
             for i, item in enumerate(items):
                 if i not in skip_set:
                     self._buffer.append(item)
