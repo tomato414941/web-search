@@ -15,8 +15,8 @@ Example: searching "python" returns hatena bookmark listing pages (link collecti
 
 ```
 Layer 3: Search Ranking
-         OpenSearch function_score (origin_score, factual_density, temporal_anchor)
-         → Scope Match re-ranking → Claim Diversity clustering
+         OpenSearch BM25 retrieval
+         → thin canonical-source promotion for narrow query classes
          ↑
 Layer 2: Signal Scoring (indexer)
          factual_density + temporal_anchor + authorship_clarity + information_origin
@@ -75,23 +75,15 @@ def content_quality(main_words, raw_words, outlinks, title, has_published_at):
 
 ### Layer 3: Search Ranking Integration
 
-The ranking pipeline applies scoring signals in two phases:
+The current ranking path is intentionally narrow:
 
-**Phase A — OpenSearch `function_score` (retrieval-time)**
+- retrieval uses OpenSearch BM25 over `title^3` and `content`
+- `navigational`, `reference`, and a small part of `news` use a thin canonical-source policy
+- broad speculative reranking layers were removed
 
-```
-score = BM25(clean_content, title^3) × Σ weighted signals
-```
+This means most document-quality signals are currently exposed as metadata and kept for index-time analysis, transparency, and future tuning rather than heavy request-time reranking.
 
-| Signal | Field | Weight | Description |
-|--------|-------|--------|-------------|
-| Information Origin | `origin_score` | 1.0 | Primary source > aggregation (replaces PageRank) |
-| Factual Density | `factual_density` | 0.3 | Verifiable facts per unit of text (replaces content_quality) |
-| Temporal Anchor | `temporal_anchor` | 0.1 | Temporal transparency — has `published_at`? (replaces freshness decay) |
-
-Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/opensearch/search.py`.
-
-**Metadata passed to API consumers (not used in scoring)**
+**Metadata passed to API consumers**
 
 | Field | Description |
 |-------|-------------|
@@ -116,7 +108,7 @@ Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/o
 - `html_to_doc` uses trafilatura with BS4 fallback (`crawler/src/app/utils/parser.py`)
 - Options: `include_comments=True`, `include_tables=True`, `deduplicate=True`, `favor_recall=True`
 
-### Phase 2: content_quality score + ranking — DONE (superseded by Phase 4)
+### Phase 2: content_quality score + ranking — DONE (superseded by later simplification)
 
 - `_compute_content_quality()` in `indexer/src/app/services/indexer.py`
 - `content_quality` float field retained in OpenSearch for backward compatibility
@@ -128,7 +120,7 @@ Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/o
 - Cloudflare R2 for raw HTML storage ($0.14/mo)
 - Enables re-processing without re-crawling
 
-### Phase 4: AI-agent-optimized ranking signals — DONE
+### Phase 4: source-oriented document signals — DONE
 
 - `temporal_anchor` replaces freshness decay (`indexer/src/app/services/indexer.py`)
 - `authorship_clarity` + author/org extraction (`crawler/src/app/utils/parser.py`)
@@ -139,7 +131,7 @@ Scoring uses `score_mode: sum`, `boost_mode: multiply`. See `shared/src/shared/o
 ### Phase 5: Result-set intelligence — REMOVED
 
 - Query-intent reranking and claim-clustering were removed.
-- The search flow now stays closer to retrieval order until stronger evidence justifies reintroducing post-retrieval ranking.
+- The search flow now stays closer to BM25 retrieval order until stronger evidence justifies reintroducing post-retrieval ranking.
 
 ### Future
 

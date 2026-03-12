@@ -1,14 +1,14 @@
 # PaleBlueSearch
 
-**Web Search API for AI Agents** — Quality-focused search built for LLMs and autonomous agents.
+**Web Search API for AI Agents** — Source-aware search built for LLMs and autonomous agents.
 
 A full-stack search engine with its own crawler, BM25 ranking,
-content quality scoring, and Japanese NLP support. Designed to return clean,
-high-quality content that AI agents can trust.
+clean content extraction, and Japanese NLP support. Designed to return
+source-grounded public information that AI agents can inspect.
 
 ## Features
 
-- **AI-Agent-Optimized Ranking**: Every hit includes transparency metadata (`temporal_anchor`, `authorship_clarity`, `factual_density`, `origin_score`) so AI agents can make informed decisions.
+- **Source-Aware Ranking**: Navigational and reference queries get a thin canonical-source boost, while every hit still carries transparency metadata (`temporal_anchor`, `authorship_clarity`, `factual_density`, `origin_score`).
 - **Information Origin**: Documents classified as spring/river/delta/swamp based on link direction — primary sources rank higher than aggregation.
 - **Factual Density**: Scores verifiable facts per unit of text (numbers, dates, citations, code, named entities) — replaces shallow word-count quality.
 - **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
@@ -169,8 +169,8 @@ COMPOSE_PROFILES=monitoring docker compose up --build -d
 
 ## Architecture
 
-- **Web Node (Frontend)**: FastAPI (serves UI and Search API, scope match re-ranking, claim diversity).
-- **Write Node (Indexer)**: FastAPI (handles ingestion, signal scoring, vectors).
+- **Web Node (Frontend)**: FastAPI (serves UI and Search API, runs BM25 retrieval and thin canonical ranking policy).
+- **Write Node (Indexer)**: FastAPI (handles ingestion, metadata/signal scoring, optional embeddings, OpenSearch sync).
 - **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `trafilatura` with metadata extraction.
 - **Database**: PostgreSQL for production, SQLite for local development.
 

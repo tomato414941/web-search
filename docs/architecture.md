@@ -13,7 +13,7 @@ The system consists of three independent services managed in a monorepo:
     -   **Scaling**: Can scale horizontally; shared DB in production.
     -   **Dependencies**: Depends on `shared` for DB models, search kernel, analyzer.
 2.  **Indexer Service (Write Cluster)**:
-    -   **Role**: Ingestion, Tokenization (Japanese via SudachiPy), Embedding (OpenAI), Dual-write to OpenSearch.
+    -   **Role**: Ingestion, Tokenization (Japanese via SudachiPy), document signal computation, optional embedding generation, dual-write to OpenSearch.
     -   **Stack**: FastAPI + PostgreSQL + SudachiPy + OpenSearch (optional).
     -   **Port**: `8081`.
     -   **Scaling**: Write-heavy service; decoupled from read load.
@@ -29,7 +29,7 @@ graph TD
     Client[User / Browser] --> Frontend[Frontend Service :8083]
 
     subgraph Data Layer
-        DB[(PostgreSQL 16 + pgvector)]
+        DB[(PostgreSQL 16)]
         OS[(OpenSearch 2.17)]
     end
 
@@ -78,27 +78,36 @@ The crawler keeps discovery state in `urls` and pending work in `crawl_queue`.
 *   `urls`: all discovered URLs, with crawl history fields such as `last_crawled_at`
 *   `crawl_queue`: URLs waiting to be processed
 
-The current queue is intentionally simple: FIFO by `created_at`, plus scheduler-level
-domain diversity and rate limiting. The old status/priority queue design has been
-removed.
+The current queue is intentionally simple:
+
+*   one pending queue in PostgreSQL
+*   cheap batch selection from `crawl_queue`
+*   scheduler-level domain rate limiting and concurrency limits
+*   a small static crawler denylist for obvious low-value domains
+
+The old status/priority queue design has been removed, and the crawler no longer
+tries to preserve strict global FIFO ordering across the full queue.
 
 ### 3. Shared Library (`shared/`)
-*   **Database**: PostgreSQL 16 with pgvector extension. Connection pooling via `psycopg2.pool.ThreadedConnectionPool`.
+*   **Database**: PostgreSQL 16. Connection pooling via `psycopg2.pool.ThreadedConnectionPool`.
 *   **Search Engine (`shared.search_kernel`)**:
     *   **Search**: Uses BM25 keyword ranking in OpenSearch for query-time retrieval.
     *   **Tokenizer**: `SudachiPy` for Japanese morphological analysis.
-    *   **Scoring**: BM25 + Information Origin + Factual Density + Temporal Anchor + Scope Match re-ranking + Claim Diversity.
+    *   **Ranking Policy**: BM25 retrieval plus a thin canonical-source policy for navigational/reference queries.
     *   **Snippet Generation**: Context-aware snippet extraction with `<mark>` highlighting.
 *   **OpenSearch Integration** (`shared.opensearch`): Optional dual-write for fast full-text search.
 
-### 4. AI-Agent-Optimized Ranking Pipeline
-The system uses a multi-signal ranking stack (see [content-quality.md](./content-quality.md)):
-1.  **Extraction**: trafilatura strips boilerplate, extracts author/organization metadata. BS4 fallback for edge cases.
-2.  **Signal Scoring**: Indexer computes per-document signals — `factual_density`, `temporal_anchor`, `authorship_clarity`, `information_origin`.
-3.  **Retrieval**: OpenSearch `function_score` combines BM25 with `origin_score`, `factual_density`, and `temporal_anchor`.
-4.  **Re-ranking**: Scope Match adjusts scores by query intent × document type affinity. Claim Diversity clusters results by content similarity.
+### 4. Current Search Ranking Pipeline
+The current search stack is intentionally narrower than earlier iterations:
+
+1.  **Extraction**: trafilatura strips boilerplate and extracts metadata. BS4 fallback handles edge cases.
+2.  **Signal Scoring**: Indexer computes per-document metadata such as `factual_density`, `temporal_anchor`, `authorship_clarity`, and `information_origin`.
+3.  **Retrieval**: OpenSearch BM25 retrieves candidate documents from `title` and `content`.
+4.  **Thin Policy Layer**: For navigational/reference/news queries, a small canonical-source policy can promote official domains or preferred paths.
+
+Those document signals are still useful for transparency and future ranking work, but the heavy speculative reranking layers have been removed from the current request path.
 
 ### 5. Data Flow
 1.  **Crawl**: Crawler fetches HTML, extracts main content via trafilatura, extracts links/`published_at`, sends to Indexer via HTTP API.
-2.  **Index**: Indexer tokenizes text (SudachiPy), computes ranking signals (factual density, temporal anchor, authorship clarity), generates embeddings (OpenAI), writes to PostgreSQL + OpenSearch.
-3.  **Search**: Frontend queries PostgreSQL (BM25) or OpenSearch, applies information origin + factual density + temporal anchor scoring, scope match re-ranking, and claim diversity clustering.
+2.  **Index**: Indexer tokenizes text (SudachiPy), computes document signals (factual density, temporal anchor, authorship clarity, information origin), optionally generates embeddings, writes to PostgreSQL + OpenSearch.
+3.  **Search**: Frontend queries OpenSearch with BM25, then applies a small canonical-source policy when the query is navigational/reference/news-like.
