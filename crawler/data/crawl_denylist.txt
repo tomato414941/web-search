@@ -1,2 +1,6 @@
 # Crawler-only denylist for low-value or non-content domains.
 # One domain per line. Parent domains also deny subdomains.
+accounts.hatena.ne.jp
+stat.ameba.jp
+b.hatena.ne.jp
+web.archive.org
