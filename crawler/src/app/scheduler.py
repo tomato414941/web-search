@@ -6,7 +6,6 @@ Decides which URLs to crawl next, respecting domain rate limits.
 
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 from app.core.blocklist import is_domain_blocked
 from app.db.url_store import UrlStore
@@ -46,7 +45,7 @@ class Scheduler:
     def __init__(
         self,
         url_store: UrlStore,
-        config: Optional[SchedulerConfig] = None,
+        config: SchedulerConfig | None = None,
     ):
         self.url_store = url_store
         self.config = config or SchedulerConfig()
@@ -92,38 +91,6 @@ class Scheduler:
         self._buffer = [
             item for item in self._buffer if not self._is_blocked(item.domain)
         ]
-
-    def get_next(self) -> Optional[UrlItem]:
-        """
-        Get next URL that is ready to crawl.
-
-        Respects domain rate limits and returns None if no URL is ready.
-        """
-        self._purge_blocked_from_buffer()
-        now = time.time()
-
-        # Try buffer first
-        for i, item in enumerate(self._buffer):
-            if self._can_fetch(item.domain, now):
-                self._buffer.pop(i)
-                return item
-
-        # Fetch more from url_store if buffer is empty or exhausted
-        if len(self._buffer) < self.config.batch_size // 2:
-            items = self.url_store.pop_batch(self.config.batch_size)
-            blocked_items = [item for item in items if self._is_blocked(item.domain)]
-            items = [item for item in items if not self._is_blocked(item.domain)]
-            if blocked_items:
-                self.url_store.release_urls([item.url for item in blocked_items])
-            self._buffer.extend(items)
-
-        # Try again with new items
-        for i, item in enumerate(self._buffer):
-            if self._can_fetch(item.domain, now):
-                self._buffer.pop(i)
-                return item
-
-        return None
 
     def get_ready_urls(self, count: int) -> list[UrlItem]:
         """
@@ -249,14 +216,6 @@ class Scheduler:
         gate = self._get_gate(domain)
         if delay > gate.min_interval:
             gate.min_interval = delay
-
-    def return_to_buffer(self, item: UrlItem) -> None:
-        """
-        Return an item to the buffer (e.g., if processing failed).
-
-        The item will be tried again when rate limit allows.
-        """
-        self._buffer.insert(0, item)
 
     def buffer_size(self) -> int:
         """Return number of items in buffer."""
