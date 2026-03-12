@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 
 import aiohttp
 
-from app.core.blocklist import is_domain_blocked
+from app.core.crawl_denylist import is_domain_denied
 from app.core.config import settings
 from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
@@ -78,17 +78,17 @@ def _non_html_reason(content_type: str) -> str:
 
 
 async def precheck(ctx: PipelineContext) -> str | None:
-    """Run pre-fetch checks (blocklist, URL length, robots, SSRF).
+    """Run pre-fetch checks (denylist, URL length, robots, SSRF).
 
     Returns a skip reason string if the URL should not be fetched,
     or None to proceed. Side-effects: logs and records skips.
     """
-    if is_domain_blocked(ctx.domain, ctx.blocked_domains):
+    if is_domain_denied(ctx.domain, ctx.blocked_domains):
         await run_in_db_executor(
             history_log.log_crawl_attempt,
             ctx.url,
             CrawlAttemptStatus.BLOCKED,
-            error_message="Domain blocklisted",
+            error_message="Domain denied by crawl denylist",
         )
         await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
         return "blocked"
@@ -238,12 +238,12 @@ async def discover_and_enqueue_links(
     if not discovered:
         return
 
-    # Filter: blocklist + URL length
+    # Filter: denylist + URL length
     valid_urls = [
         u
         for u in discovered
         if len(u) <= MAX_URL_LENGTH
-        and not is_domain_blocked(get_domain(u), ctx.blocked_domains)
+        and not is_domain_denied(get_domain(u), ctx.blocked_domains)
     ]
 
     if valid_urls:

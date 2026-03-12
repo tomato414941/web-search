@@ -7,7 +7,7 @@ and indexer API configuration.
 
 from typing import Any
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 
 from shared.core.infrastructure_config import Environment, InfrastructureSettings
 
@@ -48,8 +48,11 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_TCP_LIMIT: int = 200
     ROBOTS_CACHE_SIZE: int = 500000
 
-    # Static domain blocklist file path
-    DOMAIN_BLOCKLIST_PATH: str = "/app/data/domain_blocklist.txt"
+    # Static crawler denylist file path
+    CRAWL_DENYLIST_PATH: str = Field(
+        default="/app/data/crawl_denylist.txt",
+        validation_alias=AliasChoices("CRAWL_DENYLIST_PATH", "DOMAIN_BLOCKLIST_PATH"),
+    )
 
     # Robots block filter (skip enqueue for frequently blocked domains)
     CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = 24

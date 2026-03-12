@@ -1,0 +1,2 @@
+# Crawler-only denylist for low-value or non-content domains.
+# One domain per line. Parent domains also deny subdomains.

@@ -7,7 +7,7 @@ Decides which URLs to crawl next, respecting domain rate limits.
 import time
 from dataclasses import dataclass
 
-from app.core.blocklist import is_domain_blocked
+from app.core.crawl_denylist import is_domain_denied
 from app.db.url_store import UrlStore
 from app.db.url_types import UrlItem
 
@@ -56,13 +56,13 @@ class Scheduler:
         # Buffer of URLs fetched from url_store but not yet ready
         self._buffer: list[UrlItem] = []
 
-        # Combined blocked domains (static blocklist + dynamic robots-blocked)
+        # Combined denied domains (static crawler denylist + dynamic robots-blocked)
         self._blocked_domains: frozenset[str] = frozenset()
         self._blocked_version: int = 0
         self._purged_version: int = 0
 
     def set_blocked_domains(self, domains: frozenset[str]) -> None:
-        """Update the set of blocked domains (static + dynamic combined)."""
+        """Update the set of denied domains (static + dynamic combined)."""
         if domains != self._blocked_domains:
             self._blocked_domains = domains
             self._blocked_version += 1
@@ -79,10 +79,10 @@ class Scheduler:
 
     def _is_blocked(self, domain: str) -> bool:
         """Check if domain is in the blocked set."""
-        return is_domain_blocked(domain, self._blocked_domains)
+        return is_domain_denied(domain, self._blocked_domains)
 
     def _purge_blocked_from_buffer(self) -> None:
-        """Remove blocked domains from internal buffer (skips if unchanged)."""
+        """Remove denied domains from internal buffer (skips if unchanged)."""
         if self._purged_version == self._blocked_version:
             return
         self._purged_version = self._blocked_version
@@ -116,7 +116,7 @@ class Scheduler:
         blocked = self._blocked_domains
 
         def _can_select(domain: str) -> bool:
-            if blocked and is_domain_blocked(domain, blocked):
+            if blocked and is_domain_denied(domain, blocked):
                 return False
             gate = self._get_gate(domain)
             if now < gate.next_fetch_at:
@@ -130,7 +130,7 @@ class Scheduler:
         for i, item in enumerate(self._buffer):
             if len(result) >= count:
                 break
-            if blocked and is_domain_blocked(item.domain, blocked):
+            if blocked and is_domain_denied(item.domain, blocked):
                 blocked_indices.append(i)
                 blocked_urls.append(item.url)
                 continue
@@ -160,7 +160,7 @@ class Scheduler:
             for i, item in enumerate(items):
                 if len(result) >= count:
                     break
-                if blocked and is_domain_blocked(item.domain, blocked):
+                if blocked and is_domain_denied(item.domain, blocked):
                     blocked_idx.append(i)
                     continue
                 if _can_select(item.domain):

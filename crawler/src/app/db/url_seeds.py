@@ -38,21 +38,21 @@ class UrlSeedsMixin:
             )
             return cur.rowcount
 
-    def purge_blocked_domains(self, blocklist: frozenset[str]) -> int:
-        """Delete queued URLs whose domain matches the blocklist.
+    def purge_denied_domains(self, denylist: frozenset[str]) -> int:
+        """Delete queued URLs whose domain matches the crawler denylist.
 
-        Uses subdomain matching: blocking 'facebook.com' also removes
+        Uses subdomain matching: denying 'facebook.com' also removes
         'www.facebook.com', 'm.facebook.com', etc.
 
         Returns the number of deleted rows.
         """
-        if not blocklist:
+        if not denylist:
             return 0
 
         with db_transaction(self.db_path) as cur:
             conditions = []
             params: list[str] = []
-            for d in blocklist:
+            for d in denylist:
                 conditions.append(f"domain = {sql_placeholder()}")
                 params.append(d)
                 escaped = (
@@ -67,6 +67,10 @@ class UrlSeedsMixin:
                 params,
             )
             return cur.rowcount
+
+    def purge_blocked_domains(self, blocklist: frozenset[str]) -> int:
+        """Backward-compatible alias for purge_denied_domains()."""
+        return self.purge_denied_domains(blocklist)
 
     def count_seeds(self) -> int:
         """Count URLs marked as seeds."""

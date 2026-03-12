@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 import aiohttp
 from cachetools import TTLCache
 
-from app.core.blocklist import load_domain_blocklist
+from app.core.crawl_denylist import load_crawl_denylist
 from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
@@ -241,20 +241,20 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     )
     scheduler = Scheduler(url_store, scheduler_config)
 
-    # Load static domain blocklist
-    static_blocklist = load_domain_blocklist(settings.DOMAIN_BLOCKLIST_PATH)
-    logger.info("Static domain blocklist: %d domains", len(static_blocklist))
-    scheduler.set_blocked_domains(static_blocklist)
+    # Load static crawler denylist
+    static_denylist = load_crawl_denylist(settings.CRAWL_DENYLIST_PATH)
+    logger.info("Static crawler denylist: %d domains", len(static_denylist))
+    scheduler.set_blocked_domains(static_denylist)
 
     # Layer 3: Purge existing pending URLs from blocked domains
-    if static_blocklist:
+    if static_denylist:
         purged = await run_in_db_executor(
-            url_store.purge_blocked_domains, static_blocklist
+            url_store.purge_denied_domains, static_denylist
         )
         if purged:
-            logger.info("Purged %d pending URLs from blocked domains", purged)
+            logger.info("Purged %d pending URLs from denied domains", purged)
 
-    runtime_state = WorkerRuntimeState(blocked_domains=static_blocklist)
+    runtime_state = WorkerRuntimeState(blocked_domains=static_denylist)
     robots_block_refreshed_at = 0.0  # Force immediate first load
     in_flight_tasks: set[asyncio.Task[None]] = set()
 
@@ -319,28 +319,28 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                         hours=settings.CRAWL_ROBOTS_BLOCK_WINDOW_HOURS,
                         min_count=settings.CRAWL_ROBOTS_BLOCK_MIN_COUNT,
                     )
-                    # Combine static blocklist + dynamic robots-blocked
+                    # Combine static crawler denylist + dynamic robots-blocked
                     dynamic_blocked = frozenset(runtime_state.robots_blocked_domains)
-                    combined = static_blocklist | dynamic_blocked
+                    combined = static_denylist | dynamic_blocked
                     runtime_state.blocked_domains = combined
                     scheduler.set_blocked_domains(combined)
 
-                    # Layer 3: Purge newly blocked domains from queue
-                    new_dynamic = dynamic_blocked - static_blocklist
+                    # Layer 3: Purge newly denied domains from queue
+                    new_dynamic = dynamic_blocked - static_denylist
                     if new_dynamic:
                         purged = await run_in_db_executor(
-                            url_store.purge_blocked_domains, frozenset(new_dynamic)
+                            url_store.purge_denied_domains, frozenset(new_dynamic)
                         )
                         if purged:
                             logger.info(
-                                "Purged %d pending URLs from newly blocked domains",
+                                "Purged %d pending URLs from newly denied domains",
                                 purged,
                             )
 
                     robots_block_refreshed_at = time.monotonic()
                     logger.info(
                         "Domain block filter: %d static + %d dynamic = %d total",
-                        len(static_blocklist),
+                        len(static_denylist),
                         len(dynamic_blocked),
                         len(combined),
                     )
