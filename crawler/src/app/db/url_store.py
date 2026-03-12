@@ -5,8 +5,9 @@ urls table: ledger of all discovered URLs (no status column).
 crawl_queue table: work queue of URLs to crawl next (DELETE on pop).
 """
 
-from app.db.url_lifecycle import UrlLifecycleMixin
+from app.db.url_discovery import UrlDiscoveryMixin
 from app.db.url_queries import UrlQueriesMixin
+from app.db.url_queue import UrlQueueMixin
 from app.db.url_seeds import UrlSeedsMixin
 from shared.postgres.search import get_connection
 
@@ -32,7 +33,7 @@ CREATE TABLE IF NOT EXISTS crawl_queue (
 """
 
 
-class UrlStore(UrlLifecycleMixin, UrlQueriesMixin, UrlSeedsMixin):
+class UrlStore(UrlDiscoveryMixin, UrlQueueMixin, UrlQueriesMixin, UrlSeedsMixin):
     """
     URL storage backed by a discovery ledger (urls) and a crawl queue.
 

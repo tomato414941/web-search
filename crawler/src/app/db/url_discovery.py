@@ -1,4 +1,4 @@
-"""URL lifecycle operations: add, pop, record, release, requeue."""
+"""URL discovery operations: enqueue discovered URLs and record crawl completion."""
 
 import logging
 import os
@@ -10,7 +10,7 @@ from psycopg2.errors import DeadlockDetected, SerializationFailure
 from psycopg2.extras import execute_values
 
 from app.db.connection import db_transaction
-from app.db.url_types import UrlItem, get_domain, url_hash
+from app.db.url_types import get_domain, url_hash
 from shared.postgres.search import sql_placeholder
 
 logger = logging.getLogger(__name__)
@@ -20,8 +20,12 @@ _ENQUEUE_RETRY_LIMIT = int(os.getenv("CRAWL_ENQUEUE_RETRY_LIMIT", "2"))
 _ENQUEUE_RETRY_BASE_SEC = float(os.getenv("CRAWL_ENQUEUE_RETRY_BASE_SEC", "0.05"))
 
 
-class UrlLifecycleMixin:
-    """Mixin for URL lifecycle: discovery ledger (urls) + crawl queue."""
+class UrlDiscoveryMixin:
+    """Mixin for discovered-URL upserts and crawl ledger updates."""
+
+    db_path: str
+    recrawl_threshold: int
+    max_pending_per_domain: int
 
     @staticmethod
     def _chunked(
@@ -108,52 +112,6 @@ class UrlLifecycleMixin:
         )
         return {row[0] for row in inserted}
 
-    def _enqueue_url(
-        self,
-        cur: Any,
-        *,
-        h: str,
-        url: str,
-        domain: str,
-        now: int,
-        cutoff: int,
-    ) -> bool:
-        """Register URL in ledger and enqueue if eligible.
-
-        Returns True if URL was added to the queue.
-        """
-        ph = sql_placeholder()
-
-        # Register in discovery ledger
-        cur.execute(
-            f"""
-            INSERT INTO urls (url_hash, url, domain, created_at)
-            VALUES ({ph}, {ph}, {ph}, {ph})
-            ON CONFLICT (url_hash) DO NOTHING
-            """,
-            (h, url, domain, now),
-        )
-
-        # Check if recently crawled
-        cur.execute(
-            f"SELECT last_crawled_at FROM urls WHERE url_hash = {ph}",
-            (h,),
-        )
-        row = cur.fetchone()
-        if row and row[0] is not None and row[0] >= cutoff:
-            return False
-
-        # Enqueue
-        cur.execute(
-            f"""
-            INSERT INTO crawl_queue (url_hash, url, domain, created_at)
-            VALUES ({ph}, {ph}, {ph}, {ph})
-            ON CONFLICT (url_hash) DO NOTHING
-            """,
-            (h, url, domain, now),
-        )
-        return cur.rowcount > 0
-
     def _add_batch_chunk(
         self,
         cur: Any,
@@ -196,21 +154,13 @@ class UrlLifecycleMixin:
         return added
 
     def add(self, url: str) -> bool:
-        """
-        Discover a URL and enqueue it for crawling if eligible.
-
-        Returns:
-            True if added to the queue, False otherwise
-        """
+        """Discover a URL and enqueue it for crawling if eligible."""
         return self.add_batch([url]) > 0
 
     def add_batch(self, urls: list[str]) -> int:
         """
         Discover and enqueue multiple URLs.
         Respects per-domain queue cap (max_pending_per_domain).
-
-        Returns:
-            Number of URLs added to the queue
         """
         if not urls:
             return 0
@@ -261,105 +211,6 @@ class UrlLifecycleMixin:
                     time.sleep(delay)
 
         return added
-
-    def pop_batch(self, count: int, max_per_domain: int = 3) -> list[UrlItem]:
-        """
-        Pop URLs from the crawl queue.
-        Ensures domain diversity by limiting URLs per domain.
-
-        Args:
-            count: Maximum number of URLs to return
-            max_per_domain: Maximum URLs from a single domain
-
-        Returns:
-            List of UrlItems (removed from queue)
-        """
-        if count <= 0:
-            return []
-
-        ph = sql_placeholder()
-
-        with db_transaction(self.db_path) as cur:
-            # Fetch a small candidate window cheaply, then apply diversity locally.
-            # This avoids a global queue sort, which becomes too expensive at scale.
-            overscan = count * max_per_domain * 3
-            cur.execute(
-                f"""
-                WITH candidates AS (
-                    SELECT url_hash, url, domain, created_at
-                    FROM crawl_queue
-                    LIMIT {ph}
-                    FOR UPDATE SKIP LOCKED
-                ),
-                per_domain AS (
-                    SELECT url_hash, url, domain, created_at,
-                           ROW_NUMBER() OVER (
-                               PARTITION BY domain ORDER BY created_at, url_hash
-                           ) AS rn
-                    FROM candidates
-                ),
-                selected AS (
-                    SELECT url_hash
-                    FROM per_domain
-                    WHERE rn <= {ph}
-                    ORDER BY created_at, url_hash
-                    LIMIT {ph}
-                )
-                DELETE FROM crawl_queue
-                USING selected s
-                WHERE crawl_queue.url_hash = s.url_hash
-                RETURNING crawl_queue.url, crawl_queue.domain, crawl_queue.created_at
-                """,
-                (overscan, max_per_domain, count),
-            )
-            rows = cur.fetchall()
-
-            return [
-                UrlItem(url=row[0], domain=row[1], created_at=row[2]) for row in rows
-            ]
-
-    def requeue(self, url: str) -> bool:
-        """Re-add a URL to the crawl queue (e.g. for retry).
-
-        Returns True if inserted, False if already in queue.
-        """
-        h = url_hash(url)
-        domain = get_domain(url)
-        now = int(time.time())
-        ph = sql_placeholder()
-        with db_transaction(self.db_path) as cur:
-            cur.execute(
-                f"""
-                INSERT INTO crawl_queue (url_hash, url, domain, created_at)
-                VALUES ({ph}, {ph}, {ph}, {ph})
-                ON CONFLICT (url_hash) DO NOTHING
-                """,
-                (h, url, domain, now),
-            )
-            return cur.rowcount > 0
-
-    def release_urls(self, urls: list[str]) -> int:
-        """Mark URLs as crawled (permanently failed / blocked).
-
-        Records last_crawled_at so they won't be re-queued until stale.
-        Returns count of affected rows.
-        """
-        if not urls:
-            return 0
-        ph = sql_placeholder()
-        now = int(time.time())
-        hashes = [url_hash(u) for u in urls]
-        with db_transaction(self.db_path) as cur:
-            cur.execute(
-                f"""
-                UPDATE urls
-                SET last_crawled_at = {ph},
-                    crawl_count = crawl_count + 1
-                WHERE url_hash = ANY({ph})
-                """,
-                (now, hashes),
-            )
-            return cur.rowcount
 
     def record(self, url: str, status: str = "done") -> None:
         """

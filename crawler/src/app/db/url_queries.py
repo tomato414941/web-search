@@ -1,10 +1,13 @@
 """URL read-only queries: counts, stats, domain lookups."""
 
+import os
 import time
 
 from app.db.connection import db_connection
 from app.db.url_types import UrlItem, url_hash
 from shared.postgres.search import sql_placeholder, sql_placeholders
+
+_APPROX_COUNT_THRESHOLD = int(os.getenv("CRAWL_APPROX_COUNT_THRESHOLD", "100000"))
 
 
 class UrlQueriesMixin:
@@ -13,11 +16,30 @@ class UrlQueriesMixin:
     db_path: str
     recrawl_threshold: int
 
+    def _approx_table_count(self, cur, table_name: str) -> int | None:
+        cur.execute(
+            "SELECT reltuples::bigint FROM pg_class WHERE oid = %s::regclass",
+            (table_name,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            return None
+        count = row[0]
+        if count is None or count <= 0:
+            return None
+        return int(count)
+
+    def _table_count(self, cur, table_name: str) -> int:
+        approx = self._approx_table_count(cur, table_name)
+        if approx is not None and approx >= _APPROX_COUNT_THRESHOLD:
+            return approx
+        cur.execute(f"SELECT COUNT(*) FROM {table_name}")
+        return cur.fetchone()[0]
+
     def pending_count(self) -> int:
         """Return number of URLs in the crawl queue."""
         with db_connection(self.db_path) as cur:
-            cur.execute("SELECT COUNT(*) FROM crawl_queue")
-            return cur.fetchone()[0]
+            return self._table_count(cur, "crawl_queue")
 
     def contains(self, url: str) -> bool:
         """Check if URL exists in the discovery ledger."""
@@ -107,14 +129,10 @@ class UrlQueriesMixin:
         cutoff = now - self.recrawl_threshold
 
         with db_connection(self.db_path) as cur:
-            # Queue count (small table, exact)
-            cur.execute("SELECT COUNT(*) FROM crawl_queue")
-            pending = cur.fetchone()[0]
+            pending = self._table_count(cur, "crawl_queue")
 
             # Ledger stats (approximate for large tables)
-            cur.execute("SELECT reltuples::bigint FROM pg_class WHERE relname = 'urls'")
-            row = cur.fetchone()
-            total = row[0] if row and row[0] > 0 else 0
+            total = self._approx_table_count(cur, "urls") or 0
 
             if total > 100000:
                 # Approximate: use pg_stats for null fraction of last_crawled_at
@@ -215,5 +233,4 @@ class UrlQueriesMixin:
     def size(self) -> int:
         """Return total number of discovered URLs. For health checks."""
         with db_connection(self.db_path) as cur:
-            cur.execute("SELECT COUNT(*) FROM urls")
-            return cur.fetchone()[0]
+            return self._table_count(cur, "urls")
