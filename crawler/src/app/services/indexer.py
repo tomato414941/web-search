@@ -68,6 +68,13 @@ def _normalize_error_text(text: str) -> str:
     return normalized
 
 
+def _describe_exception(exc: Exception) -> str:
+    detail = str(exc).strip()
+    if detail:
+        return f"{exc.__class__.__name__}: {detail}"
+    return exc.__class__.__name__
+
+
 def _summarize_indexer_error(status_code: int, body: str) -> str:
     body = (body or "").strip()
     if not body:
@@ -170,7 +177,8 @@ async def submit_page_to_indexer(
             )
 
     except Exception as e:
-        detail = _normalize_error_text(f"Indexer request failed: {e}")
-        logger.error(f"❌ Failed to submit {url} to API: {e}")
+        exc_detail = _describe_exception(e)
+        detail = _normalize_error_text(f"Indexer request failed: {exc_detail}")
+        logger.error("❌ Failed to submit %s to API: %s", url, exc_detail)
         _circuit_breaker.record_failure()
         return IndexerSubmitResult(ok=False, detail=detail)

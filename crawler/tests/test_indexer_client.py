@@ -86,3 +86,28 @@ async def test_submit_page_network_error():
     assert result.status_code is None
     assert result.detail is not None
     assert "Connection refused" in result.detail
+
+
+@pytest.mark.asyncio
+async def test_submit_page_network_error_without_message():
+    """Blank exceptions should still record the exception type."""
+
+    class SilentError(Exception):
+        def __str__(self) -> str:
+            return ""
+
+    mock_session = MagicMock()
+    mock_session.post.side_effect = SilentError()
+
+    result = await submit_page_to_indexer(
+        mock_session,
+        "http://indexer:8000/api/indexer/page",
+        "test-api-key",
+        "http://example.com/test",
+        "Test",
+        "Content",
+    )
+
+    assert result.ok is False
+    assert result.status_code is None
+    assert result.detail == "Indexer request failed: SilentError"

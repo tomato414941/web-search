@@ -6,6 +6,7 @@ End-to-end tests for the full crawler workflow.
 
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
+from psycopg2.errors import DeadlockDetected
 
 from app.db import UrlStore
 from app.services.indexer import IndexerSubmitResult
@@ -410,6 +411,46 @@ def test_pop_batch_respects_max_per_domain(tmp_path):
     assert per_domain["a.example.com"] == 2
     assert max(per_domain.values()) <= 2
     assert url_store.get_stats()["pending"] == len(urls) - len(popped)
+
+
+def test_add_batch_deduplicates_urls(tmp_path):
+    """add_batch should deduplicate URLs within the same batch."""
+    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+
+    urls = [
+        "http://example.com/1",
+        "http://example.com/1",
+        "http://example.com/2",
+        "http://example.com/2",
+    ]
+
+    assert url_store.add_batch(urls) == 2
+
+    stats = url_store.get_stats()
+    assert stats["pending"] == 2
+    assert url_store.contains("http://example.com/1")
+    assert url_store.contains("http://example.com/2")
+
+
+def test_add_batch_retries_db_concurrency_error(tmp_path):
+    """add_batch should retry once on deadlock/serialization-style errors."""
+    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+
+    original = url_store._add_batch_chunk
+    calls = 0
+
+    def flaky_add_batch_chunk(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise DeadlockDetected()
+        return original(*args, **kwargs)
+
+    url_store._add_batch_chunk = flaky_add_batch_chunk
+
+    assert url_store.add_batch(["http://example.com/retry"]) == 1
+    assert calls == 2
+    assert url_store.get_stats()["pending"] == 1
 
 
 @pytest.mark.asyncio
