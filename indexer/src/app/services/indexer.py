@@ -10,6 +10,7 @@ from app.services.scoring import (
     compute_content_quality,
     compute_temporal_anchor,
 )
+from shared.search_index_exclusions import is_search_index_excluded
 from shared.postgres.search import get_connection, sql_placeholder
 from shared.embedding import deserialize, to_pgvector
 from shared.search_kernel.indexer import SearchIndexer
@@ -233,7 +234,7 @@ class IndexerService:
     ) -> None:
         """Write document to OpenSearch (best-effort, logs on failure)."""
         try:
-            from shared.opensearch.client import index_document
+            from shared.opensearch.client import delete_document, index_document
             from shared.search_kernel.analyzer import analyzer, STOP_WORDS
 
             title_tokens = analyzer.tokenize(title) if title else ""
@@ -273,6 +274,11 @@ class IndexerService:
             now = datetime.now(timezone.utc).isoformat()
 
             client = _get_opensearch_client()
+            if is_search_index_excluded(host, path):
+                delete_document(client, url)
+                logger.info("Skipped OpenSearch index for excluded host: %s", url)
+                return
+
             index_document(
                 client,
                 url=url,
