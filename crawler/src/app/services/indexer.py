@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import time
+import asyncio
 from dataclasses import dataclass
 import aiohttp
 
@@ -16,7 +17,9 @@ logger = logging.getLogger(__name__)
 
 MAX_ERROR_DETAIL_LENGTH = 240
 
-INDEXER_TIMEOUT_SEC = int(os.getenv("INDEXER_SUBMIT_TIMEOUT_SEC", "10"))
+INDEXER_TIMEOUT_SEC = int(os.getenv("INDEXER_SUBMIT_TIMEOUT_SEC", "20"))
+INDEXER_RETRY_ATTEMPTS = int(os.getenv("INDEXER_SUBMIT_RETRY_ATTEMPTS", "3"))
+INDEXER_RETRY_BASE_SEC = float(os.getenv("INDEXER_SUBMIT_RETRY_BASE_SEC", "0.5"))
 CIRCUIT_BREAKER_THRESHOLD = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "5"))
 CIRCUIT_BREAKER_RESET_SEC = int(os.getenv("CIRCUIT_BREAKER_RESET_SEC", "60"))
 
@@ -131,54 +134,71 @@ async def submit_page_to_indexer(
             ok=False, detail="Circuit breaker open, indexer skipped"
         )
 
-    try:
-        headers = {
-            "X-API-Key": api_key,
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "url": url,
-            "title": title,
-            "content": content,
-        }
-        if outlinks:
-            payload["outlinks"] = outlinks
-        if published_at:
-            payload["published_at"] = published_at
-        if updated_at:
-            payload["updated_at"] = updated_at
-        if author:
-            payload["author"] = author
-        if organization:
-            payload["organization"] = organization
+    headers = {
+        "X-API-Key": api_key,
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "url": url,
+        "title": title,
+        "content": content,
+    }
+    if outlinks:
+        payload["outlinks"] = outlinks
+    if published_at:
+        payload["published_at"] = published_at
+    if updated_at:
+        payload["updated_at"] = updated_at
+    if author:
+        payload["author"] = author
+    if organization:
+        payload["organization"] = organization
 
-        async with session.post(
-            api_url, json=payload, headers=headers, timeout=INDEXER_TIMEOUT_SEC
-        ) as resp:
-            if resp.status == 202:
-                response_body = await resp.json()
-                job_id = response_body.get("job_id")
-                logger.info(f"✅ Queued for indexing: {url} (job_id={job_id})")
-                _circuit_breaker.record_success()
+    last_detail: str | None = None
+
+    for attempt in range(1, max(1, INDEXER_RETRY_ATTEMPTS) + 1):
+        try:
+            async with session.post(
+                api_url, json=payload, headers=headers, timeout=INDEXER_TIMEOUT_SEC
+            ) as resp:
+                if resp.status == 202:
+                    response_body = await resp.json()
+                    job_id = response_body.get("job_id")
+                    logger.info(f"✅ Queued for indexing: {url} (job_id={job_id})")
+                    _circuit_breaker.record_success()
+                    return IndexerSubmitResult(
+                        ok=True,
+                        status_code=resp.status,
+                        job_id=str(job_id) if job_id else None,
+                    )
+
+                error_text = await resp.text()
+                detail = _summarize_indexer_error(resp.status, error_text)
+                logger.error("❌ API error %d for %s: %s", resp.status, url, detail)
+                _circuit_breaker.record_failure()
                 return IndexerSubmitResult(
-                    ok=True,
+                    ok=False,
                     status_code=resp.status,
-                    job_id=str(job_id) if job_id else None,
+                    detail=detail,
                 )
-
-            error_text = await resp.text()
-            detail = _summarize_indexer_error(resp.status, error_text)
-            logger.error(f"❌ API error {resp.status} for {url}: {detail}")
-            _circuit_breaker.record_failure()
-            return IndexerSubmitResult(
-                ok=False,
-                status_code=resp.status,
-                detail=detail,
+        except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+            exc_detail = _describe_exception(exc)
+            last_detail = _normalize_error_text(f"Indexer request failed: {exc_detail}")
+            logger.warning(
+                "Indexer submit attempt %d/%d failed for %s: %s",
+                attempt,
+                INDEXER_RETRY_ATTEMPTS,
+                url,
+                exc_detail,
             )
+            if attempt < INDEXER_RETRY_ATTEMPTS:
+                await asyncio.sleep(INDEXER_RETRY_BASE_SEC * attempt)
+                continue
+        except Exception as exc:
+            exc_detail = _describe_exception(exc)
+            last_detail = _normalize_error_text(f"Indexer request failed: {exc_detail}")
+            logger.error("❌ Failed to submit %s to API: %s", url, exc_detail)
+            break
 
-    except Exception as e:
-        exc_detail = _describe_exception(e)
-        detail = _normalize_error_text(f"Indexer request failed: {exc_detail}")
-        logger.error("❌ Failed to submit %s to API: %s", url, exc_detail)
-        _circuit_breaker.record_failure()
-        return IndexerSubmitResult(ok=False, detail=detail)
+    _circuit_breaker.record_failure()
+    return IndexerSubmitResult(ok=False, detail=last_detail)

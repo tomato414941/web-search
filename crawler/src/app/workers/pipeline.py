@@ -42,6 +42,7 @@ class PipelineContext:
     domain: str
     blocked_domains: frozenset[str] = field(default_factory=frozenset)
     domain_cache: dict = field(default_factory=dict)
+    indexer_session: aiohttp.ClientSession | None = None
 
 
 @dataclass
@@ -193,7 +194,7 @@ async def submit_to_indexer(ctx: PipelineContext, parsed: ParseResult) -> bool:
     Returns True on success. Logs and records the result.
     """
     result = await submit_page_to_indexer(
-        ctx.session,
+        ctx.indexer_session or ctx.session,
         settings.INDEXER_API_URL,
         settings.INDEXER_API_KEY,
         ctx.url,

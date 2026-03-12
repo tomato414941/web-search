@@ -60,6 +60,7 @@ async def process_url(
     scheduler: Scheduler,
     url: str,
     runtime_state: WorkerRuntimeState | None = None,
+    indexer_session: aiohttp.ClientSession | None = None,
 ):
     """
     Process a single URL: check robots, fetch, parse, submit to indexer, extract links.
@@ -70,6 +71,7 @@ async def process_url(
 
     ctx = PipelineContext(
         session=session,
+        indexer_session=indexer_session,
         robots=robots,
         url_store=url_store,
         scheduler=scheduler,
@@ -271,9 +273,19 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
         enable_cleanup_closed=True,
     )
 
-    async with aiohttp.ClientSession(
-        headers={"User-Agent": settings.CRAWL_USER_AGENT}, connector=connector
-    ) as session:
+    indexer_connector = aiohttp.TCPConnector(
+        limit=max(16, concurrency * 2),
+        limit_per_host=max(16, concurrency * 2),
+        ttl_dns_cache=300,
+        enable_cleanup_closed=True,
+    )
+
+    async with (
+        aiohttp.ClientSession(
+            headers={"User-Agent": settings.CRAWL_USER_AGENT}, connector=connector
+        ) as session,
+        aiohttp.ClientSession(connector=indexer_connector) as indexer_session,
+    ):
         robots = AsyncRobotsCache(session, cache_size=settings.ROBOTS_CACHE_SIZE)
 
         logger.info("Crawler started with concurrency=%d", concurrency)
@@ -288,6 +300,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     scheduler,
                     url,
                     runtime_state=state,
+                    indexer_session=indexer_session,
                 )
             except asyncio.CancelledError:
                 raise
