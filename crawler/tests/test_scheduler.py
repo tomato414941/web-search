@@ -281,8 +281,8 @@ class TestGetReadyUrls:
         assert len(result) == 2
         domains = {item.domain for item in result}
         assert domains == {"a.com", "b.com"}
-        # Blocked items should be removed from buffer (not left behind)
-        assert s.buffer_size() == 0
+        # Temporarily blocked items stay buffered and are retried after the block expires.
+        assert s.buffer_size() == 2
 
     def test_blocked_domains_removed_from_db_batch(self):
         blocked_item = self._make_item("http://t.co/abc", "t.co")
@@ -297,8 +297,9 @@ class TestGetReadyUrls:
         result = s.get_ready_urls(2)
         assert len(result) == 1
         assert result[0].domain == "example.com"
-        # Blocked items should NOT be added to buffer
+        # Temporarily blocked items should be returned to the pending queue.
         assert s.buffer_size() == 0
+        url_store.return_urls.assert_called_once()
 
     def test_denied_domains_are_dropped_without_release(self):
         denied_item = self._make_item(
@@ -316,3 +317,4 @@ class TestGetReadyUrls:
         assert result[0].domain == "example.com"
         assert s.buffer_size() == 0
         url_store.release_urls.assert_not_called()
+        url_store.return_urls.assert_not_called()

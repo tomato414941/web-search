@@ -2,6 +2,8 @@
 
 import time
 
+from psycopg2.extras import execute_values
+
 from app.db.connection import db_transaction
 from app.db.url_types import UrlItem, get_domain, url_hash
 from shared.postgres.search import sql_placeholder
@@ -77,6 +79,27 @@ class UrlQueueMixin:
                 (h, url, domain, now),
             )
             return cur.rowcount > 0
+
+    def return_urls(self, items: list[UrlItem]) -> int:
+        """Return pending URLs back to crawl_queue without touching crawl ledger."""
+        if not items:
+            return 0
+        with db_transaction(self.db_path) as cur:
+            inserted = execute_values(
+                cur,
+                """
+                INSERT INTO crawl_queue (url_hash, url, domain, created_at)
+                VALUES %s
+                ON CONFLICT (url_hash) DO NOTHING
+                RETURNING url_hash
+                """,
+                [
+                    (url_hash(item.url), item.url, item.domain, item.created_at)
+                    for item in items
+                ],
+                fetch=True,
+            )
+            return len(inserted)
 
     def release_urls(self, urls: list[str]) -> int:
         """

@@ -323,18 +323,6 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     runtime_state.blocked_domains = static_denylist | dynamic_blocked
                     scheduler.set_temporarily_blocked_domains(dynamic_blocked)
 
-                    # Layer 3: Purge newly denied domains from queue
-                    new_dynamic = dynamic_blocked - static_denylist
-                    if new_dynamic:
-                        purged = await run_in_db_executor(
-                            url_store.purge_denied_domains, frozenset(new_dynamic)
-                        )
-                        if purged:
-                            logger.info(
-                                "Purged %d pending URLs from newly denied domains",
-                                purged,
-                            )
-
                     robots_block_refreshed_at = time.monotonic()
                     logger.info(
                         "Domain block filter: %d static + %d dynamic = %d total",

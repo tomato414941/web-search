@@ -99,18 +99,16 @@ class Scheduler:
         return is_domain_denied(domain, self._denied_domains)
 
     def _purge_blocked_from_buffer(self) -> None:
-        """Remove denied domains from internal buffer (skips if unchanged)."""
+        """Remove statically denied domains from internal buffer."""
         current_version = max(self._purged_version, 0)
-        latest_version = max(self._denied_version, self._blocked_version)
+        latest_version = self._denied_version
         if current_version == latest_version:
             return
         self._purged_version = latest_version
-        if not self._denied_domains and not self._blocked_domains:
+        if not self._denied_domains:
             return
         self._buffer = [
-            item
-            for item in self._buffer
-            if not self._is_denied(item.domain) and not self._is_blocked(item.domain)
+            item for item in self._buffer if not self._is_denied(item.domain)
         ]
 
     def get_ready_urls(self, count: int) -> list[UrlItem]:
@@ -128,6 +126,8 @@ class Scheduler:
         """
         if count <= 0:
             return []
+
+        self._purge_blocked_from_buffer()
 
         now = time.time()
         result = []
@@ -148,10 +148,8 @@ class Scheduler:
             effective_inflight = gate.inflight + selected_per_domain.get(domain, 0)
             return effective_inflight < gate.concurrency_limit
 
-        # Check buffer — collect selected AND blocked indices for removal
+        # Check buffer. Denied items are dropped, temporarily blocked items stay buffered.
         denied_indices: list[int] = []
-        blocked_indices: list[int] = []
-        blocked_urls: list[str] = []
         for i, item in enumerate(self._buffer):
             if len(result) >= count:
                 break
@@ -159,8 +157,6 @@ class Scheduler:
                 denied_indices.append(i)
                 continue
             if blocked and is_domain_denied(item.domain, blocked):
-                blocked_indices.append(i)
-                blocked_urls.append(item.url)
                 continue
             if _can_select(item.domain):
                 result.append(item)
@@ -170,12 +166,8 @@ class Scheduler:
                 )
 
         # Remove selected + blocked items from buffer (reverse order)
-        for i in reversed(sorted(to_remove + blocked_indices + denied_indices)):
+        for i in reversed(sorted(to_remove + denied_indices)):
             self._buffer.pop(i)
-
-        # Release blocked URLs back to DB
-        if blocked_urls:
-            self.url_store.release_urls(blocked_urls)
 
         # If we need more, fetch from url_store
         while len(result) < count:
@@ -202,11 +194,9 @@ class Scheduler:
                         selected_per_domain.get(item.domain, 0) + 1
                     )
 
-            # Release blocked URLs back to DB
+            # Return temporarily blocked URLs back to pending queue.
             if blocked_idx:
-                self.url_store.release_urls(
-                    [items[i].url for i in blocked_idx],
-                )
+                self.url_store.return_urls([items[i] for i in blocked_idx])
 
             # Add remaining to buffer (skip blocked)
             skip_set = set(to_remove) | set(blocked_idx) | set(denied_idx)
