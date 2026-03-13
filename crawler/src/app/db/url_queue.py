@@ -21,6 +21,7 @@ class UrlQueueMixin:
         """
         if count <= 0:
             return []
+        self._drop_cached_stats()
 
         ph = sql_placeholder()
 
@@ -71,6 +72,7 @@ class UrlQueueMixin:
         domain = get_domain(url)
         now = int(time.time())
         ph = sql_placeholder()
+        self._drop_cached_stats()
         with db_transaction(self.db_path) as cur:
             cur.execute(
                 f"""
@@ -89,6 +91,7 @@ class UrlQueueMixin:
         """Return pending URLs back to crawl_queue without touching crawl ledger."""
         if not items:
             return 0
+        self._drop_cached_stats()
         with db_transaction(self.db_path) as cur:
             inserted = execute_values(
                 cur,
@@ -122,6 +125,7 @@ class UrlQueueMixin:
         """
         if not urls:
             return 0
+        self._drop_cached_stats()
         ph = sql_placeholder()
         now = int(time.time())
         hashes = [url_hash(u) for u in urls]

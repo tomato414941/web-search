@@ -171,6 +171,7 @@ class UrlDiscoveryMixin:
         """
         if not urls:
             return 0
+        self._drop_cached_stats()
 
         rows = self._normalize_batch_urls(urls)
         if not rows:
@@ -231,6 +232,7 @@ class UrlDiscoveryMixin:
         domain = get_domain(url)
         now = int(time.time())
         ph = sql_placeholder()
+        self._drop_cached_stats()
 
         with db_transaction(self.db_path) as cur:
             cur.execute(

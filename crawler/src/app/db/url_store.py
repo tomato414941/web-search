@@ -58,6 +58,8 @@ class UrlStore(UrlDiscoveryMixin, UrlQueueMixin, UrlQueriesMixin, UrlSeedsMixin)
             os.getenv("CRAWL_PENDING_COUNT_CACHE_TTL_SEC", "30")
         )
         self._pending_count_cache: dict[str, tuple[int, float]] = {}
+        self._stats_cache_ttl_sec = int(os.getenv("CRAWL_STATS_CACHE_TTL_SEC", "15"))
+        self._stats_cache: tuple[dict[str, int], float] | None = None
         self._init_db()
 
     def _init_db(self):
@@ -96,3 +98,18 @@ class UrlStore(UrlDiscoveryMixin, UrlQueueMixin, UrlQueriesMixin, UrlSeedsMixin)
     def _drop_cached_pending_counts(self, domains: Iterable[str]) -> None:
         for domain in domains:
             self._pending_count_cache.pop(domain, None)
+
+    def _get_cached_stats(self) -> dict[str, int] | None:
+        if self._stats_cache is None:
+            return None
+        stats, cached_at = self._stats_cache
+        if time.time() - cached_at >= self._stats_cache_ttl_sec:
+            self._stats_cache = None
+            return None
+        return stats.copy()
+
+    def _set_cached_stats(self, stats: dict[str, int]) -> None:
+        self._stats_cache = (stats.copy(), time.time())
+
+    def _drop_cached_stats(self) -> None:
+        self._stats_cache = None

@@ -125,6 +125,9 @@ class UrlQueriesMixin:
 
     def get_stats(self) -> dict:
         """Get URL statistics from both ledger and queue."""
+        cached = self._get_cached_stats()
+        if cached is not None:
+            return cached
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
 
@@ -163,7 +166,7 @@ class UrlQueriesMixin:
             )
             recent = cur.fetchone()[0]
 
-            return {
+            stats = {
                 "pending": pending,
                 "crawling": 0,
                 "done": crawled,
@@ -171,6 +174,8 @@ class UrlQueriesMixin:
                 "total": total,
                 "recent": recent,
             }
+            self._set_cached_stats(stats)
+            return stats
 
     def get_domains(self, limit: int = 100) -> list[tuple[str, int]]:
         """Get domain counts for crawled URLs."""

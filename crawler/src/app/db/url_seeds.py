@@ -14,6 +14,7 @@ class UrlSeedsMixin:
         """Set is_seed = TRUE for the given URLs."""
         if not urls:
             return 0
+        self._drop_cached_stats()
 
         ph = sql_placeholder()
         hashes = [url_hash(u) for u in urls]
@@ -28,6 +29,7 @@ class UrlSeedsMixin:
         """Set is_seed = FALSE for the given URLs."""
         if not urls:
             return 0
+        self._drop_cached_stats()
 
         ph = sql_placeholder()
         hashes = [url_hash(u) for u in urls]
@@ -48,6 +50,7 @@ class UrlSeedsMixin:
         """
         if not denylist:
             return 0
+        self._drop_cached_stats()
 
         with db_transaction(self.db_path) as cur:
             conditions = []

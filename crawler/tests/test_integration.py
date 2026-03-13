@@ -375,6 +375,18 @@ def test_requeue_inserts_to_crawl_queue(tmp_path):
     assert stats["pending"] == 1
 
 
+def test_get_stats_cache_is_invalidated_on_mutation(tmp_path):
+    """get_stats should refresh after queue mutations."""
+    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+
+    assert url_store.get_stats()["pending"] == 0
+    assert url_store.add("http://example.com/cache") is True
+    assert url_store.get_stats()["pending"] == 1
+
+    url_store.pop_batch(1)
+    assert url_store.get_stats()["pending"] == 0
+
+
 def test_requeue_noop_if_already_queued(tmp_path):
     """requeue should be a no-op if URL is already in queue."""
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
