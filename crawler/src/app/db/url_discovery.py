@@ -52,14 +52,20 @@ class UrlDiscoveryMixin:
         """Get queued URL counts per domain."""
         if not domains:
             return {}
+        cached, missing = self._get_cached_pending_counts(domains)
+        if not missing:
+            return cached
         ph = sql_placeholder()
         cur.execute(
             f"SELECT domain, COUNT(*) FROM crawl_queue "
             f"WHERE domain = ANY({ph}) "
             f"GROUP BY domain",
-            (domains,),
+            (missing,),
         )
-        return {row[0]: row[1] for row in cur.fetchall()}
+        fetched = {row[0]: row[1] for row in cur.fetchall()}
+        merged = {domain: fetched.get(domain, 0) for domain in missing}
+        self._set_cached_pending_counts(merged)
+        return cached | merged
 
     def _insert_urls_batch(
         self, cur: Any, rows: list[dict[str, Any]], now: int
@@ -151,6 +157,7 @@ class UrlDiscoveryMixin:
             added += 1
             if cap > 0:
                 batch_adds[row["domain"]] = batch_adds.get(row["domain"], 0) + 1
+                self._bump_cached_pending_count(row["domain"], 1)
         return added
 
     def add(self, url: str) -> bool:

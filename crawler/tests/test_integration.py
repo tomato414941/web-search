@@ -453,6 +453,25 @@ def test_add_batch_retries_db_concurrency_error(tmp_path):
     assert url_store.get_stats()["pending"] == 1
 
 
+def test_add_batch_updates_cached_domain_counts(tmp_path):
+    """Repeated enqueue should keep the soft per-domain cap cache in sync."""
+    url_store = UrlStore(
+        str(tmp_path / "test.db"),
+        recrawl_after_days=30,
+        max_pending_per_domain=5000,
+    )
+
+    assert url_store.add_batch(["http://example.com/a"]) == 1
+    cached, missing = url_store._get_cached_pending_counts(["example.com"])
+    assert missing == []
+    assert cached == {"example.com": 1}
+
+    assert url_store.add_batch(["http://example.com/b"]) == 1
+    cached, missing = url_store._get_cached_pending_counts(["example.com"])
+    assert missing == []
+    assert cached == {"example.com": 2}
+
+
 @pytest.mark.asyncio
 async def test_process_url_too_long_is_skipped_before_fetch(test_components):
     """Overly long URLs should be skipped before robots/fetch/indexer."""
