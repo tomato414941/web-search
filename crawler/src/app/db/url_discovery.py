@@ -25,7 +25,6 @@ class UrlDiscoveryMixin:
 
     db_path: str
     recrawl_threshold: int
-    max_pending_per_domain: int
 
     @staticmethod
     def _chunked(
@@ -47,25 +46,6 @@ class UrlDiscoveryMixin:
                 },
             )
         return sorted(records.values(), key=lambda row: row["h"])
-
-    def _get_queue_counts_batch(self, cur: Any, domains: list[str]) -> dict[str, int]:
-        """Get queued URL counts per domain."""
-        if not domains:
-            return {}
-        cached, missing = self._get_cached_pending_counts(domains)
-        if not missing:
-            return cached
-        ph = sql_placeholder()
-        cur.execute(
-            f"SELECT domain, COUNT(*) FROM crawl_queue "
-            f"WHERE domain = ANY({ph}) "
-            f"GROUP BY domain",
-            (missing,),
-        )
-        fetched = {row[0]: row[1] for row in cur.fetchall()}
-        merged = {domain: fetched.get(domain, 0) for domain in missing}
-        self._set_cached_pending_counts(merged)
-        return cached | merged
 
     def _insert_urls_batch(
         self, cur: Any, rows: list[dict[str, Any]], now: int
@@ -125,9 +105,6 @@ class UrlDiscoveryMixin:
         *,
         now: int,
         cutoff: int,
-        cap: int,
-        queued: dict[str, int],
-        batch_adds: dict[str, int],
     ) -> int:
         self._insert_urls_batch(cur, rows, now)
 
@@ -138,12 +115,6 @@ class UrlDiscoveryMixin:
         for row in rows:
             if row["h"] in recent_hashes:
                 continue
-            if cap > 0:
-                current = queued.get(row["domain"], 0) + batch_adds.get(
-                    row["domain"], 0
-                )
-                if current >= cap:
-                    continue
             enqueue_rows.append(row)
 
         inserted_hashes = self._insert_crawl_queue_batch(cur, enqueue_rows, now)
@@ -155,9 +126,6 @@ class UrlDiscoveryMixin:
             if row["h"] not in inserted_hashes:
                 continue
             added += 1
-            if cap > 0:
-                batch_adds[row["domain"]] = batch_adds.get(row["domain"], 0) + 1
-                self._bump_cached_pending_count(row["domain"], 1)
         return added
 
     def add(self, url: str) -> bool:
@@ -167,7 +135,6 @@ class UrlDiscoveryMixin:
     def add_batch(self, urls: list[str]) -> int:
         """
         Discover and enqueue multiple URLs.
-        Respects per-domain queue cap (max_pending_per_domain).
         """
         if not urls:
             return 0
@@ -179,15 +146,7 @@ class UrlDiscoveryMixin:
 
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        cap = self.max_pending_per_domain
         chunk_size = max(1, _ENQUEUE_CHUNK_SIZE)
-        queued: dict[str, int] = {}
-        batch_adds: dict[str, int] = {}
-
-        if cap > 0:
-            domains = sorted({row["domain"] for row in rows})
-            with db_transaction(self.db_path) as cur:
-                queued = self._get_queue_counts_batch(cur, domains)
 
         added = 0
         for chunk in self._chunked(rows, chunk_size):
@@ -199,9 +158,6 @@ class UrlDiscoveryMixin:
                             chunk,
                             now=now,
                             cutoff=cutoff,
-                            cap=cap,
-                            queued=queued,
-                            batch_adds=batch_adds,
                         )
                     break
                 except (DeadlockDetected, SerializationFailure):

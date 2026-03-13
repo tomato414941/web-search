@@ -59,9 +59,6 @@ class UrlQueueMixin:
                 (overscan, max_per_domain, count),
             )
             rows = cur.fetchall()
-            for row in rows:
-                self._bump_cached_pending_count(row[1], -1)
-
             return [
                 UrlItem(url=row[0], domain=row[1], created_at=row[2]) for row in rows
             ]
@@ -82,10 +79,7 @@ class UrlQueueMixin:
                 """,
                 (h, url, domain, now),
             )
-            added = cur.rowcount > 0
-            if added:
-                self._bump_cached_pending_count(domain, 1)
-            return added
+            return cur.rowcount > 0
 
     def return_urls(self, items: list[UrlItem]) -> int:
         """Return pending URLs back to crawl_queue without touching crawl ledger."""
@@ -112,7 +106,6 @@ class UrlQueueMixin:
             for item in items:
                 if url_hash(item.url) not in inserted_hashes:
                     continue
-                self._bump_cached_pending_count(item.domain, 1)
                 added += 1
             return added
 

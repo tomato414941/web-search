@@ -69,7 +69,6 @@ class UrlSeedsMixin:
                 f"DELETE FROM crawl_queue WHERE ({where})",
                 params,
             )
-            self._drop_cached_pending_counts(denylist)
             return cur.rowcount
 
     def purge_blocked_domains(self, blocklist: frozenset[str]) -> int:

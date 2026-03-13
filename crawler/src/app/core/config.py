@@ -37,7 +37,6 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_OUTLINKS_PER_PAGE: int = 50
     CRAWL_CONCURRENCY: int = 10
     CRAWL_SEEDS: list[str] = []
-    MAX_PENDING_PER_DOMAIN: int = 5000
 
     # Scheduler
     SCHEDULER_BATCH_SIZE: int = 500

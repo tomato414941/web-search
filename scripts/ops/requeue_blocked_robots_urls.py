@@ -63,7 +63,6 @@ scan_candidates = bool(payload["scan_candidates"])
 store = UrlStore(
     settings.CRAWLER_DB_PATH,
     recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
-    max_pending_per_domain=settings.MAX_PENDING_PER_DOMAIN,
 )
 
 ph = sql_placeholder()
