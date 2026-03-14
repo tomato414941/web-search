@@ -19,6 +19,7 @@ from app.metrics import (
     record_maintenance_run,
     record_worker_error,
     record_worker_start,
+    update_queue_metrics,
 )
 from app.services.indexer import indexer_service
 from shared.postgres.migrate import migrate
@@ -77,10 +78,11 @@ async def _domain_rank_loop() -> None:
 
 
 async def _queue_metrics_loop() -> None:
-    interval = max(1, int(os.getenv("QUEUE_METRICS_INTERVAL_SEC", "5")))
+    interval = max(1, int(os.getenv("QUEUE_METRICS_INTERVAL_SEC", "60")))
     while True:
         try:
-            await asyncio.to_thread(indexer.index_job_service.get_queue_stats)
+            stats = await asyncio.to_thread(indexer.index_job_service.get_queue_stats)
+            update_queue_metrics(stats)
         except Exception:
             record_worker_error("queue_metrics")
             logger.exception("Queue metrics refresh failed")

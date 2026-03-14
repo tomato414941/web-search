@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from app.metrics import record_claim_batch, record_job_result, update_queue_metrics
+from app.metrics import record_claim_batch, record_job_result
 from app.services.dedupe import build_dedupe_key, hash_text
 from app.services.job_recovery import (
     cleanup_old_done_jobs,
@@ -473,7 +473,6 @@ class IndexJobService:
                 "total_jobs": int(row[5] or 0),
                 "oldest_pending_seconds": oldest_pending_seconds,
             }
-            update_queue_metrics(stats)
             return stats
         finally:
             con.close()

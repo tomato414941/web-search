@@ -9,15 +9,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.metrics import (
-    router as metrics_router,
-    update_indexed_pages_metric,
-    update_queue_metrics,
-)
+from app.metrics import router as metrics_router
 from shared.postgres.migrate import migrate
 from app.api.routes import indexer
 from app.api.routes.health import root_router as health_root_router
-from app.services.indexer import indexer_service
 from shared.core.infrastructure_config import Environment
 
 logger = logging.getLogger(__name__)
@@ -85,15 +80,6 @@ app.include_router(metrics_router, tags=["metrics"], include_in_schema=False)
 
 # Indexer API (requires API key)
 app.include_router(indexer.router, prefix="/api/v1", tags=["indexer"])
-
-
-@app.middleware("http")
-async def refresh_metrics_on_write_requests(request, call_next):
-    if request.url.path == "/metrics":
-        update_indexed_pages_metric(indexer_service.get_index_stats().get("total", 0))
-        update_queue_metrics(indexer.index_job_service.get_queue_stats())
-    response = await call_next(request)
-    return response
 
 
 if __name__ == "__main__":
