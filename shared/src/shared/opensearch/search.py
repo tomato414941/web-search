@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 CANDIDATE_LIMIT = 200
 CANONICAL_HOST_BOOST = 3.0
+CANONICAL_EXACT_PATH_BOOST = 5.0
 CANONICAL_PATH_BOOST = 4.0
 CANONICAL_HOMEPAGE_BOOST = 6.0
 
@@ -26,6 +27,7 @@ def search_bm25(
     exclude_phrases: tuple[str, ...] = (),
     canonical_domains: tuple[str, ...] = (),
     canonical_paths: tuple[str, ...] = (),
+    required_domains: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """BM25 search with operator-aware filtering.
 
@@ -51,6 +53,7 @@ def search_bm25(
             exclude_phrases=exclude_phrases,
             canonical_domains=canonical_domains,
             canonical_paths=canonical_paths,
+            required_domains=required_domains,
         ),
         "from": offset,
         "size": min(limit, CANDIDATE_LIMIT),
@@ -120,6 +123,7 @@ def _build_bm25_bool_query(
     exclude_phrases: tuple[str, ...] = (),
     canonical_domains: tuple[str, ...] = (),
     canonical_paths: tuple[str, ...] = (),
+    required_domains: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     bool_query: dict[str, Any] = {}
 
@@ -127,7 +131,7 @@ def _build_bm25_bool_query(
     if must_clauses:
         bool_query["must"] = must_clauses
 
-    filter_clauses = _build_filter_clauses(site_filter)
+    filter_clauses = _build_filter_clauses(site_filter, required_domains)
     if filter_clauses:
         bool_query["filter"] = filter_clauses
 
@@ -160,10 +164,19 @@ def _build_negative_clauses(
     return clauses
 
 
-def _build_filter_clauses(site_filter: str | None) -> list[dict[str, Any]]:
-    if not site_filter:
-        return []
-    return [{"wildcard": {"url": {"value": f"*{site_filter}*"}}}]
+def _build_filter_clauses(
+    site_filter: str | None, required_domains: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    clauses: list[dict[str, Any]] = []
+    if site_filter:
+        clauses.append({"wildcard": {"url": {"value": f"*{site_filter}*"}}})
+    if required_domains:
+        domain_terms: list[dict[str, Any]] = []
+        for domain in required_domains:
+            domain_terms.append({"term": {"host": {"value": domain}}})
+            domain_terms.append({"term": {"host": {"value": f"www.{domain}"}}})
+        clauses.append({"bool": {"should": domain_terms, "minimum_should_match": 1}})
+    return clauses
 
 
 def _build_canonical_should_clauses(
@@ -198,6 +211,9 @@ def _build_canonical_should_clauses(
                 }
             )
             continue
+        clauses.append(
+            {"term": {"path": {"value": path, "boost": CANONICAL_EXACT_PATH_BOOST}}}
+        )
         clauses.append(
             {"prefix": {"path": {"value": path, "boost": CANONICAL_PATH_BOOST}}}
         )

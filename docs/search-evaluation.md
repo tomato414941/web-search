@@ -37,6 +37,7 @@ The following classes are still evaluated, but they are not yet considered first
 
 - comparison
 - news
+- exploratory reference gaps outside the current release baseline
 
 They remain in the golden set as visibility checks, not as current release gates.
 
@@ -86,6 +87,7 @@ The current evaluation set contains:
 
 - tier-1 navigational/reference baseline queries
 - tier-2 comparison/news visibility queries
+- tier-2 exploratory reference coverage checks for additional ecosystems
 
 At the current stage:
 
@@ -144,7 +146,7 @@ At minimum, PaleBlueSearch should satisfy two baseline expectations:
 
 If those fail, more advanced ranking ideas do not matter yet.
 
-At the current stage, comparison and news remain visible stretch goals rather than release-blocking scope.
+At the current stage, comparison, news, and exploratory reference expansion remain visible stretch goals rather than release-blocking scope.
 
 ## Tier-2 Work Trigger
 
@@ -154,15 +156,16 @@ They become active work only when one of the following is true:
 1. The tier-1 baseline passes in production across 3 consecutive production changes that affect search behavior.
    A qualifying change is any production deployment that touches search, crawler, indexer, or retrieval/ranking code.
    "Passes" means every tier-1 query in the current golden set is still passing at production after the deploy.
-2. Product scope is explicitly expanded to include comparison or news quality.
+2. Product scope is explicitly expanded to include comparison, news, or additional reference coverage quality.
    This should be a deliberate decision, not a side effect of unrelated ranking work.
 
 Until one of those conditions is met, tier-2 failures remain visible but non-blocking.
 
 If tier-2 work starts, the default order is:
 
-1. comparison queries
-2. news queries
+1. additional reference coverage gaps
+2. comparison queries
+3. news queries
 
 News comes later because it requires source and recency policy, which is broader than the current narrow ranking scope.
 

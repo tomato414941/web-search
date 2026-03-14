@@ -65,13 +65,19 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
     )
 
     def fake_execute(
-        client, search_query, plan, canonical_domains=(), canonical_paths=()
+        client,
+        search_query,
+        plan,
+        canonical_domains=(),
+        canonical_paths=(),
+        required_domains=(),
     ):
         captured["client"] = client
         captured["plan"] = plan
         captured["search_query"] = search_query
         captured["canonical_domains"] = canonical_domains
         captured["canonical_paths"] = canonical_paths
+        captured["required_domains"] = required_domains
         return {"total": 25, "hits": raw_hits}
 
     monkeypatch.setattr(search_opensearch, "execute_opensearch_search", fake_execute)
@@ -98,6 +104,7 @@ def test_run_opensearch_query_uses_plain_result_for_site_filter(monkeypatch):
     assert captured["plan"].fetch_offset == 20
     assert captured["canonical_domains"] == ()
     assert captured["canonical_paths"] == ()
+    assert captured["required_domains"] == ()
 
 
 def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
@@ -122,12 +129,18 @@ def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
     ]
 
     def fake_execute(
-        client, search_query, plan, canonical_domains=(), canonical_paths=()
+        client,
+        search_query,
+        plan,
+        canonical_domains=(),
+        canonical_paths=(),
+        required_domains=(),
     ):
         captured["plan"] = plan
         captured["client"] = client
         captured["canonical_domains"] = canonical_domains
         captured["canonical_paths"] = canonical_paths
+        captured["required_domains"] = required_domains
         return {"total": 25, "hits": raw_hits}
 
     monkeypatch.setattr(search_opensearch, "execute_opensearch_search", fake_execute)
@@ -143,6 +156,7 @@ def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
     assert captured["plan"].fetch_size == 100
     assert captured["canonical_domains"] == ("github.com",)
     assert captured["canonical_paths"] == ("/",)
+    assert captured["required_domains"] == ()
     assert [hit.url for hit in result.hits] == [
         "https://github.com/",
         "https://github.com/org/repo",

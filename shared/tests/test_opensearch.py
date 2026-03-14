@@ -76,16 +76,28 @@ def test_ensure_index_updates_missing_mappings():
 def test_build_bm25_bool_query_adds_canonical_retrieval_signals():
     query = _build_bm25_bool_query(
         "github",
+        required_domains=("docs.github.com",),
         canonical_domains=("github.com",),
         canonical_paths=("/", "/docs"),
     )
 
     should = query["bool"]["should"]
+    filters = query["bool"]["filter"]
 
     assert {"term": {"host": {"value": "github.com", "boost": 3.0}}} in should
     assert {"term": {"host": {"value": "www.github.com", "boost": 3.0}}} in should
     assert {"term": {"is_homepage": {"value": True, "boost": 6.0}}} in should
+    assert {"term": {"path": {"value": "/docs", "boost": 5.0}}} in should
     assert {"prefix": {"path": {"value": "/docs", "boost": 4.0}}} in should
+    assert {
+        "bool": {
+            "should": [
+                {"term": {"host": {"value": "docs.github.com"}}},
+                {"term": {"host": {"value": "www.docs.github.com"}}},
+            ],
+            "minimum_should_match": 1,
+        }
+    } in filters
 
 
 def test_build_bm25_bool_query_uses_minimum_should_match():

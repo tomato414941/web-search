@@ -25,6 +25,7 @@ def execute_opensearch_search(
     plan: OpenSearchExecutionPlan,
     canonical_domains: tuple[str, ...] = (),
     canonical_paths: tuple[str, ...] = (),
+    required_domains: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     from shared.opensearch.search import search_bm25
 
@@ -39,6 +40,7 @@ def execute_opensearch_search(
         "exclude_phrases": search_query.tokenized_exclude_phrases,
         "canonical_domains": canonical_domains,
         "canonical_paths": canonical_paths,
+        "required_domains": required_domains,
     }
     return search_bm25(**search_args)
 
@@ -80,12 +82,14 @@ def run_opensearch_query(
     )
     canonical_domains = policy.source.domains if policy.source is not None else ()
     canonical_paths = canonical_paths_for_policy(policy)
+    required_domains = canonical_domains if policy.restrict_to_source else ()
     os_result = execute_opensearch_search(
         client,
         search_query,
         plan,
         canonical_domains=canonical_domains,
         canonical_paths=canonical_paths,
+        required_domains=required_domains,
     )
     hits = rerank_hits(build_search_hits(os_result["hits"]), policy, limit=k)
     total = os_result["total"]

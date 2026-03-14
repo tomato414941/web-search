@@ -80,6 +80,8 @@ def _validate_keyword_rules(
         required_terms = rule.get("required_terms") or []
         required_domains = rule.get("required_domains") or []
         any_of_terms = rule.get("any_of_terms") or []
+        required_title_terms = rule.get("required_title_terms") or []
+        required_paths = rule.get("required_paths") or []
         required_path_terms = rule.get("required_path_terms") or []
         excluded_domains = rule.get("excluded_domains") or []
 
@@ -98,15 +100,22 @@ def _validate_keyword_rules(
                 f"query_keyword_rules[{query_key}].any_of_terms requires required_terms"
             )
 
-        if (required_path_terms or excluded_domains) and not required_domains:
+        if (
+            required_title_terms
+            or required_paths
+            or required_path_terms
+            or excluded_domains
+        ) and not (required_domains or required_terms):
             errors.append(
-                f"query_keyword_rules[{query_key}] path/domain filters require required_domains"
+                f"query_keyword_rules[{query_key}] title/path/domain filters require required_domains or required_terms"
             )
 
         for field_name, values in (
             ("required_terms", required_terms),
             ("required_domains", required_domains),
             ("any_of_terms", any_of_terms),
+            ("required_title_terms", required_title_terms),
+            ("required_paths", required_paths),
             ("required_path_terms", required_path_terms),
             ("excluded_domains", excluded_domains),
         ):
@@ -132,6 +141,14 @@ def _validate_keyword_rules(
                 errors.append(
                     f"query_keyword_rules[{query_key}].minimum_domain_matches exceeds required_domains"
                 )
+
+        max_match_rank = rule.get("max_match_rank")
+        if max_match_rank is not None and (
+            not isinstance(max_match_rank, int) or max_match_rank < 1
+        ):
+            errors.append(
+                f"query_keyword_rules[{query_key}].max_match_rank must be a positive integer"
+            )
 
 
 def main() -> int:

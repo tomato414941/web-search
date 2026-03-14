@@ -36,7 +36,11 @@ def _load_config(
     if not cases:
         raise ValueError(f"No query cases found in {config_path}")
     keyword_rules = raw.get("query_keyword_rules", {})
-    known_domains = [domain.lower() for domain in raw.get("known_domains", [])]
+    known_domains = sorted(
+        (domain.lower() for domain in raw.get("known_domains", [])),
+        key=len,
+        reverse=True,
+    )
     return cases, keyword_rules, known_domains
 
 
@@ -60,7 +64,7 @@ def _extract_domain(text: str, known_domains: list[str]) -> str | None:
         return match.group(1).lower()
 
     lowered = text.lower()
-    for domain in known_domains:
+    for domain in sorted(known_domains, key=len, reverse=True):
         if domain in lowered:
             return domain
     return None
@@ -82,6 +86,10 @@ def _hit_text(hit: dict) -> str:
     ).lower()
 
 
+def _hit_title(hit: dict) -> str:
+    return str(hit.get("title", "")).lower()
+
+
 def _domain_matches(
     expected_domain: str, actual_domain: str, *, allow_subdomain: bool
 ) -> bool:
@@ -90,6 +98,53 @@ def _domain_matches(
     if allow_subdomain and actual_domain.endswith(f".{expected_domain}"):
         return True
     return False
+
+
+def _hit_matches_rule(
+    hit: dict,
+    *,
+    required_terms: tuple[str, ...] = (),
+    any_of_terms: tuple[str, ...] = (),
+    required_title_terms: tuple[str, ...] = (),
+    required_domains: tuple[str, ...] = (),
+    excluded_domains: tuple[str, ...] = (),
+    required_paths: tuple[str, ...] = (),
+    required_path_terms: tuple[str, ...] = (),
+) -> bool:
+    text = _hit_text(hit)
+    title = _hit_title(hit)
+    url = hit.get("url", "")
+    domain = _normalize_url_domain(url)
+    path = _normalize_url_path(url)
+
+    if required_domains and not any(
+        _domain_matches(expected, domain, allow_subdomain=True)
+        for expected in required_domains
+    ):
+        return False
+
+    if excluded_domains and any(
+        _domain_matches(excluded, domain, allow_subdomain=True)
+        for excluded in excluded_domains
+    ):
+        return False
+
+    if required_paths and path not in required_paths:
+        return False
+
+    if required_path_terms and not any(term in path for term in required_path_terms):
+        return False
+
+    if required_title_terms and not all(term in title for term in required_title_terms):
+        return False
+
+    if required_terms and not all(term in text for term in required_terms):
+        return False
+
+    if any_of_terms and not any(term in text for term in any_of_terms):
+        return False
+
+    return True
 
 
 def _classify_case(
@@ -111,25 +166,25 @@ def _classify_case(
         return "fail", "0 hits"
 
     if keyword_rule:
+        max_match_rank = int(keyword_rule.get("max_match_rank") or 3)
+        rule_hits = hits[:max_match_rank]
         required_domains = keyword_rule.get("required_domains")
         minimum_domain_matches = int(keyword_rule.get("minimum_domain_matches") or 1)
+        required_title_terms = tuple(keyword_rule.get("required_title_terms") or ())
+        required_paths = tuple(keyword_rule.get("required_paths") or ())
+        required_path_terms = tuple(keyword_rule.get("required_path_terms") or ())
+        excluded_domains = tuple(keyword_rule.get("excluded_domains") or ())
         if required_domains:
-            excluded_domains = tuple(keyword_rule.get("excluded_domains") or ())
-            required_path_terms = tuple(keyword_rule.get("required_path_terms") or ())
             matches = sum(
-                any(
-                    _domain_matches(expected, domain, allow_subdomain=True)
-                    for expected in required_domains
+                _hit_matches_rule(
+                    hit,
+                    required_domains=tuple(required_domains),
+                    excluded_domains=excluded_domains,
+                    required_paths=required_paths,
+                    required_path_terms=required_path_terms,
+                    required_title_terms=required_title_terms,
                 )
-                and not any(
-                    _domain_matches(excluded, domain, allow_subdomain=True)
-                    for excluded in excluded_domains
-                )
-                and (
-                    not required_path_terms
-                    or any(term in path for term in required_path_terms)
-                )
-                for domain, path in zip(top_domains, top_paths)
+                for hit in rule_hits
             )
             if matches >= minimum_domain_matches:
                 return "pass", keyword_rule["pass_reason"]
@@ -137,15 +192,17 @@ def _classify_case(
 
         required_terms = keyword_rule.get("required_terms")
         if required_terms:
+            any_of_terms = tuple(keyword_rule.get("any_of_terms") or ())
             if any(
-                all(term in _hit_text(hit) for term in required_terms)
-                and (
-                    not keyword_rule.get("any_of_terms")
-                    or any(
-                        cue in _hit_text(hit) for cue in keyword_rule["any_of_terms"]
-                    )
+                _hit_matches_rule(
+                    hit,
+                    required_terms=tuple(required_terms),
+                    any_of_terms=any_of_terms,
+                    required_title_terms=required_title_terms,
+                    required_paths=required_paths,
+                    required_path_terms=required_path_terms,
                 )
-                for hit in hits[:3]
+                for hit in rule_hits
             ):
                 return "pass", keyword_rule["pass_reason"]
             return "fail", keyword_rule["fail_reason"]

@@ -1,13 +1,20 @@
 {
   "known_domains": [
     "google.com",
+    "docs.github.com",
     "github.com",
     "fastapi.tiangolo.com",
     "developers.openai.com",
+    "react.dev",
+    "developer.mozilla.org",
     "docs.djangoproject.com",
     "docs.python.org",
     "docs.pytest.org",
     "docs.docker.com",
+    "go.dev",
+    "doc.rust-lang.org",
+    "kubernetes.io",
+    "www.typescriptlang.org",
     "postgresql.org"
   ],
   "query_keyword_rules": {
@@ -15,8 +22,11 @@
       "required_terms": [
         "bm25"
       ],
-      "pass_reason": "top 3 include an explicitly BM25-focused result",
-      "fail_reason": "top 3 do not include a clearly BM25-focused result"
+      "required_title_terms": [
+        "bm25"
+      ],
+      "pass_reason": "top 3 include an explicitly BM25-focused result title",
+      "fail_reason": "top 3 do not include a clearly BM25-focused result title"
     },
     "site reliability engineering": {
       "required_domains": [
@@ -66,6 +76,198 @@
       ],
       "pass_reason": "top 3 include an official OpenAI news or blog result",
       "fail_reason": "top 3 do not include an official OpenAI news or blog result"
+    },
+    "github rest api docs": {
+      "required_domains": [
+        "docs.github.com"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/rest"
+      ],
+      "pass_reason": "top 3 include GitHub REST API docs",
+      "fail_reason": "top 3 do not include GitHub REST API docs"
+    },
+    "python documentation": {
+      "required_domains": [
+        "docs.python.org"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/contents.html"
+      ],
+      "max_match_rank": 3,
+      "pass_reason": "top 3 include the Python documentation contents page",
+      "fail_reason": "top 3 do not include the Python documentation contents page"
+    },
+    "python asyncio docs": {
+      "required_domains": [
+        "docs.python.org"
+      ],
+      "minimum_domain_matches": 1,
+      "required_title_terms": [
+        "asyncio"
+      ],
+      "max_match_rank": 3,
+      "pass_reason": "top 3 include Python asyncio docs",
+      "fail_reason": "top 3 do not include Python asyncio docs"
+    },
+    "react docs": {
+      "required_domains": [
+        "react.dev"
+      ],
+      "minimum_domain_matches": 1,
+      "required_paths": [
+        "/",
+        "/learn",
+        "/learn/",
+        "/reference",
+        "/reference/"
+      ],
+      "max_match_rank": 3,
+      "pass_reason": "top 3 include the main React docs entry points",
+      "fail_reason": "top 3 do not include the main React docs entry points"
+    },
+    "go documentation": {
+      "required_domains": [
+        "go.dev"
+      ],
+      "minimum_domain_matches": 1,
+      "required_paths": [
+        "/doc",
+        "/doc/"
+      ],
+      "max_match_rank": 2,
+      "pass_reason": "top 2 include the official Go documentation page",
+      "fail_reason": "top 2 do not include the official Go documentation page"
+    },
+    "openai api changelog": {
+      "required_domains": [
+        "developers.openai.com"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/api/docs/changelog"
+      ],
+      "pass_reason": "top 3 include the official OpenAI API changelog",
+      "fail_reason": "top 3 do not include the official OpenAI API changelog"
+    },
+    "kubernetes docs": {
+      "required_domains": [
+        "kubernetes.io"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/docs/",
+        "/reference/"
+      ],
+      "pass_reason": "top 3 include official Kubernetes docs",
+      "fail_reason": "top 3 do not include official Kubernetes docs"
+    },
+    "typescript docs": {
+      "required_domains": [
+        "www.typescriptlang.org"
+      ],
+      "minimum_domain_matches": 1,
+      "pass_reason": "top 3 include official TypeScript docs",
+      "fail_reason": "top 3 do not include official TypeScript docs"
+    },
+    "python release notes": {
+      "required_domains": [
+        "docs.python.org"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/whatsnew/"
+      ],
+      "pass_reason": "top 3 include Python release notes",
+      "fail_reason": "top 3 do not include Python release notes"
+    },
+    "python dataclasses": {
+      "required_domains": [
+        "docs.python.org"
+      ],
+      "minimum_domain_matches": 1,
+      "required_title_terms": [
+        "dataclasses"
+      ],
+      "required_path_terms": [
+        "/dataclasses.html"
+      ],
+      "max_match_rank": 2,
+      "pass_reason": "top 2 include the Python dataclasses page",
+      "fail_reason": "top 2 do not include the Python dataclasses page"
+    },
+    "python 3.13 release": {
+      "required_domains": [
+        "docs.python.org"
+      ],
+      "minimum_domain_matches": 1,
+      "required_title_terms": [
+        "python 3.13"
+      ],
+      "required_path_terms": [
+        "/whatsnew/3.13.html"
+      ],
+      "max_match_rank": 2,
+      "pass_reason": "top 2 include the official Python 3.13 release notes",
+      "fail_reason": "top 2 do not include the official Python 3.13 release notes"
+    },
+    "django release notes": {
+      "required_domains": [
+        "docs.djangoproject.com"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/releases/"
+      ],
+      "pass_reason": "top 3 include Django release notes",
+      "fail_reason": "top 3 do not include Django release notes"
+    },
+    "postgresql vs mysql": {
+      "required_terms": [
+        "postgresql",
+        "mysql"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "pass_reason": "top 3 include an explicit PostgreSQL and MySQL comparison",
+      "fail_reason": "top 3 do not include an explicit PostgreSQL and MySQL comparison"
+    },
+    "redis vs memcached": {
+      "required_terms": [
+        "redis",
+        "memcached"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "pass_reason": "top 3 include an explicit Redis and Memcached comparison",
+      "fail_reason": "top 3 do not include an explicit Redis and Memcached comparison"
+    },
+    "openai announcements": {
+      "required_domains": [
+        "openai.com"
+      ],
+      "minimum_domain_matches": 1,
+      "required_path_terms": [
+        "/announcements",
+        "/news",
+        "/index"
+      ],
+      "excluded_domains": [
+        "community.openai.com",
+        "developers.openai.com"
+      ],
+      "pass_reason": "top 3 include an official OpenAI announcements page",
+      "fail_reason": "top 3 do not include an official OpenAI announcements page"
     }
   },
   "query_cases": [
@@ -140,6 +342,13 @@
       "tier": 1
     },
     {
+      "query": "GitHub REST API docs",
+      "query_type": "reference",
+      "expected": "docs.github.com",
+      "notes": "Official GitHub REST API docs should be in top 3",
+      "tier": 1
+    },
+    {
       "query": "Python documentation",
       "query_type": "reference",
       "expected": "docs.python.org",
@@ -179,6 +388,41 @@
       "query_type": "reference",
       "expected": "fastapi.tiangolo.com docs",
       "notes": "Official docs should beat blog posts",
+      "tier": 1
+    },
+    {
+      "query": "React docs",
+      "query_type": "reference",
+      "expected": "react.dev",
+      "notes": "Official React docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "React useEffect",
+      "query_type": "reference",
+      "expected": "react.dev",
+      "notes": "Official React useEffect docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "MDN fetch API",
+      "query_type": "reference",
+      "expected": "developer.mozilla.org",
+      "notes": "Official MDN Fetch API docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "Go documentation",
+      "query_type": "reference",
+      "expected": "go.dev",
+      "notes": "Official Go docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "Rust documentation",
+      "query_type": "reference",
+      "expected": "doc.rust-lang.org",
+      "notes": "Official Rust docs should be in top 3",
       "tier": 1
     },
     {
@@ -231,6 +475,34 @@
       "tier": 1
     },
     {
+      "query": "Docker compose file reference",
+      "query_type": "reference",
+      "expected": "docs.docker.com",
+      "notes": "Official Docker Compose file reference should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "Django model field reference",
+      "query_type": "reference",
+      "expected": "docs.djangoproject.com",
+      "notes": "Official Django model field docs should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "OpenAI API changelog",
+      "query_type": "reference",
+      "expected": "developers.openai.com",
+      "notes": "Official OpenAI API changelog should be in top 3",
+      "tier": 1
+    },
+    {
+      "query": "Python dataclasses",
+      "query_type": "reference",
+      "expected": "docs.python.org",
+      "notes": "Official Python dataclasses docs should be in top 3",
+      "tier": 1
+    },
+    {
       "query": "FastAPI vs Django",
       "query_type": "comparison",
       "expected": "a page that explicitly compares FastAPI and Django",
@@ -245,10 +517,31 @@
       "tier": 2
     },
     {
+      "query": "PostgreSQL vs MySQL",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares PostgreSQL and MySQL",
+      "notes": "Top 3 should include a result with both names and a comparison cue",
+      "tier": 2
+    },
+    {
+      "query": "Redis vs Memcached",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares Redis and Memcached",
+      "notes": "Top 3 should include a result with both names and a comparison cue",
+      "tier": 2
+    },
+    {
       "query": "OpenAI news",
       "query_type": "news/reference",
       "expected": "recent official OpenAI news or blog reporting",
       "notes": "Top 3 should include an official OpenAI news/blog result",
+      "tier": 2
+    },
+    {
+      "query": "OpenAI announcements",
+      "query_type": "news/reference",
+      "expected": "official OpenAI announcements pages",
+      "notes": "Top 3 should include an official OpenAI announcements page",
       "tier": 2
     },
     {
@@ -257,6 +550,34 @@
       "expected": "docs.python.org release notes",
       "notes": "Official release page should rank high",
       "tier": 1
+    },
+    {
+      "query": "Python release notes",
+      "query_type": "news/reference",
+      "expected": "docs.python.org release notes",
+      "notes": "Top 3 should include Python release notes, not unrelated docs pages",
+      "tier": 2
+    },
+    {
+      "query": "Django release notes",
+      "query_type": "news/reference",
+      "expected": "docs.djangoproject.com release notes",
+      "notes": "Top 3 should include Django release notes",
+      "tier": 2
+    },
+    {
+      "query": "Kubernetes docs",
+      "query_type": "reference",
+      "expected": "kubernetes.io docs",
+      "notes": "Top 3 should include official Kubernetes docs",
+      "tier": 2
+    },
+    {
+      "query": "TypeScript docs",
+      "query_type": "reference",
+      "expected": "www.typescriptlang.org",
+      "notes": "Top 3 should include official TypeScript docs",
+      "tier": 2
     }
   ]
 }

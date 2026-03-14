@@ -24,6 +24,7 @@ class CanonicalSource:
     preferred_paths: tuple[str, ...] = ()
     news_paths: tuple[str, ...] = ()
     default_class: QueryClass = "reference"
+    candidate_window: int = 20
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class SearchRankingPolicy:
     query_class: QueryClass
     source: CanonicalSource | None = None
     demote_recruiting: bool = True
+    restrict_to_source: bool = False
 
 
 _CANONICAL_SOURCES = (
@@ -47,12 +49,38 @@ _CANONICAL_SOURCES = (
         domains=("github.com",),
         preferred_paths=("/",),
         default_class="navigational",
+        candidate_window=100,
+    ),
+    CanonicalSource(
+        key="github_docs",
+        aliases=("github docs",),
+        domains=("docs.github.com",),
+        preferred_paths=("/", "/en", "/ja"),
+        default_class="reference",
+        candidate_window=100,
+    ),
+    CanonicalSource(
+        key="github_actions_docs",
+        aliases=("github actions docs",),
+        domains=("docs.github.com",),
+        preferred_paths=("/en/actions", "/actions"),
+        default_class="reference",
+        candidate_window=100,
+    ),
+    CanonicalSource(
+        key="github_rest_api_docs",
+        aliases=("github rest api docs",),
+        domains=("docs.github.com",),
+        preferred_paths=("/en/rest", "/rest"),
+        default_class="reference",
+        candidate_window=100,
     ),
     CanonicalSource(
         key="fastapi",
         aliases=("fastapi",),
         domains=("fastapi.tiangolo.com",),
         default_class="navigational",
+        candidate_window=100,
     ),
     CanonicalSource(
         key="openai",
@@ -64,9 +92,64 @@ _CANONICAL_SOURCES = (
     ),
     CanonicalSource(
         key="python",
-        aliases=("python documentation", "python docs", "python"),
+        aliases=("python",),
         domains=("docs.python.org",),
         default_class="reference",
+    ),
+    CanonicalSource(
+        key="python_docs",
+        aliases=("python documentation", "python docs"),
+        domains=("docs.python.org",),
+        preferred_paths=(
+            "/3.15/contents",
+            "/3.14/contents",
+            "/3.13/contents",
+            "/3.12/contents",
+            "/3/contents",
+            "/contents",
+        ),
+        default_class="reference",
+        candidate_window=100,
+    ),
+    CanonicalSource(
+        key="python_asyncio",
+        aliases=("python asyncio docs", "python asyncio"),
+        domains=("docs.python.org",),
+        preferred_paths=("/3/library/asyncio", "/library/asyncio"),
+        default_class="reference",
+        candidate_window=100,
+    ),
+    CanonicalSource(
+        key="python_dataclasses",
+        aliases=("python dataclasses",),
+        domains=("docs.python.org",),
+        preferred_paths=("/3/library/dataclasses", "/library/dataclasses"),
+        default_class="reference",
+        candidate_window=100,
+    ),
+    CanonicalSource(
+        key="python_313_release",
+        aliases=("python 3 13 release",),
+        domains=("docs.python.org",),
+        news_paths=("/3.13/whatsnew/3.13", "/whatsnew/3.13"),
+        default_class="news",
+        candidate_window=100,
+    ),
+    CanonicalSource(
+        key="react_docs",
+        aliases=("react docs", "react documentation"),
+        domains=("react.dev",),
+        preferred_paths=(
+            "/",
+            "/learn",
+            "/learn/",
+            "/reference",
+            "/reference/",
+            "/reference/react",
+            "/reference/react/",
+        ),
+        default_class="reference",
+        candidate_window=100,
     ),
     CanonicalSource(
         key="postgresql",
@@ -74,6 +157,7 @@ _CANONICAL_SOURCES = (
         domains=("postgresql.org",),
         preferred_paths=("/docs/",),
         default_class="reference",
+        candidate_window=20,
     ),
 )
 
@@ -97,6 +181,18 @@ _RECRUITING_TITLE_TERMS = (
     "job",
     "jobs",
     "recruit",
+)
+_SOURCE_RESTRICT_KEYS = frozenset(
+    {
+        "github_docs",
+        "github_actions_docs",
+        "github_rest_api_docs",
+        "python_docs",
+        "python_asyncio",
+        "python_dataclasses",
+        "python_313_release",
+        "react_docs",
+    }
 )
 
 
@@ -143,6 +239,7 @@ def classify_query_policy(
             query_class=source.default_class,
             source=source,
             demote_recruiting=demote_recruiting,
+            restrict_to_source=source.key in _SOURCE_RESTRICT_KEYS,
         )
 
     remainder_terms = tuple(remainder.split())
@@ -154,6 +251,7 @@ def classify_query_policy(
             query_class="news",
             source=source,
             demote_recruiting=demote_recruiting,
+            restrict_to_source=source.key in _SOURCE_RESTRICT_KEYS,
         )
     if any(term in _OTHER_QUERY_MARKERS for term in remainder_terms):
         return SearchRankingPolicy(
@@ -165,11 +263,13 @@ def classify_query_policy(
             query_class=source.default_class,
             source=source,
             demote_recruiting=demote_recruiting,
+            restrict_to_source=source.key in _SOURCE_RESTRICT_KEYS,
         )
     return SearchRankingPolicy(
         query_class="reference",
         source=source,
         demote_recruiting=demote_recruiting,
+        restrict_to_source=source.key in _SOURCE_RESTRICT_KEYS,
     )
 
 
@@ -186,11 +286,12 @@ def candidate_window_size(
         if policy.demote_recruiting:
             return min(candidate_limit, max(k, 20))
         return k
+    source_window = max(k, policy.source.candidate_window)
     if policy.query_class == "navigational":
-        return min(candidate_limit, max(k, 100))
+        return min(candidate_limit, max(source_window, 100))
     if policy.query_class == "news":
-        return min(candidate_limit, max(k, 100))
-    return min(candidate_limit, max(k, 20))
+        return min(candidate_limit, max(source_window, 100))
+    return min(candidate_limit, max(source_window, 20))
 
 
 def canonical_paths_for_policy(policy: SearchRankingPolicy) -> tuple[str, ...]:
@@ -218,6 +319,8 @@ def _canonical_match_score(
     preferred_paths = (
         source.news_paths if query_class == "news" else source.preferred_paths
     )
+    if any(path == preferred_path for preferred_path in preferred_paths):
+        return 3
     if any(
         path in {"", "/"} if prefix == "/" else path.startswith(prefix)
         for prefix in preferred_paths
