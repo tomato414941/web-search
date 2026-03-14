@@ -10,6 +10,8 @@ services:
         "max_connections=${POSTGRES_MAX_CONNECTIONS:-64}",
         "-c",
         "shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}",
+        "-c",
+        "work_mem=${POSTGRES_WORK_MEM:-4MB}",
       ]
     environment:
       POSTGRES_USER: websearch
