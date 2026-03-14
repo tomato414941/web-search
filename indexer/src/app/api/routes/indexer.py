@@ -6,7 +6,7 @@ import secrets
 import time
 from fastapi import APIRouter, HTTPException, Header
 from app.core.config import settings
-from app.metrics import update_indexed_pages_metric, update_queue_metrics
+from app.metrics import update_indexed_pages_metric
 from app.services.indexer import indexer_service
 from app.services.index_jobs import IndexJobService
 from shared.contracts.indexer_api import IndexPageRequest
@@ -48,19 +48,14 @@ def _cache_stats_payload(payload: dict) -> dict:
 
 
 async def _refresh_stats_cache() -> dict:
-    stats, queue_stats = await asyncio.gather(
-        asyncio.to_thread(indexer_service.get_index_stats),
-        asyncio.to_thread(index_job_service.get_queue_stats),
-    )
+    stats = await asyncio.to_thread(indexer_service.get_index_stats)
 
     payload = {
         "ok": True,
         "service": "indexer",
         "indexed_pages": stats.get("total", 0),
-        **queue_stats,
     }
     update_indexed_pages_metric(payload["indexed_pages"])
-    update_queue_metrics(queue_stats)
     return _cache_stats_payload(payload)
 
 
@@ -209,7 +204,6 @@ async def indexer_stats(x_api_key: str = Header(..., alias="X-API-Key")) -> dict
     cached = _stats_cache["data"]
     if cached is not None and now < float(_stats_cache["expires"]):
         update_indexed_pages_metric(cached["indexed_pages"])  # type: ignore[index]
-        update_queue_metrics(cached)  # type: ignore[arg-type]
         return cached  # type: ignore[return-value]
 
     return await _refresh_stats_cache()

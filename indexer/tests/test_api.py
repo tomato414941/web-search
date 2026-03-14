@@ -257,7 +257,7 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert "checks" in data
 
-    def test_indexer_stats_contains_job_stats(self, test_client):
+    def test_indexer_stats_contains_indexed_pages(self, test_client):
         response = test_client.get(
             "/api/v1/indexer/stats",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
@@ -265,10 +265,7 @@ class TestHealthEndpoint:
         assert response.status_code == 200
         body = response.json()
         assert body["ok"] is True
-        assert "pending_jobs" in body
-        assert "processing_jobs" in body
-        assert "failed_permanent_jobs" in body
-        assert "oldest_pending_seconds" in body
+        assert "indexed_pages" in body
 
     def test_indexer_stats_uses_short_ttl_cache(self, test_client):
         from app.api.routes import indexer as route_module
@@ -276,32 +273,16 @@ class TestHealthEndpoint:
         route_module._stats_cache["data"] = None
         route_module._stats_cache["expires"] = 0.0
 
-        queue_stats = {
-            "pending_jobs": 3,
-            "processing_jobs": 1,
-            "done_jobs": 9,
-            "failed_permanent_jobs": 0,
-            "total_jobs": 13,
-            "oldest_pending_seconds": 12,
-        }
-
-        with (
-            patch(
-                "app.api.routes.indexer.indexer_service.get_index_stats"
-            ) as mock_stats,
-            patch(
-                "app.api.routes.indexer.index_job_service.get_queue_stats"
-            ) as mock_queue,
-        ):
+        with patch(
+            "app.api.routes.indexer.indexer_service.get_index_stats"
+        ) as mock_stats:
             mock_stats.return_value = {"total": 42}
-            mock_queue.return_value = queue_stats
 
             first = test_client.get(
                 "/api/v1/indexer/stats",
                 headers={"X-API-Key": settings.INDEXER_API_KEY},
             )
             first_stats_calls = mock_stats.call_count
-            first_queue_calls = mock_queue.call_count
             second = test_client.get(
                 "/api/v1/indexer/stats",
                 headers={"X-API-Key": settings.INDEXER_API_KEY},
@@ -315,9 +296,7 @@ class TestHealthEndpoint:
         assert first.json()["indexed_pages"] == 42
         assert second.json()["indexed_pages"] == 42
         assert first_stats_calls == 1
-        assert first_queue_calls == 1
         assert mock_stats.call_count == first_stats_calls
-        assert mock_queue.call_count == first_queue_calls
 
     def test_failed_jobs_uses_short_ttl_cache(self, test_client):
         from app.api.routes import indexer as route_module
@@ -423,21 +402,9 @@ class TestHealthEndpoint:
 
         assert calls == [(60, 5.0), (1, 0)]
 
-    def test_metrics_endpoint_exposes_queue_metrics(self, test_client):
-        enqueue_resp = test_client.post(
-            "/api/v1/indexer/page",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-            json={
-                "url": "https://metrics.example.com",
-                "title": "Metrics",
-                "content": "metrics test",
-            },
-        )
-        assert enqueue_resp.status_code == 202
-
+    def test_metrics_endpoint_exposes_indexed_pages(self, test_client):
         response = test_client.get("/metrics")
         assert response.status_code == 200
         assert "text/plain" in response.headers["content-type"]
         body = response.text
-        assert "indexer_queue_pending_jobs" in body
         assert "indexer_indexed_pages" in body

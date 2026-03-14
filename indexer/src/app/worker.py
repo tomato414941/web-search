@@ -19,7 +19,6 @@ from app.metrics import (
     record_maintenance_run,
     record_worker_error,
     record_worker_start,
-    update_queue_metrics,
 )
 from app.services.indexer import indexer_service
 from shared.postgres.migrate import migrate
@@ -75,18 +74,6 @@ async def _domain_rank_loop() -> None:
             record_maintenance_run("domain_rank", success=False)
             record_worker_error("domain_rank")
             logger.exception("Domain PageRank calculation failed")
-
-
-async def _queue_metrics_loop() -> None:
-    interval = max(1, int(os.getenv("QUEUE_METRICS_INTERVAL_SEC", "60")))
-    while True:
-        try:
-            stats = await asyncio.to_thread(indexer.index_job_service.get_queue_stats)
-            update_queue_metrics(stats)
-        except Exception:
-            record_worker_error("queue_metrics")
-            logger.exception("Queue metrics refresh failed")
-        await asyncio.sleep(interval)
 
 
 async def _process_single_job(
@@ -238,7 +225,6 @@ def _build_task_specs(mode: WorkerMode) -> list[TaskSpec]:
         )
 
     if mode in {"all", "jobs"}:
-        task_specs.append(("queue-metrics", _queue_metrics_loop))
         for i in range(max(1, settings.INDEXER_JOB_WORKERS)):
             worker_name = f"indexer-worker-{i + 1}"
             task_specs.append(

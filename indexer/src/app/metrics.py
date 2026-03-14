@@ -19,30 +19,6 @@ INDEXER_INDEXED_PAGES = Gauge(
     "indexer_indexed_pages",
     "Number of indexed pages stored in documents",
 )
-INDEXER_QUEUE_PENDING = Gauge(
-    "indexer_queue_pending_jobs",
-    "Number of queued jobs waiting to be processed",
-)
-INDEXER_QUEUE_PROCESSING = Gauge(
-    "indexer_queue_processing_jobs",
-    "Number of jobs currently being processed",
-)
-INDEXER_QUEUE_DONE = Gauge(
-    "indexer_queue_done_jobs",
-    "Number of completed jobs retained in the queue table",
-)
-INDEXER_QUEUE_FAILED_PERMANENT = Gauge(
-    "indexer_queue_failed_permanent_jobs",
-    "Number of permanently failed jobs",
-)
-INDEXER_QUEUE_TOTAL = Gauge(
-    "indexer_queue_total_jobs",
-    "Total number of jobs retained in the queue table",
-)
-INDEXER_QUEUE_OLDEST_PENDING = Gauge(
-    "indexer_queue_oldest_pending_seconds",
-    "Age in seconds of the oldest claimable job",
-)
 
 INDEXER_JOB_CLAIMS_TOTAL = Counter(
     "indexer_worker_job_claims_total",
@@ -96,15 +72,6 @@ INDEXER_JOB_CLEANUP_DELETED_TOTAL = Counter(
     "indexer_job_cleanup_deleted_total",
     "Total number of old done jobs deleted by cleanup",
 )
-
-
-def update_queue_metrics(queue_stats: dict[str, int]) -> None:
-    INDEXER_QUEUE_PENDING.set(queue_stats.get("pending_jobs", 0))
-    INDEXER_QUEUE_PROCESSING.set(queue_stats.get("processing_jobs", 0))
-    INDEXER_QUEUE_DONE.set(queue_stats.get("done_jobs", 0))
-    INDEXER_QUEUE_FAILED_PERMANENT.set(queue_stats.get("failed_permanent_jobs", 0))
-    INDEXER_QUEUE_TOTAL.set(queue_stats.get("total_jobs", 0))
-    INDEXER_QUEUE_OLDEST_PENDING.set(queue_stats.get("oldest_pending_seconds", 0))
 
 
 def update_indexed_pages_metric(indexed_pages: int) -> None:
