@@ -106,8 +106,24 @@ Log a click event for relevance feedback.
 
 **Response:** `204 No Content`
 
+### `POST /api/v1/enqueue`
+Manually submit a URL to the crawl queue. This only enqueues the URL and does not crawl it immediately.
+
+**Body:**
+```json
+{
+  "url": "http://target-site.com"
+}
+```
+
 ### `POST /api/v1/crawl`
-Manually submit a URL to the crawler (proxies to Crawler Service).
+Deprecated alias for `POST /api/v1/enqueue`.
+
+### `POST /api/v1/crawl-now`
+Immediately fetch a single URL and queue the parsed page for indexing.
+
+**Headers:**
+*   `X-API-Key`: (Required, internal/admin use)
 
 **Body:**
 ```json
@@ -214,6 +230,9 @@ Health check.
 
 ### `POST /api/v1/urls`
 Directly enqueue URLs into the frontier.
+
+### `POST /api/v1/crawl-now`
+Immediately fetch a single URL and submit it to the indexer. Requires `X-API-Key`.
 
 ### `GET /api/v1/queue/status`
 Queue statistics (pending, crawling, done, failed counts).

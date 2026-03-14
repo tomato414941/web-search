@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 
 from shared.core import background as background_module
+from app.services.direct_crawl import ImmediateCrawlResult
 
 
 def test_root_health_endpoint(test_client):
@@ -42,6 +43,32 @@ def test_crawl_urls_endpoint(test_client, test_url_store):
         data = response.json()
         assert data["status"] == "queued"
         assert data["added_count"] == 2
+
+
+def test_crawl_now_endpoint(test_client):
+    with patch(
+        "app.api.routes.crawl.execute_crawl_now",
+        return_value=ImmediateCrawlResult(
+            status="queued_for_index",
+            url="https://example.com",
+            message="Page queued for indexing",
+            job_id="job-123",
+            outlinks_discovered=3,
+        ),
+    ):
+        response = test_client.post(
+            "/api/v1/crawl-now",
+            json={"url": "https://example.com"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "queued_for_index",
+        "url": "https://example.com/",
+        "message": "Page queued for indexing",
+        "job_id": "job-123",
+        "outlinks_discovered": 3,
+    }
 
 
 def test_queue_peek_endpoint(test_client, test_url_store):
