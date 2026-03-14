@@ -103,7 +103,10 @@ async def process_url(
 
         if result.status == 200 and result.body is not None:
             # Stage 3: Parse HTML
-            parsed = await parse(result.body, url, settings.CRAWL_OUTLINKS_PER_PAGE)
+            html = result.body
+            result.body = None  # release HTML reference early
+            parsed = await parse(html, url, settings.CRAWL_OUTLINKS_PER_PAGE)
+            del html
 
             if parsed.content:
                 # Stage 4: Submit to indexer

@@ -39,7 +39,9 @@ class AsyncRobotsCache:
         self._blocked_domains: TTLCache[str, bool] = TTLCache(
             maxsize=effective_size, ttl=BLOCKED_DOMAIN_TTL
         )
-        self._fetch_failures: dict[str, int] = {}
+        self._fetch_failures: TTLCache[str, int] = TTLCache(
+            maxsize=effective_size, ttl=600
+        )
 
     def _is_domain_blocked(self, domain: str) -> bool:
         """Check if domain is blocked due to repeated robots.txt failures."""

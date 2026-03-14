@@ -44,7 +44,7 @@ class CrawlerSettings(InfrastructureSettings):
     SCHEDULER_DOMAIN_MAX_CONCURRENT: int = 2
 
     # TCP / networking
-    CRAWL_TCP_LIMIT: int = 200
+    CRAWL_TCP_LIMIT: int = 50
     ROBOTS_CACHE_SIZE: int = 500000
 
     # Static crawler denylist file path
