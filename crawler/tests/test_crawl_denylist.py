@@ -1,39 +1,57 @@
 """Tests for crawler denylist module."""
 
+import yaml
+
 from app.core.crawl_denylist import is_domain_denied, load_crawl_denylist
+
+
+def _write_yaml(path, entries):
+    path.write_text(yaml.dump(entries, default_flow_style=False))
 
 
 class TestLoadCrawlDenylist:
     def test_loads_domains_from_file(self, tmp_path):
-        f = tmp_path / "crawl_denylist.txt"
-        f.write_text("facebook.com\nlinkedin.com\n")
+        f = tmp_path / "denylist.yml"
+        _write_yaml(
+            f,
+            [
+                {"domain": "facebook.com", "reason": "test", "category": "test"},
+                {"domain": "linkedin.com", "reason": "test", "category": "test"},
+            ],
+        )
         result = load_crawl_denylist(f)
         assert result == frozenset({"facebook.com", "linkedin.com"})
 
-    def test_ignores_comments_and_blank_lines(self, tmp_path):
-        f = tmp_path / "crawl_denylist.txt"
-        f.write_text("# Comment\n\nfacebook.com\n  \n# Another\nlinkedin.com\n")
+    def test_ignores_entries_without_domain(self, tmp_path):
+        f = tmp_path / "denylist.yml"
+        _write_yaml(
+            f,
+            [
+                {"domain": "facebook.com", "reason": "test"},
+                {"reason": "no domain field"},
+            ],
+        )
         result = load_crawl_denylist(f)
-        assert result == frozenset({"facebook.com", "linkedin.com"})
+        assert result == frozenset({"facebook.com"})
 
     def test_lowercases_domains(self, tmp_path):
-        f = tmp_path / "crawl_denylist.txt"
-        f.write_text("Facebook.COM\nLINKEDIN.com\n")
-        result = load_crawl_denylist(f)
-        assert result == frozenset({"facebook.com", "linkedin.com"})
-
-    def test_strips_whitespace(self, tmp_path):
-        f = tmp_path / "crawl_denylist.txt"
-        f.write_text("  facebook.com  \n  linkedin.com\n")
+        f = tmp_path / "denylist.yml"
+        _write_yaml(
+            f,
+            [
+                {"domain": "Facebook.COM", "reason": "test"},
+                {"domain": "LINKEDIN.com", "reason": "test"},
+            ],
+        )
         result = load_crawl_denylist(f)
         assert result == frozenset({"facebook.com", "linkedin.com"})
 
     def test_missing_file_returns_empty(self):
-        result = load_crawl_denylist("/nonexistent/path.txt")
+        result = load_crawl_denylist("/nonexistent/path.yml")
         assert result == frozenset()
 
     def test_empty_file_returns_empty(self, tmp_path):
-        f = tmp_path / "crawl_denylist.txt"
+        f = tmp_path / "denylist.yml"
         f.write_text("")
         result = load_crawl_denylist(f)
         assert result == frozenset()

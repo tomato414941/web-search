@@ -1,0 +1,97 @@
+# Crawler domain denylist
+# Parent domains also deny all subdomains.
+
+- domain: accounts.hatena.ne.jp
+  reason: account management pages, no crawlable content
+  category: non-content
+  added: 2026-02-15
+
+- domain: stat.ameba.jp
+  reason: analytics/tracking endpoint
+  category: non-content
+  added: 2026-02-15
+
+- domain: b.hatena.ne.jp
+  reason: bookmarks aggregator, not original content
+  category: non-content
+  added: 2026-02-15
+
+- domain: f.hatena.ne.jp
+  reason: legacy photo hosting (hatena fotolife)
+  category: non-content
+  added: 2026-02-15
+
+- domain: web.archive.org
+  reason: internet archive, duplicates original sources
+  category: duplicate-source
+  added: 2026-02-15
+
+- domain: x.com
+  reason: robots.txt blocks all crawling
+  category: robots-blocked
+  added: 2026-03-14
+
+- domain: twitter.com
+  reason: robots.txt blocks all crawling (legacy domain)
+  category: robots-blocked
+  added: 2026-03-14
+
+- domain: www.youtube.com
+  reason: robots.txt blocks most paths, video content not indexable
+  category: robots-blocked
+  added: 2026-03-14
+
+- domain: youtu.be
+  reason: YouTube short URL redirects
+  category: redirect
+  added: 2026-03-14
+
+- domain: livedoor.blogimg.jp
+  reason: image hosting CDN, no text content
+  category: non-content
+  added: 2026-03-14
+
+- domain: hb.afl.rakuten.co.jp
+  reason: affiliate redirect service, no original content
+  category: redirect
+  added: 2026-03-14
+
+- domain: telegram.org
+  reason: messaging platform, no public crawlable content
+  category: non-content
+  added: 2026-03-14
+
+- domain: packages.debian.org
+  reason: package index, not relevant to search scope
+  category: out-of-scope
+  added: 2026-03-14
+
+- domain: sazae-seian-saiyou.net
+  reason: single-company recruitment site, SEO spam pattern
+  category: spam
+  added: 2026-03-14
+
+- domain: royalhost-rec.jp
+  reason: single-company recruitment site, SEO spam pattern
+  category: spam
+  added: 2026-03-14
+
+- domain: ishiya-saiyou.net
+  reason: single-company recruitment site, SEO spam pattern
+  category: spam
+  added: 2026-03-14
+
+- domain: wdi-saiyo.net
+  reason: single-company recruitment site, SEO spam pattern
+  category: spam
+  added: 2026-03-14
+
+- domain: j-camera.net
+  reason: SEO spam pattern, low-quality content
+  category: spam
+  added: 2026-03-14
+
+- domain: blogcircle.jp
+  reason: blog link exchange service, not original content
+  category: non-content
+  added: 2026-03-14

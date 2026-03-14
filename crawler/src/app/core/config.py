@@ -49,7 +49,7 @@ class CrawlerSettings(InfrastructureSettings):
 
     # Static crawler denylist file path
     CRAWL_DENYLIST_PATH: str = Field(
-        default="/app/data/crawl_denylist.txt",
+        default="/app/data/crawl_denylist.yml",
         validation_alias=AliasChoices("CRAWL_DENYLIST_PATH", "DOMAIN_BLOCKLIST_PATH"),
     )
 

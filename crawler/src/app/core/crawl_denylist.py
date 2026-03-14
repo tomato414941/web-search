@@ -1,29 +1,27 @@
 """
 Crawler domain denylist.
 
-Static crawler denylist loaded from a text file.
+Static crawler denylist loaded from a YAML file.
 Domains in this list are never crawled or enqueued.
 """
 
 import logging
 from pathlib import Path
 
+import yaml
+
 logger = logging.getLogger(__name__)
 
 
 def load_crawl_denylist(path: str | Path) -> frozenset[str]:
-    """Load crawler denylist from a text file (one domain per line, # for comments)."""
+    """Load crawler denylist from a YAML file."""
     p = Path(path)
     if not p.exists():
         logger.warning("Crawler denylist not found: %s", path)
         return frozenset()
 
-    domains: set[str] = set()
-    for line in p.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        domains.add(line.lower())
+    entries = yaml.safe_load(p.read_text()) or []
+    domains = {e["domain"].lower() for e in entries if "domain" in e}
 
     logger.info("Loaded crawler denylist: %d domains from %s", len(domains), path)
     return frozenset(domains)
