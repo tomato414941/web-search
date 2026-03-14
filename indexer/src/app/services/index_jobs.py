@@ -430,50 +430,35 @@ class IndexJobService:
             con.close()
 
     def get_queue_stats(self) -> dict[str, int]:
-        now_ts = self._now_ts()
+        """Return lightweight queue stats using indexed status lookups."""
         con = get_connection(self.db_path)
         try:
             cur = con.cursor()
-            cur.execute(
-                """
-                SELECT
-                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
-                    SUM(CASE WHEN status = 'failed_retry' THEN 1 ELSE 0 END) AS retry_count,
-                    SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) AS processing_count,
-                    SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done_count,
-                    SUM(CASE WHEN status = 'failed_permanent' THEN 1 ELSE 0 END) AS failed_permanent_count,
-                    COUNT(*) AS total_count
-                FROM index_jobs
-                """
-            )
-            row = cur.fetchone()
-
             ph = sql_placeholder()
             cur.execute(
                 f"""
-                SELECT MIN(available_at)
-                FROM index_jobs
-                WHERE status IN ({ph}, {ph})
+                SELECT status, COUNT(*) FROM index_jobs
+                WHERE status IN ({ph}, {ph}, {ph}, {ph})
+                GROUP BY status
                 """,
-                (STATUS_PENDING, STATUS_FAILED_RETRY),
+                (
+                    STATUS_PENDING,
+                    STATUS_FAILED_RETRY,
+                    STATUS_PROCESSING,
+                    STATUS_FAILED_PERMANENT,
+                ),
             )
-            min_available = cur.fetchone()[0]
+            counts: dict[str, int] = {}
+            for status, count in cur.fetchall():
+                counts[status] = int(count)
             cur.close()
 
-            pending_count = int((row[0] or 0) + (row[1] or 0))
-            oldest_pending_seconds = 0
-            if min_available is not None:
-                oldest_pending_seconds = max(0, now_ts - int(min_available))
-
-            stats = {
-                "pending_jobs": pending_count,
-                "processing_jobs": int(row[2] or 0),
-                "done_jobs": int(row[3] or 0),
-                "failed_permanent_jobs": int(row[4] or 0),
-                "total_jobs": int(row[5] or 0),
-                "oldest_pending_seconds": oldest_pending_seconds,
+            pending = counts.get(STATUS_PENDING, 0) + counts.get(STATUS_FAILED_RETRY, 0)
+            return {
+                "pending_jobs": pending,
+                "processing_jobs": counts.get(STATUS_PROCESSING, 0),
+                "failed_permanent_jobs": counts.get(STATUS_FAILED_PERMANENT, 0),
             }
-            return stats
         finally:
             con.close()
 

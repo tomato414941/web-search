@@ -48,12 +48,16 @@ def _cache_stats_payload(payload: dict) -> dict:
 
 
 async def _refresh_stats_cache() -> dict:
-    stats = await asyncio.to_thread(indexer_service.get_index_stats)
+    stats, queue_stats = await asyncio.gather(
+        asyncio.to_thread(indexer_service.get_index_stats),
+        asyncio.to_thread(index_job_service.get_queue_stats),
+    )
 
     payload = {
         "ok": True,
         "service": "indexer",
         "indexed_pages": stats.get("total", 0),
+        **queue_stats,
     }
     update_indexed_pages_metric(payload["indexed_pages"])
     return _cache_stats_payload(payload)

@@ -61,30 +61,6 @@
                     <th>Failed (Permanent)</th>
                     <td>{{ "{:,}".format(health.failed_permanent_jobs or 0) }}</td>
                 </tr>
-                <tr>
-                    <th>Done Jobs</th>
-                    <td>{{ "{:,}".format(health.done_jobs or 0) }}</td>
-                </tr>
-                <tr>
-                    <th>Total Jobs</th>
-                    <td>{{ "{:,}".format(health.total_jobs or 0) }}</td>
-                </tr>
-                <tr>
-                    <th>Oldest Pending</th>
-                    <td>
-                        {% set s = health.oldest_pending_seconds or 0 %}
-                        {% set h = s // 3600 %}
-                        {% set m = (s % 3600) // 60 %}
-                        {% set sec = s % 60 %}
-                        {% if h > 0 %}
-                            {{ h }}h {{ m }}m
-                        {% elif m > 0 %}
-                            {{ m }}m {{ sec }}s
-                        {% else %}
-                            {{ sec }}s
-                        {% endif %}
-                    </td>
-                </tr>
             </table>
         </div>
         <p class="muted" style="margin-top: 12px;">

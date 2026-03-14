@@ -17,10 +17,7 @@ def _default_stats() -> dict[str, Any]:
         "indexed_pages": 0,
         "pending_jobs": 0,
         "processing_jobs": 0,
-        "done_jobs": 0,
         "failed_permanent_jobs": 0,
-        "total_jobs": 0,
-        "oldest_pending_seconds": 0,
     }
 
 
@@ -60,10 +57,7 @@ async def fetch_indexer_stats() -> dict[str, Any]:
                 "indexed_pages",
                 "pending_jobs",
                 "processing_jobs",
-                "done_jobs",
                 "failed_permanent_jobs",
-                "total_jobs",
-                "oldest_pending_seconds",
             ):
                 if key in data and data.get(key) is not None:
                     result[key] = data[key]
