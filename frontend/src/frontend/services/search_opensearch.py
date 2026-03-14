@@ -1,4 +1,5 @@
 import logging
+from dataclasses import replace
 from typing import Any
 
 from frontend.services.search_query import (
@@ -8,15 +9,36 @@ from frontend.services.search_query import (
     empty_search_result,
 )
 from frontend.services.search_ranking_policy import (
+    SearchRankingPolicy,
     candidate_window_size,
     canonical_paths_for_policy,
     classify_query_policy,
     rerank_hits,
 )
 from frontend.services.search_response import build_search_hits
+from shared.search_kernel.analyzer import analyzer
 from shared.search_kernel.searcher import SearchHit, SearchResult
 
 logger = logging.getLogger(__name__)
+
+
+def _rewrite_search_query_for_policy(
+    search_query: PreparedSearchQuery,
+    *,
+    policy: SearchRankingPolicy,
+) -> PreparedSearchQuery:
+    if policy.source is None or not policy.source.retrieval_query:
+        return search_query
+
+    rewritten_tokens = analyzer.tokenize(policy.source.retrieval_query).strip()
+    if not rewritten_tokens or rewritten_tokens == search_query.tokens:
+        return search_query
+
+    return replace(
+        search_query,
+        tokens=rewritten_tokens,
+        positive_query=policy.source.retrieval_query,
+    )
 
 
 def execute_opensearch_search(
@@ -73,8 +95,9 @@ def run_opensearch_query(
         return empty_search_result(q, k)
 
     policy = classify_query_policy(q, search_query)
+    retrieval_query = _rewrite_search_query_for_policy(search_query, policy=policy)
     plan = build_opensearch_plan(
-        search_query,
+        retrieval_query,
         candidate_window_size(k, page, policy, candidate_limit=CANDIDATE_LIMIT),
         page,
         overscan=0,
@@ -85,7 +108,7 @@ def run_opensearch_query(
     required_domains = canonical_domains if policy.restrict_to_source else ()
     os_result = execute_opensearch_search(
         client,
-        search_query,
+        retrieval_query,
         plan,
         canonical_domains=canonical_domains,
         canonical_paths=canonical_paths,

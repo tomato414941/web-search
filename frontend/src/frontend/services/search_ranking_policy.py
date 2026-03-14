@@ -25,6 +25,7 @@ class CanonicalSource:
     news_paths: tuple[str, ...] = ()
     default_class: QueryClass = "reference"
     candidate_window: int = 20
+    retrieval_query: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ _CANONICAL_SOURCES = (
         preferred_paths=("/", "/en", "/ja"),
         default_class="reference",
         candidate_window=100,
+        retrieval_query="github docs",
     ),
     CanonicalSource(
         key="github_actions_docs",
@@ -66,6 +68,7 @@ _CANONICAL_SOURCES = (
         preferred_paths=("/en/actions", "/actions"),
         default_class="reference",
         candidate_window=100,
+        retrieval_query="github actions",
     ),
     CanonicalSource(
         key="github_rest_api_docs",
@@ -74,6 +77,7 @@ _CANONICAL_SOURCES = (
         preferred_paths=("/en/rest", "/rest"),
         default_class="reference",
         candidate_window=100,
+        retrieval_query="github rest api",
     ),
     CanonicalSource(
         key="fastapi",
@@ -110,6 +114,7 @@ _CANONICAL_SOURCES = (
         ),
         default_class="reference",
         candidate_window=100,
+        retrieval_query="python documentation",
     ),
     CanonicalSource(
         key="python_asyncio",
@@ -118,6 +123,7 @@ _CANONICAL_SOURCES = (
         preferred_paths=("/3/library/asyncio", "/library/asyncio"),
         default_class="reference",
         candidate_window=100,
+        retrieval_query="asyncio",
     ),
     CanonicalSource(
         key="python_dataclasses",
@@ -126,6 +132,7 @@ _CANONICAL_SOURCES = (
         preferred_paths=("/3/library/dataclasses", "/library/dataclasses"),
         default_class="reference",
         candidate_window=100,
+        retrieval_query="dataclasses",
     ),
     CanonicalSource(
         key="python_313_release",
@@ -134,6 +141,7 @@ _CANONICAL_SOURCES = (
         news_paths=("/3.13/whatsnew/3.13", "/whatsnew/3.13"),
         default_class="news",
         candidate_window=100,
+        retrieval_query="python 3.13 release",
     ),
     CanonicalSource(
         key="react_docs",
@@ -150,6 +158,16 @@ _CANONICAL_SOURCES = (
         ),
         default_class="reference",
         candidate_window=100,
+        retrieval_query="react reference overview",
+    ),
+    CanonicalSource(
+        key="go_docs",
+        aliases=("go documentation", "go docs", "golang documentation"),
+        domains=("go.dev",),
+        preferred_paths=("/doc", "/doc/"),
+        default_class="reference",
+        candidate_window=100,
+        retrieval_query="go documentation",
     ),
     CanonicalSource(
         key="postgresql",
@@ -192,6 +210,7 @@ _SOURCE_RESTRICT_KEYS = frozenset(
         "python_dataclasses",
         "python_313_release",
         "react_docs",
+        "go_docs",
     }
 )
 

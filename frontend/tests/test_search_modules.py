@@ -161,3 +161,38 @@ def test_run_opensearch_query_fetches_extra_candidates_for_navigational_query(
         "https://github.com/",
         "https://github.com/org/repo",
     ]
+
+
+def test_run_opensearch_query_rewrites_tokens_for_source_specific_docs(monkeypatch):
+    import frontend.services.search_opensearch as search_opensearch
+
+    captured = {}
+
+    def fake_execute(
+        client,
+        search_query,
+        plan,
+        canonical_domains=(),
+        canonical_paths=(),
+        required_domains=(),
+    ):
+        captured["tokens"] = search_query.tokens
+        captured["positive_query"] = search_query.positive_query
+        captured["canonical_domains"] = canonical_domains
+        captured["required_domains"] = required_domains
+        return {"total": 0, "hits": []}
+
+    monkeypatch.setattr(search_opensearch, "execute_opensearch_search", fake_execute)
+
+    run_opensearch_query(
+        "React docs",
+        3,
+        1,
+        client=MagicMock(),
+        search_query=prepare_search_query("React docs"),
+    )
+
+    assert captured["tokens"] == "react reference overview"
+    assert captured["positive_query"] == "react reference overview"
+    assert captured["canonical_domains"] == ("react.dev",)
+    assert captured["required_domains"] == ("react.dev",)

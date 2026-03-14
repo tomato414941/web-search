@@ -175,6 +175,12 @@ def _build_filter_clauses(
         for domain in required_domains:
             domain_terms.append({"term": {"host": {"value": domain}}})
             domain_terms.append({"term": {"host": {"value": f"www.{domain}"}}})
+            domain_terms.append({"prefix": {"url": {"value": f"https://{domain}/"}}})
+            domain_terms.append({"prefix": {"url": {"value": f"http://{domain}/"}}})
+            domain_terms.append(
+                {"prefix": {"url": {"value": f"https://www.{domain}/"}}}
+            )
+            domain_terms.append({"prefix": {"url": {"value": f"http://www.{domain}/"}}})
         clauses.append({"bool": {"should": domain_terms, "minimum_should_match": 1}})
     return clauses
 

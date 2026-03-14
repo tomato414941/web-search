@@ -74,6 +74,18 @@ def test_classify_query_policy_maps_react_documentation_to_react_docs_source():
     assert policy.source.key == "react_docs"
 
 
+def test_classify_query_policy_maps_go_documentation_to_go_docs_source():
+    policy = classify_query_policy(
+        "Go documentation",
+        prepare_search_query("Go documentation"),
+    )
+
+    assert policy.query_class == "reference"
+    assert policy.source is not None
+    assert policy.source.key == "go_docs"
+    assert policy.restrict_to_source is True
+
+
 def test_classify_query_policy_maps_python_asyncio_to_specific_docs_source():
     policy = classify_query_policy(
         "Python asyncio docs",
@@ -385,4 +397,39 @@ def test_rerank_hits_prefers_react_reference_over_blog_and_versions():
         "https://react.dev/reference/react",
         "https://react.dev/versions",
         "https://react.dev/blog",
+    ]
+
+
+def test_rerank_hits_prefers_go_docs_entry_page():
+    policy = classify_query_policy(
+        "Go documentation",
+        prepare_search_query("Go documentation"),
+    )
+    hits = [
+        SearchHit(
+            url="https://docs.fly.jfrog.ai/package-managers/go/",
+            title="Go :: JFrog Fly Documentation",
+            content="x",
+            score=10.0,
+        ),
+        SearchHit(
+            url="https://www.wireshark.org/docs/",
+            title="Wireshark Documentation",
+            content="x",
+            score=9.0,
+        ),
+        SearchHit(
+            url="https://go.dev/doc",
+            title="Documentation - The Go Programming Language",
+            content="x",
+            score=4.0,
+        ),
+    ]
+
+    reranked = rerank_hits(hits, policy, limit=3)
+
+    assert [hit.url for hit in reranked] == [
+        "https://go.dev/doc",
+        "https://docs.fly.jfrog.ai/package-managers/go/",
+        "https://www.wireshark.org/docs/",
     ]

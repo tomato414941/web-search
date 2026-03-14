@@ -94,6 +94,10 @@ def test_build_bm25_bool_query_adds_canonical_retrieval_signals():
             "should": [
                 {"term": {"host": {"value": "docs.github.com"}}},
                 {"term": {"host": {"value": "www.docs.github.com"}}},
+                {"prefix": {"url": {"value": "https://docs.github.com/"}}},
+                {"prefix": {"url": {"value": "http://docs.github.com/"}}},
+                {"prefix": {"url": {"value": "https://www.docs.github.com/"}}},
+                {"prefix": {"url": {"value": "http://www.docs.github.com/"}}},
             ],
             "minimum_should_match": 1,
         }
