@@ -173,6 +173,11 @@
         <p style="color: #999; margin-bottom: 12px; font-size: 0.9rem;">
             Add a URL directly to the crawl queue, or run an immediate one-off crawl for verification.
         </p>
+        {% if not crawler_available %}
+        <p class="muted" style="margin-bottom: 12px;">
+            URL actions are disabled until the crawler service becomes reachable.
+        </p>
+        {% endif %}
         {% if success %}
         <p class="success">{{ success }}</p>
         {% endif %}
@@ -181,9 +186,9 @@
         {% endif %}
         <form method="post" action="/admin/queue" class="form-row">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="url" name="url" placeholder="https://example.com/page" required>
-            <button type="submit">Add to Queue</button>
-            <button type="submit" formaction="/admin/queue/crawl-now">Crawl Now</button>
+            <input type="url" name="url" placeholder="https://example.com/page" required {% if not crawler_available %}disabled{% endif %}>
+            <button type="submit" {% if not crawler_available %}disabled{% endif %}>Add to Queue</button>
+            <button type="submit" formaction="/admin/queue/crawl-now" {% if not crawler_available %}disabled{% endif %}>Crawl Now</button>
         </form>
     </div>
 </div>

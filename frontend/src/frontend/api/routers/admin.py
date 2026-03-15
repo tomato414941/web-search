@@ -78,6 +78,10 @@ def _redirect_admin(
     )
 
 
+async def _crawler_service_available() -> bool:
+    return await fetch_frontier_stats() is not None
+
+
 @router.get("/login")
 async def login_page(request: Request, error: str = ""):
     csrf_token = get_csrf_token(request)
@@ -173,6 +177,7 @@ async def queue_page(
     _auth: None = Depends(require_admin_session),
 ):
     frontier = await fetch_frontier_stats()
+    crawler_available = frontier is not None
     csrf_token = get_csrf_token(request)
     return templates.TemplateResponse(
         request,
@@ -180,6 +185,7 @@ async def queue_page(
         {
             "request": request,
             "frontier": frontier,
+            "crawler_available": crawler_available,
             "success": success,
             "error": error,
             "csrf_token": csrf_token,
@@ -275,6 +281,8 @@ async def add_to_queue(
     _auth: None = Depends(require_admin_session),
 ):
     check_csrf_or_redirect(request, csrf_token, "/admin/queue?error=Invalid+request")
+    if not await _crawler_service_available():
+        return _redirect_admin("/admin/queue", error="Crawler service is unreachable")
     try:
         await enqueue_url(url)
         return _redirect_admin("/admin/queue", success=f"Added {url} to queue")
@@ -293,6 +301,8 @@ async def crawl_now(
     _auth: None = Depends(require_admin_session),
 ):
     check_csrf_or_redirect(request, csrf_token, "/admin/queue?error=Invalid+request")
+    if not await _crawler_service_available():
+        return _redirect_admin("/admin/queue", error="Crawler service is unreachable")
     try:
         result = await crawl_now_url(url)
         message = result.get("message", "Immediate crawl finished")

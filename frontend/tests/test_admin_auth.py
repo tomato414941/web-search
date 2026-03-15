@@ -183,6 +183,24 @@ class TestAdminAuthentication:
         assert "Indexer Status" in response.text
         assert "Job Queue" in response.text
 
+    def test_queue_page_disables_url_actions_when_crawler_unreachable(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+
+        with patch(
+            "frontend.api.routers.admin.fetch_frontier_stats",
+            new=AsyncMock(return_value=None),
+        ):
+            response = client.get("/admin/queue")
+
+        assert response.status_code == 200
+        assert "Crawler service is unreachable" in response.text
+        assert (
+            "URL actions are disabled until the crawler service becomes reachable."
+            in response.text
+        )
+        assert response.text.count("disabled") >= 3
+
     def test_crawler_start_requires_auth(self, client):
         """Starting a crawler instance should require authentication."""
         client.cookies.clear()
@@ -432,7 +450,13 @@ class TestAdminMutationRedirects:
         login_as_admin(client)
         csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
 
-        with patch("frontend.api.routers.admin.enqueue_url", new=AsyncMock()):
+        with (
+            patch(
+                "frontend.api.routers.admin.fetch_frontier_stats",
+                new=AsyncMock(return_value={"ok": True}),
+            ),
+            patch("frontend.api.routers.admin.enqueue_url", new=AsyncMock()),
+        ):
             response = client.post(
                 "/admin/queue",
                 data={"url": "https://example.com", "csrf_token": csrf_token},
@@ -445,14 +469,41 @@ class TestAdminMutationRedirects:
             == "/admin/queue?success=Added%20https%3A%2F%2Fexample.com%20to%20queue"
         )
 
-    def test_crawl_now_success_redirects_with_success_message(self, client):
+    def test_add_to_queue_redirects_when_crawler_unreachable(self, client):
         client.cookies.clear()
         login_as_admin(client)
         csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
 
         with patch(
-            "frontend.api.routers.admin.crawl_now_url",
-            new=AsyncMock(return_value={"message": "Page queued for indexing"}),
+            "frontend.api.routers.admin.fetch_frontier_stats",
+            new=AsyncMock(return_value=None),
+        ):
+            response = client.post(
+                "/admin/queue",
+                data={"url": "https://example.com", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert (
+            response.headers["location"]
+            == "/admin/queue?error=Crawler%20service%20is%20unreachable"
+        )
+
+    def test_crawl_now_success_redirects_with_success_message(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with (
+            patch(
+                "frontend.api.routers.admin.fetch_frontier_stats",
+                new=AsyncMock(return_value={"ok": True}),
+            ),
+            patch(
+                "frontend.api.routers.admin.crawl_now_url",
+                new=AsyncMock(return_value={"message": "Page queued for indexing"}),
+            ),
         ):
             response = client.post(
                 "/admin/queue/crawl-now",
@@ -466,14 +517,41 @@ class TestAdminMutationRedirects:
             == "/admin/queue?success=Crawled%20https%3A%2F%2Fexample.com%3A%20Page%20queued%20for%20indexing"
         )
 
-    def test_crawl_now_validation_error_redirects_with_error_message(self, client):
+    def test_crawl_now_redirects_when_crawler_unreachable(self, client):
         client.cookies.clear()
         login_as_admin(client)
         csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
 
         with patch(
-            "frontend.api.routers.admin.crawl_now_url",
-            new=AsyncMock(side_effect=ValueError("Crawler rejected URL")),
+            "frontend.api.routers.admin.fetch_frontier_stats",
+            new=AsyncMock(return_value=None),
+        ):
+            response = client.post(
+                "/admin/queue/crawl-now",
+                data={"url": "https://example.com", "csrf_token": csrf_token},
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 303
+        assert (
+            response.headers["location"]
+            == "/admin/queue?error=Crawler%20service%20is%20unreachable"
+        )
+
+    def test_crawl_now_validation_error_redirects_with_error_message(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
+
+        with (
+            patch(
+                "frontend.api.routers.admin.fetch_frontier_stats",
+                new=AsyncMock(return_value={"ok": True}),
+            ),
+            patch(
+                "frontend.api.routers.admin.crawl_now_url",
+                new=AsyncMock(side_effect=ValueError("Crawler rejected URL")),
+            ),
         ):
             response = client.post(
                 "/admin/queue/crawl-now",
