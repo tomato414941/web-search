@@ -170,6 +170,30 @@ _CANONICAL_SOURCES = (
         retrieval_query="go documentation",
     ),
     CanonicalSource(
+        key="kubernetes_docs",
+        aliases=("kubernetes docs", "kubernetes documentation"),
+        domains=("kubernetes.io",),
+        preferred_paths=("/docs", "/docs/", "/docs/home", "/docs/home/"),
+        default_class="reference",
+        candidate_window=100,
+        retrieval_query="kubernetes documentation",
+    ),
+    CanonicalSource(
+        key="typescript_docs",
+        aliases=("typescript docs", "typescript documentation"),
+        domains=("www.typescriptlang.org", "typescriptlang.org"),
+        preferred_paths=(
+            "/docs",
+            "/docs/",
+            "/docs/handbook",
+            "/docs/handbook/",
+            "/docs/handbook/intro",
+        ),
+        default_class="reference",
+        candidate_window=100,
+        retrieval_query="typescript handbook documentation",
+    ),
+    CanonicalSource(
         key="postgresql",
         aliases=("postgresql", "postgres"),
         domains=("postgresql.org",),
@@ -211,6 +235,8 @@ _SOURCE_RESTRICT_KEYS = frozenset(
         "python_313_release",
         "react_docs",
         "go_docs",
+        "kubernetes_docs",
+        "typescript_docs",
     }
 )
 

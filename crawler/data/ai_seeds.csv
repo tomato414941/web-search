@@ -22,6 +22,9 @@ docs,learn.microsoft.com,25,Microsoft Learn
 docs,cloud.google.com,20,Google Cloud docs
 docs,docs.aws.amazon.com,20,AWS docs
 docs,kubernetes.io,25,Kubernetes docs
+docs,https://kubernetes.io/docs/,25,Kubernetes docs home
+docs,https://kubernetes.io/docs/home/,20,Kubernetes docs landing page
+docs,https://kubernetes.io/docs/concepts/overview/,20,Kubernetes concepts overview
 docs,docs.docker.com,25,Docker docs
 docs,www.postgresql.org,25,PostgreSQL docs
 docs,dev.mysql.com,20,MySQL docs
@@ -34,6 +37,8 @@ docs,flask.palletsprojects.com,20,Flask docs
 docs,fastapi.tiangolo.com,25,FastAPI docs
 docs,docs.celeryq.dev,20,Celery docs
 docs,www.typescriptlang.org,25,TypeScript docs
+docs,https://www.typescriptlang.org/docs/,25,TypeScript docs home
+docs,https://www.typescriptlang.org/docs/handbook/intro.html,20,TypeScript handbook intro
 docs,tailwindcss.com,20,Tailwind CSS docs
 docs,docs.anthropic.com,25,Anthropic API docs
 docs,platform.openai.com,25,OpenAI API docs

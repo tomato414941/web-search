@@ -86,6 +86,30 @@ def test_classify_query_policy_maps_go_documentation_to_go_docs_source():
     assert policy.restrict_to_source is True
 
 
+def test_classify_query_policy_maps_kubernetes_docs_to_specific_docs_source():
+    policy = classify_query_policy(
+        "Kubernetes docs",
+        prepare_search_query("Kubernetes docs"),
+    )
+
+    assert policy.query_class == "reference"
+    assert policy.source is not None
+    assert policy.source.key == "kubernetes_docs"
+    assert policy.restrict_to_source is True
+
+
+def test_classify_query_policy_maps_typescript_docs_to_specific_docs_source():
+    policy = classify_query_policy(
+        "TypeScript docs",
+        prepare_search_query("TypeScript docs"),
+    )
+
+    assert policy.query_class == "reference"
+    assert policy.source is not None
+    assert policy.source.key == "typescript_docs"
+    assert policy.restrict_to_source is True
+
+
 def test_classify_query_policy_maps_python_asyncio_to_specific_docs_source():
     policy = classify_query_policy(
         "Python asyncio docs",
