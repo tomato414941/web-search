@@ -8,10 +8,13 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
+from typing import Any
+
 import aiohttp
 from cachetools import TTLCache
 
 from app.core.crawl_denylist import load_crawl_denylist
+from app.core.url_filters import load_url_filters
 from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
@@ -51,6 +54,7 @@ class WorkerRuntimeState:
     )
     robots_blocked_domains: set[str] = field(default_factory=set)
     blocked_domains: frozenset[str] = field(default_factory=frozenset)
+    url_filter: Any = None
 
 
 async def process_url(
@@ -78,6 +82,7 @@ async def process_url(
         url=url,
         domain=domain,
         blocked_domains=state.blocked_domains,
+        url_filter=state.url_filter,
         domain_cache=state.domain_cache,
     )
 
@@ -248,6 +253,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     logger.info("Static crawler denylist: %d domains", len(static_denylist))
     scheduler.set_denied_domains(static_denylist)
 
+    # Load URL pattern filters
+    url_filter = load_url_filters(settings.URL_FILTERS_PATH)
+
     # Layer 3: Purge existing pending URLs from blocked domains
     if static_denylist:
         purged = await run_in_db_executor(
@@ -256,7 +264,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
         if purged:
             logger.info("Purged %d pending URLs from denied domains", purged)
 
-    runtime_state = WorkerRuntimeState(blocked_domains=static_denylist)
+    runtime_state = WorkerRuntimeState(
+        blocked_domains=static_denylist, url_filter=url_filter
+    )
     robots_block_refreshed_at = 0.0  # Force immediate first load
     in_flight_tasks: set[asyncio.Task[None]] = set()
 

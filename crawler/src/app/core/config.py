@@ -53,6 +53,9 @@ class CrawlerSettings(InfrastructureSettings):
         validation_alias=AliasChoices("CRAWL_DENYLIST_PATH", "DOMAIN_BLOCKLIST_PATH"),
     )
 
+    # URL pattern filters file path
+    URL_FILTERS_PATH: str = "/app/data/url_filters.yml"
+
     # Robots block filter (skip enqueue for frequently blocked domains)
     CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = 24
     CRAWL_ROBOTS_BLOCK_MIN_COUNT: int = 3

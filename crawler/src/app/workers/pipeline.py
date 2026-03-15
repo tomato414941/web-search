@@ -13,6 +13,7 @@ import aiohttp
 
 from app.core.crawl_denylist import is_domain_denied
 from app.core.config import settings
+from app.core.url_filters import UrlFilter
 from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
@@ -41,6 +42,7 @@ class PipelineContext:
     url: str
     domain: str
     blocked_domains: frozenset[str] = field(default_factory=frozenset)
+    url_filter: UrlFilter | None = None
     domain_cache: dict = field(default_factory=dict)
     indexer_session: aiohttp.ClientSession | None = None
 
@@ -238,12 +240,13 @@ async def discover_and_enqueue_links(
     if not discovered:
         return
 
-    # Filter: denylist + URL length
+    # Filter: length + denylist + URL patterns
     valid_urls = [
         u
         for u in discovered
         if len(u) <= MAX_URL_LENGTH
         and not is_domain_denied(get_domain(u), ctx.blocked_domains)
+        and not (ctx.url_filter and ctx.url_filter.is_filtered(u))
     ]
 
     if valid_urls:

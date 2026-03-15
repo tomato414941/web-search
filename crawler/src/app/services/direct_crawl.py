@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from app.core.config import settings
 from app.core.crawl_denylist import load_crawl_denylist
+from app.core.url_filters import load_url_filters
 from app.db.executor import run_in_db_executor
 from app.db.url_store import UrlStore
 from app.db.url_types import get_domain
@@ -77,6 +78,7 @@ async def crawl_url_now(
         aiohttp.ClientSession() as indexer_session,
     ):
         robots = AsyncRobotsCache(session, cache_size=settings.ROBOTS_CACHE_SIZE)
+        url_filter = load_url_filters(settings.URL_FILTERS_PATH)
         ctx = PipelineContext(
             session=session,
             indexer_session=indexer_session,
@@ -86,6 +88,7 @@ async def crawl_url_now(
             url=url,
             domain=domain,
             blocked_domains=blocked_domains,
+            url_filter=url_filter,
             domain_cache={},
         )
 
