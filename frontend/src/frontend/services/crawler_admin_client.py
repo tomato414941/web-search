@@ -243,6 +243,19 @@ async def enqueue_url(url: str) -> None:
             raise _api_error(resp)
 
 
+async def crawl_now_url(url: str) -> dict[str, Any]:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        payload = {"url": url}
+        resp = await client.post(
+            f"{settings.CRAWLER_SERVICE_URL}/api/v1/crawl-now",
+            json=payload,
+            headers=_auth_headers(),
+        )
+        if resp.status_code != 200:
+            raise _api_error(resp)
+        return resp.json()
+
+
 async def start_worker() -> None:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:

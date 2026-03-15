@@ -39,6 +39,7 @@ from frontend.services.crawler_admin_client import (
     fetch_seeds_page,
     import_tranco as import_tranco_seeds,
     add_seed as crawler_add_seed,
+    crawl_now_url,
     delete_seed as crawler_delete_seed,
     enqueue_url,
 )
@@ -281,6 +282,25 @@ async def add_to_queue(
         return _redirect_admin("/admin/queue", error=str(exc))
     except Exception:
         logger.exception("Failed to enqueue URL %s", url)
+        return _redirect_admin("/admin/queue", error="An unexpected error occurred")
+
+
+@router.post("/queue/crawl-now")
+async def crawl_now(
+    request: Request,
+    url: str = Form(...),
+    csrf_token: str = Form(None, alias=CSRF_FORM_FIELD),
+    _auth: None = Depends(require_admin_session),
+):
+    check_csrf_or_redirect(request, csrf_token, "/admin/queue?error=Invalid+request")
+    try:
+        result = await crawl_now_url(url)
+        message = result.get("message", "Immediate crawl finished")
+        return _redirect_admin("/admin/queue", success=f"Crawled {url}: {message}")
+    except ValueError as exc:
+        return _redirect_admin("/admin/queue", error=str(exc))
+    except Exception:
+        logger.exception("Failed to crawl URL immediately %s", url)
         return _redirect_admin("/admin/queue", error="An unexpected error occurred")
 
 
