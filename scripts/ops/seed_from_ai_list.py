@@ -2,7 +2,7 @@
 """
 Seed crawler with curated AI-focused domains.
 
-Reads crawler/data/ai_seeds.csv and submits domains as seed URLs
+Reads crawler/data/ai_seeds.csv and submits domains or exact URLs as seed URLs
 to the crawler API, grouped by category.
 
 Usage:
@@ -16,6 +16,7 @@ import csv
 import json
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 from urllib.request import urlopen, Request
 
 DEFAULT_API_URL = "http://localhost:8082"
@@ -59,12 +60,7 @@ def submit_seeds(api_url: str, domains: list[str]) -> int:
 
     for i in range(0, len(domains), BATCH_SIZE):
         batch = domains[i : i + BATCH_SIZE]
-        urls = []
-        for d in batch:
-            if d.startswith("http"):
-                urls.append(d if d.endswith("/") else d + "/")
-            else:
-                urls.append(f"https://{d}/")
+        urls = [_normalize_seed_url(seed) for seed in batch]
 
         payload = json.dumps({"urls": urls}).encode()
         req = Request(
@@ -83,6 +79,16 @@ def submit_seeds(api_url: str, domains: list[str]) -> int:
             print(f"  ERROR: {e}", file=sys.stderr)
 
     return total_added
+
+
+def _normalize_seed_url(seed: str) -> str:
+    if seed.startswith(("http://", "https://")):
+        parsed = urlparse(seed)
+        if not parsed.path and not parsed.query and not parsed.fragment:
+            return seed.rstrip("/") + "/"
+        return seed
+
+    return f"https://{seed.rstrip('/')}/"
 
 
 def main():
@@ -118,7 +124,7 @@ def main():
         if args.dry_run:
             print(f"\n[{cat}] {len(domains)} domains:")
             for d in domains:
-                print(f"  https://{d}/")
+                print(f"  {_normalize_seed_url(d)}")
             grand_total += len(domains)
         else:
             added = submit_seeds(args.api_url, domains)
