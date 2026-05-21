@@ -61,6 +61,9 @@ Required operator environment variables:
 - `WEB_SEARCH_PRD_SERVER`
 - `WEB_SEARCH_PRD_ENV_FILE`
 - `WEB_SEARCH_PRD_REPO_PATH`
+- `WEB_SEARCH_PRD_POSTGRES_VOLUME`
+- `WEB_SEARCH_PRD_PROMETHEUS_VOLUME`
+- `WEB_SEARCH_PRD_GRAFANA_VOLUME`
 
 Optional operator environment variables:
 - `WEB_SEARCH_PRD_PROJECT`

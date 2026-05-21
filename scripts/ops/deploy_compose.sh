@@ -9,6 +9,9 @@ DEFAULT_PRD_ENV_FILE="${WEB_SEARCH_PRD_ENV_FILE:-}"
 DEFAULT_PRD_REPO_PATH="${WEB_SEARCH_PRD_REPO_PATH:-}"
 DEFAULT_PRD_PROJECT="${WEB_SEARCH_PRD_PROJECT:-web-search-prd}"
 DEFAULT_PRD_OPENSEARCH_DATA_DIR="${WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR:-/var/lib/web-search/opensearch-data}"
+DEFAULT_PRD_POSTGRES_VOLUME="${WEB_SEARCH_PRD_POSTGRES_VOLUME:-}"
+DEFAULT_PRD_PROMETHEUS_VOLUME="${WEB_SEARCH_PRD_PROMETHEUS_VOLUME:-}"
+DEFAULT_PRD_GRAFANA_VOLUME="${WEB_SEARCH_PRD_GRAFANA_VOLUME:-}"
 
 usage() {
   cat <<'USAGE'
@@ -73,6 +76,9 @@ set_environment_config() {
       require_value WEB_SEARCH_PRD_SERVER "$DEFAULT_PRD_SERVER"
       require_value WEB_SEARCH_PRD_ENV_FILE "$DEFAULT_PRD_ENV_FILE"
       require_value WEB_SEARCH_PRD_REPO_PATH "$DEFAULT_PRD_REPO_PATH"
+      require_value WEB_SEARCH_PRD_POSTGRES_VOLUME "$DEFAULT_PRD_POSTGRES_VOLUME"
+      require_value WEB_SEARCH_PRD_PROMETHEUS_VOLUME "$DEFAULT_PRD_PROMETHEUS_VOLUME"
+      require_value WEB_SEARCH_PRD_GRAFANA_VOLUME "$DEFAULT_PRD_GRAFANA_VOLUME"
       SERVER="$DEFAULT_PRD_SERVER"
       ENV_FILE="$DEFAULT_PRD_ENV_FILE"
       REPO_PATH="$DEFAULT_PRD_REPO_PATH"
@@ -81,6 +87,9 @@ set_environment_config() {
       STATE_FILE="${REPO_PATH}/.deploy-state/prd.env"
       BUNDLE_ROOT="${REPO_PATH}/.compose-bundles/${PROJECT_NAME}"
       OPENSEARCH_DATA_DIR="$DEFAULT_PRD_OPENSEARCH_DATA_DIR"
+      POSTGRES_VOLUME="$DEFAULT_PRD_POSTGRES_VOLUME"
+      PROMETHEUS_VOLUME="$DEFAULT_PRD_PROMETHEUS_VOLUME"
+      GRAFANA_VOLUME="$DEFAULT_PRD_GRAFANA_VOLUME"
       ;;
     *)
       echo "Unsupported environment: $ENVIRONMENT" >&2
@@ -127,9 +136,15 @@ echo "Deploy mode        : source build"
 if [ -n "${OPENSEARCH_DATA_DIR:-}" ]; then
   echo "OpenSearch data dir: ${OPENSEARCH_DATA_DIR}"
 fi
+echo "Postgres volume    : ${POSTGRES_VOLUME}"
+echo "Prometheus volume  : ${PROMETHEUS_VOLUME}"
+echo "Grafana volume     : ${GRAFANA_VOLUME}"
 
 REMOTE_EXTRA_COMPOSE_FILE="${EXTRA_COMPOSE_FILE:-__NONE__}"
 REMOTE_OPENSEARCH_DATA_DIR="${OPENSEARCH_DATA_DIR:-}"
+REMOTE_POSTGRES_VOLUME="${POSTGRES_VOLUME:-}"
+REMOTE_PROMETHEUS_VOLUME="${PROMETHEUS_VOLUME:-}"
+REMOTE_GRAFANA_VOLUME="${GRAFANA_VOLUME:-}"
 if is_local_server; then
   bash -s -- \
     "$REPO_PATH" \
@@ -138,7 +153,10 @@ if is_local_server; then
     "$PROJECT_NAME" \
     "$ENV_FILE" \
     "$REMOTE_EXTRA_COMPOSE_FILE" \
-    "$REMOTE_OPENSEARCH_DATA_DIR" <<'REMOTE'
+    "$REMOTE_OPENSEARCH_DATA_DIR" \
+    "$REMOTE_POSTGRES_VOLUME" \
+    "$REMOTE_PROMETHEUS_VOLUME" \
+    "$REMOTE_GRAFANA_VOLUME" <<'REMOTE'
 set -euo pipefail
 
 repo_path="$1"
@@ -148,6 +166,9 @@ project_name="$4"
 env_file="$5"
 extra_compose_file="${6:-}"
 opensearch_data_dir="${7:-}"
+postgres_volume="${8:-}"
+prometheus_volume="${9:-}"
+grafana_volume="${10:-}"
 
 if [ "$extra_compose_file" = "__NONE__" ]; then
   extra_compose_file=""
@@ -189,6 +210,9 @@ fi
 if [ -n "$opensearch_data_dir" ]; then
   export WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR="$opensearch_data_dir"
 fi
+export WEB_SEARCH_PRD_POSTGRES_VOLUME="$postgres_volume"
+export WEB_SEARCH_PRD_PROMETHEUS_VOLUME="$prometheus_volume"
+export WEB_SEARCH_PRD_GRAFANA_VOLUME="$grafana_volume"
 
 if [ -n "$opensearch_data_dir" ]; then
   if [ -d "$opensearch_data_dir" ] && [ "$(stat -c '%u:%g' "$opensearch_data_dir")" = "1000:1000" ]; then
@@ -231,7 +255,10 @@ else
     "$PROJECT_NAME" \
     "$ENV_FILE" \
     "$REMOTE_EXTRA_COMPOSE_FILE" \
-    "$REMOTE_OPENSEARCH_DATA_DIR" <<'REMOTE'
+    "$REMOTE_OPENSEARCH_DATA_DIR" \
+    "$REMOTE_POSTGRES_VOLUME" \
+    "$REMOTE_PROMETHEUS_VOLUME" \
+    "$REMOTE_GRAFANA_VOLUME" <<'REMOTE'
 set -euo pipefail
 
 bundle_dir="$1"
@@ -241,6 +268,9 @@ project_name="$4"
 env_file="$5"
 extra_compose_file="${6:-}"
 opensearch_data_dir="${7:-}"
+postgres_volume="${8:-}"
+prometheus_volume="${9:-}"
+grafana_volume="${10:-}"
 
 if [ "$extra_compose_file" = "__NONE__" ]; then
   extra_compose_file=""
@@ -280,6 +310,9 @@ fi
 if [ -n "$opensearch_data_dir" ]; then
   export WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR="$opensearch_data_dir"
 fi
+export WEB_SEARCH_PRD_POSTGRES_VOLUME="$postgres_volume"
+export WEB_SEARCH_PRD_PROMETHEUS_VOLUME="$prometheus_volume"
+export WEB_SEARCH_PRD_GRAFANA_VOLUME="$grafana_volume"
 
 if [ -n "$opensearch_data_dir" ]; then
   if [ -d "$opensearch_data_dir" ] && [ "$(stat -c '%u:%g' "$opensearch_data_dir")" = "1000:1000" ]; then
