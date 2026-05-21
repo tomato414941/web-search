@@ -1,7 +1,7 @@
 """
 URL Store - Discovery Ledger + Frontier
 
-urls table: ledger of all discovered URLs (no status column).
+urls table: ledger of all discovered URLs and their discovery route.
 frontier_entries table: durable crawl frontier.
 """
 

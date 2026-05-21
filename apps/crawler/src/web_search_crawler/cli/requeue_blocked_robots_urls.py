@@ -148,7 +148,7 @@ else:
 
     for url in ordered_urls:
         if url in force_urls and url not in existing_force_urls:
-            inserted = store.add(url)
+            inserted = store.discover_and_admit_url(url)
         else:
             inserted = store.requeue(url)
         if inserted:

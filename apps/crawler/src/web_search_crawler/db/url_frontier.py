@@ -496,7 +496,7 @@ class UrlFrontierMixin:
 
     def lease_manual_url(self, url: str, *, lease_seconds: int = 300) -> bool:
         """Lease a single URL for immediate operator-triggered crawl."""
-        self.add_batch([url], discovered_via="manual")
+        self.discover_and_admit_urls([url], discovered_via="manual")
 
         now = int(time.time())
         lease_token = uuid.uuid4().hex

@@ -54,8 +54,11 @@ class SeedService:
         Returns:
             Number of new URLs admitted to the frontier
         """
-        added = self.url_store.add_batch(urls, discovered_via="seed", is_seed=True)
-        self.url_store.mark_seeds(urls)
+        added = self.url_store.discover_and_admit_urls(
+            urls,
+            discovered_via="seed",
+            is_seed=True,
+        )
         logger.info(f"Added seeds: {len(urls)} requested, {added} newly admitted")
         return added
 

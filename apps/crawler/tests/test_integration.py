@@ -164,7 +164,7 @@ async def test_process_url_network_error(test_components):
     test_url = "http://example.com/error"
 
     # Add URL to frontier then lease it (simulates real flow)
-    url_store.add(test_url)
+    url_store.discover_and_admit_url(test_url)
     url_store.pop_frontier_batch(1)
 
     mock_session = MagicMock()
@@ -250,8 +250,8 @@ async def test_process_url_discovers_links(test_components):
                 assert url_store.contains("http://example.com/link2")
 
 
-def test_add_batch_populates_frontier_entry_for_outlinks(test_url_store):
-    added = test_url_store.add_batch(["http://example.com/1"])
+def test_discover_and_admit_populates_frontier_entry_for_outlinks(test_url_store):
+    added = test_url_store.discover_and_admit_urls(["http://example.com/1"])
 
     entry = test_url_store.get_frontier_entry("http://example.com/1")
     domain_state = test_url_store.get_domain_state("example.com")
@@ -265,8 +265,22 @@ def test_add_batch_populates_frontier_entry_for_outlinks(test_url_store):
     assert domain_state is not None
 
 
+def test_record_discovered_urls_writes_ledger_without_frontier(test_url_store):
+    recorded = test_url_store.record_discovered_urls(
+        ["https://example.com/article-entry"],
+        discovered_via="feed_entry",
+    )
+
+    assert recorded == 1
+    assert test_url_store.contains("https://example.com/article-entry")
+    assert (
+        test_url_store.get_frontier_entry("https://example.com/article-entry") is None
+    )
+    assert test_url_store.frontier_count() == 0
+
+
 def test_pop_frontier_batch_retries_after_deadlock(test_url_store, monkeypatch):
-    test_url_store.add_batch(["http://example.com/frontier"])
+    test_url_store.discover_and_admit_urls(["http://example.com/frontier"])
 
     original = test_url_store._lease_frontier_candidates
     calls = {"count": 0}
@@ -288,7 +302,7 @@ def test_pop_frontier_batch_retries_after_deadlock(test_url_store, monkeypatch):
 def test_pop_frontier_batch_leases_url_and_clears_pending_frontier_state(
     test_url_store,
 ):
-    test_url_store.add_batch(["http://example.com/frontier"])
+    test_url_store.discover_and_admit_urls(["http://example.com/frontier"])
 
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
     entry = test_url_store.get_frontier_entry("http://example.com/frontier")
@@ -308,7 +322,7 @@ def test_pop_frontier_batch_reserves_slots_across_budget_tiers(test_url_store):
         "https://kubernetes.io/docs/",
         "https://example.com/a-generic-page",
     ]
-    test_url_store.add_batch(urls)
+    test_url_store.discover_and_admit_urls(urls)
 
     leased = test_url_store.pop_frontier_batch(2, lease_seconds=120)
 
@@ -323,7 +337,7 @@ def test_pop_frontier_batch_redistributes_unused_budget_to_bulk(test_url_store):
         "https://example.com/a-generic-page",
         "https://example.org/another-generic-page",
     ]
-    test_url_store.add_batch(urls)
+    test_url_store.discover_and_admit_urls(urls)
 
     leased = test_url_store.pop_frontier_batch(2, lease_seconds=120)
 
@@ -335,7 +349,7 @@ def test_pop_frontier_batch_does_not_duplicate_tier_fallback_leases(test_url_sto
         "https://example.com/only-generic",
         "https://example.org/also-generic",
     ]
-    test_url_store.add_batch(urls)
+    test_url_store.discover_and_admit_urls(urls)
 
     leased = test_url_store.pop_frontier_batch(4, lease_seconds=120)
     leased_urls = [item.url for item in leased]
@@ -348,7 +362,7 @@ def test_pop_frontier_batch_does_not_duplicate_tier_fallback_leases(test_url_sto
 def test_pop_frontier_batch_skips_domains_blocked_by_domain_state(test_url_store):
     blocked = "https://blocked.example.com/page"
     ready = "https://ready.example.com/page"
-    test_url_store.add_batch([blocked, ready])
+    test_url_store.discover_and_admit_urls([blocked, ready])
     test_url_store.set_domain_crawl_delay("blocked.example.com", 1.0)
 
     with db_transaction(test_url_store.db_path) as cur:
@@ -367,7 +381,9 @@ def test_pop_frontier_batch_skips_domains_blocked_by_domain_state(test_url_store
 
 
 def test_record_updates_frontier_after_success(test_url_store):
-    test_url_store.add_batch(["https://docs.docker.com/reference/cli/docker/"])
+    test_url_store.discover_and_admit_urls(
+        ["https://docs.docker.com/reference/cli/docker/"]
+    )
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
@@ -390,7 +406,7 @@ def test_record_updates_frontier_after_success(test_url_store):
 
 def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     url = "https://example.com/failure"
-    test_url_store.add_batch([url])
+    test_url_store.discover_and_admit_urls([url])
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
@@ -434,7 +450,7 @@ def test_seed_success_uses_shorter_recrawl_interval(test_url_store):
 
 def test_manual_success_reclassifies_to_normal_crawl_policy(test_url_store):
     url = "https://docs.docker.com/reference/cli/docker/"
-    test_url_store.add_batch([url], discovered_via="manual")
+    test_url_store.discover_and_admit_urls([url], discovered_via="manual")
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
@@ -453,7 +469,7 @@ def test_manual_success_reclassifies_to_normal_crawl_policy(test_url_store):
 
 def test_release_notes_failure_retries_quickly(test_url_store):
     url = "https://docs.python.org/3/whatsnew/3.13.html"
-    test_url_store.add_batch([url])
+    test_url_store.discover_and_admit_urls([url])
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
@@ -498,7 +514,7 @@ async def test_frontier_service_populates_frontier_entry_as_manual(test_url_stor
 
 
 def test_requeue_releases_frontier_for_retry(test_url_store):
-    test_url_store.add_batch(["https://example.com/retry"])
+    test_url_store.discover_and_admit_urls(["https://example.com/retry"])
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
@@ -522,7 +538,7 @@ def test_release_frontier_urls_only_decrements_leased_domain_state(test_url_stor
         "https://example.com/leased-release",
         "https://example.com/pending-release",
     ]
-    test_url_store.add_batch(urls)
+    test_url_store.discover_and_admit_urls(urls)
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
     assert len(leased) == 1
     leased_url = leased[0].url
@@ -553,11 +569,11 @@ def test_purge_denied_domains_removes_frontier_rows(test_url_store):
     pending_url = "https://blocked.example.com/pending"
     allowed_url = "https://allowed.example.com/keep"
 
-    test_url_store.add_batch([leased_url])
+    test_url_store.discover_and_admit_urls([leased_url])
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
     assert [item.url for item in leased] == [leased_url]
 
-    test_url_store.add_batch([pending_url, allowed_url])
+    test_url_store.discover_and_admit_urls([pending_url, allowed_url])
 
     deleted = test_url_store.purge_denied_domains(frozenset({"blocked.example.com"}))
 
@@ -625,7 +641,7 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
 
 
 def test_frontier_planner_leases_from_frontier_for_real_store(test_url_store):
-    test_url_store.add_batch(
+    test_url_store.discover_and_admit_urls(
         [
             "https://example.com/a",
             "https://example.org/b",
@@ -655,9 +671,9 @@ def test_frontier_planner_prefetches_past_skewed_domains(test_url_store):
         "https://www.rescue.ne.jp/",
         "https://metadata.ftp-master.debian.org/changelogs/",
     ]
-    assert test_url_store.add_batch(dominant + secondary + diverse) == len(
+    assert test_url_store.discover_and_admit_urls(
         dominant + secondary + diverse
-    )
+    ) == len(dominant + secondary + diverse)
 
     now = int(time.time())
     with db_transaction(test_url_store.db_path) as cur:
@@ -697,7 +713,7 @@ def test_frontier_planner_prefetches_past_skewed_domains(test_url_store):
 
 
 def test_domain_state_survives_planner_restart(test_url_store):
-    test_url_store.add_batch(["https://example.com/persist"])
+    test_url_store.discover_and_admit_urls(["https://example.com/persist"])
     planner = FrontierPlanner(
         test_url_store,
         FrontierPlannerConfig(batch_size=10, lease_seconds=120),
@@ -716,7 +732,7 @@ def test_domain_state_survives_planner_restart(test_url_store):
 
 
 def test_expired_frontier_lease_is_reclaimed_on_next_pop(test_url_store):
-    test_url_store.add_batch(["https://example.com/expired"])
+    test_url_store.discover_and_admit_urls(["https://example.com/expired"])
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=1)
     assert len(leased) == 1
 
@@ -742,7 +758,7 @@ def test_expired_frontier_lease_is_reclaimed_on_next_pop(test_url_store):
 
 
 def test_reconcile_expired_frontier_leases_recovers_domain_state(test_url_store):
-    test_url_store.add_batch(["https://example.com/expired-maintenance"])
+    test_url_store.discover_and_admit_urls(["https://example.com/expired-maintenance"])
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=1)
 
     assert [item.url for item in leased] == ["https://example.com/expired-maintenance"]
@@ -772,7 +788,7 @@ def test_reconcile_expired_frontier_leases_recovers_domain_state(test_url_store)
 
 
 def test_reconcile_expired_frontier_leases_updates_counters(test_url_store):
-    test_url_store.add_batch(["https://example.com/expired-counters"])
+    test_url_store.discover_and_admit_urls(["https://example.com/expired-counters"])
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=1)
     assert [item.url for item in leased] == ["https://example.com/expired-counters"]
 
@@ -799,7 +815,7 @@ def test_reconcile_expired_frontier_leases_updates_counters(test_url_store):
 
 
 def test_reconcile_domain_state_inflight_leases_recovers_drift(test_url_store):
-    test_url_store.add_batch(["https://example.com/drifted"])
+    test_url_store.discover_and_admit_urls(["https://example.com/drifted"])
 
     with db_transaction(test_url_store.db_path) as cur:
         test_url_store.domain_scheduling_state.ensure_domain_state_rows(
@@ -825,7 +841,7 @@ def test_reconcile_domain_state_inflight_leases_recovers_drift(test_url_store):
 
 
 def test_pop_frontier_batch_ignores_stale_domain_inflight_counts(test_url_store):
-    test_url_store.add_batch(["https://example.com/stale"])
+    test_url_store.discover_and_admit_urls(["https://example.com/stale"])
 
     with db_transaction(test_url_store.db_path) as cur:
         test_url_store.domain_scheduling_state.ensure_domain_state_rows(
@@ -1065,7 +1081,7 @@ async def test_process_url_retry_returns_url_to_frontier(test_components):
     test_url = "http://example.com/retry-test"
 
     # Add and lease to simulate real flow
-    url_store.add(test_url)
+    url_store.discover_and_admit_url(test_url)
     popped = url_store.pop_frontier_batch(1)
     assert len(popped) == 1
     stats = url_store.get_stats()
@@ -1098,7 +1114,7 @@ async def test_process_url_retry_returns_url_to_frontier(test_components):
 def test_requeue_releases_leased_url_back_to_pending(tmp_path):
     """requeue should release a leased frontier URL back to pending."""
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    url_store.add("http://example.com/r")
+    url_store.discover_and_admit_url("http://example.com/r")
     url_store.pop_frontier_batch(1)
 
     result = url_store.requeue("http://example.com/r")
@@ -1113,7 +1129,7 @@ def test_get_stats_cache_is_invalidated_on_mutation(tmp_path):
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
     assert url_store.get_stats()["pending"] == 0
-    assert url_store.add("http://example.com/cache") is True
+    assert url_store.discover_and_admit_url("http://example.com/cache") is True
     assert url_store.get_stats()["pending"] == 1
 
     url_store.pop_frontier_batch(1)
@@ -1127,7 +1143,7 @@ def test_frontier_counters_track_status_transitions(test_url_store):
         "frontier_rows": 0,
     }
 
-    test_url_store.add_batch(["https://example.com/counters"])
+    test_url_store.discover_and_admit_urls(["https://example.com/counters"])
     assert test_url_store.get_frontier_counters() == {
         "pending_rows": 1,
         "leased_rows": 0,
@@ -1160,7 +1176,7 @@ def test_frontier_counters_are_read_side_in_prod_shape(tmp_path):
         "frontier_rows": 0,
     }
 
-    assert url_store.add("https://example.com/read-side") is True
+    assert url_store.discover_and_admit_url("https://example.com/read-side") is True
     assert url_store.get_frontier_counters() == {
         "pending_rows": 0,
         "leased_rows": 0,
@@ -1199,7 +1215,7 @@ def test_frontier_snapshot_persists_across_store_restart(tmp_path):
 
 def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp_path):
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    url_store.add_batch(["https://example.com/bootstrap"])
+    url_store.discover_and_admit_urls(["https://example.com/bootstrap"])
 
     from web_search_crawler.db.connection import db_transaction
 
@@ -1220,7 +1236,7 @@ def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp
 def test_frontier_dashboard_summary_prefers_live_leased_rows_over_stale_counters(
     test_url_store,
 ):
-    test_url_store.add_batch(["https://example.com/live-leased"])
+    test_url_store.discover_and_admit_urls(["https://example.com/live-leased"])
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
     assert [item.url for item in leased] == ["https://example.com/live-leased"]
     test_url_store.write_frontier_snapshot(
@@ -1247,7 +1263,7 @@ def test_frontier_dashboard_summary_prefers_live_leased_rows_over_stale_counters
 def test_requeue_noop_if_already_queued(tmp_path):
     """requeue should be a no-op if URL is already pending in frontier."""
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    url_store.add("http://example.com/noop")
+    url_store.discover_and_admit_url("http://example.com/noop")
 
     # Already pending in frontier, requeue should conflict
     result = url_store.requeue("http://example.com/noop")
@@ -1267,7 +1283,7 @@ def test_pop_frontier_batch_respects_max_per_domain(tmp_path):
         "http://b.example.com/2",
         "http://c.example.com/1",
     ]
-    assert url_store.add_batch(urls) == len(urls)
+    assert url_store.discover_and_admit_urls(urls) == len(urls)
 
     popped = url_store.pop_frontier_batch(5, max_per_domain=2)
 
@@ -1282,8 +1298,8 @@ def test_pop_frontier_batch_respects_max_per_domain(tmp_path):
     assert url_store.get_stats()["pending"] == len(urls) - len(popped)
 
 
-def test_add_batch_deduplicates_urls(tmp_path):
-    """add_batch should deduplicate URLs within the same batch."""
+def test_discover_and_admit_deduplicates_urls(tmp_path):
+    """discover_and_admit_urls should deduplicate URLs within the same batch."""
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
     urls = [
@@ -1293,7 +1309,7 @@ def test_add_batch_deduplicates_urls(tmp_path):
         "http://example.com/2",
     ]
 
-    assert url_store.add_batch(urls) == 2
+    assert url_store.discover_and_admit_urls(urls) == 2
 
     stats = url_store.get_stats()
     assert stats["pending"] == 2
@@ -1301,29 +1317,29 @@ def test_add_batch_deduplicates_urls(tmp_path):
     assert url_store.contains("http://example.com/2")
 
 
-def test_add_batch_retries_db_concurrency_error(tmp_path):
-    """add_batch should retry once on deadlock/serialization-style errors."""
+def test_discover_and_admit_retries_db_concurrency_error(tmp_path):
+    """discover_and_admit_urls should retry once on DB concurrency errors."""
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
-    original = url_store._add_batch_chunk
+    original = url_store._admit_urls_to_frontier_chunk
     calls = 0
 
-    def flaky_add_batch_chunk(*args, **kwargs):
+    def flaky_admit_urls_to_frontier_chunk(*args, **kwargs):
         nonlocal calls
         calls += 1
         if calls == 1:
             raise DeadlockDetected()
         return original(*args, **kwargs)
 
-    url_store._add_batch_chunk = flaky_add_batch_chunk
+    url_store._admit_urls_to_frontier_chunk = flaky_admit_urls_to_frontier_chunk
 
-    assert url_store.add_batch(["http://example.com/retry"]) == 1
+    assert url_store.discover_and_admit_urls(["http://example.com/retry"]) == 1
     assert calls == 2
     assert url_store.get_stats()["pending"] == 1
 
 
-def test_add_batch_collapses_tracking_param_variants(test_url_store):
-    added = test_url_store.add_batch(
+def test_discover_and_admit_collapses_tracking_param_variants(test_url_store):
+    added = test_url_store.discover_and_admit_urls(
         [
             "https://example.com/docs?id=1&utm_source=x",
             "https://example.com/docs?id=1",
@@ -1338,8 +1354,8 @@ def test_add_batch_collapses_tracking_param_variants(test_url_store):
     assert test_url_store.pending_count() == 1
 
 
-def test_add_batch_rejects_low_value_admission_urls(test_url_store):
-    added = test_url_store.add_batch(["https://example.com/login"])
+def test_discover_and_admit_rejects_low_value_admission_urls(test_url_store):
+    added = test_url_store.discover_and_admit_urls(["https://example.com/login"])
 
     assert added == 0
     assert test_url_store.get_frontier_entry("https://example.com/login") is None

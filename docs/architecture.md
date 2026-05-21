@@ -95,10 +95,13 @@ We separate the "Write" path (Indexer) from the "Read" path (Frontend).
 The crawler stores discovered URL history in `urls` and active crawl candidates
 in `frontier_entries`.
 
-*   `urls`: discovered URLs and crawl history
+*   `urls`: discovered URLs, discovery route, and crawl history
 *   `frontier_entries`: durable crawl queue state
 *   `domain_state`: host-level pacing and inflight lease state
 *   `frontier_counters` / `frontier_snapshot`: operator read models, not scheduling truth
+
+URL discovery and frontier admission are separate operations. A URL can be known
+to the crawler without being scheduled as an active crawl candidate.
 
 The runtime queue of record is `frontier_entries`.
 

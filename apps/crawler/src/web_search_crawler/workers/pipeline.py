@@ -303,6 +303,14 @@ async def _process_feed_result(
         await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.DONE)
         return PipelineProcessResult(status="skipped", message=message, timings=timings)
 
+    entry_urls = [entry.url for entry in entries]
+    if entry_urls:
+        await run_in_db_executor(
+            ctx.url_store.record_discovered_urls,
+            entry_urls,
+            discovered_via="feed_entry",
+        )
+
     submit_started_at = time.perf_counter()
     submitted = 0
     for entry in entries:
@@ -377,7 +385,7 @@ async def discover_and_admit_links(ctx: PipelineContext, discovered: list[str]) 
     ]
 
     if valid_urls:
-        await run_in_db_executor(ctx.url_store.add_batch, valid_urls)
+        await run_in_db_executor(ctx.url_store.discover_and_admit_urls, valid_urls)
     logger.debug("Admitted links from %s (%d discovered)", ctx.url, len(discovered))
 
 

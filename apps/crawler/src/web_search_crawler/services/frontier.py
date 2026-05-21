@@ -59,7 +59,7 @@ class FrontierService:
             valid.append(url)
 
         count = await run_in_db_executor(
-            self.url_store.add_batch,
+            self.url_store.discover_and_admit_urls,
             valid,
             discovered_via="manual",
         )

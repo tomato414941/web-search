@@ -1,5 +1,10 @@
 # Feed Entry URL Ledger
 
+## Status
+
+Closed. Feed entry URLs are recorded in the `urls` ledger without being admitted
+to `frontier_entries`.
+
 ## Problem
 
 Feed entries can be indexed from a fetched RSS/Atom feed, but it is not clear
@@ -11,7 +16,8 @@ documents that the crawler URL ledger cannot explain.
 ## Evidence
 
 The feed processing path parses feed entries and submits them to the indexer.
-The normal HTML path admits discovered outlinks through `url_store.add_batch()`.
+The normal HTML path admits discovered outlinks through
+`url_store.discover_and_admit_urls()`.
 
 Feed entry URLs should be checked for the same kind of ledger/admission behavior
 expected from ordinary discovered URLs.
@@ -33,3 +39,10 @@ keep feed-only indexing separate.
 
 Keep the first fix narrow: make feed-discovered article URLs visible in the same
 ledger model as other discovered URLs.
+
+## Resolution
+
+URL discovery and frontier admission are now separate store operations.
+
+Feed entry URLs use `record_discovered_urls(..., discovered_via="feed_entry")`,
+which records them in `urls` without scheduling them in `frontier_entries`.

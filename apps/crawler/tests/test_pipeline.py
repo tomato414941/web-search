@@ -268,7 +268,7 @@ class TestProcessFetchResult:
             patch(
                 "web_search_crawler.workers.pipeline.run_in_db_executor",
                 new_callable=AsyncMock,
-            ),
+            ) as mock_db,
         ):
             outcome = await process_fetch_result(
                 ctx,
@@ -284,6 +284,14 @@ class TestProcessFetchResult:
         assert outcome.message == "Feed entries queued for indexing"
         assert outcome.outlinks_discovered == 2
         assert mock_submit.await_count == 2
+        mock_db.assert_any_await(
+            ctx.url_store.record_discovered_urls,
+            [
+                "https://openai.com/index/our-approach-to-the-model-spec",
+                "https://openai.com/index/safety-bug-bounty",
+            ],
+            discovered_via="feed_entry",
+        )
 
 
 class TestExecuteCrawl:

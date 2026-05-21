@@ -80,8 +80,8 @@ def test_crawl_now_endpoint(test_client):
 def test_frontier_peek_endpoint(test_client, test_url_store):
     """Test GET /api/v1/frontier endpoint."""
     # Add some URLs to url_store
-    test_url_store.add("http://example.com")
-    test_url_store.add("http://test.com")
+    test_url_store.discover_and_admit_url("http://example.com")
+    test_url_store.discover_and_admit_url("http://test.com")
 
     with patch(
         "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
@@ -102,7 +102,7 @@ def test_frontier_status_endpoint(test_client, test_url_store):
     _status_cache["expires"] = 0
 
     # Add some data
-    test_url_store.add("http://example.com")
+    test_url_store.discover_and_admit_url("http://example.com")
     test_url_store.record("http://crawled.com")
 
     with patch(
@@ -264,7 +264,7 @@ def test_stats_endpoint_uses_frontier_snapshot(test_client):
     from web_search_crawler.db import UrlStore
 
     test_url_store = UrlStore("/unused", recrawl_after_days=30)
-    test_url_store.add_batch(["https://example.com/frontier-snapshot"])
+    test_url_store.discover_and_admit_urls(["https://example.com/frontier-snapshot"])
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
     assert [item.url for item in leased] == ["https://example.com/frontier-snapshot"]
     test_url_store.write_frontier_snapshot(
@@ -333,7 +333,7 @@ def test_stats_endpoint_prefers_live_leased_rows_over_stale_counters(test_client
 
     _clear_stats_caches()
     test_url_store = UrlStore("/unused", recrawl_after_days=30)
-    test_url_store.add_batch(["https://example.com/live-leased"])
+    test_url_store.discover_and_admit_urls(["https://example.com/live-leased"])
     leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
     assert [item.url for item in leased] == ["https://example.com/live-leased"]
     test_url_store.write_frontier_snapshot(
@@ -387,7 +387,7 @@ def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
     from web_search_crawler.api.routes.seeds import _clear_seeds_cache
 
     _clear_seeds_cache()
-    test_url_store.add_batch(
+    test_url_store.discover_and_admit_urls(
         [
             "https://example.com/1",
             "https://example.com/2",
@@ -471,7 +471,7 @@ def test_frontier_stats_includes_maintenance_and_domain_health(
         return func(*args, **kwargs)
 
     _clear_stats_caches()
-    test_url_store.add_batch(
+    test_url_store.discover_and_admit_urls(
         [
             "https://docs.python.org/3/whatsnew/3.13.html",
             "https://docs.docker.com/reference/cli/docker/",
@@ -611,7 +611,7 @@ def test_prewarm_seeds_page_cache_populates_first_page(test_url_store):
     from web_search_crawler.services.seeds import SeedService
 
     _clear_seeds_cache()
-    test_url_store.add_batch(
+    test_url_store.discover_and_admit_urls(
         [
             "https://example.com/1",
             "https://example.com/2",
