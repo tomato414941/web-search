@@ -39,12 +39,10 @@ Run commands from the repo root unless noted:
 
 ## Branch Policy
 - `main` is the source of truth for active development, compose definitions, and release promotion.
-- Routine personal-development changes may be committed and pushed directly to `main`.
-- Use a feature branch and pull request for large, risky, or externally reviewed changes.
+- Routine personal-development changes are committed and pushed directly to `main`.
+- Use a feature branch only when a change is large, risky, or explicitly needs external review.
 - STG has been decommissioned; do not add new staging deploy dependencies.
 - PRD promotions use a `main` image tag with `git_ref=main` after CI passes.
-- `production` may exist as a legacy compatibility branch, but it is not an authoritative release branch.
-- Do not land routine changes on `production` unless the task explicitly requires branch migration or retirement work.
 
 ## Coding Style & Naming Conventions
 Python uses 4-space indentation and `ruff` formatting. Follow existing naming:
@@ -58,11 +56,7 @@ Put contracts, runtime utilities, and policy/config data in the smaller `package
 Tests use `pytest` and live under each service’s `tests/` directory. Name tests `test_*.py` with functions `test_*`. Add tests for new behavior and update fixtures when you change outputs or API contracts.
 
 ## Commit & Pull Request Guidelines
-Commit messages follow a conventional prefix pattern: `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`. Keep commits scoped and descriptive. Open a PR for routine changes to `main`. For PRs, include:
-- A concise summary and rationale
-- Linked issues or tickets
-- Test results (commands and outcomes)
-- Screenshots for UI or template changes
+Commit messages follow a conventional prefix pattern: `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`. Keep commits scoped and descriptive. For changes pushed directly to `main`, verify the relevant tests before pushing and watch CI after pushing.
 
 ## Security & Configuration Tips
 Use `.env.example` as the template for local config. Never commit secrets from `.env`, tokens, or credentials. Local development and production both require explicit PostgreSQL configuration via `DATABASE_URL`.

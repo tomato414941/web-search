@@ -41,12 +41,8 @@ host.
 
 - `main` is the only active release branch.
 - `main` is the source of truth for application code, compose definitions, and promotion inputs.
-- Routine changes must merge through a pull request into `main`.
-- `production` is retained only as a legacy compatibility branch.
-- Do not target `Production Deploy` at `production`.
-- Do not use `production` for routine pushes, merges, or release verification.
-- Direct pushes to `main` are blocked by branch protection; use a short-lived branch and PR even for small routine changes.
-- Because GitHub Actions evaluates workflow files from the pushed ref, a legacy push to `production` may still run older CI definitions. That does not make `production` part of the active release path.
+- Routine personal-development changes are pushed directly to `main`.
+- Use a short-lived branch only when a change is large, risky, or explicitly needs external review.
 
 ### CI
 
@@ -60,6 +56,9 @@ host.
 - Trigger: wrapper-managed manual `workflow_dispatch`
 - Inputs:
   - `git_ref`: commit SHA or git ref to deploy, usually `main`
+- Required host state:
+  - production deploy settings are provided by the self-hosted runner environment, not GitHub repository variables
+  - production runtime secrets remain in the host-local env file outside the repository
 - Behavior:
   - checks out the requested ref on the PRD runner
   - runs `docker compose up -d --build --remove-orphans`
