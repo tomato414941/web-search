@@ -16,7 +16,7 @@ SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 .PHONY: validate-search-eval
 .PHONY: collect-query-candidates
 .PHONY: repair-robots-prd repair-canonical-prd
-.PHONY: deploy-prd deploy-prd-direct
+.PHONY: deploy-prd
 .PHONY: verify-compose-prd
 .PHONY: verify-admin-compose-prd
 .PHONY: sync sync-packages sync-frontend sync-indexer sync-crawler sync-mcp
@@ -91,10 +91,7 @@ verify-admin-prd:
 	cd $(ROOT_DIR) && ./scripts/ops/verify_compose_admin_pages.sh prd $(VERIFY_ADMIN_MAX_SECONDS)
 
 deploy-prd:
-	cd $(ROOT_DIR) && ./scripts/ops/dispatch_production_deploy.sh $(PRD_REF)
-
-deploy-prd-direct:
-	test "$(CONFIRM_DIRECT_PRD_DEPLOY)" = "1"
+	test "$(CONFIRM_PRD_DEPLOY)" = "1"
 	cd $(ROOT_DIR) && ./scripts/ops/deploy_compose.sh prd $(PRD_REF)
 
 verify-compose-prd:

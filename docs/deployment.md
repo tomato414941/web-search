@@ -32,7 +32,7 @@ Environment file on host:
 - Production deployments read a host-local env file outside the repository.
 - The exact path is environment-specific.
 
-## CI/CD Workflow
+## CI and Direct Deployment
 
 The current release flow is `main`-based source deployment on the production
 host.
@@ -49,23 +49,13 @@ host.
 - `CI/CD Pipeline` runs on pushes to `main`.
 - It executes path-aware lint and test jobs.
 
-### Production Promotion
+### Production Deployment
 
-- Workflow: `Production Deploy`
-- Normal entrypoint: `make deploy-prd PRD_REF=main`
-- Trigger: wrapper-managed manual `workflow_dispatch`
-- Inputs:
-  - `git_ref`: commit SHA or git ref to deploy, usually `main`
-- Required host state:
-  - production deploy settings are provided by the self-hosted runner environment, not GitHub repository variables
-  - production runtime secrets remain in the host-local env file outside the repository
-- Behavior:
-  - checks out the requested ref on the PRD runner
-  - runs `docker compose up -d --build --remove-orphans`
-  - runs deploy verification and admin verification
-- Do not call `gh workflow run "Production Deploy"` directly during normal operation.
-- If GitHub returns HTTP 500 while creating the dispatch, the wrapper checks whether a run was created before retrying.
-- Direct compose deployment to PRD is an emergency fallback, not the normal release path.
+- Normal entrypoint: `CONFIRM_PRD_DEPLOY=1 make deploy-prd PRD_REF=main`
+- Deploy settings are provided by the operator environment.
+- Production runtime secrets remain in the host-local env file outside the repository.
+- `deploy-prd` runs `docker compose up -d --build --remove-orphans` through `scripts/ops/deploy_compose.sh`.
+- Run deploy verification immediately after deployment.
 
 ### Admin Verification Intent
 
@@ -110,7 +100,7 @@ Optional profiles:
 5. Start or update the stack with:
 
 ```bash
-make deploy-prd PRD_REF=main
+CONFIRM_PRD_DEPLOY=1 make deploy-prd PRD_REF=main
 ```
 
 ## Required Environment Variables
@@ -184,10 +174,10 @@ cat /backups/websearch_YYYYMMDD_HHMMSS.sql | \
 
 1. Ensure the compose definitions you want are on `main`.
 2. Wait for `CI/CD Pipeline` to succeed.
-2. Promote the tested ref through the guarded production deploy wrapper:
+2. Deploy the tested ref with explicit confirmation:
 
 ```bash
-make deploy-prd PRD_REF=main
+CONFIRM_PRD_DEPLOY=1 make deploy-prd PRD_REF=main
 ```
 
 3. Confirm the actual PRD host state:
@@ -195,19 +185,6 @@ make deploy-prd PRD_REF=main
 ```bash
 ./scripts/ops/verify_compose_deploy.sh prd main
 ./scripts/ops/verify_compose_admin_pages.sh prd 10
-```
-
-If `make deploy-prd` reports that dispatch failed but finds a created workflow
-run, follow that run. Do not retry manually and do not run direct compose deploy.
-
-If no workflow run appears after the wrapper retry, stop and investigate GitHub
-Actions or the self-hosted runner before using the emergency fallback.
-
-Emergency direct PRD deploy requires an explicit confirmation variable:
-
-```bash
-CONFIRM_DIRECT_PRD_DEPLOY=1 \
-make deploy-prd-direct PRD_REF=main
 ```
 
 ## Admin Dashboard Constraints
@@ -316,7 +293,7 @@ Use this if an environment becomes unhealthy after a deploy.
 4. Redeploy:
 
 ```bash
-make deploy-prd PRD_REF=<last_good_sha>
+CONFIRM_PRD_DEPLOY=1 make deploy-prd PRD_REF=<last_good_sha>
 ```
 
 5. Verify:
