@@ -59,11 +59,11 @@ def test_canonical_query_cases_include_react_docs():
     assert cases["React docs"].query_type == "reference"
 
 
-def test_canonical_query_cases_include_openai_warning_status():
+def test_canonical_query_cases_include_openai_news_cases():
     cases = {case.query: case for case in canonical_query_cases()}
 
-    assert cases["OpenAI news"].failure_status == "warning"
-    assert cases["OpenAI announcements"].failure_status == "warning"
+    assert cases["OpenAI news"].query_type == "news/reference"
+    assert cases["OpenAI announcements"].query_type == "news/reference"
 
 
 def test_canonical_query_cases_include_news_reference_constraints():
@@ -163,30 +163,6 @@ def test_validate_manifest_rejects_mixed_required_terms_and_domains():
     with pytest.raises(
         ValueError, match="must not define both required_terms and required_domains"
     ):
-        _validate_manifest(raw)
-
-
-def test_validate_manifest_rejects_invalid_failure_status():
-    raw = {
-        "sources": [
-            {
-                "key": "bad-status",
-                "aliases": ["bad status"],
-                "domains": ["example.com"],
-                "cases": [
-                    {
-                        "query": "Bad status",
-                        "query_type": "reference",
-                        "expected": "example.com",
-                        "notes": "x",
-                        "failure_status": "ignored",
-                    }
-                ],
-            }
-        ]
-    }
-
-    with pytest.raises(ValueError, match="failure_status is invalid"):
         _validate_manifest(raw)
 
 

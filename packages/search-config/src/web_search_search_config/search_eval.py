@@ -30,7 +30,6 @@ def load_local_search_eval_config(path: Path) -> SearchEvalConfig:
             query_type=case["query_type"],
             expected=case["expected"],
             notes=case["notes"],
-            failure_status=case.get("failure_status", "fail"),
             judgments=tuple(
                 EvalJudgment(
                     relevance=int(judgment["relevance"]),

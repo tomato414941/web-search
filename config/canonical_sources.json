@@ -428,8 +428,7 @@
           "required_path_terms": ["/blog", "/news", "/index", "/announcements"],
           "excluded_domains": ["community.openai.com"],
           "pass_reason": "top 3 include an official OpenAI news or blog result",
-          "fail_reason": "top 3 do not include an official OpenAI news or blog result",
-          "failure_status": "warning"
+          "fail_reason": "top 3 do not include an official OpenAI news or blog result"
         }
       ],
       "seed_rows": [
@@ -461,8 +460,7 @@
           "required_path_terms": ["/announcements", "/news", "/index"],
           "excluded_domains": ["community.openai.com", "developers.openai.com"],
           "pass_reason": "top 3 include an official OpenAI announcements page",
-          "fail_reason": "top 3 do not include an official OpenAI announcements page",
-          "failure_status": "warning"
+          "fail_reason": "top 3 do not include an official OpenAI announcements page"
         }
       ],
       "seed_rows": [

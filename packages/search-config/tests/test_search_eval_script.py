@@ -149,13 +149,12 @@ def test_domain_rule_respects_excluded_domains():
     assert reason == "top 3 do not include an official OpenAI announcements page"
 
 
-def test_explicit_rule_can_downgrade_failures_to_warning():
+def test_explicit_rule_failure_returns_fail():
     case = CanonicalEvalCase(
         query="OpenAI news",
         query_type="news/reference",
         expected="recent official OpenAI news or blog reporting",
         notes="Top 3 should include an official OpenAI news/blog result",
-        failure_status="warning",
     )
     payload = {"total": 0, "hits": []}
 
@@ -170,13 +169,12 @@ def test_explicit_rule_can_downgrade_failures_to_warning():
                 "excluded_domains": ["community.openai.com"],
                 "pass_reason": "top 3 include an official OpenAI news or blog result",
                 "fail_reason": "top 3 do not include an official OpenAI news or blog result",
-                "failure_status": "warning",
             }
         },
         known_domains=["openai.com"],
     )
 
-    assert status == "warning"
+    assert status == "fail"
     assert reason == "0 hits"
 
 

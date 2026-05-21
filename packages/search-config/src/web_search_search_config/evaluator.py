@@ -181,8 +181,6 @@ def _explicit_rule_payload(
             "pass_reason": case.pass_reason or "",
             "fail_reason": case.fail_reason or "",
         }
-        if case.failure_status != "fail":
-            payload["failure_status"] = case.failure_status
         if case.max_match_rank is not None:
             payload["max_match_rank"] = case.max_match_rank
         return payload
@@ -321,12 +319,9 @@ def classify_case(
     top_domains = [normalize_url_domain(str(url)) for url in top_urls]
     top_paths = [normalize_url_path(str(url)) for url in top_urls]
     keyword_rule = _explicit_rule_payload(case, keyword_rules)
-    failure_status = str(
-        (keyword_rule or {}).get("failure_status") or case.failure_status
-    )
 
     if total == 0:
-        return failure_status, "0 hits"
+        return "fail", "0 hits"
 
     if keyword_rule:
         max_match_rank = int(keyword_rule.get("max_match_rank") or 3)
@@ -351,7 +346,7 @@ def classify_case(
             )
             if matches >= minimum_domain_matches:
                 return "pass", str(keyword_rule["pass_reason"])
-            return failure_status, str(keyword_rule["fail_reason"])
+            return "fail", str(keyword_rule["fail_reason"])
 
         required_terms = tuple(keyword_rule.get("required_terms") or ())
         if required_terms:
@@ -368,7 +363,7 @@ def classify_case(
                 for hit in rule_hits
             ):
                 return "pass", str(keyword_rule["pass_reason"])
-            return failure_status, str(keyword_rule["fail_reason"])
+            return "fail", str(keyword_rule["fail_reason"])
 
     if case.query_type == "navigational":
         if not expected_domain:
@@ -399,7 +394,7 @@ def classify_case(
     if case.query_type == "news" and expected_domain:
         if any(expected_domain in domain for domain in top_domains):
             return "pass", "expected source is in top 3"
-        return "warning", "manual recency review needed"
+        return "manual", "manual recency review needed"
 
     if case.query_type in {"overview", "troubleshooting", "comparison", "news"}:
         return "manual", "manual usefulness review required"

@@ -116,12 +116,6 @@ def _validate_keyword_rules(
                     f"query_keyword_rules[{query_key}].{field} must be a non-empty string"
                 )
 
-        failure_status = rule.get("failure_status", "fail")
-        if failure_status not in ("fail", "warning", "manual"):
-            errors.append(
-                f"query_keyword_rules[{query_key}].failure_status must be fail, warning, or manual"
-            )
-
         required_terms = rule.get("required_terms") or []
         required_domains = rule.get("required_domains") or []
         any_of_terms = rule.get("any_of_terms") or []

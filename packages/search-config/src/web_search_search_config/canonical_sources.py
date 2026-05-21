@@ -66,7 +66,6 @@ class CanonicalEvalCase:
     max_match_rank: int | None = None
     pass_reason: str | None = None
     fail_reason: str | None = None
-    failure_status: Literal["fail", "warning", "manual"] = "fail"
     judgments: tuple[EvalJudgment, ...] = ()
 
     @property
@@ -188,10 +187,6 @@ def _validate_case(item: dict, *, source_key: str, case_index: int) -> None:
     if has_explicit_rule:
         _require_non_empty_string(item.get("pass_reason"), f"{prefix}.pass_reason")
         _require_non_empty_string(item.get("fail_reason"), f"{prefix}.fail_reason")
-
-    failure_status = item.get("failure_status", "fail")
-    if failure_status not in {"fail", "warning", "manual"}:
-        raise ValueError(f"{prefix}.failure_status is invalid")
 
     judgments = item.get("judgments")
     if judgments is None:
@@ -390,7 +385,6 @@ def _load_case(
         ),
         pass_reason=item.get("pass_reason"),
         fail_reason=item.get("fail_reason"),
-        failure_status=item.get("failure_status", "fail"),
         judgments=manual_judgments
         or _derive_case_judgments(
             query_type=item["query_type"],
@@ -456,8 +450,6 @@ def canonical_eval_keyword_rules() -> dict[str, dict]:
                 "pass_reason": case.pass_reason or "",
                 "fail_reason": case.fail_reason or "",
             }
-            if case.failure_status != "fail":
-                payload["failure_status"] = case.failure_status
             if case.required_terms:
                 payload["required_terms"] = list(case.required_terms)
             if case.required_domains:
