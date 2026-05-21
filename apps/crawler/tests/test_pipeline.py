@@ -192,7 +192,7 @@ class TestProcessFetchResult:
         ctx = _make_ctx()
         with (
             patch(
-                "web_search_crawler.workers.pipeline.parse_page",
+                "web_search_crawler.services.html_processing.parse_page",
                 return_value=MagicMock(
                     title="Title",
                     content="Body",
@@ -205,7 +205,7 @@ class TestProcessFetchResult:
                 ),
             ),
             patch(
-                "web_search_crawler.workers.pipeline.submit_to_indexer",
+                "web_search_crawler.services.html_processing.submit_html_page_to_indexer",
                 new=AsyncMock(
                     return_value=IndexerSubmitResult(
                         ok=True,
@@ -215,7 +215,7 @@ class TestProcessFetchResult:
                 ),
             ),
             patch(
-                "web_search_crawler.workers.pipeline.admit_discovered_urls",
+                "web_search_crawler.services.html_processing.admit_discovered_urls",
                 new=AsyncMock(),
             ) as mock_admit,
         ):

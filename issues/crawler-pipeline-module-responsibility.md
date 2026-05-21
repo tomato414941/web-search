@@ -54,8 +54,14 @@ specific change makes the split useful.
 RSS/Atom feed result processing has been moved out of `workers/pipeline.py` into
 `services/feed_processing.py`.
 
+HTML result processing has been moved out of `workers/pipeline.py` into
+`services/html_processing.py`.
+
 Shared crawler processing types now live in `workers/types.py`, and shared
 timing helpers live in `workers/timing.py`.
 
-The remaining issue is broader than feed handling: `pipeline.py` still owns
-HTML processing, normal outlink admission, and crawl outcome recording.
+Discovered URL admission now lives in `services/url_discovery.py`.
+
+The remaining issue is narrower: `pipeline.py` still owns precheck, fetch,
+non-HTML handling, generic HTTP error handling, and the top-level fetch-result
+dispatch.

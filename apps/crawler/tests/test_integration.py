@@ -63,7 +63,7 @@ async def test_process_url_success_flow(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "web_search_crawler.workers.pipeline.parse_page",
+        "web_search_crawler.services.html_processing.parse_page",
         return_value=ParsedDocument(
             title="Test Page",
             content="Test content",
@@ -71,7 +71,7 @@ async def test_process_url_success_flow(test_components):
         ),
     ):
         with patch(
-            "web_search_crawler.workers.pipeline.submit_page_to_indexer",
+            "web_search_crawler.services.html_processing.submit_page_to_indexer",
             new_callable=AsyncMock,
         ) as mock_indexer:
             with patch(
@@ -212,7 +212,7 @@ async def test_process_url_discovers_links(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "web_search_crawler.workers.pipeline.parse_page",
+        "web_search_crawler.services.html_processing.parse_page",
         return_value=ParsedDocument(
             title="Test",
             content="Content",
@@ -227,7 +227,7 @@ async def test_process_url_discovers_links(test_components):
         ),
     ):
         with patch(
-            "web_search_crawler.workers.pipeline.submit_page_to_indexer",
+            "web_search_crawler.services.html_processing.submit_page_to_indexer",
             new_callable=AsyncMock,
         ) as mock_indexer:
             with patch(
@@ -970,7 +970,7 @@ async def test_process_url_non_html_200_logged_as_skipped(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "web_search_crawler.workers.pipeline.submit_page_to_indexer",
+        "web_search_crawler.services.html_processing.submit_page_to_indexer",
         new_callable=AsyncMock,
     ) as m:
         with patch(
@@ -1027,7 +1027,7 @@ async def test_process_url_logs_indexer_error_detail(test_components):
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
     with patch(
-        "web_search_crawler.workers.pipeline.parse_page",
+        "web_search_crawler.services.html_processing.parse_page",
         return_value=ParsedDocument(
             title="T",
             content="content",
@@ -1035,7 +1035,7 @@ async def test_process_url_logs_indexer_error_detail(test_components):
         ),
     ):
         with patch(
-            "web_search_crawler.workers.pipeline.submit_page_to_indexer",
+            "web_search_crawler.services.html_processing.submit_page_to_indexer",
             new_callable=AsyncMock,
         ) as mock_indexer:
             with patch(
