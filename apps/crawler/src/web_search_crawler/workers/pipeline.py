@@ -66,6 +66,7 @@ class ParseResult:
     title: str
     content: str
     outlinks: list[str]
+    feed_links: list[str]
     published_at: str | None = None
     updated_at: str | None = None
     author: str | None = None
@@ -249,6 +250,7 @@ async def parse(html: str, url: str, max_outlinks: int) -> ParseResult:
         title=doc.title,
         content=doc.content,
         outlinks=doc.outlinks or [],
+        feed_links=doc.feed_links or [],
         published_at=doc.published_at,
         updated_at=doc.updated_at,
         author=doc.author,
@@ -405,6 +407,32 @@ async def discover_and_admit_links(ctx: PipelineContext, discovered: list[str]) 
     logger.debug("Admitted links from %s (%d discovered)", ctx.url, len(discovered))
 
 
+async def discover_and_admit_feed_links(
+    ctx: PipelineContext, discovered: list[str]
+) -> None:
+    """Filter and admit discovered RSS/Atom feed links into the crawl frontier."""
+    if not discovered:
+        return
+
+    valid_urls = [
+        u
+        for u in discovered
+        if len(u) <= MAX_URL_LENGTH
+        and not is_domain_denied(get_domain(u), ctx.blocked_domains)
+        and not (ctx.url_filter and ctx.url_filter.is_filtered(u))
+    ]
+
+    if valid_urls:
+        await run_in_db_executor(
+            ctx.url_store.discover_and_admit_urls,
+            valid_urls,
+            discovered_via="feed_autodiscovery",
+        )
+    logger.debug(
+        "Admitted feed links from %s (%d discovered)", ctx.url, len(discovered)
+    )
+
+
 async def process_fetch_result(
     ctx: PipelineContext,
     result: FetchResult,
@@ -451,6 +479,8 @@ async def process_fetch_result(
         del html
 
         outlinks_discovered = len(parsed.outlinks)
+        if parsed.feed_links:
+            await discover_and_admit_feed_links(ctx, parsed.feed_links)
         if parsed.content:
             submit_started_at = time.perf_counter()
             index_result = await submit_to_indexer(ctx, parsed)

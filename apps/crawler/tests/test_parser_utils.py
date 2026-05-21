@@ -322,3 +322,26 @@ def test_parse_page_extract_links_ignore_invalid():
     assert "http://valid.com" in doc.outlinks
     assert not any("mailto" in link for link in doc.outlinks)
     assert not any("javascript" in link for link in doc.outlinks)
+
+
+def test_parse_page_extracts_feed_autodiscovery_links():
+    html = """
+    <html>
+    <head>
+      <link rel="alternate" type="application/rss+xml" href="/news/rss.xml">
+      <link rel="alternate" type="application/atom+xml" href="https://feeds.example.org/main.atom">
+      <link rel="stylesheet" type="text/css" href="/app.css">
+    </head>
+    <body>
+      <a href="/article">Article</a>
+    </body>
+    </html>
+    """
+
+    doc = parse_page(html, "https://example.com/")
+
+    assert doc.feed_links == [
+        "https://example.com/news/rss.xml",
+        "https://feeds.example.org/main.atom",
+    ]
+    assert "https://example.com/article" in doc.outlinks

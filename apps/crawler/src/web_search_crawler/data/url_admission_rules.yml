@@ -37,8 +37,6 @@ reject_extensions:
   - .js
   - .woff
   - .woff2
-  - .atom
-  - .rss
 
 reject_path_prefixes:
   - /login
@@ -52,8 +50,6 @@ reject_path_prefixes:
   - /search
 
 reject_path_contains:
-  - /feed
-  - /rss
   - /wp-content/
   - /comments
   - /comment-page-

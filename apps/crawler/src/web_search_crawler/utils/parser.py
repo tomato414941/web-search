@@ -352,6 +352,7 @@ class ParsedDocument:
     author: str | None = None
     organization: str | None = None
     outlinks: list[str] | None = None
+    feed_links: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -414,6 +415,27 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
         if len(outlinks) >= max_outlinks:
             break
 
+    feed_links: list[str] = []
+    for link in soup.find_all("link"):
+        rel = link.get("rel") or []
+        if isinstance(rel, str):
+            rel_values = {part.strip().lower() for part in rel.split()}
+        else:
+            rel_values = {str(part).strip().lower() for part in rel}
+        if "alternate" not in rel_values:
+            continue
+
+        link_type = str(link.get("type") or "").strip().lower()
+        if link_type not in {"application/rss+xml", "application/atom+xml"}:
+            continue
+
+        href = link.get("href")
+        if isinstance(href, list):
+            href = href[0] if href else None
+        u = normalize_url(base_url, href, block_private=True)
+        if u and u not in feed_links:
+            feed_links.append(u)
+
     return ParsedDocument(
         title=title,
         content=text,
@@ -422,6 +444,7 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
         author=author,
         organization=organization,
         outlinks=outlinks,
+        feed_links=feed_links,
     )
 
 

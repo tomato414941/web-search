@@ -1,5 +1,10 @@
 # RSS Feed Autodiscovery
 
+## Status
+
+Closed. HTML parsing now extracts standard RSS/Atom alternate links and admits
+them through the normal URL discovery and frontier path.
+
 ## Problem
 
 The crawler does not clearly support standard RSS/Atom autodiscovery from HTML
@@ -32,3 +37,14 @@ feed URLs through the normal URL discovery path.
 
 Keep feed URLs as normal discovered URLs. Do not create a separate RSS-only URL
 ledger unless feed-specific state becomes necessary.
+
+## Resolution
+
+`parse_page()` now returns RSS/Atom alternate links separately from normal
+outlinks.
+
+The crawler admits those feed URLs with
+`discovered_via="feed_autodiscovery"`.
+
+The URL admission rules no longer reject `.rss`, `.atom`, `/rss`, or `/feed`
+URLs globally.

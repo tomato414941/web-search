@@ -197,6 +197,7 @@ class TestProcessFetchResult:
                     title="Title",
                     content="Body",
                     outlinks=["http://example.com/a", "http://example.com/b"],
+                    feed_links=["https://example.com/news/rss.xml"],
                     published_at=None,
                     updated_at=None,
                     author=None,
@@ -217,6 +218,10 @@ class TestProcessFetchResult:
                 "web_search_crawler.workers.pipeline.discover_and_admit_links",
                 new=AsyncMock(),
             ) as mock_admit,
+            patch(
+                "web_search_crawler.workers.pipeline.discover_and_admit_feed_links",
+                new=AsyncMock(),
+            ) as mock_admit_feeds,
         ):
             outcome = await process_fetch_result(
                 ctx,
@@ -233,6 +238,29 @@ class TestProcessFetchResult:
         assert outcome.job_id == "job-123"
         assert outcome.outlinks_discovered == 2
         mock_admit.assert_awaited_once()
+        mock_admit_feeds.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_feed_autodiscovery_uses_dedicated_discovery_route(self):
+        ctx = _make_ctx()
+        with patch(
+            "web_search_crawler.workers.pipeline.run_in_db_executor",
+            new_callable=AsyncMock,
+        ) as mock_db:
+            from web_search_crawler.workers.pipeline import (
+                discover_and_admit_feed_links,
+            )
+
+            await discover_and_admit_feed_links(
+                ctx,
+                ["https://example.com/news/rss.xml"],
+            )
+
+        mock_db.assert_awaited_once_with(
+            ctx.url_store.discover_and_admit_urls,
+            ["https://example.com/news/rss.xml"],
+            discovered_via="feed_autodiscovery",
+        )
 
     @pytest.mark.asyncio
     async def test_feed_xml_queues_synthetic_entries(self):
