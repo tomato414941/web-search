@@ -147,7 +147,9 @@ async def precheck(
                 CrawlStageTimings(precheck_ms=elapsed_ms, total_ms=elapsed_ms)
             ),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+        )
         return "blocked"
 
     if len(ctx.url) > MAX_URL_LENGTH:
@@ -161,7 +163,9 @@ async def precheck(
                 CrawlStageTimings(precheck_ms=elapsed_ms, total_ms=elapsed_ms)
             ),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+        )
         return "url_too_long"
 
     robots_started_at = time.perf_counter()
@@ -182,7 +186,9 @@ async def precheck(
                 )
             ),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+        )
         return "robots_blocked"
     timings.robots_ms = _elapsed_ms(robots_started_at)
 
@@ -205,7 +211,9 @@ async def precheck(
                 )
             ),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+        )
         return "ssrf_blocked"
     timings.ssrf_ms = _elapsed_ms(ssrf_started_at)
 
@@ -286,7 +294,9 @@ async def _process_feed_result(
             message,
             **_timing_kwargs(timings),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+        )
         return PipelineProcessResult(status="failed", message=message, timings=timings)
 
     if not entries:
@@ -300,7 +310,9 @@ async def _process_feed_result(
             message,
             **_timing_kwargs(timings),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.DONE)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.DONE
+        )
         return PipelineProcessResult(status="skipped", message=message, timings=timings)
 
     entry_urls = [entry.url for entry in entries]
@@ -330,7 +342,9 @@ async def _process_feed_result(
             message,
             **_timing_kwargs(timings),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+        )
         return PipelineProcessResult(status="failed", message=message, timings=timings)
 
     timings.total_ms = _elapsed_ms(total_started_at)
@@ -342,7 +356,9 @@ async def _process_feed_result(
         f"feed_entries={submitted}",
         **_timing_kwargs(timings),
     )
-    await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.DONE)
+    await run_in_db_executor(
+        ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.DONE
+    )
     return PipelineProcessResult(
         status="queued_for_index",
         message="Feed entries queued for indexing",
@@ -411,7 +427,9 @@ async def process_fetch_result(
             result.error,
             **_timing_kwargs(timings),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+        )
         return PipelineProcessResult(
             status="failed", message=result.error, timings=timings
         )
@@ -450,7 +468,7 @@ async def process_fetch_result(
                     **_timing_kwargs(timings),
                 )
                 await run_in_db_executor(
-                    ctx.url_store.record, ctx.url, CrawlUrlStatus.DONE
+                    ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.DONE
                 )
                 return PipelineProcessResult(
                     status="queued_for_index",
@@ -470,7 +488,7 @@ async def process_fetch_result(
                 **_timing_kwargs(timings),
             )
             await run_in_db_executor(
-                ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED
+                ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
             )
             return PipelineProcessResult(
                 status="failed",
@@ -490,7 +508,9 @@ async def process_fetch_result(
             "No main content found",
             **_timing_kwargs(timings),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.DONE)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.DONE
+        )
         return PipelineProcessResult(
             status="skipped",
             message="No main content found",
@@ -509,7 +529,9 @@ async def process_fetch_result(
             message,
             **_timing_kwargs(timings),
         )
-        await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.DONE)
+        await run_in_db_executor(
+            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.DONE
+        )
         return PipelineProcessResult(status="skipped", message=message, timings=timings)
 
     message = f"HTTP {result.status}"
@@ -530,7 +552,9 @@ async def process_fetch_result(
         message,
         **_timing_kwargs(timings),
     )
-    await run_in_db_executor(ctx.url_store.record, ctx.url, CrawlUrlStatus.FAILED)
+    await run_in_db_executor(
+        ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+    )
     return PipelineProcessResult(
         status="failed",
         message=message,

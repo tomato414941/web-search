@@ -73,11 +73,6 @@ class FrontierAdminStateStore:
             (_FRONTIER_ADMIN_ROW_NAME, "{}", now),
         )
 
-    def mark_frontier_counters_dirty(self) -> None:
-        # Frontier counters now refresh on the read side. Keep this as a
-        # compatibility no-op while older call sites are removed.
-        return None
-
     def set_frontier_counters(
         self,
         *,

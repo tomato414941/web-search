@@ -103,7 +103,7 @@ def test_frontier_status_endpoint(test_client, test_url_store):
 
     # Add some data
     test_url_store.discover_and_admit_url("http://example.com")
-    test_url_store.record("http://crawled.com")
+    test_url_store.record_crawl_result("http://crawled.com", "done")
 
     with patch(
         "web_search_crawler.api.deps._get_url_store", return_value=test_url_store

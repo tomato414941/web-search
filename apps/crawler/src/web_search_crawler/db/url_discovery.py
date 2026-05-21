@@ -477,14 +477,8 @@ class UrlDiscoveryMixin:
 
         return added
 
-    def record(self, url: str, status: str = "done") -> None:
-        """
-        Record a crawl result. Updates last_crawled_at and crawl_count.
-
-        Args:
-            url: Crawled URL
-            status: 'done' or 'failed' (kept for API compat, both update the ledger)
-        """
+    def record_crawl_result(self, url: str, status: str) -> None:
+        """Record a crawl result and update frontier state."""
         h = url_hash(url)
         domain = get_domain(url)
         now = int(time.time())
@@ -502,5 +496,4 @@ class UrlDiscoveryMixin:
                 """,
                 (h, url, domain, now, now),
             )
-        if hasattr(self, "record_frontier_result"):
-            self.record_frontier_result(url, status)
+        self.record_frontier_result(url, status)

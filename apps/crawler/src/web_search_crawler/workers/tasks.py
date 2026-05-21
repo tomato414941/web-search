@@ -115,7 +115,9 @@ async def process_url(
             CrawlAttemptStatus.UNKNOWN_ERROR,
             error_message=str(e),
         )
-        await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            url_store.record_crawl_result, url, CrawlUrlStatus.FAILED
+        )
 
 
 async def _handle_retry(
@@ -150,7 +152,9 @@ async def _handle_retry(
             error_message=f"Max retries ({MAX_RETRIES}) exceeded: {error}",
             **timing_kwargs,
         )
-        await run_in_db_executor(url_store.record, url, CrawlUrlStatus.FAILED)
+        await run_in_db_executor(
+            url_store.record_crawl_result, url, CrawlUrlStatus.FAILED
+        )
         runtime_state.retry_counts.pop(url, None)
     else:
         # Re-release the leased frontier entry for retry

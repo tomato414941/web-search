@@ -571,7 +571,7 @@ class UrlFrontierMixin:
                 )
             return updated
 
-    def record_frontier_result(self, url: str, status: str = "done") -> None:
+    def record_frontier_result(self, url: str, status: str) -> None:
         """Persist frontier completion state and next eligible fetch time."""
         now = int(time.time())
         h = url_hash(url)
