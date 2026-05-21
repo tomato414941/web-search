@@ -169,21 +169,8 @@ pytest apps/indexer/tests
 pytest apps/crawler/tests
 ```
 
-## Deployment Environments
+## Deployment Overview
 
-Use [deployment.md](./deployment.md) for current production deployment,
-GHCR-based deployment, and rollback procedures.
-
-Common verification entrypoints:
-
-```bash
-make verify-prd
-make verify-admin-prd
-```
-
-If you need runtime image verification in addition to compose-ref verification,
-pass `VERIFY_IMAGE_TAG=<main_sha>` to `make verify-prd`.
-
-`verify-admin-*` checks are intentionally cold-page checks for the admin UI.
-They are meant to catch deploy-time regressions in dashboard request cost, not
-just confirm that a warmed cache still works.
+Use [deployment.md](./deployment.md) for the public production deployment
+overview. Host-specific deployment commands and operational runbooks are not
+part of the local setup guide.

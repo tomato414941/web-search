@@ -42,7 +42,7 @@ Run commands from the repo root unless noted:
 - Routine personal-development changes are committed and pushed directly to `main`.
 - Use a feature branch only when a change is large, risky, or explicitly needs external review.
 - STG has been decommissioned; do not add new staging deploy dependencies.
-- PRD promotions use a `main` image tag with `git_ref=main` after CI passes.
+- Production deployment is an explicit operator action after CI passes.
 
 ## Coding Style & Naming Conventions
 Python uses 4-space indentation and `ruff` formatting. Follow existing naming:
