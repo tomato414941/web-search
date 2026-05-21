@@ -215,13 +215,9 @@ class TestProcessFetchResult:
                 ),
             ),
             patch(
-                "web_search_crawler.workers.pipeline.discover_and_admit_links",
+                "web_search_crawler.workers.pipeline.admit_discovered_urls",
                 new=AsyncMock(),
             ) as mock_admit,
-            patch(
-                "web_search_crawler.workers.pipeline.discover_and_admit_feed_links",
-                new=AsyncMock(),
-            ) as mock_admit_feeds,
         ):
             outcome = await process_fetch_result(
                 ctx,
@@ -237,23 +233,30 @@ class TestProcessFetchResult:
         assert outcome.message == "Page queued for indexing"
         assert outcome.job_id == "job-123"
         assert outcome.outlinks_discovered == 2
-        mock_admit.assert_awaited_once()
-        mock_admit_feeds.assert_awaited_once()
+        assert mock_admit.await_count == 2
+        mock_admit.assert_any_await(
+            ctx,
+            ["https://example.com/news/rss.xml"],
+            discovered_via="feed_autodiscovery",
+        )
+        mock_admit.assert_any_await(
+            ctx,
+            ["http://example.com/a", "http://example.com/b"],
+        )
 
     @pytest.mark.asyncio
     async def test_feed_autodiscovery_uses_dedicated_discovery_route(self):
         ctx = _make_ctx()
         with patch(
-            "web_search_crawler.services.feed_processing.run_in_db_executor",
+            "web_search_crawler.services.url_discovery.run_in_db_executor",
             new_callable=AsyncMock,
         ) as mock_db:
-            from web_search_crawler.services.feed_processing import (
-                discover_and_admit_feed_links,
-            )
+            from web_search_crawler.services.url_discovery import admit_discovered_urls
 
-            await discover_and_admit_feed_links(
+            await admit_discovered_urls(
                 ctx,
                 ["https://example.com/news/rss.xml"],
+                discovered_via="feed_autodiscovery",
             )
 
         mock_db.assert_awaited_once_with(

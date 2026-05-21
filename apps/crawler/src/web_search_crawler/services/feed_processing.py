@@ -3,9 +3,7 @@
 import time
 
 from web_search_crawler.core.config import settings
-from web_search_crawler.core.crawl_denylist import is_domain_denied
 from web_search_crawler.db.executor import run_in_db_executor
-from web_search_crawler.db.url_types import get_domain
 from web_search_crawler.services.fetchers import FetchResult
 from web_search_crawler.services.indexer import (
     IndexerSubmitResult,
@@ -20,7 +18,6 @@ from web_search_crawler.workers.types import (
 )
 from web_search_crawler.workers.timing import elapsed_ms, timing_kwargs
 from web_search_contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
-from web_search_core.utils import MAX_URL_LENGTH
 
 
 async def submit_feed_entry(
@@ -132,26 +129,3 @@ async def process_feed_result(
         outlinks_discovered=submitted,
         timings=timings,
     )
-
-
-async def discover_and_admit_feed_links(
-    ctx: PipelineContext, discovered: list[str]
-) -> None:
-    """Filter and admit discovered RSS/Atom feed links into the crawl frontier."""
-    if not discovered:
-        return
-
-    valid_urls = [
-        u
-        for u in discovered
-        if len(u) <= MAX_URL_LENGTH
-        and not is_domain_denied(get_domain(u), ctx.blocked_domains)
-        and not (ctx.url_filter and ctx.url_filter.is_filtered(u))
-    ]
-
-    if valid_urls:
-        await run_in_db_executor(
-            ctx.url_store.discover_and_admit_urls,
-            valid_urls,
-            discovered_via="feed_autodiscovery",
-        )

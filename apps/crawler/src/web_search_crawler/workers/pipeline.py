@@ -12,7 +12,6 @@ import time
 from web_search_crawler.core.crawl_denylist import is_domain_denied
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.executor import run_in_db_executor
-from web_search_crawler.db.url_types import get_domain
 from web_search_crawler.services.fetchers import (
     FetchResult,
     _is_feed_content_type,
@@ -21,10 +20,8 @@ from web_search_crawler.services.indexer import (
     IndexerSubmitResult,
     submit_page_to_indexer,
 )
-from web_search_crawler.services.feed_processing import (
-    discover_and_admit_feed_links,
-    process_feed_result,
-)
+from web_search_crawler.services.feed_processing import process_feed_result
+from web_search_crawler.services.url_discovery import admit_discovered_urls
 from web_search_crawler.utils import history as history_log
 from web_search_crawler.utils.parser import parse_page
 from web_search_crawler.workers.types import (
@@ -193,25 +190,6 @@ async def submit_to_indexer(
     )
 
 
-async def discover_and_admit_links(ctx: PipelineContext, discovered: list[str]) -> None:
-    """Filter and admit discovered links into the crawl frontier."""
-    if not discovered:
-        return
-
-    # Filter: length + denylist + URL patterns
-    valid_urls = [
-        u
-        for u in discovered
-        if len(u) <= MAX_URL_LENGTH
-        and not is_domain_denied(get_domain(u), ctx.blocked_domains)
-        and not (ctx.url_filter and ctx.url_filter.is_filtered(u))
-    ]
-
-    if valid_urls:
-        await run_in_db_executor(ctx.url_store.discover_and_admit_urls, valid_urls)
-    logger.debug("Admitted links from %s (%d discovered)", ctx.url, len(discovered))
-
-
 async def process_fetch_result(
     ctx: PipelineContext,
     result: FetchResult,
@@ -259,13 +237,17 @@ async def process_fetch_result(
 
         outlinks_discovered = len(parsed.outlinks)
         if parsed.feed_links:
-            await discover_and_admit_feed_links(ctx, parsed.feed_links)
+            await admit_discovered_urls(
+                ctx,
+                parsed.feed_links,
+                discovered_via="feed_autodiscovery",
+            )
         if parsed.content:
             submit_started_at = time.perf_counter()
             index_result = await submit_to_indexer(ctx, parsed)
             timings.submit_ms = elapsed_ms(submit_started_at)
             if parsed.outlinks:
-                await discover_and_admit_links(ctx, parsed.outlinks)
+                await admit_discovered_urls(ctx, parsed.outlinks)
             timings.total_ms = elapsed_ms(total_started_at)
             if index_result.ok:
                 await run_in_db_executor(
@@ -307,7 +289,7 @@ async def process_fetch_result(
             )
 
         if parsed.outlinks:
-            await discover_and_admit_links(ctx, parsed.outlinks)
+            await admit_discovered_urls(ctx, parsed.outlinks)
         timings.total_ms = elapsed_ms(total_started_at)
         await run_in_db_executor(
             history_log.log_crawl_attempt,
