@@ -57,6 +57,16 @@ host.
 - `deploy-prd` runs `docker compose up -d --build --remove-orphans` through `scripts/ops/deploy_compose.sh`.
 - Run deploy verification immediately after deployment.
 
+Required operator environment variables:
+- `WEB_SEARCH_PRD_SERVER`
+- `WEB_SEARCH_PRD_ENV_FILE`
+- `WEB_SEARCH_PRD_REPO_PATH`
+
+Optional operator environment variables:
+- `WEB_SEARCH_PRD_PROJECT`
+- `WEB_SEARCH_PRD_FRONTEND_URL`
+- `WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR`
+
 ### Admin Verification Intent
 
 `verify_compose_admin_pages.sh` validates cold admin page loads after deploy,

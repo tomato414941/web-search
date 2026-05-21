@@ -88,13 +88,14 @@ set_environment_config() {
         indexer
         indexer-worker
         indexer-maintenance-worker
-        crawler
         postgres
+      )
+      OPTIONAL_IF_PRESENT_SERVICES=(
+        crawler
         opensearch
         prometheus
         grafana
       )
-      OPTIONAL_IF_PRESENT_SERVICES=()
       ;;
     *)
       echo "Unsupported environment: $ENVIRONMENT" >&2
