@@ -65,3 +65,19 @@ Discovered URL admission now lives in `services/url_discovery.py`.
 The remaining issue is narrower: `pipeline.py` still owns precheck, fetch,
 non-HTML handling, generic HTTP error handling, and the top-level fetch-result
 dispatch.
+
+## Resolution
+
+Closed. The remaining responsibilities fit `workers/pipeline.py`.
+
+`pipeline.py` now owns the per-URL worker pipeline: precheck, fetch, fetch-result
+dispatch, non-HTML handling, generic HTTP error handling, and `execute_crawl()`
+orchestration.
+
+The concerns that made the module too broad have been moved out:
+
+- RSS/Atom feed processing: `services/feed_processing.py`
+- HTML page processing: `services/html_processing.py`
+- discovered URL admission: `services/url_discovery.py`
+- shared processing types: `workers/types.py`
+- timing helpers: `workers/timing.py`
