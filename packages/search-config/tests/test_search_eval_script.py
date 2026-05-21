@@ -20,7 +20,6 @@ def test_reference_case_requires_expected_docs_subdomain():
         query_type="reference",
         expected="docs.github.com",
         notes="Official GitHub docs should be in top 3",
-        tier=1,
     )
     payload = {
         "total": 3,
@@ -63,7 +62,6 @@ def test_navigational_case_passes_when_official_homepage_is_top3():
         query_type="navigational",
         expected="github.com",
         notes="Official homepage should be in top 3",
-        tier=1,
     )
     payload = {
         "total": 3,
@@ -106,7 +104,6 @@ def test_domain_rule_respects_excluded_domains():
         query_type="news/reference",
         expected="official OpenAI announcements",
         notes="Top 3 should include an official OpenAI announcements page",
-        tier=2,
     )
     payload = {
         "total": 3,
@@ -158,7 +155,6 @@ def test_explicit_rule_can_downgrade_failures_to_warning():
         query_type="news/reference",
         expected="recent official OpenAI news or blog reporting",
         notes="Top 3 should include an official OpenAI news/blog result",
-        tier=2,
         failure_status="warning",
     )
     payload = {"total": 0, "hits": []}
@@ -190,7 +186,6 @@ def test_domain_rule_can_require_exact_paths_and_rank_window():
         query_type="reference",
         expected="react.dev",
         notes="Official React docs should be in top 3",
-        tier=1,
     )
     payload = {
         "total": 3,
@@ -247,7 +242,6 @@ def test_term_rule_can_require_title_terms_and_rank_window():
         query_type="news/reference",
         expected="docs.python.org release notes",
         notes="Official release page should be in top 3",
-        tier=1,
     )
     payload = {
         "total": 3,
@@ -299,7 +293,6 @@ def test_comparison_term_rule_rejects_non_comparison_mentions():
         query_type="comparison",
         expected="a page that explicitly compares FastAPI and Django",
         notes="Top 3 should include a result that names both FastAPI and Django",
-        tier=2,
     )
     payload = {
         "total": 3,
@@ -357,7 +350,6 @@ def test_load_config_merges_canonical_query_cases(tmp_path):
                         "query_type": "reference",
                         "expected": "example.com",
                         "notes": "Example local case",
-                        "tier": 2,
                     }
                 ],
             }
@@ -387,7 +379,6 @@ def test_load_config_reads_optional_judgments(tmp_path):
                         "query_type": "reference",
                         "expected": "docs.example.com",
                         "notes": "Example local case",
-                        "tier": 1,
                         "judgments": [
                             {
                                 "relevance": 3,
@@ -417,7 +408,6 @@ def test_main_writes_json_report(monkeypatch, tmp_path):
         query_type="reference",
         expected="docs.example.com",
         notes="Example local case",
-        tier=1,
     )
 
     def _fake_fetch_results(base_url: str, query: str, limit: int) -> dict:
@@ -471,13 +461,12 @@ def test_main_writes_json_report(monkeypatch, tmp_path):
     assert report["cases"][0]["top_hits"][0]["relevance"] == 3
 
 
-def test_main_returns_nonzero_for_tier1_fail(monkeypatch, tmp_path):
+def test_main_reports_case_failures_without_nonzero_exit(monkeypatch, tmp_path):
     case = CanonicalEvalCase(
         query="Example docs",
         query_type="reference",
         expected="docs.example.com",
         notes="Example docs should be in top 3",
-        tier=1,
     )
 
     def _fake_fetch_results(_base_url: str, _query: str, _limit: int) -> dict:
@@ -497,21 +486,18 @@ def test_main_returns_nonzero_for_tier1_fail(monkeypatch, tmp_path):
             "https://example.test",
             "--config",
             str(tmp_path / "search_eval_cases.json"),
-            "--tier",
-            "1",
         ],
     )
 
-    assert module.main() == 1
+    assert module.main() == 0
 
 
-def test_main_allows_tier2_failures_in_full_report(monkeypatch, tmp_path):
+def test_main_includes_failures_in_full_report(monkeypatch, tmp_path):
     case = CanonicalEvalCase(
         query="Example comparison",
         query_type="comparison",
         expected="a useful comparison",
-        notes="Example tier-2 visibility case",
-        tier=2,
+        notes="Example visibility case",
     )
 
     def _fake_fetch_results(_base_url: str, _query: str, _limit: int) -> dict:

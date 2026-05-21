@@ -15,7 +15,6 @@ from web_search_search_config.canonical_sources import CanonicalEvalCase, EvalJu
 class CaseEvaluation:
     query: str
     query_type: str
-    tier: int
     status: str
     reason: str
     metrics: dict[str, float | int | None]
@@ -427,16 +426,11 @@ def aggregate_metrics(cases: list[CaseEvaluation]) -> dict[str, dict[str, float]
             for metric_name in metric_names
         }
 
-    by_tier: dict[str, list[CaseEvaluation]] = {}
     by_type: dict[str, list[CaseEvaluation]] = {}
     for case in cases:
-        by_tier.setdefault(f"tier_{case.tier}", []).append(case)
         by_type.setdefault(case.query_type, []).append(case)
 
     aggregate = {"all": _group_rows(cases)}
-    aggregate.update(
-        {name: _group_rows(rows) for name, rows in sorted(by_tier.items())}
-    )
     aggregate.update(
         {name: _group_rows(rows) for name, rows in sorted(by_type.items())}
     )

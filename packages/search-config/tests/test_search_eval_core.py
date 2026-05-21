@@ -14,7 +14,6 @@ def test_hit_relevance_prefers_explicit_judgments():
         query_type="reference",
         expected="docs.example.com",
         notes="Canonical docs should rank first",
-        tier=1,
         judgments=(
             EvalJudgment(
                 relevance=2,
@@ -47,7 +46,6 @@ def test_compute_case_metrics_uses_judgment_ideal_order():
         query_type="reference",
         expected="docs.example.com",
         notes="Canonical docs should rank first",
-        tier=1,
         judgments=(
             EvalJudgment(relevance=3, url="https://docs.example.com/"),
             EvalJudgment(relevance=2, domain="docs.example.com", path_prefix="/guide"),
@@ -96,7 +94,6 @@ def test_validate_query_cases_rejects_invalid_judgments():
                 "query_type": "reference",
                 "expected": "docs.example.com",
                 "notes": "Example case",
-                "tier": 1,
                 "judgments": [{"relevance": 4}],
             }
         ],
@@ -135,7 +132,6 @@ def test_pattern_judgments_keep_ndcg_bounded():
         query_type="reference",
         expected="docs.example.com",
         notes="Canonical docs should rank first",
-        tier=1,
         judgments=(EvalJudgment(relevance=3, domain="docs.example.com"),),
     )
     payload = {
@@ -163,7 +159,6 @@ def test_classify_case_supports_case_level_explicit_rules_without_keyword_map():
         query_type="reference",
         expected="react.dev",
         notes="Official React docs should be in top 3",
-        tier=1,
         required_domains=("react.dev",),
         required_paths=("/reference", "/reference/"),
         pass_reason="top 3 include the main React docs entry points",

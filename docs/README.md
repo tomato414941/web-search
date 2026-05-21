@@ -15,7 +15,7 @@ design notes. Use this file as the entry point.
 
 - [search-concepts.md](./search-concepts.md): conceptual vocabulary for intent, targets, retrieval, scoring, ranking, signals, and presentation
 - [search-ranking-policy.md](./search-ranking-policy.md): current ranking policy and query classes
-- [search-evaluation.md](./search-evaluation.md): golden-set policy, tiering, and evaluation workflow
+- [search-evaluation.md](./search-evaluation.md): golden-set policy and evaluation workflow
 - [search-signals.md](./search-signals.md): current extraction and document-signal strategy
 
 ## Where To Start

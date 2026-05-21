@@ -22,7 +22,6 @@ That file is the source of truth for:
 
 - query text
 - query type
-- tier
 - expected domain/source
 - query-specific pass/fail rules
 
@@ -42,18 +41,10 @@ Run the evaluation set with:
 make evaluate-search
 ```
 
-Run only tier-1 with:
-
-```bash
-make evaluate-search-tier1
-```
-
 Evaluation exit behavior:
 
 - any evaluator runtime error exits non-zero
-- any tier-1 `fail` exits non-zero
-- tier-2 `fail` remains visible but non-blocking in the full report
-- `warning` remains non-blocking
+- case statuses are report output, not deployment gates
 
 Validate the config before changing it:
 

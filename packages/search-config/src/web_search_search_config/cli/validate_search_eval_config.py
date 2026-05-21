@@ -55,10 +55,6 @@ def _validate_query_cases(
                     f"query_cases[{index}].{field} must be a non-empty string"
                 )
 
-        tier = case.get("tier")
-        if tier not in (1, 2):
-            errors.append(f"query_cases[{index}].tier must be 1 or 2: {query}")
-
         judgments = case.get("judgments")
         if judgments is not None:
             if not isinstance(judgments, list):
@@ -250,7 +246,6 @@ def main() -> int:
                 "query_type": case.query_type,
                 "expected": case.expected,
                 "notes": case.notes,
-                "tier": case.tier,
             }
             for case in combined_config.query_cases
         ]

@@ -55,7 +55,6 @@ class CanonicalEvalCase:
     query_type: str
     expected: str
     notes: str
-    tier: int
     required_terms: tuple[str, ...] = ()
     required_domains: tuple[str, ...] = ()
     minimum_domain_matches: int = 1
@@ -124,10 +123,6 @@ def _validate_case(item: dict, *, source_key: str, case_index: int) -> None:
     _require_non_empty_string(item.get("query_type"), f"{prefix}.query_type")
     _require_non_empty_string(item.get("expected"), f"{prefix}.expected")
     _require_non_empty_string(item.get("notes"), f"{prefix}.notes")
-
-    tier = item.get("tier")
-    if tier not in (1, 2):
-        raise ValueError(f"{prefix}.tier must be 1 or 2")
 
     required_terms = item.get("required_terms")
     required_domains = item.get("required_domains")
@@ -380,7 +375,6 @@ def _load_case(
         query_type=item["query_type"],
         expected=item["expected"],
         notes=item["notes"],
-        tier=int(item["tier"]),
         required_terms=_tuple_of_strings(item.get("required_terms")),
         required_domains=_tuple_of_strings(item.get("required_domains")),
         minimum_domain_matches=int(item.get("minimum_domain_matches") or 1),

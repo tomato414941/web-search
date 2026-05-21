@@ -89,36 +89,31 @@
       "query": "What is BM25",
       "query_type": "overview/reference",
       "expected": "a BM25-focused explanatory source",
-      "notes": "Top 3 should explicitly mention BM25",
-      "tier": 1
+      "notes": "Top 3 should explicitly mention BM25"
     },
     {
       "query": "FastAPI vs Django",
       "query_type": "comparison",
       "expected": "a page that explicitly compares FastAPI and Django",
-      "notes": "Top 3 should include a result that names both FastAPI and Django",
-      "tier": 2
+      "notes": "Top 3 should include a result that names both FastAPI and Django"
     },
     {
       "query": "OpenSearch vs Elasticsearch",
       "query_type": "comparison",
       "expected": "a page that explicitly compares OpenSearch and Elasticsearch",
-      "notes": "Top 3 should include a result with both names and a comparison cue",
-      "tier": 2
+      "notes": "Top 3 should include a result with both names and a comparison cue"
     },
     {
       "query": "PostgreSQL vs MySQL",
       "query_type": "comparison",
       "expected": "a page that explicitly compares PostgreSQL and MySQL",
-      "notes": "Top 3 should include a result with both names and a comparison cue",
-      "tier": 2
+      "notes": "Top 3 should include a result with both names and a comparison cue"
     },
     {
       "query": "Redis vs Memcached",
       "query_type": "comparison",
       "expected": "a page that explicitly compares Redis and Memcached",
-      "notes": "Top 3 should include a result with both names and a comparison cue",
-      "tier": 2
+      "notes": "Top 3 should include a result with both names and a comparison cue"
     }
   ]
 }

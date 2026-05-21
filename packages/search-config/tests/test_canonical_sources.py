@@ -57,7 +57,6 @@ def test_canonical_query_cases_include_react_docs():
     assert "React docs" in cases
     assert "site reliability engineering" in cases
     assert cases["React docs"].query_type == "reference"
-    assert cases["React docs"].tier == 1
 
 
 def test_canonical_query_cases_include_openai_warning_status():
@@ -67,16 +66,13 @@ def test_canonical_query_cases_include_openai_warning_status():
     assert cases["OpenAI announcements"].failure_status == "warning"
 
 
-def test_canonical_query_cases_include_news_reference_in_tier1():
+def test_canonical_query_cases_include_news_reference_constraints():
     cases = {case.query: case for case in canonical_query_cases()}
 
-    assert cases["Python 3.13 release"].tier == 1
     assert cases["Python 3.13 release"].max_match_rank == 3
-    assert cases["Python release notes"].tier == 1
-    assert cases["Django release notes"].tier == 1
 
 
-def test_tier1_reference_cases_use_specific_path_constraints():
+def test_reference_cases_use_specific_path_constraints():
     cases = {case.query: case for case in canonical_query_cases()}
     constrained_cases = {
         "GitHub Actions": ("github.com", "/actions"),
@@ -92,7 +88,6 @@ def test_tier1_reference_cases_use_specific_path_constraints():
 
     for query, (domain, path_term) in constrained_cases.items():
         case = cases[query]
-        assert case.tier == 1
         assert domain in case.required_domains
         assert path_term in case.required_path_terms
         assert case.max_match_rank == 3
@@ -126,14 +121,12 @@ def test_validate_manifest_rejects_duplicate_case_queries():
                         "query_type": "reference",
                         "expected": "example.com",
                         "notes": "x",
-                        "tier": 1,
                     },
                     {
                         "query": "Example",
                         "query_type": "reference",
                         "expected": "example.com",
                         "notes": "x",
-                        "tier": 1,
                     },
                 ],
             }
@@ -157,7 +150,6 @@ def test_validate_manifest_rejects_mixed_required_terms_and_domains():
                         "query_type": "reference",
                         "expected": "example.com",
                         "notes": "x",
-                        "tier": 1,
                         "required_terms": ["bad"],
                         "required_domains": ["example.com"],
                         "pass_reason": "x",
@@ -187,7 +179,6 @@ def test_validate_manifest_rejects_invalid_failure_status():
                         "query_type": "reference",
                         "expected": "example.com",
                         "notes": "x",
-                        "tier": 2,
                         "failure_status": "ignored",
                     }
                 ],

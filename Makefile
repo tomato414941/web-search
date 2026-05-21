@@ -12,7 +12,7 @@ SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 
 .PHONY: ci ci-lint ci-legacy-paths ci-frontend ci-packages ci-crawler ci-indexer ci-mcp
 .PHONY: watch-ci verify-prd verify-admin-prd
-.PHONY: release-check-prd evaluate-search evaluate-search-tier1
+.PHONY: release-check-prd evaluate-search
 .PHONY: validate-search-eval
 .PHONY: collect-query-candidates
 .PHONY: repair-robots-prd repair-canonical-prd
@@ -107,9 +107,6 @@ release-check-prd:
 
 evaluate-search:
 	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-evaluate-search --base-url "$(SEARCH_EVAL_BASE_URL)"
-
-evaluate-search-tier1:
-	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-evaluate-search --base-url "$(SEARCH_EVAL_BASE_URL)" --tier 1
 
 validate-search-eval:
 	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-validate-search-eval-config

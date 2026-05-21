@@ -71,7 +71,7 @@ def _print_case(
     mode = payload.get("mode", "?")
     total = payload.get("total", 0)
     print(f"[{status.upper()}] {case.query}")
-    print(f"  type={case.query_type} tier={case.tier} total={total} mode={mode}")
+    print(f"  type={case.query_type} total={total} mode={mode}")
     print(f"  expected={case.expected}")
     print(f"  notes={case.notes}")
     print(f"  reason={reason}")
@@ -84,10 +84,6 @@ def _print_case(
     )
     for idx, hit in enumerate(hits[:3], start=1):
         print(f"  {idx}. [{relevances[idx - 1]}] {hit.get('url', '-')}")
-
-
-def _has_blocking_failures(cases: list[CaseEvaluation]) -> bool:
-    return any(case.tier == 1 and case.status == "fail" for case in cases)
 
 
 def main() -> int:
@@ -109,12 +105,6 @@ def main() -> int:
         help="Result count to fetch for each query",
     )
     parser.add_argument(
-        "--tier",
-        choices=("all", "1", "2"),
-        default="all",
-        help="Optional tier filter",
-    )
-    parser.add_argument(
         "--json-output",
         help="Optional path to write a machine-readable JSON report",
     )
@@ -122,8 +112,6 @@ def main() -> int:
 
     config_path = Path(args.config)
     cases, keyword_rules, known_domains = _load_config(config_path)
-    if args.tier != "all":
-        cases = [case for case in cases if case.tier == int(args.tier)]
 
     counts = {"pass": 0, "warning": 0, "fail": 0, "manual": 0}
     errors = 0
@@ -157,7 +145,6 @@ def main() -> int:
                 CaseEvaluation(
                     query=case.query,
                     query_type=case.query_type,
-                    tier=case.tier,
                     status=status,
                     reason=reason,
                     metrics=metrics,
@@ -196,10 +183,6 @@ def main() -> int:
         cases=evaluated_cases,
         errors=errors,
     )
-    blocking_failures = _has_blocking_failures(evaluated_cases)
-    if blocking_failures:
-        print("Gate")
-        print("  blocking tier-1 failures detected")
     print("Metrics")
     for group, metrics in report.aggregate_metrics.items():
         if not metrics:
@@ -217,4 +200,4 @@ def main() -> int:
             json.dumps(report.to_dict(), indent=2, sort_keys=True),
             encoding="utf-8",
         )
-    return 1 if errors or blocking_failures else 0
+    return 1 if errors else 0

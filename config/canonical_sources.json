@@ -11,8 +11,7 @@
           "query": "Google",
           "query_type": "navigational",
           "expected": "google.com",
-          "notes": "Official homepage should be in top 3",
-          "tier": 1
+          "notes": "Official homepage should be in top 3"
         }
       ]
     },
@@ -28,15 +27,13 @@
           "query": "GitHub",
           "query_type": "navigational",
           "expected": "github.com",
-          "notes": "Official homepage should be in top 3",
-          "tier": 1
+          "notes": "Official homepage should be in top 3"
         },
         {
           "query": "GitHub Actions",
           "query_type": "reference",
           "expected": "github.com",
           "notes": "Official GitHub Actions pages should be in top 3",
-          "tier": 1,
           "required_domains": ["github.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/features/actions", "/actions"],
@@ -57,15 +54,13 @@
           "query": "FastAPI docs",
           "query_type": "navigational",
           "expected": "fastapi.tiangolo.com",
-          "notes": "Official docs should beat tutorials",
-          "tier": 1
+          "notes": "Official docs should beat tutorials"
         },
         {
           "query": "FastAPI background tasks",
           "query_type": "reference",
           "expected": "fastapi.tiangolo.com docs",
-          "notes": "Official docs should beat blog posts",
-          "tier": 1
+          "notes": "Official docs should beat blog posts"
         }
       ]
     },
@@ -81,15 +76,13 @@
           "query": "OpenAI API",
           "query_type": "navigational",
           "expected": "developers.openai.com or official OpenAI docs",
-          "notes": "Official API docs should be in top 3",
-          "tier": 1
+          "notes": "Official API docs should be in top 3"
         },
         {
           "query": "OpenAI API changelog",
           "query_type": "reference",
           "expected": "developers.openai.com",
           "notes": "Official OpenAI API changelog should be in top 3",
-          "tier": 1,
           "required_domains": ["developers.openai.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/api/docs/changelog"],
@@ -108,8 +101,7 @@
           "query": "Python download",
           "query_type": "reference",
           "expected": "docs.python.org",
-          "notes": "Official Python download docs should be in top 3",
-          "tier": 1
+          "notes": "Official Python download docs should be in top 3"
         }
       ]
     },
@@ -128,7 +120,6 @@
           "query_type": "overview/reference",
           "expected": "canonical or explanatory SRE sources",
           "notes": "Top 3 should include at least two strong SRE sources",
-          "tier": 1,
           "required_domains": [
             "usenix.org",
             "sre.google",
@@ -152,15 +143,13 @@
           "query": "PostgreSQL jsonb",
           "query_type": "reference",
           "expected": "postgresql.org docs",
-          "notes": "Official docs should be in top 3",
-          "tier": 1
+          "notes": "Official docs should be in top 3"
         },
         {
           "query": "PostgreSQL data types",
           "query_type": "reference",
           "expected": "postgresql.org",
-          "notes": "Official PostgreSQL docs should be in top 3",
-          "tier": 1
+          "notes": "Official PostgreSQL docs should be in top 3"
         }
       ]
     },
@@ -182,29 +171,25 @@
           "query": "Docker docs",
           "query_type": "reference",
           "expected": "docs.docker.com",
-          "notes": "Official Docker docs should be in top 3",
-          "tier": 1
+          "notes": "Official Docker docs should be in top 3"
         },
         {
           "query": "Docker install",
           "query_type": "reference",
           "expected": "docs.docker.com",
-          "notes": "Official Docker install docs should be in top 3",
-          "tier": 1
+          "notes": "Official Docker install docs should be in top 3"
         },
         {
           "query": "docker compose orphan containers",
           "query_type": "reference/troubleshooting",
           "expected": "docs.docker.com",
-          "notes": "Official Docker docs should be in top 3",
-          "tier": 1
+          "notes": "Official Docker docs should be in top 3"
         },
         {
           "query": "Docker compose file reference",
           "query_type": "reference",
           "expected": "docs.docker.com",
           "notes": "Official Docker Compose file reference should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.docker.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/compose/compose-file"],
@@ -227,15 +212,13 @@
           "query": "django documentation",
           "query_type": "reference",
           "expected": "docs.djangoproject.com",
-          "notes": "Official Django docs should be in top 3",
-          "tier": 1
+          "notes": "Official Django docs should be in top 3"
         },
         {
           "query": "Django model field reference",
           "query_type": "reference",
           "expected": "docs.djangoproject.com",
           "notes": "Official Django model field docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.djangoproject.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/ref/models/fields"],
@@ -259,8 +242,7 @@
           "query": "React useEffect",
           "query_type": "reference",
           "expected": "react.dev",
-          "notes": "Official React useEffect docs should be in top 3",
-          "tier": 1
+          "notes": "Official React useEffect docs should be in top 3"
         }
       ]
     },
@@ -278,8 +260,7 @@
           "query": "MDN fetch API",
           "query_type": "reference",
           "expected": "developer.mozilla.org",
-          "notes": "Official MDN Fetch API docs should be in top 3",
-          "tier": 1
+          "notes": "Official MDN Fetch API docs should be in top 3"
         }
       ]
     },
@@ -297,8 +278,7 @@
           "query": "Rust documentation",
           "query_type": "reference",
           "expected": "doc.rust-lang.org",
-          "notes": "Official Rust docs should be in top 3",
-          "tier": 1
+          "notes": "Official Rust docs should be in top 3"
         }
       ]
     },
@@ -321,7 +301,6 @@
           "query_type": "reference",
           "expected": "docs.pytest.org",
           "notes": "Official pytest fixture docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.pytest.org"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["fixtures"],
@@ -334,7 +313,6 @@
           "query_type": "reference",
           "expected": "docs.pytest.org",
           "notes": "pytest mark docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.pytest.org"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["mark", "markers"],
@@ -347,7 +325,6 @@
           "query_type": "reference",
           "expected": "docs.pytest.org",
           "notes": "Official pytest parametrize docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.pytest.org"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["parametrize"],
@@ -359,8 +336,7 @@
           "query": "pytest fixture not found",
           "query_type": "reference/troubleshooting",
           "expected": "docs.pytest.org",
-          "notes": "Official pytest docs should be in top 3",
-          "tier": 1
+          "notes": "Official pytest docs should be in top 3"
         }
       ]
     },
@@ -379,7 +355,6 @@
           "query_type": "reference",
           "expected": "docs.github.com",
           "notes": "Official GitHub docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.github.com"],
           "minimum_domain_matches": 1,
           "pass_reason": "top 3 include canonical docs",
@@ -402,7 +377,6 @@
           "query_type": "reference",
           "expected": "docs.github.com",
           "notes": "GitHub Actions docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.github.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/actions"],
@@ -426,7 +400,6 @@
           "query_type": "reference",
           "expected": "docs.github.com",
           "notes": "Official GitHub REST API docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.github.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/rest"],
@@ -450,7 +423,6 @@
           "query_type": "news/reference",
           "expected": "recent official OpenAI news or blog reporting",
           "notes": "Top 3 should include an official OpenAI news/blog result",
-          "tier": 2,
           "required_domains": ["openai.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/blog", "/news", "/index", "/announcements"],
@@ -484,7 +456,6 @@
           "query_type": "news/reference",
           "expected": "official OpenAI announcements pages",
           "notes": "Top 3 should include an official OpenAI announcements page",
-          "tier": 2,
           "required_domains": ["openai.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/announcements", "/news", "/index"],
@@ -525,7 +496,6 @@
           "query_type": "reference",
           "expected": "docs.python.org",
           "notes": "Official docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.python.org"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/contents.html"],
@@ -550,7 +520,6 @@
           "query_type": "reference",
           "expected": "docs.python.org",
           "notes": "asyncio docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.python.org"],
           "minimum_domain_matches": 1,
           "required_title_terms": ["asyncio"],
@@ -575,7 +544,6 @@
           "query_type": "reference",
           "expected": "docs.python.org",
           "notes": "Official Python dataclasses docs should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.python.org"],
           "minimum_domain_matches": 1,
           "required_title_terms": ["dataclasses"],
@@ -601,7 +569,6 @@
           "query_type": "news/reference",
           "expected": "docs.python.org release notes",
           "notes": "Official release page should be in top 3",
-          "tier": 1,
           "required_domains": ["docs.python.org"],
           "minimum_domain_matches": 1,
           "required_title_terms": ["python 3.13"],
@@ -627,7 +594,6 @@
           "query_type": "news/reference",
           "expected": "docs.python.org release notes",
           "notes": "Top 3 should include Python release notes, not unrelated docs pages",
-          "tier": 1,
           "required_domains": ["docs.python.org"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/whatsnew/"],
@@ -659,7 +625,6 @@
           "query_type": "news/reference",
           "expected": "docs.djangoproject.com release notes",
           "notes": "Top 3 should include Django release notes",
-          "tier": 1,
           "required_domains": ["docs.djangoproject.com"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/releases/"],
@@ -699,7 +664,6 @@
           "query_type": "reference",
           "expected": "react.dev",
           "notes": "Official React docs should be in top 3",
-          "tier": 1,
           "required_domains": ["react.dev"],
           "minimum_domain_matches": 1,
           "required_paths": ["/", "/learn", "/learn/", "/reference", "/reference/"],
@@ -724,7 +688,6 @@
           "query_type": "reference",
           "expected": "go.dev",
           "notes": "Official Go docs should be in top 3",
-          "tier": 1,
           "required_domains": ["go.dev"],
           "minimum_domain_matches": 1,
           "required_paths": ["/doc", "/doc/"],
@@ -749,7 +712,6 @@
           "query_type": "reference",
           "expected": "kubernetes.io docs",
           "notes": "Top 3 should include official Kubernetes docs",
-          "tier": 2,
           "required_domains": ["kubernetes.io"],
           "minimum_domain_matches": 1,
           "required_path_terms": ["/docs/", "/reference/"],
@@ -793,7 +755,6 @@
           "query_type": "reference",
           "expected": "www.typescriptlang.org",
           "notes": "Top 3 should include official TypeScript docs",
-          "tier": 2,
           "required_domains": ["www.typescriptlang.org"],
           "minimum_domain_matches": 1,
           "pass_reason": "top 3 include official TypeScript docs",

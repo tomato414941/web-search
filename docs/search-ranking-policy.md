@@ -188,7 +188,7 @@ Future ranking work should preserve this shape:
 This policy describes how search should retrieve and rank candidates.
 It does not define the golden set.
 
-The release-relevant quality bar, tiering, and failure classification live in
+The evaluation set and failure classification live in
 [search-evaluation.md](./search-evaluation.md).
 
 When a search case fails, classify it before changing this policy:
