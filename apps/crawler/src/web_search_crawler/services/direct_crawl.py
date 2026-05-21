@@ -14,9 +14,9 @@ from web_search_crawler.services.crawl_runtime import (
 from web_search_crawler.utils import history as history_log
 from web_search_crawler.utils.robots import AsyncRobotsCache
 from web_search_crawler.workers.pipeline import (
-    PipelineContext,
     execute_crawl,
 )
+from web_search_crawler.workers.types import PipelineContext
 from web_search_contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
 
 
@@ -122,12 +122,16 @@ async def crawl_url_now(
         except (aiohttp.ClientError, TimeoutError) as exc:
             message = str(exc) or exc.__class__.__name__
             await _log_attempt(url, CrawlAttemptStatus.UNKNOWN_ERROR, message=message)
-            await run_in_db_executor(store.record, url, CrawlUrlStatus.FAILED)
+            await run_in_db_executor(
+                store.record_crawl_result, url, CrawlUrlStatus.FAILED
+            )
             return ImmediateCrawlResult(status="failed", url=url, message=message)
         except Exception as exc:
             message = str(exc) or exc.__class__.__name__
             await _log_attempt(url, CrawlAttemptStatus.UNKNOWN_ERROR, message=message)
-            await run_in_db_executor(store.record, url, CrawlUrlStatus.FAILED)
+            await run_in_db_executor(
+                store.record_crawl_result, url, CrawlUrlStatus.FAILED
+            )
             return ImmediateCrawlResult(status="failed", url=url, message=message)
         finally:
             entry = await run_in_db_executor(store.get_frontier_entry, url)

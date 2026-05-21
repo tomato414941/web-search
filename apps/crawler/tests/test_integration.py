@@ -20,7 +20,7 @@ from web_search_crawler.services.frontier import FrontierService
 from web_search_crawler.services.seeds import SeedService
 from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
-from web_search_crawler.workers.pipeline import PipelineProcessResult
+from web_search_crawler.workers.types import PipelineProcessResult
 from web_search_crawler.workers.tasks import process_url
 
 

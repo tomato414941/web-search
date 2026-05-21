@@ -10,11 +10,11 @@ from web_search_crawler.services.fetchers import (
 )
 from web_search_crawler.workers.pipeline import (
     execute_crawl,
-    PipelineContext,
     _non_html_reason,
     process_fetch_result,
     precheck,
 )
+from web_search_crawler.workers.types import PipelineContext
 from web_search_crawler.services.indexer import IndexerSubmitResult
 
 
@@ -61,7 +61,7 @@ class TestPrecheck:
     @pytest.mark.asyncio
     async def test_blocked_domain_returns_reason(self):
         ctx = _make_ctx(blocked_domains=frozenset({"example.com"}))
-        ctx.url_store.record = MagicMock()
+        ctx.url_store.record_crawl_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -72,7 +72,7 @@ class TestPrecheck:
     @pytest.mark.asyncio
     async def test_url_too_long_returns_reason(self):
         ctx = _make_ctx(url="http://example.com/" + "x" * 10000)
-        ctx.url_store.record = MagicMock()
+        ctx.url_store.record_crawl_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -84,7 +84,7 @@ class TestPrecheck:
     async def test_robots_blocked(self):
         ctx = _make_ctx()
         ctx.robots.can_fetch = AsyncMock(return_value=False)
-        ctx.url_store.record = MagicMock()
+        ctx.url_store.record_crawl_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -97,7 +97,7 @@ class TestPrecheck:
         ctx = _make_ctx()
         ctx.robots.can_fetch = AsyncMock(return_value=True)
         ctx.robots.get_crawl_delay = MagicMock(return_value=None)
-        ctx.url_store.record = MagicMock()
+        ctx.url_store.record_crawl_result = MagicMock()
         with (
             patch(
                 "web_search_crawler.workers.pipeline.run_in_db_executor",
@@ -244,10 +244,10 @@ class TestProcessFetchResult:
     async def test_feed_autodiscovery_uses_dedicated_discovery_route(self):
         ctx = _make_ctx()
         with patch(
-            "web_search_crawler.workers.pipeline.run_in_db_executor",
+            "web_search_crawler.services.feed_processing.run_in_db_executor",
             new_callable=AsyncMock,
         ) as mock_db:
-            from web_search_crawler.workers.pipeline import (
+            from web_search_crawler.services.feed_processing import (
                 discover_and_admit_feed_links,
             )
 
@@ -267,7 +267,7 @@ class TestProcessFetchResult:
         ctx = _make_ctx(url="https://openai.com/news/rss.xml")
         with (
             patch(
-                "web_search_crawler.workers.pipeline.parse_feed",
+                "web_search_crawler.services.feed_processing.parse_feed",
                 return_value=[
                     MagicMock(
                         url="https://openai.com/index/our-approach-to-the-model-spec",
@@ -284,7 +284,7 @@ class TestProcessFetchResult:
                 ],
             ),
             patch(
-                "web_search_crawler.workers.pipeline._submit_feed_entry",
+                "web_search_crawler.services.feed_processing.submit_feed_entry",
                 new=AsyncMock(
                     return_value=IndexerSubmitResult(
                         ok=True,
@@ -294,7 +294,7 @@ class TestProcessFetchResult:
                 ),
             ) as mock_submit,
             patch(
-                "web_search_crawler.workers.pipeline.run_in_db_executor",
+                "web_search_crawler.services.feed_processing.run_in_db_executor",
                 new_callable=AsyncMock,
             ) as mock_db,
         ):

@@ -48,3 +48,14 @@ changed behavior. Possible future cuts include:
 
 Keep worker orchestration separate from crawl-processing logic only when a
 specific change makes the split useful.
+
+## Progress
+
+RSS/Atom feed result processing has been moved out of `workers/pipeline.py` into
+`services/feed_processing.py`.
+
+Shared crawler processing types now live in `workers/types.py`, and shared
+timing helpers live in `workers/timing.py`.
+
+The remaining issue is broader than feed handling: `pipeline.py` still owns
+HTML processing, normal outlink admission, and crawl outcome recording.

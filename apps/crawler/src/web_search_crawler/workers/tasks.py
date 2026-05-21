@@ -24,9 +24,11 @@ from web_search_crawler.services.crawl_runtime import (
 from web_search_crawler.utils.robots import AsyncRobotsCache
 from web_search_crawler.utils import history as history_log
 from web_search_crawler.workers.pipeline import (
+    execute_crawl,
+)
+from web_search_crawler.workers.types import (
     CrawlStageTimings,
     PipelineContext,
-    execute_crawl,
 )
 from web_search_contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
 
