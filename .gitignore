@@ -1,0 +1,51 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+pytest-cache-files*/
+
+# Virtual environment
+.venv/
+
+# mypy cache
+.mypy_cache/
+.ruff_cache/
+
+# Editor settings
+.vscode/
+.idea/
+
+# Environment variables
+.env
+
+# Local database and data (data directory outside container)
+data/
+!apps/crawler/data/
+!apps/crawler/src/web_search_crawler/data/
+!apps/crawler/src/web_search_crawler/data/*.yml
+*.db
+
+# OS / Misc
+.DS_Store
+Thumbs.db
+*.log
+
+# Test output files
+test_output*.txt
+*_failures.txt
+.coverage
+htmlcov/
+
+# Debug files
+debug_*.py
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
+
+# Claude Code
+.claude/
+CLAUDE.local.md
+AGENTS.override.md

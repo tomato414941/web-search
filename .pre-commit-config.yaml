@@ -1,0 +1,67 @@
+# Pre-commit hooks for code quality
+# Install: pip install pre-commit && pre-commit install
+
+repos:
+  # Ruff - Fast Python linter and formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.5
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+        exclude: ^uv\.lock$
+      - id: check-merge-conflict
+
+  # Run Tests locally before commit (only when .py files change)
+  - repo: local
+    hooks:
+      - id: pytest-frontend
+        name: pytest (frontend)
+        entry: make ci-frontend
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^apps/frontend/
+      - id: pytest-crawler
+        name: pytest (crawler)
+        entry: make ci-crawler
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^apps/crawler/
+      - id: pytest-indexer
+        name: pytest (indexer)
+        entry: make ci-indexer
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^apps/indexer/
+      - id: pytest-packages
+        name: pytest (packages)
+        entry: make ci-packages
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^packages/(contracts|core|postgres|kernel|opensearch|indexing|search-config)/
+      - id: pytest-mcp
+        name: pytest (mcp)
+        entry: make ci-mcp
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: false
+        files: ^apps/mcp/

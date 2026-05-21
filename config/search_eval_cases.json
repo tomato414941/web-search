@@ -1,0 +1,124 @@
+{
+  "known_domains": [],
+  "query_keyword_rules": {
+    "what is bm25": {
+      "required_terms": [
+        "bm25"
+      ],
+      "required_title_terms": [
+        "bm25"
+      ],
+      "pass_reason": "top 3 include an explicitly BM25-focused result title",
+      "fail_reason": "top 3 do not include a clearly BM25-focused result title"
+    },
+    "fastapi vs django": {
+      "required_terms": [
+        "fastapi",
+        "django"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "required_title_terms": [
+        "fastapi",
+        "django"
+      ],
+      "pass_reason": "top 3 include an explicit FastAPI and Django comparison",
+      "fail_reason": "top 3 do not include an explicit FastAPI and Django comparison"
+    },
+    "opensearch vs elasticsearch": {
+      "required_terms": [
+        "opensearch",
+        "elasticsearch"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "required_title_terms": [
+        "opensearch",
+        "elasticsearch"
+      ],
+      "pass_reason": "top 3 include an explicit OpenSearch and Elasticsearch comparison",
+      "fail_reason": "top 3 do not include an explicit OpenSearch and Elasticsearch comparison"
+    },
+    "postgresql vs mysql": {
+      "required_terms": [
+        "postgresql",
+        "mysql"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "required_title_terms": [
+        "postgresql",
+        "mysql"
+      ],
+      "pass_reason": "top 3 include an explicit PostgreSQL and MySQL comparison",
+      "fail_reason": "top 3 do not include an explicit PostgreSQL and MySQL comparison"
+    },
+    "redis vs memcached": {
+      "required_terms": [
+        "redis",
+        "memcached"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "required_title_terms": [
+        "redis",
+        "memcached"
+      ],
+      "pass_reason": "top 3 include an explicit Redis and Memcached comparison",
+      "fail_reason": "top 3 do not include an explicit Redis and Memcached comparison"
+    }
+  },
+  "query_cases": [
+    {
+      "query": "What is BM25",
+      "query_type": "overview/reference",
+      "expected": "a BM25-focused explanatory source",
+      "notes": "Top 3 should explicitly mention BM25",
+      "tier": 1
+    },
+    {
+      "query": "FastAPI vs Django",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares FastAPI and Django",
+      "notes": "Top 3 should include a result that names both FastAPI and Django",
+      "tier": 2
+    },
+    {
+      "query": "OpenSearch vs Elasticsearch",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares OpenSearch and Elasticsearch",
+      "notes": "Top 3 should include a result with both names and a comparison cue",
+      "tier": 2
+    },
+    {
+      "query": "PostgreSQL vs MySQL",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares PostgreSQL and MySQL",
+      "notes": "Top 3 should include a result with both names and a comparison cue",
+      "tier": 2
+    },
+    {
+      "query": "Redis vs Memcached",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares Redis and Memcached",
+      "notes": "Top 3 should include a result with both names and a comparison cue",
+      "tier": 2
+    }
+  ]
+}

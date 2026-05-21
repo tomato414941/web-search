@@ -1,0 +1,22 @@
+[project]
+name = "web-search-postgres"
+version = "0.1.0"
+description = "PostgreSQL access layer for PaleBlueSearch"
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.13",
+    "psycopg2-binary>=2.9.0",
+]
+
+[project.scripts]
+web-search-add-foreign-keys = "web_search_postgres.cli.add_foreign_keys:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]

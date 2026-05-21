@@ -1,0 +1,31 @@
+services:
+  postgres:
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  opensearch:
+    volumes:
+      - type: bind
+        source: ${WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR:-/var/lib/web-search/opensearch-data}
+        target: /usr/share/opensearch/data
+
+  prometheus:
+    volumes:
+      - prometheus-data:/prometheus
+
+  grafana:
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  postgres-data:
+    name: ${WEB_SEARCH_PRD_POSTGRES_VOLUME:?Set WEB_SEARCH_PRD_POSTGRES_VOLUME}
+    external: true
+
+  prometheus-data:
+    name: ${WEB_SEARCH_PRD_PROMETHEUS_VOLUME:?Set WEB_SEARCH_PRD_PROMETHEUS_VOLUME}
+    external: true
+
+  grafana-data:
+    name: ${WEB_SEARCH_PRD_GRAFANA_VOLUME:?Set WEB_SEARCH_PRD_GRAFANA_VOLUME}
+    external: true

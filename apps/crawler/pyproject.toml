@@ -1,0 +1,39 @@
+[project]
+name = "web-search-crawler"
+version = "0.1.0"
+description = "Crawler service for PaleBlueSearch"
+requires-python = ">=3.11"
+dependencies = [
+    "web-search-contracts",
+    "web-search-core",
+    "web-search-postgres",
+    "web-search-search-config",
+    "aiohttp>=3.13.4",
+    "beautifulsoup4>=4.14",
+    "cachetools>=6.2",
+    "fastapi>=0.128",
+    "httpx>=0.28",
+    "lxml>=6.1.0",
+    "protego>=0.6.0",
+    "trafilatura>=2.0",
+    "uvicorn[standard]>=0.40",
+]
+
+
+[project.scripts]
+web-search-purge-admission-rejected-urls = "web_search_crawler.cli.purge_admission_rejected_urls:main"
+web-search-requeue-blocked-robots-urls = "web_search_crawler.cli.requeue_blocked_robots_urls:main"
+web-search-repair-canonical-search-urls = "web_search_crawler.cli.repair_canonical_search_urls:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+web_search_crawler = ["data/*.yml"]

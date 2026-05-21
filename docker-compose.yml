@@ -1,0 +1,325 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    shm_size: "256m"
+    command:
+      [
+        "postgres",
+        "-c",
+        "max_connections=${POSTGRES_MAX_CONNECTIONS:-64}",
+        "-c",
+        "shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}",
+        "-c",
+        "work_mem=${POSTGRES_WORK_MEM:-4MB}",
+      ]
+    environment:
+      POSTGRES_USER: websearch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: websearch
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    mem_limit: ${POSTGRES_MEM_LIMIT:-768m}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U websearch"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  db-migrate:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    restart: "no"
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+    command: ["python", "-c", "from web_search_postgres.migrate import migrate; migrate()"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - PORT=8000
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_SESSION_SECRET=${ADMIN_SESSION_SECRET}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS},frontend,localhost,127.0.0.1
+      - ANALYTICS_SALT=${ANALYTICS_SALT}
+      - CRAWLER_SERVICE_URL=http://crawler:8000
+      - INDEXER_SERVICE_URL=http://indexer:8000
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - DB_POOL_MIN=${DB_POOL_MIN_FRONTEND:-1}
+      - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-4}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    mem_limit: ${FRONTEND_MEM_LIMIT:-384m}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  embedding-backfill:
+    build:
+      context: .
+      dockerfile: packages/indexing/Dockerfile
+    restart: "no"
+    profiles: ["embedding"]
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - EMBEDDING_ENRICHMENT_ENABLED=${EMBEDDING_ENRICHMENT_ENABLED:-false}
+    command: ["python", "-m", "web_search_indexing.backfill_embeddings"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+
+  indexer:
+    build:
+      context: .
+      dockerfile: apps/indexer/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - PORT=8000
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - DB_POOL_MIN=${DB_POOL_MIN_INDEXER:-1}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-6}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    mem_limit: ${INDEXER_MEM_LIMIT:-384m}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  indexer-worker:
+    build:
+      context: .
+      dockerfile: apps/indexer/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "${WORKER_METRICS_PORT:-9000}"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+      - INDEXER_JOB_WORKERS=${INDEXER_JOB_WORKERS:-1}
+      - INDEXER_JOB_BATCH_SIZE=${INDEXER_JOB_BATCH_SIZE:-10}
+      - INDEXER_JOB_CONCURRENCY=${INDEXER_JOB_CONCURRENCY:-2}
+      - INDEXER_JOB_LEASE_SEC=${INDEXER_JOB_LEASE_SEC:-120}
+      - INDEXER_JOB_MAX_RETRIES=${INDEXER_JOB_MAX_RETRIES:-5}
+      - INDEXER_JOB_POLL_INTERVAL_MS=${INDEXER_JOB_POLL_INTERVAL_MS:-500}
+      - INDEXER_JOB_RETRY_BASE_SEC=${INDEXER_JOB_RETRY_BASE_SEC:-5}
+      - INDEXER_JOB_RETRY_MAX_SEC=${INDEXER_JOB_RETRY_MAX_SEC:-1800}
+      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
+      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
+      - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
+      - QUEUE_METRICS_INTERVAL_SEC=${QUEUE_METRICS_INTERVAL_SEC:-60}
+      - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_WORKER:-1}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_WORKER:-8}
+    command: ["python", "-m", "web_search_indexer.worker", "jobs"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    mem_limit: ${INDEXER_WORKER_MEM_LIMIT:-768m}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from web_search_postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  indexer-maintenance-worker:
+    build:
+      context: .
+      dockerfile: apps/indexer/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "${WORKER_METRICS_PORT:-9000}"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
+      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
+      - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
+      - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_MAINTENANCE:-1}
+      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_MAINTENANCE:-2}
+    command: ["python", "-m", "web_search_indexer.worker", "maintenance"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    mem_limit: ${INDEXER_MAINTENANCE_MEM_LIMIT:-256m}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from web_search_postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  crawler:
+    build:
+      context: .
+      dockerfile: apps/crawler/Dockerfile
+    restart: unless-stopped
+    profiles: ["crawler"]
+    expose:
+      - "8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - INDEXER_API_URL=http://indexer:8000/api/v1/indexer/page
+      - INDEXER_API_KEY=${INDEXER_API_KEY}
+      - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY_CRAWLER:-2}
+      - CRAWL_AUTO_START=${CRAWL_AUTO_START_CRAWLER:-false}
+      - DB_POOL_MIN=${DB_POOL_MIN_CRAWLER:-1}
+      - DB_POOL_MAX=${DB_POOL_MAX_CRAWLER:-4}
+      - DB_EXECUTOR_MAX=${DB_EXECUTOR_MAX_CRAWLER:-6}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    mem_limit: ${CRAWLER_MEM_LIMIT:-384m}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  opensearch:
+    image: opensearchproject/opensearch:2.17.1
+    restart: unless-stopped
+    profiles: ["search"]
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    mem_limit: ${OPENSEARCH_MEM_LIMIT:-1g}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  opensearch-backfill:
+    build:
+      context: .
+      dockerfile: apps/indexer/Dockerfile
+    restart: "no"
+    profiles: ["search-backfill"]
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+    command: ["python", "-m", "web_search_indexer.cli.backfill_opensearch"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+
+  prometheus:
+    build:
+      context: ./deploy/monitoring/prometheus
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    ports:
+      - "${PROMETHEUS_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - "--config.file=/etc/prometheus/config.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-7d}"
+    volumes:
+      - prometheus_data:/prometheus
+    depends_on:
+      frontend:
+        condition: service_started
+      indexer:
+        condition: service_started
+      indexer-worker:
+        condition: service_started
+      indexer-maintenance-worker:
+        condition: service_started
+    mem_limit: ${PROMETHEUS_MEM_LIMIT:-256m}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  grafana:
+    build:
+      context: ./deploy/monitoring/grafana
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    ports:
+      - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin-change-me}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/web-search-overview.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_started
+    mem_limit: ${GRAFANA_MEM_LIMIT:-256m}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+volumes:
+  postgres_data:
+  opensearch_data:
+  prometheus_data:
+  grafana_data:

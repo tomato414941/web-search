@@ -1,0 +1,294 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      force-all: ${{ steps.filter.outputs.force-all }}
+      packages: ${{ steps.filter.outputs.packages }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      crawler: ${{ steps.filter.outputs.crawler }}
+      indexer: ${{ steps.filter.outputs.indexer }}
+      mcp: ${{ steps.filter.outputs.mcp }}
+      lint: ${{ steps.filter.outputs.lint }}
+      security: ${{ steps.filter.outputs.security }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v4.0.1
+        id: filter
+        with:
+          base: ${{ github.ref }}
+          filters: |
+            force-all:
+              - '.github/workflows/**'
+              - 'Makefile'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'requirements-dev.txt'
+            packages:
+              - 'packages/contracts/**'
+              - 'packages/core/**'
+              - 'packages/postgres/**'
+              - 'packages/kernel/**'
+              - 'packages/opensearch/**'
+              - 'packages/indexing/**'
+              - 'packages/search-config/**'
+            frontend:
+              - 'apps/frontend/**'
+            crawler:
+              - 'apps/crawler/**'
+            indexer:
+              - 'apps/indexer/**'
+            mcp:
+              - 'apps/mcp/**'
+            lint:
+              - '.gitignore'
+              - 'AGENTS.md'
+              - 'README.md'
+              - 'docs/**'
+              - 'scripts/**'
+              - 'apps/frontend/**'
+              - 'packages/contracts/**'
+              - 'packages/core/**'
+              - 'packages/postgres/**'
+              - 'packages/kernel/**'
+              - 'packages/opensearch/**'
+              - 'packages/indexing/**'
+              - 'packages/search-config/**'
+              - 'apps/crawler/**'
+              - 'apps/indexer/**'
+              - 'apps/mcp/**'
+            security:
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - 'packages/contracts/pyproject.toml'
+              - 'packages/core/pyproject.toml'
+              - 'packages/postgres/pyproject.toml'
+              - 'packages/kernel/pyproject.toml'
+              - 'packages/opensearch/pyproject.toml'
+              - 'packages/indexing/pyproject.toml'
+              - 'packages/search-config/pyproject.toml'
+              - 'apps/frontend/pyproject.toml'
+              - 'apps/crawler/pyproject.toml'
+              - 'apps/indexer/pyproject.toml'
+              - 'apps/mcp/pyproject.toml'
+              - 'requirements-dev.txt'
+
+  test-packages:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.packages == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Sync dependencies
+        run: make sync-packages
+      - name: Run package tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
+        run: make ci-packages
+
+  test-frontend:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Sync dependencies
+        run: make sync-frontend
+      - name: Run frontend tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
+          ADMIN_USERNAME: test
+          ADMIN_PASSWORD: test
+          ADMIN_SESSION_SECRET: test
+          INDEXER_API_KEY: test
+        run: make ci-frontend
+
+  test-crawler:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.crawler == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Sync dependencies
+        run: make sync-crawler
+      - name: Run crawler tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
+          INDEXER_API_KEY: test
+        run: make ci-crawler
+
+  test-mcp:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.mcp == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Sync dependencies
+        run: make sync-mcp
+      - name: Run MCP tests
+        run: make ci-mcp
+
+  test-indexer:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.indexer == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Sync dependencies
+        run: make sync-indexer
+      - name: Run indexer tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
+          INDEXER_API_KEY: test
+        run: make ci-indexer
+
+  lint:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.lint == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Sync lint dependencies
+        run: uv sync --only-group dev
+      - name: Run ruff checks
+        run: make ci-lint
+
+  security:
+    needs: changes
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.security == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install uv and pip-audit
+        run: |
+          python -m pip install --upgrade pip uv pip-audit
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Audit frontend dependencies
+        run: uv export --frozen --package web-search-frontend --no-dev --no-emit-local --format requirements-txt | pip-audit -r /dev/stdin
+      - name: Audit crawler dependencies
+        run: uv export --frozen --package web-search-crawler --no-dev --no-emit-local --format requirements-txt | pip-audit -r /dev/stdin
+      - name: Audit indexer dependencies
+        run: uv export --frozen --package web-search-indexer --no-dev --no-emit-local --format requirements-txt | pip-audit -r /dev/stdin
+      - name: Audit MCP dependencies
+        # PYSEC-2025-183 / CVE-2025-45768 is disputed upstream and has no
+        # fixed PyJWT release; the risk depends on application-chosen key length.
+        run: uv export --frozen --package paleblue-search-mcp --no-dev --no-emit-local --format requirements-txt | pip-audit --ignore-vuln PYSEC-2025-183 -r /dev/stdin

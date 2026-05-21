@@ -1,0 +1,174 @@
+"""
+Application Lifecycle Events
+
+Manages FastAPI lifespan events for startup and shutdown.
+"""
+
+import asyncio
+import logging
+import time
+from contextlib import asynccontextmanager, suppress
+
+from fastapi import FastAPI
+
+from web_search_crawler.db.executor import run_in_db_executor
+from web_search_core.background import maintain_refresh_loop
+from web_search_core.infrastructure_config import Environment
+
+logger = logging.getLogger(__name__)
+
+_frontier_maintenance_state: dict[str, object | None] = {
+    "last_run_started_at": None,
+    "last_run_completed_at": None,
+    "last_reclaimed": 0,
+    "total_reclaimed": 0,
+    "last_error_at": None,
+    "last_error": None,
+}
+
+
+def get_frontier_maintenance_state() -> dict[str, object | None]:
+    return dict(_frontier_maintenance_state)
+
+
+async def _refresh_admin_caches() -> None:
+    from web_search_crawler.api.deps import get_frontier_service, get_seed_service
+    from web_search_crawler.api.routes.seeds import prewarm_seeds_page_cache
+    from web_search_crawler.api.routes.stats import prewarm_admin_stats_caches
+
+    await asyncio.gather(
+        prewarm_admin_stats_caches(get_frontier_service()),
+        prewarm_seeds_page_cache(get_seed_service()),
+    )
+
+
+async def maintain_admin_caches(*, refresh_interval_seconds: float) -> None:
+    async def refresh_once() -> None:
+        try:
+            await _refresh_admin_caches()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("Failed to prewarm crawler admin caches", exc_info=True)
+        else:
+            logger.info("Prewarmed crawler admin caches")
+
+    await maintain_refresh_loop(
+        initial_call=refresh_once,
+        periodic_call=refresh_once,
+        refresh_interval_seconds=refresh_interval_seconds,
+        initial_delay_seconds=2.0,
+    )
+
+
+async def _reconcile_frontier_leases() -> int:
+    from web_search_crawler.api.deps import _get_url_store
+
+    return await run_in_db_executor(_get_url_store().reconcile_expired_frontier_leases)
+
+
+async def _reconcile_domain_state_inflight_leases() -> int:
+    from web_search_crawler.api.deps import _get_url_store
+
+    return await run_in_db_executor(
+        _get_url_store().reconcile_domain_state_inflight_leases
+    )
+
+
+async def maintain_frontier_health(*, refresh_interval_seconds: float) -> None:
+    async def reconcile_once() -> None:
+        now = int(time.time())
+        _frontier_maintenance_state["last_run_started_at"] = now
+        try:
+            reclaimed, repaired = await asyncio.gather(
+                _reconcile_frontier_leases(),
+                _reconcile_domain_state_inflight_leases(),
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            _frontier_maintenance_state["last_error_at"] = now
+            _frontier_maintenance_state["last_error"] = "reconcile_failed"
+            logger.warning("Failed to reconcile crawler frontier leases", exc_info=True)
+        else:
+            _frontier_maintenance_state["last_run_completed_at"] = now
+            _frontier_maintenance_state["last_reclaimed"] = reclaimed
+            _frontier_maintenance_state["total_reclaimed"] = (
+                int(_frontier_maintenance_state["total_reclaimed"] or 0) + reclaimed
+            )
+            _frontier_maintenance_state["last_error"] = None
+            if reclaimed:
+                logger.info("Reclaimed %d expired frontier lease(s)", reclaimed)
+            if repaired:
+                logger.info("Reconciled %d domain inflight lease row(s)", repaired)
+
+    await maintain_refresh_loop(
+        initial_call=reconcile_once,
+        periodic_call=reconcile_once,
+        refresh_interval_seconds=refresh_interval_seconds,
+        initial_delay_seconds=2.0,
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager
+
+    Handles startup and shutdown events:
+    - Startup: Initialize worker manager (but don't auto-start)
+    - Shutdown: Stop running workers gracefully
+    """
+    logger.info("🚀 Starting Crawler Service...")
+
+    # Import here to avoid circular dependencies
+    from web_search_crawler.workers.manager import worker_manager
+
+    from web_search_crawler.core.config import settings
+
+    # Initialize worker manager
+    await worker_manager.initialize()
+    prewarm_task: asyncio.Task[None] | None = None
+    frontier_task: asyncio.Task[None] | None = None
+
+    if settings.CRAWL_AUTO_START:
+        await worker_manager.start(concurrency=settings.CRAWL_CONCURRENCY)
+        logger.info(
+            "Worker auto-started with concurrency=%d", settings.CRAWL_CONCURRENCY
+        )
+    else:
+        logger.info("Worker manager initialized (workers not started)")
+        logger.info("Use POST /worker/start to begin crawling")
+
+    if settings.ENVIRONMENT != Environment.TEST:
+        prewarm_task = asyncio.create_task(
+            maintain_admin_caches(
+                refresh_interval_seconds=settings.ADMIN_CACHE_REFRESH_SEC
+            )
+        )
+        frontier_task = asyncio.create_task(
+            maintain_frontier_health(
+                refresh_interval_seconds=settings.FRONTIER_MAINTENANCE_REFRESH_SEC
+            )
+        )
+
+    try:
+        yield  # Application runs here
+    finally:
+        if prewarm_task is not None:
+            prewarm_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await prewarm_task
+        if frontier_task is not None:
+            frontier_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await frontier_task
+
+        # Shutdown
+        logger.info("🛑 Shutting down Crawler Service...")
+        await worker_manager.stop(graceful=True)
+
+        from web_search_crawler.db.executor import shutdown_db_executor
+
+        shutdown_db_executor()
+        logger.info("✅ Shutdown complete")

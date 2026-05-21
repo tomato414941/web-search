@@ -1,0 +1,35 @@
+[project]
+name = "web-search-indexer"
+version = "0.1.0"
+description = "Indexer service for PaleBlueSearch"
+requires-python = ">=3.11"
+dependencies = [
+    "web-search-contracts",
+    "web-search-core",
+    "web-search-postgres",
+    "web-search-kernel",
+    "web-search-opensearch",
+    "web-search-search-config",
+    "fastapi>=0.128",
+    "httpx>=0.28",
+    "prometheus-client>=0.24",
+    "uvicorn[standard]>=0.40",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+web-search-calc-pagerank = "web_search_indexer.cli.calc_pagerank:main"
+web-search-inject-dummy-data = "web_search_indexer.cli.inject_dummy_data:main"
+web-search-verify-opensearch = "web_search_indexer.cli.verify_opensearch:main"
+web-search-backfill-factual-density = "web_search_indexer.cli.backfill_factual_density:main"
+web-search-backfill-opensearch = "web_search_indexer.cli.backfill_opensearch:main"
+web-search-backfill-temporal-anchor = "web_search_indexer.cli.backfill_temporal_anchor:main"

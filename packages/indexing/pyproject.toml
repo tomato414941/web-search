@@ -1,0 +1,24 @@
+[project]
+name = "web-search-indexing"
+version = "0.1.0"
+description = "Embedding helpers for PaleBlueSearch"
+requires-python = ">=3.11"
+dependencies = [
+    "web-search-postgres",
+    "numpy",
+    "openai",
+    "tenacity",
+]
+
+[project.scripts]
+web-search-backfill-embeddings = "web_search_indexing.backfill_embeddings:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]

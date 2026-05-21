@@ -1,0 +1,92 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>Pale Blue Search Admin</h1>
+        <div class="nav">
+            <a href="/admin/" class="active">Dashboard</a>
+            <a href="/admin/crawlers">Crawlers</a>
+            <a href="/admin/indexer">Indexer</a>
+            <a href="/admin/logout">Logout</a>
+        </div>
+    </div>
+
+    {% if data.health.level != 'ok' %}
+    <div class="health-banner {{ data.health.level }}">
+        {% for msg in data.health.messages %}
+        <p>{{ msg }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <h2>Key Metrics</h2>
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(data.indexed_pages) }}</div>
+                <div class="label">Indexed Pages</div>
+                {% if data.indexed_delta is not none and data.indexed_delta > 0 %}
+                <div class="delta positive">+{{ data.indexed_delta }} today</div>
+                {% elif data.indexed_delta is not none and data.indexed_delta == 0 %}
+                <div class="delta neutral">No change today</div>
+                {% endif %}
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(data.frontier_pending) }}</div>
+                <div class="label">Pending Frontier</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2col">
+        <div class="card">
+            <h2>Crawler Overview</h2>
+            <div class="status-row">
+                <span class="status-indicator {{ data.worker_status }}"></span>
+                <span>{{ data.worker_status | title }}</span>
+                {% if data.uptime_seconds %}
+                <span class="muted">
+                    (Uptime: {{ (data.uptime_seconds // 3600) }}h {{ ((data.uptime_seconds % 3600) // 60) }}m)
+                </span>
+                {% endif %}
+            </div>
+            <div class="table-scroll">
+                <table class="admin-table compact">
+                    <tr>
+                        <th>Active Tasks</th>
+                        <td>{{ data.active_tasks or 0 }}</td>
+                    </tr>
+                    <tr>
+                        <th>Crawl Rate</th>
+                        <td>{{ data.crawl_rate }} pages/hour</td>
+                    </tr>
+                    <tr>
+                        <th>Errors (1h)</th>
+                        <td>{{ data.recent_error_count }}</td>
+                    </tr>
+                </table>
+            </div>
+            <a href="/admin/crawlers" class="link">Manage Instances &rarr;</a>
+        </div>
+
+    </div>
+
+    {% if data.recent_errors %}
+    <div class="card attention">
+        <h2>Attention Required</h2>
+        <div class="attention-section">
+            <h3>Recent Crawl Errors</h3>
+            <ul>
+            {% for e in data.recent_errors %}
+                <li>{{ e.url[:60] }}{% if e.url|length > 60 %}...{% endif %} &mdash; {{ e.error_message }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,84 @@
+groups:
+  - name: web-search-service-health
+    rules:
+      - alert: WebSearchFrontendMetricsDown
+        expr: up{job="frontend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: frontend
+        annotations:
+          summary: Frontend metrics target is down
+          description: Prometheus could not scrape the frontend metrics endpoint for 2 minutes.
+
+      - alert: WebSearchIndexerApiMetricsDown
+        expr: up{job="indexer-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: indexer-api
+        annotations:
+          summary: Indexer API metrics target is down
+          description: Prometheus could not scrape the indexer API metrics endpoint for 2 minutes.
+
+      - alert: WebSearchIndexerWorkerMetricsDown
+        expr: up{job="indexer-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: indexer-worker
+        annotations:
+          summary: Indexer worker metrics target is down
+          description: Prometheus could not scrape the jobs worker metrics endpoint for 2 minutes.
+
+      - alert: WebSearchMaintenanceWorkerMetricsDown
+        expr: up{job="indexer-maintenance-worker"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          service: indexer-maintenance-worker
+        annotations:
+          summary: Maintenance worker metrics target is down
+          description: Prometheus could not scrape the maintenance worker metrics endpoint for 10 minutes.
+
+  - name: web-search-pipeline
+    rules:
+      - alert: WebSearchQueueBacklogStalled
+        expr: indexer_queue_pending_jobs{job="indexer-api"} > 25 and indexer_queue_oldest_pending_seconds{job="indexer-api"} > 600
+        for: 10m
+        labels:
+          severity: warning
+          service: indexer
+        annotations:
+          summary: Index queue backlog is stalling
+          description: More than 25 jobs have been pending for over 10 minutes.
+
+      - alert: WebSearchWorkerFailuresHigh
+        expr: sum(increase(indexer_worker_job_results_total{job="indexer-worker",result="failed_permanent"}[15m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: indexer-worker
+        annotations:
+          summary: Permanent worker failures are elevated
+          description: More than 5 jobs became permanently failed within 15 minutes.
+
+      - alert: WebSearchWorkerLoopErrorsDetected
+        expr: sum(increase(indexer_worker_errors_total{job=~"indexer-worker|indexer-maintenance-worker"}[15m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: indexer-worker
+        annotations:
+          summary: Worker loop errors detected
+          description: At least one worker loop error was recorded during the last 15 minutes.
+
+      - alert: WebSearchFrontend5xxRateHigh
+        expr: (sum(increase(http_requests_total{job="frontend",status=~"5.."}[10m])) / clamp_min(sum(increase(http_requests_total{job="frontend"}[10m])), 1)) > 0.05 and sum(increase(http_requests_total{job="frontend"}[10m])) > 20
+        for: 10m
+        labels:
+          severity: warning
+          service: frontend
+        annotations:
+          summary: Frontend 5xx rate is elevated
+          description: More than 5 percent of frontend requests returned 5xx responses during the last 10 minutes.

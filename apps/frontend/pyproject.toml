@@ -1,0 +1,42 @@
+[project]
+name = "web-search-frontend"
+version = "0.1.0"
+description = "Frontend service for PaleBlueSearch"
+requires-python = ">=3.11"
+dependencies = [
+    "web-search-contracts",
+    "web-search-core",
+    "web-search-postgres",
+    "web-search-kernel",
+    "web-search-opensearch",
+    "web-search-search-config",
+    "fastapi>=0.128",
+    "gunicorn>=23.0",
+    "httpx>=0.28",
+    "itsdangerous>=2.2",
+    "jinja2>=3.1",
+    "prometheus-client>=0.24",
+    "python-multipart>=0.0.26",
+    "slowapi>=0.1.9",
+    "uvicorn[standard]>=0.40",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+
+[tool.setuptools.package-data]
+web_search_frontend = [
+    "templates/*.html",
+    "templates/admin/*.html",
+    "templates/error/*.html",
+    "static/*",
+    "static/css/*",
+]

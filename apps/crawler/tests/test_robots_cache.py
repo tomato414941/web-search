@@ -1,0 +1,202 @@
+"""
+Robots.txt Cache Tests
+
+Tests for AsyncRobotsCache with in-memory LRU caching.
+"""
+
+import pytest
+from unittest.mock import MagicMock, AsyncMock
+from web_search_crawler.utils.robots import AsyncRobotsCache
+
+
+@pytest.mark.asyncio
+async def test_robots_cache_allow():
+    """Test robots.txt allows URL"""
+    mock_session = MagicMock()
+
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nAllow: /")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+    allowed = await cache.can_fetch("http://example.com/foo", "MyBot")
+
+    assert allowed is True
+
+
+@pytest.mark.asyncio
+async def test_robots_cache_disallow():
+    """Test robots.txt disallows URL"""
+    mock_session = MagicMock()
+
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nDisallow: /private")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+    allowed = await cache.can_fetch("http://example.com/private/doc", "MyBot")
+
+    assert allowed is False
+
+
+@pytest.mark.asyncio
+async def test_robots_cache_google_style_query_rules():
+    """Google-style query rules should not block the homepage."""
+    mock_session = MagicMock()
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(
+        return_value=(
+            "User-agent: *\n"
+            "Disallow: /search\n"
+            "Disallow: /?\n"
+            "Allow: /?hl=\n"
+            "Disallow: /maps/\n"
+            "Allow: /maps/$\n"
+        )
+    )
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+
+    assert await cache.can_fetch("https://www.google.com/", "PaleblueBot") is True
+    assert await cache.can_fetch("https://www.google.com/?hl=en", "PaleblueBot") is True
+    assert (
+        await cache.can_fetch("https://www.google.com/search?q=test", "PaleblueBot")
+        is False
+    )
+    assert await cache.can_fetch("https://www.google.com/maps/", "PaleblueBot") is True
+
+
+@pytest.mark.asyncio
+async def test_robots_cache_hit():
+    """Test in-memory cache hit (no second HTTP request)"""
+    mock_session = MagicMock()
+
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nDisallow: /admin")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+
+    # First call - should make HTTP request
+    await cache.can_fetch("http://example.com/admin", "MyBot")
+    assert mock_session.get.call_count == 1
+
+    # Second call - should use cache
+    allowed = await cache.can_fetch("http://example.com/admin/test", "MyBot")
+    assert mock_session.get.call_count == 1  # No additional request
+    assert allowed is False
+
+
+@pytest.mark.asyncio
+async def test_robots_cache_miss_and_store():
+    """Test cache miss triggers HTTP request and stores result"""
+    mock_session = MagicMock()
+
+    # Mock HTTP response
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nAllow: /")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+
+    # First call
+    allowed1 = await cache.can_fetch("http://example.com/test", "MyBot")
+    assert allowed1 is True
+    assert mock_session.get.call_count == 1
+
+    # Second call - same domain, should use cache
+    allowed2 = await cache.can_fetch("http://example.com/other", "MyBot")
+    assert allowed2 is True
+    assert mock_session.get.call_count == 1  # No additional request
+
+
+@pytest.mark.asyncio
+async def test_robots_cache_http_404():
+    """Test robots.txt not found (404) allows all"""
+    mock_session = MagicMock()
+
+    # Mock 404 response
+    mock_response = AsyncMock()
+    mock_response.status = 404
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+    allowed = await cache.can_fetch("http://example.com/test", "MyBot")
+
+    # Should allow all when robots.txt is not found
+    assert allowed is True
+
+
+@pytest.mark.asyncio
+async def test_robots_cache_network_error_temporary_allow():
+    """Test network error returns temporary allow and avoids repeated fetches."""
+    mock_session = MagicMock()
+    mock_session.get.side_effect = Exception("Network error")
+
+    cache = AsyncRobotsCache(mock_session)
+
+    allowed = await cache.can_fetch("http://example.com/test", "MyBot")
+
+    assert allowed is True
+    assert mock_session.get.call_count == 1
+
+    allowed_again = await cache.can_fetch("http://example.com/other", "MyBot")
+
+    assert allowed_again is True
+    assert mock_session.get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_crawl_delay_with_value():
+    """Test get_crawl_delay returns delay when Crawl-delay is set"""
+    mock_session = MagicMock()
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(
+        return_value="User-agent: *\nCrawl-delay: 5\nAllow: /"
+    )
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+    # Fetch robots.txt first to populate cache
+    await cache.can_fetch("http://example.com/test", "MyBot")
+
+    delay = cache.get_crawl_delay("example.com", "MyBot")
+    assert delay == 5.0
+
+
+@pytest.mark.asyncio
+async def test_get_crawl_delay_without_value():
+    """Test get_crawl_delay returns None when no Crawl-delay"""
+    mock_session = MagicMock()
+
+    mock_response = AsyncMock()
+    mock_response.status = 200
+    mock_response.text = AsyncMock(return_value="User-agent: *\nAllow: /")
+    mock_session.get.return_value.__aenter__.return_value = mock_response
+
+    cache = AsyncRobotsCache(mock_session)
+    await cache.can_fetch("http://example.com/test", "MyBot")
+
+    delay = cache.get_crawl_delay("example.com", "MyBot")
+    assert delay is None
+
+
+def test_get_crawl_delay_uncached_domain():
+    """Test get_crawl_delay returns None for uncached domain"""
+    mock_session = MagicMock()
+    cache = AsyncRobotsCache(mock_session)
+
+    delay = cache.get_crawl_delay("unknown.com", "MyBot")
+    assert delay is None

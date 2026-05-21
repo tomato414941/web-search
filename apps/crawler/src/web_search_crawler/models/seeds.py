@@ -1,0 +1,53 @@
+"""
+Seed URL Models
+
+Pydantic models for seed URL management endpoints.
+"""
+
+from datetime import datetime
+from pydantic import BaseModel, HttpUrl, Field
+
+
+class SeedItem(BaseModel):
+    """Single seed URL with metadata"""
+
+    url: str = Field(..., description="Seed URL")
+    status: str = Field(..., description="URL status (pending/done)")
+    created_at: datetime = Field(..., description="When the URL was first added")
+    last_crawled_at: datetime | None = Field(None, description="When last crawled")
+
+
+class SeedAddRequest(BaseModel):
+    """Request to add seed URLs"""
+
+    urls: list[HttpUrl] = Field(
+        ...,
+        min_length=1,
+        description="List of URLs to add as seeds",
+    )
+
+
+class SeedDeleteRequest(BaseModel):
+    """Request to delete seed URLs"""
+
+    urls: list[HttpUrl] = Field(
+        ...,
+        min_length=1,
+        description="List of URLs to remove from seeds",
+    )
+
+
+class SeedResponse(BaseModel):
+    """Response for seed operations"""
+
+    status: str = Field(default="ok")
+    count: int = Field(default=0, description="Number of seeds affected")
+
+
+class SeedListResponse(BaseModel):
+    """Paginated seed list response."""
+
+    items: list[SeedItem] = Field(default_factory=list)
+    total: int = Field(default=0)
+    limit: int = Field(default=0)
+    offset: int = Field(default=0)

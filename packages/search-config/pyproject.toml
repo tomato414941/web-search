@@ -1,0 +1,22 @@
+[project]
+name = "web-search-search-config"
+version = "0.1.0"
+description = "Search configuration and evaluation rules for PaleBlueSearch"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+web-search-collect-query-candidates = "web_search_search_config.cli.collect_query_candidates:main"
+web-search-evaluate-search = "web_search_search_config.cli.evaluate_search:main"
+web-search-seed-from-ai-list = "web_search_search_config.cli.seed_from_ai_list:main"
+web-search-validate-search-eval-config = "web_search_search_config.cli.validate_search_eval_config:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]

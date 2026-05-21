@@ -1,0 +1,94 @@
+drop_query_params:
+  - utm_source
+  - utm_medium
+  - utm_campaign
+  - utm_term
+  - utm_content
+  - gclid
+  - fbclid
+  - ref
+  - src
+  - srsltid
+
+reject_extensions:
+  - .jpg
+  - .jpeg
+  - .png
+  - .gif
+  - .webp
+  - .svg
+  - .ico
+  - .pdf
+  - .zip
+  - .gz
+  - .tar
+  - .exe
+  - .dmg
+  - .deb
+  - .rpm
+  - .msi
+  - .iso
+  - .mp3
+  - .mp4
+  - .wav
+  - .avi
+  - .mov
+  - .css
+  - .js
+  - .woff
+  - .woff2
+  - .atom
+  - .rss
+
+reject_path_prefixes:
+  - /login
+  - /signup
+  - /register
+  - /signin
+  - /cart
+  - /wishlist
+  - /checkout
+  - /account
+  - /search
+
+reject_path_contains:
+  - /feed
+  - /rss
+  - /wp-content/
+  - /comments
+  - /comment-page-
+  - /amp
+
+reject_query_params:
+  - replytocom
+
+domain_rules:
+  - domains:
+      - d.hatena.ne.jp
+    reject_path_prefixes:
+      - /keyword
+
+  - domains:
+      - blog.hatena.ne.jp
+    reject_path_prefixes:
+      - /my/edit
+      - /-/abuse_report
+      - /-/locale
+      - /-/share
+
+  - domains:
+      - tabelog.com
+    reject_path_contains:
+      - /rstLst/
+
+  - domains:
+      - www.amazon.co.jp
+      - amazon.co.jp
+    reject_path_prefixes:
+      - /exec/obidos
+    reject_query_params:
+      - tag
+      - linkcode
+      - camp
+      - creative
+      - creativeasin

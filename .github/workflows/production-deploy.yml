@@ -1,0 +1,59 @@
+name: Production Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Commit SHA or git ref to deploy
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - web-search-prd
+    environment:
+      name: production
+    env:
+      WEB_SEARCH_PRD_SERVER: local
+      WEB_SEARCH_PRD_ENV_FILE: ${{ vars.WEB_SEARCH_PRD_ENV_FILE }}
+      WEB_SEARCH_PRD_REPO_PATH: ${{ vars.WEB_SEARCH_PRD_REPO_PATH }}
+      WEB_SEARCH_PRD_PROJECT: ${{ vars.WEB_SEARCH_PRD_PROJECT }}
+      WEB_SEARCH_PRD_FRONTEND_URL: ${{ vars.WEB_SEARCH_PRD_FRONTEND_URL }}
+      WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR: ${{ vars.WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR }}
+      WEB_SEARCH_PRD_POSTGRES_VOLUME: ${{ vars.WEB_SEARCH_PRD_POSTGRES_VOLUME }}
+      WEB_SEARCH_PRD_PROMETHEUS_VOLUME: ${{ vars.WEB_SEARCH_PRD_PROMETHEUS_VOLUME }}
+      WEB_SEARCH_PRD_GRAFANA_VOLUME: ${{ vars.WEB_SEARCH_PRD_GRAFANA_VOLUME }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install deploy verify dependencies
+        run: pip install httpx
+
+      - name: Deploy production source build
+        run: |
+          ./scripts/ops/deploy_compose.sh \
+            prd \
+            "${{ inputs.git_ref }}"
+
+      - name: Verify production deploy
+        run: ./scripts/ops/verify_compose_deploy.sh prd "${{ inputs.git_ref }}" 180
+
+      - name: Verify production admin pages
+        run: ./scripts/ops/verify_compose_admin_pages.sh prd 10

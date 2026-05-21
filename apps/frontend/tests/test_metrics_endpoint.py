@@ -1,0 +1,31 @@
+from web_search_frontend.metrics import REQUEST_COUNT
+
+
+def _request_count_total() -> float:
+    total = 0.0
+    for metric in REQUEST_COUNT.collect():
+        for sample in metric.samples:
+            if sample.name == "http_requests_total":
+                total += float(sample.value)
+    return total
+
+
+def test_metrics_scrape_does_not_increment_request_counter(client):
+    before = _request_count_total()
+
+    response = client.get("/api/v1/metrics")
+
+    after = _request_count_total()
+
+    assert response.status_code == 200
+    assert "text/plain" in response.headers["content-type"]
+    assert after == before
+
+
+def test_metrics_scrape_includes_admin_dashboard_metrics(client):
+    response = client.get("/api/v1/metrics")
+
+    assert response.status_code == 200
+    assert "admin_dashboard_cache_access_total" in response.text
+    assert "admin_dashboard_prewarm_total" in response.text
+    assert "admin_dashboard_prewarm_last_success_timestamp_seconds" in response.text

@@ -1,0 +1,819 @@
+{
+  "sources": [
+    {
+      "key": "google",
+      "aliases": ["google"],
+      "domains": ["google.com"],
+      "preferred_paths": ["/"],
+      "default_class": "navigational",
+      "cases": [
+        {
+          "query": "Google",
+          "query_type": "navigational",
+          "expected": "google.com",
+          "notes": "Official homepage should be in top 3",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "github",
+      "aliases": ["github"],
+      "domains": ["github.com"],
+      "preferred_paths": ["/"],
+      "default_class": "navigational",
+      "candidate_window": 100,
+      "cases": [
+        {
+          "query": "GitHub",
+          "query_type": "navigational",
+          "expected": "github.com",
+          "notes": "Official homepage should be in top 3",
+          "tier": 1
+        },
+        {
+          "query": "GitHub Actions",
+          "query_type": "reference",
+          "expected": "github.com",
+          "notes": "Official GitHub Actions pages should be in top 3",
+          "tier": 1,
+          "required_domains": ["github.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/features/actions", "/actions"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include official GitHub Actions pages",
+          "fail_reason": "top 3 do not include official GitHub Actions pages"
+        }
+      ]
+    },
+    {
+      "key": "fastapi",
+      "aliases": ["fastapi"],
+      "domains": ["fastapi.tiangolo.com"],
+      "default_class": "navigational",
+      "candidate_window": 100,
+      "cases": [
+        {
+          "query": "FastAPI docs",
+          "query_type": "navigational",
+          "expected": "fastapi.tiangolo.com",
+          "notes": "Official docs should beat tutorials",
+          "tier": 1
+        },
+        {
+          "query": "FastAPI background tasks",
+          "query_type": "reference",
+          "expected": "fastapi.tiangolo.com docs",
+          "notes": "Official docs should beat blog posts",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "openai_api",
+      "aliases": ["openai api", "openai docs", "openai"],
+      "domains": ["developers.openai.com", "platform.openai.com"],
+      "preferred_paths": ["/api/", "/docs"],
+      "news_paths": ["/blog", "/api/docs/changelog"],
+      "default_class": "navigational",
+      "cases": [
+        {
+          "query": "OpenAI API",
+          "query_type": "navigational",
+          "expected": "developers.openai.com or official OpenAI docs",
+          "notes": "Official API docs should be in top 3",
+          "tier": 1
+        },
+        {
+          "query": "OpenAI API changelog",
+          "query_type": "reference",
+          "expected": "developers.openai.com",
+          "notes": "Official OpenAI API changelog should be in top 3",
+          "tier": 1,
+          "required_domains": ["developers.openai.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/api/docs/changelog"],
+          "pass_reason": "top 3 include the official OpenAI API changelog",
+          "fail_reason": "top 3 do not include the official OpenAI API changelog"
+        }
+      ]
+    },
+    {
+      "key": "python",
+      "aliases": ["python"],
+      "domains": ["docs.python.org"],
+      "default_class": "reference",
+      "cases": [
+        {
+          "query": "Python download",
+          "query_type": "reference",
+          "expected": "docs.python.org",
+          "notes": "Official Python download docs should be in top 3",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "site_reliability_engineering",
+      "aliases": ["site reliability engineering"],
+      "domains": [
+        "sre.google",
+        "usenix.org",
+        "training.linuxfoundation.org"
+      ],
+      "default_class": "reference",
+      "cases": [
+        {
+          "query": "site reliability engineering",
+          "query_type": "overview/reference",
+          "expected": "canonical or explanatory SRE sources",
+          "notes": "Top 3 should include at least two strong SRE sources",
+          "tier": 1,
+          "required_domains": [
+            "usenix.org",
+            "sre.google",
+            "training.linuxfoundation.org"
+          ],
+          "minimum_domain_matches": 2,
+          "pass_reason": "top 3 include at least two strong SRE sources",
+          "fail_reason": "top 3 do not include enough strong SRE sources"
+        }
+      ]
+    },
+    {
+      "key": "postgresql",
+      "aliases": ["postgresql", "postgres"],
+      "domains": ["postgresql.org"],
+      "preferred_paths": ["/docs/"],
+      "default_class": "reference",
+      "candidate_window": 20,
+      "cases": [
+        {
+          "query": "PostgreSQL jsonb",
+          "query_type": "reference",
+          "expected": "postgresql.org docs",
+          "notes": "Official docs should be in top 3",
+          "tier": 1
+        },
+        {
+          "query": "PostgreSQL data types",
+          "query_type": "reference",
+          "expected": "postgresql.org",
+          "notes": "Official PostgreSQL docs should be in top 3",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "docker_docs",
+      "aliases": [
+        "docker docs",
+        "docker install",
+        "docker compose file reference",
+        "docker compose orphan containers"
+      ],
+      "domains": ["docs.docker.com"],
+      "preferred_paths": ["/"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Docker docs",
+          "query_type": "reference",
+          "expected": "docs.docker.com",
+          "notes": "Official Docker docs should be in top 3",
+          "tier": 1
+        },
+        {
+          "query": "Docker install",
+          "query_type": "reference",
+          "expected": "docs.docker.com",
+          "notes": "Official Docker install docs should be in top 3",
+          "tier": 1
+        },
+        {
+          "query": "docker compose orphan containers",
+          "query_type": "reference/troubleshooting",
+          "expected": "docs.docker.com",
+          "notes": "Official Docker docs should be in top 3",
+          "tier": 1
+        },
+        {
+          "query": "Docker compose file reference",
+          "query_type": "reference",
+          "expected": "docs.docker.com",
+          "notes": "Official Docker Compose file reference should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.docker.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/compose/compose-file"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include the official Docker Compose file reference",
+          "fail_reason": "top 3 do not include the official Docker Compose file reference"
+        }
+      ]
+    },
+    {
+      "key": "django_docs",
+      "aliases": ["django documentation", "django model field reference"],
+      "domains": ["docs.djangoproject.com"],
+      "preferred_paths": ["/"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "django documentation",
+          "query_type": "reference",
+          "expected": "docs.djangoproject.com",
+          "notes": "Official Django docs should be in top 3",
+          "tier": 1
+        },
+        {
+          "query": "Django model field reference",
+          "query_type": "reference",
+          "expected": "docs.djangoproject.com",
+          "notes": "Official Django model field docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.djangoproject.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/ref/models/fields"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include official Django model field reference docs",
+          "fail_reason": "top 3 do not include official Django model field reference docs"
+        }
+      ]
+    },
+    {
+      "key": "react_useeffect",
+      "aliases": ["react useeffect"],
+      "domains": ["react.dev"],
+      "preferred_paths": ["/reference/react/useEffect"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "react useeffect",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "React useEffect",
+          "query_type": "reference",
+          "expected": "react.dev",
+          "notes": "Official React useEffect docs should be in top 3",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "mdn_fetch_api",
+      "aliases": ["mdn fetch api"],
+      "domains": ["developer.mozilla.org"],
+      "preferred_paths": ["/en-US/docs/Web/API/Fetch_API"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "mdn fetch api",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "MDN fetch API",
+          "query_type": "reference",
+          "expected": "developer.mozilla.org",
+          "notes": "Official MDN Fetch API docs should be in top 3",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "rust_docs",
+      "aliases": ["rust documentation", "rust docs"],
+      "domains": ["doc.rust-lang.org"],
+      "preferred_paths": ["/"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "rust documentation",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Rust documentation",
+          "query_type": "reference",
+          "expected": "doc.rust-lang.org",
+          "notes": "Official Rust docs should be in top 3",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "pytest_docs",
+      "aliases": [
+        "pytest fixture",
+        "pytest markers",
+        "pytest parametrize",
+        "pytest fixture not found"
+      ],
+      "domains": ["docs.pytest.org"],
+      "preferred_paths": ["/"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "pytest fixture",
+          "query_type": "reference",
+          "expected": "docs.pytest.org",
+          "notes": "Official pytest fixture docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.pytest.org"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["fixtures"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include official pytest fixture docs",
+          "fail_reason": "top 3 do not include official pytest fixture docs"
+        },
+        {
+          "query": "pytest markers",
+          "query_type": "reference",
+          "expected": "docs.pytest.org",
+          "notes": "pytest mark docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.pytest.org"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["mark", "markers"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include official pytest marker docs",
+          "fail_reason": "top 3 do not include official pytest marker docs"
+        },
+        {
+          "query": "pytest parametrize",
+          "query_type": "reference",
+          "expected": "docs.pytest.org",
+          "notes": "Official pytest parametrize docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.pytest.org"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["parametrize"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include official pytest parametrize docs",
+          "fail_reason": "top 3 do not include official pytest parametrize docs"
+        },
+        {
+          "query": "pytest fixture not found",
+          "query_type": "reference/troubleshooting",
+          "expected": "docs.pytest.org",
+          "notes": "Official pytest docs should be in top 3",
+          "tier": 1
+        }
+      ]
+    },
+    {
+      "key": "github_docs",
+      "aliases": ["github docs"],
+      "domains": ["docs.github.com"],
+      "preferred_paths": ["/", "/en", "/ja"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "github docs",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "GitHub docs",
+          "query_type": "reference",
+          "expected": "docs.github.com",
+          "notes": "Official GitHub docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.github.com"],
+          "minimum_domain_matches": 1,
+          "pass_reason": "top 3 include canonical docs",
+          "fail_reason": "canonical docs missing from top 3"
+        }
+      ]
+    },
+    {
+      "key": "github_actions_docs",
+      "aliases": ["github actions docs"],
+      "domains": ["docs.github.com"],
+      "preferred_paths": ["/en/actions", "/actions"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "github actions",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "GitHub Actions docs",
+          "query_type": "reference",
+          "expected": "docs.github.com",
+          "notes": "GitHub Actions docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.github.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/actions"],
+          "pass_reason": "top 3 include GitHub Actions docs",
+          "fail_reason": "top 3 do not include GitHub Actions docs"
+        }
+      ]
+    },
+    {
+      "key": "github_rest_api_docs",
+      "aliases": ["github rest api docs"],
+      "domains": ["docs.github.com"],
+      "preferred_paths": ["/en/rest", "/rest"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "github rest api",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "GitHub REST API docs",
+          "query_type": "reference",
+          "expected": "docs.github.com",
+          "notes": "Official GitHub REST API docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.github.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/rest"],
+          "pass_reason": "top 3 include GitHub REST API docs",
+          "fail_reason": "top 3 do not include GitHub REST API docs"
+        }
+      ]
+    },
+    {
+      "key": "openai_news",
+      "aliases": ["openai news"],
+      "domains": ["openai.com"],
+      "news_paths": ["/news", "/news/", "/index", "/index/"],
+      "default_class": "news",
+      "candidate_window": 100,
+      "retrieval_query": "openai news",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "OpenAI news",
+          "query_type": "news/reference",
+          "expected": "recent official OpenAI news or blog reporting",
+          "notes": "Top 3 should include an official OpenAI news/blog result",
+          "tier": 2,
+          "required_domains": ["openai.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/blog", "/news", "/index", "/announcements"],
+          "excluded_domains": ["community.openai.com"],
+          "pass_reason": "top 3 include an official OpenAI news or blog result",
+          "fail_reason": "top 3 do not include an official OpenAI news or blog result",
+          "failure_status": "warning"
+        }
+      ],
+      "seed_rows": [
+        {
+          "category": "tech-blog",
+          "target": "https://openai.com/news/rss.xml",
+          "priority_boost": 15,
+          "note": "OpenAI news feed"
+        }
+      ]
+    },
+    {
+      "key": "openai_announcements",
+      "aliases": ["openai announcements"],
+      "domains": ["openai.com"],
+      "news_paths": ["/news", "/news/", "/index", "/index/"],
+      "default_class": "news",
+      "candidate_window": 100,
+      "retrieval_query": "openai announcements",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "OpenAI announcements",
+          "query_type": "news/reference",
+          "expected": "official OpenAI announcements pages",
+          "notes": "Top 3 should include an official OpenAI announcements page",
+          "tier": 2,
+          "required_domains": ["openai.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/announcements", "/news", "/index"],
+          "excluded_domains": ["community.openai.com", "developers.openai.com"],
+          "pass_reason": "top 3 include an official OpenAI announcements page",
+          "fail_reason": "top 3 do not include an official OpenAI announcements page",
+          "failure_status": "warning"
+        }
+      ],
+      "seed_rows": [
+        {
+          "category": "tech-blog",
+          "target": "https://openai.com/news/rss.xml",
+          "priority_boost": 15,
+          "note": "OpenAI announcements feed"
+        }
+      ]
+    },
+    {
+      "key": "python_docs",
+      "aliases": ["python documentation", "python docs"],
+      "domains": ["docs.python.org"],
+      "preferred_paths": [
+        "/3.15/contents",
+        "/3.14/contents",
+        "/3.13/contents",
+        "/3.12/contents",
+        "/3/contents",
+        "/contents"
+      ],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "python documentation",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Python documentation",
+          "query_type": "reference",
+          "expected": "docs.python.org",
+          "notes": "Official docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.python.org"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/contents.html"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include the Python documentation contents page",
+          "fail_reason": "top 3 do not include the Python documentation contents page"
+        }
+      ]
+    },
+    {
+      "key": "python_asyncio",
+      "aliases": ["python asyncio docs", "python asyncio"],
+      "domains": ["docs.python.org"],
+      "preferred_paths": ["/3/library/asyncio", "/library/asyncio"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "asyncio",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Python asyncio docs",
+          "query_type": "reference",
+          "expected": "docs.python.org",
+          "notes": "asyncio docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.python.org"],
+          "minimum_domain_matches": 1,
+          "required_title_terms": ["asyncio"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include Python asyncio docs",
+          "fail_reason": "top 3 do not include Python asyncio docs"
+        }
+      ]
+    },
+    {
+      "key": "python_dataclasses",
+      "aliases": ["python dataclasses"],
+      "domains": ["docs.python.org"],
+      "preferred_paths": ["/3/library/dataclasses", "/library/dataclasses"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "dataclasses",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Python dataclasses",
+          "query_type": "reference",
+          "expected": "docs.python.org",
+          "notes": "Official Python dataclasses docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.python.org"],
+          "minimum_domain_matches": 1,
+          "required_title_terms": ["dataclasses"],
+          "required_path_terms": ["/dataclasses.html"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include the Python dataclasses page",
+          "fail_reason": "top 3 do not include the Python dataclasses page"
+        }
+      ]
+    },
+    {
+      "key": "python_313_release",
+      "aliases": ["python 3 13 release"],
+      "domains": ["docs.python.org"],
+      "news_paths": ["/3.13/whatsnew/3.13", "/whatsnew/3.13"],
+      "default_class": "news",
+      "candidate_window": 100,
+      "retrieval_query": "python 3.13 release",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Python 3.13 release",
+          "query_type": "news/reference",
+          "expected": "docs.python.org release notes",
+          "notes": "Official release page should be in top 3",
+          "tier": 1,
+          "required_domains": ["docs.python.org"],
+          "minimum_domain_matches": 1,
+          "required_title_terms": ["python 3.13"],
+          "required_path_terms": ["/whatsnew/3.13.html"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include the official Python 3.13 release notes",
+          "fail_reason": "top 3 do not include the official Python 3.13 release notes"
+        }
+      ]
+    },
+    {
+      "key": "python_release_notes",
+      "aliases": ["python release notes"],
+      "domains": ["docs.python.org"],
+      "news_paths": ["/3/whatsnew", "/3/whatsnew/", "/whatsnew", "/whatsnew/"],
+      "default_class": "news",
+      "candidate_window": 100,
+      "retrieval_query": "python whats new release notes",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Python release notes",
+          "query_type": "news/reference",
+          "expected": "docs.python.org release notes",
+          "notes": "Top 3 should include Python release notes, not unrelated docs pages",
+          "tier": 1,
+          "required_domains": ["docs.python.org"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/whatsnew/"],
+          "pass_reason": "top 3 include Python release notes",
+          "fail_reason": "top 3 do not include Python release notes"
+        }
+      ],
+      "seed_rows": [
+        {
+          "category": "docs",
+          "target": "https://docs.python.org/3/whatsnew/",
+          "priority_boost": 25,
+          "note": "Python release notes"
+        }
+      ]
+    },
+    {
+      "key": "django_release_notes",
+      "aliases": ["django release notes"],
+      "domains": ["docs.djangoproject.com"],
+      "news_paths": ["/en/dev/releases", "/en/dev/releases/", "/releases", "/releases/"],
+      "default_class": "news",
+      "candidate_window": 100,
+      "retrieval_query": "django release notes",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Django release notes",
+          "query_type": "news/reference",
+          "expected": "docs.djangoproject.com release notes",
+          "notes": "Top 3 should include Django release notes",
+          "tier": 1,
+          "required_domains": ["docs.djangoproject.com"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/releases/"],
+          "pass_reason": "top 3 include Django release notes",
+          "fail_reason": "top 3 do not include Django release notes"
+        }
+      ],
+      "seed_rows": [
+        {
+          "category": "docs",
+          "target": "https://docs.djangoproject.com/en/dev/releases/",
+          "priority_boost": 20,
+          "note": "Django release notes"
+        }
+      ]
+    },
+    {
+      "key": "react_docs",
+      "aliases": ["react docs", "react documentation"],
+      "domains": ["react.dev"],
+      "preferred_paths": [
+        "/",
+        "/learn",
+        "/learn/",
+        "/reference",
+        "/reference/",
+        "/reference/react",
+        "/reference/react/"
+      ],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "react reference overview",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "React docs",
+          "query_type": "reference",
+          "expected": "react.dev",
+          "notes": "Official React docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["react.dev"],
+          "minimum_domain_matches": 1,
+          "required_paths": ["/", "/learn", "/learn/", "/reference", "/reference/"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include the main React docs entry points",
+          "fail_reason": "top 3 do not include the main React docs entry points"
+        }
+      ]
+    },
+    {
+      "key": "go_docs",
+      "aliases": ["go documentation", "go docs", "golang documentation"],
+      "domains": ["go.dev"],
+      "preferred_paths": ["/doc", "/doc/"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "go documentation",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Go documentation",
+          "query_type": "reference",
+          "expected": "go.dev",
+          "notes": "Official Go docs should be in top 3",
+          "tier": 1,
+          "required_domains": ["go.dev"],
+          "minimum_domain_matches": 1,
+          "required_paths": ["/doc", "/doc/"],
+          "max_match_rank": 3,
+          "pass_reason": "top 3 include the official Go documentation page",
+          "fail_reason": "top 3 do not include the official Go documentation page"
+        }
+      ]
+    },
+    {
+      "key": "kubernetes_docs",
+      "aliases": ["kubernetes docs", "kubernetes documentation"],
+      "domains": ["kubernetes.io"],
+      "preferred_paths": ["/docs", "/docs/", "/docs/home", "/docs/home/"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "kubernetes documentation",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "Kubernetes docs",
+          "query_type": "reference",
+          "expected": "kubernetes.io docs",
+          "notes": "Top 3 should include official Kubernetes docs",
+          "tier": 2,
+          "required_domains": ["kubernetes.io"],
+          "minimum_domain_matches": 1,
+          "required_path_terms": ["/docs/", "/reference/"],
+          "pass_reason": "top 3 include official Kubernetes docs",
+          "fail_reason": "top 3 do not include official Kubernetes docs"
+        }
+      ],
+      "seed_rows": [
+        {
+          "category": "docs",
+          "target": "https://kubernetes.io/docs/",
+          "priority_boost": 25,
+          "note": "Kubernetes docs home"
+        },
+        {
+          "category": "docs",
+          "target": "https://kubernetes.io/docs/home/",
+          "priority_boost": 20,
+          "note": "Kubernetes docs landing page"
+        },
+        {
+          "category": "docs",
+          "target": "https://kubernetes.io/docs/concepts/overview/",
+          "priority_boost": 20,
+          "note": "Kubernetes concepts overview"
+        }
+      ]
+    },
+    {
+      "key": "typescript_docs",
+      "aliases": ["typescript docs", "typescript documentation"],
+      "domains": ["www.typescriptlang.org", "typescriptlang.org"],
+      "preferred_paths": ["/docs", "/docs/", "/docs/handbook", "/docs/handbook/", "/docs/handbook/intro"],
+      "default_class": "reference",
+      "candidate_window": 100,
+      "retrieval_query": "typescript handbook documentation",
+      "restrict_to_source": true,
+      "cases": [
+        {
+          "query": "TypeScript docs",
+          "query_type": "reference",
+          "expected": "www.typescriptlang.org",
+          "notes": "Top 3 should include official TypeScript docs",
+          "tier": 2,
+          "required_domains": ["www.typescriptlang.org"],
+          "minimum_domain_matches": 1,
+          "pass_reason": "top 3 include official TypeScript docs",
+          "fail_reason": "top 3 do not include official TypeScript docs"
+        }
+      ],
+      "seed_rows": [
+        {
+          "category": "docs",
+          "target": "https://www.typescriptlang.org/docs/",
+          "priority_boost": 25,
+          "note": "TypeScript docs home"
+        },
+        {
+          "category": "docs",
+          "target": "https://www.typescriptlang.org/docs/handbook/intro.html",
+          "priority_boost": 20,
+          "note": "TypeScript handbook intro"
+        }
+      ]
+    }
+  ]
+}

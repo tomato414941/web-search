@@ -1,0 +1,271 @@
+# URL pattern filters
+# URLs matching these patterns are never enqueued.
+# match_type: extension | contains | regex
+
+# --- Images ---
+- pattern: ".jpg"
+  match_type: extension
+  reason: image file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".jpeg"
+  match_type: extension
+  reason: image file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".png"
+  match_type: extension
+  reason: image file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".gif"
+  match_type: extension
+  reason: image file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".webp"
+  match_type: extension
+  reason: image file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".svg"
+  match_type: extension
+  reason: image file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".ico"
+  match_type: extension
+  reason: icon file
+  category: non-content
+  added: 2026-03-15
+
+# --- Binary / downloadable files ---
+- pattern: ".pdf"
+  match_type: extension
+  reason: binary file, not parseable
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".zip"
+  match_type: extension
+  reason: binary archive
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".gz"
+  match_type: extension
+  reason: binary archive
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".tar"
+  match_type: extension
+  reason: binary archive
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".exe"
+  match_type: extension
+  reason: binary executable
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".dmg"
+  match_type: extension
+  reason: binary installer
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".deb"
+  match_type: extension
+  reason: binary package
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".rpm"
+  match_type: extension
+  reason: binary package
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".msi"
+  match_type: extension
+  reason: binary installer
+  category: binary
+  added: 2026-03-15
+
+- pattern: ".iso"
+  match_type: extension
+  reason: binary disk image
+  category: binary
+  added: 2026-03-15
+
+# --- Media ---
+- pattern: ".mp3"
+  match_type: extension
+  reason: audio file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".mp4"
+  match_type: extension
+  reason: video file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".wav"
+  match_type: extension
+  reason: audio file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".avi"
+  match_type: extension
+  reason: video file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".mov"
+  match_type: extension
+  reason: video file
+  category: non-content
+  added: 2026-03-15
+
+# --- Web assets ---
+- pattern: ".css"
+  match_type: extension
+  reason: stylesheet
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".js"
+  match_type: extension
+  reason: script file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".woff"
+  match_type: extension
+  reason: font file
+  category: non-content
+  added: 2026-03-15
+
+- pattern: ".woff2"
+  match_type: extension
+  reason: font file
+  category: non-content
+  added: 2026-03-15
+
+# --- Auth pages ---
+- pattern: "/login"
+  match_type: contains
+  reason: authentication page, not crawlable
+  category: auth
+  added: 2026-03-15
+
+- pattern: "/signup"
+  match_type: contains
+  reason: registration page
+  category: auth
+  added: 2026-03-15
+
+- pattern: "/register"
+  match_type: contains
+  reason: registration page
+  category: auth
+  added: 2026-03-15
+
+- pattern: "/signin"
+  match_type: contains
+  reason: authentication page
+  category: auth
+  added: 2026-03-15
+
+# --- Feeds ---
+- pattern: "/feed"
+  match_type: contains
+  reason: RSS/Atom feed, duplicates page content
+  category: duplicate
+  added: 2026-03-15
+
+- pattern: "/rss"
+  match_type: contains
+  reason: RSS feed
+  category: duplicate
+  added: 2026-03-15
+
+- pattern: ".atom"
+  match_type: extension
+  reason: Atom feed
+  category: duplicate
+  added: 2026-03-15
+
+- pattern: ".rss"
+  match_type: extension
+  reason: RSS feed
+  category: duplicate
+  added: 2026-03-15
+
+# --- Search result pages ---
+- pattern: "?q="
+  match_type: contains
+  reason: search result page, dynamically generated
+  category: search-results
+  added: 2026-03-15
+
+- pattern: "?s="
+  match_type: contains
+  reason: search result page (WordPress)
+  category: search-results
+  added: 2026-03-15
+
+- pattern: "&q="
+  match_type: contains
+  reason: search result page
+  category: search-results
+  added: 2026-03-15
+
+# --- WordPress internals ---
+- pattern: "/wp-content/"
+  match_type: contains
+  reason: WordPress asset directory
+  category: non-content
+  added: 2026-03-15
+
+- pattern: "/wp-includes/"
+  match_type: contains
+  reason: WordPress internal directory
+  category: non-content
+  added: 2026-03-15
+
+# --- Duplicate/low-value views ---
+- pattern: "/trackback"
+  match_type: contains
+  reason: trackback endpoint
+  category: non-content
+  added: 2026-03-15
+
+- pattern: "/print/"
+  match_type: contains
+  reason: print view, duplicate of main page
+  category: duplicate
+  added: 2026-03-15
+
+- pattern: "?print="
+  match_type: contains
+  reason: print view parameter
+  category: duplicate
+  added: 2026-03-15
+
+# --- Share/intent URLs ---
+- pattern: "/intent/compose"
+  match_type: contains
+  reason: social media share intent URL
+  category: non-content
+  added: 2026-03-15

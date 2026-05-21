@@ -1,0 +1,59 @@
+[project]
+name = "web-search-workspace"
+version = "0.1.0"
+description = "Development workspace for PaleBlueSearch"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3",
+    "pytest>=9.0",
+    "pytest-asyncio>=1.3",
+    "pytest-cov>=7.0",
+    "ruff==0.15.5",
+    "testcontainers",
+]
+
+[tool.uv]
+package = false
+default-groups = ["dev"]
+
+[tool.uv.workspace]
+members = ["apps/*", "packages/*"]
+
+[tool.uv.sources]
+"web-search-contracts" = { workspace = true }
+"web-search-core" = { workspace = true }
+"web-search-postgres" = { workspace = true }
+"web-search-kernel" = { workspace = true }
+"web-search-opensearch" = { workspace = true }
+"web-search-indexing" = { workspace = true }
+"web-search-search-config" = { workspace = true }
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "strict"
+filterwarnings = [
+    "error:The `name` is not the first parameter anymore.*:DeprecationWarning:starlette\\.templating",
+]
+
+[tool.ruff]
+target-version = "py311"
+src = [
+    "apps/frontend/src",
+    "packages/contracts/src",
+    "packages/core/src",
+    "packages/postgres/src",
+    "packages/kernel/src",
+    "packages/opensearch/src",
+    "packages/indexing/src",
+    "packages/search-config/src",
+    "apps/crawler/src",
+    "apps/indexer/src",
+    "apps/mcp/src",
+]
+
+[tool.ruff.lint.per-file-ignores]

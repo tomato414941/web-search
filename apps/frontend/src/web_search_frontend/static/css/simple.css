@@ -1,0 +1,274 @@
+/* Simple Theme */
+body {
+    max-width: 680px;
+    margin: 80px auto;
+    font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif;
+    text-align: center;
+    background-color: #fff;
+    color: #000;
+}
+
+h1 {
+    font-size: 2em;
+    margin-block-start: 0.67em;
+    margin-block-end: 0.67em;
+}
+
+.container {
+    padding: 0 10px;
+}
+
+form {
+    display: flex;
+    gap: .5rem;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+input[type=text] {
+    flex: 1;
+    min-width: 0;
+    padding: .6rem;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    text-align: left;
+    font-size: 1rem;
+}
+
+button {
+    padding: .6rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    background: #f7f7f7;
+    color: #333;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+button:hover {
+    background: #eef;
+}
+
+/* Settings Gear */
+.settings-gear {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    z-index: 100;
+}
+
+.gear-btn {
+    background: #f7f7f7;
+    border: 1px solid #ddd;
+    padding: 6px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gear-btn:hover {
+    color: #333;
+    background: #eee;
+}
+
+.gear-dropdown {
+    display: none;
+    position: absolute;
+    top: 40px;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.15);
+    padding: 10px 14px;
+    min-width: 150px;
+}
+
+.gear-dropdown.open {
+    display: block;
+}
+
+.gear-section {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 0;
+}
+
+.gear-section + .gear-section {
+    border-top: 1px solid #eee;
+}
+
+.gear-label {
+    width: 100%;
+    font-size: .7rem;
+    font-weight: 600;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.gear-section a {
+    font-size: .85rem;
+    color: #00f;
+    text-decoration: none;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.gear-section a:hover {
+    background: #eef;
+}
+
+.gear-active {
+    font-size: .85rem;
+    color: #333;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #f0f0f0;
+}
+
+/* Meta */
+.meta-info {
+    margin: .5rem 0;
+    font-size: .9rem;
+    color: #666;
+}
+
+/* Results */
+.hit {
+    text-align: left;
+    padding: 1rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.hit-head {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    margin-bottom: 4px;
+}
+
+.hit-favicon {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.hit-title {
+    font-size: 1.1rem;
+    color: #1a0dab;
+    text-decoration: none;
+}
+
+.hit-title:hover {
+    text-decoration: underline;
+}
+
+.url {
+    color: #006621;
+    font-size: .9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+}
+
+.snippet {
+    line-height: 1.4;
+    color: #545454;
+}
+
+mark {
+    background: #fffa8b;
+    color: inherit;
+}
+
+/* Pagination */
+.pagination {
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.pagination a {
+    margin: 0 .5rem;
+    text-decoration: none;
+    color: #00f;
+}
+
+.pagination span {
+    margin: 0 .5rem;
+    color: #555;
+}
+
+/* Landing Section */
+.landing {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.tagline {
+    color: #666;
+    font-size: 0.95rem;
+    margin: 0 0 1rem;
+}
+
+.features {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.feature {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.feature svg {
+    flex-shrink: 0;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    body {
+        margin: 20px auto;
+    }
+
+    h1 {
+        font-size: 1.4em;
+        margin-block-end: 0.4em;
+    }
+
+    .gear-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .snippet {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .pagination a {
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: #f7f7f7;
+        border: 1px solid #ddd;
+    }
+
+    body.home {
+        margin-top: 30vh;
+    }
+}
