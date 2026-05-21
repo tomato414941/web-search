@@ -113,7 +113,7 @@ def main() -> int:
     config_path = Path(args.config)
     cases, keyword_rules, known_domains = _load_config(config_path)
 
-    counts = {"pass": 0, "fail": 0, "manual": 0}
+    counts = {"pass": 0, "fail": 0}
     errors = 0
     evaluated_cases: list[CaseEvaluation] = []
 
@@ -171,7 +171,7 @@ def main() -> int:
 
     print("Summary")
     print(
-        "  pass={pass} fail={fail} manual={manual} errors={errors}".format(
+        "  pass={pass} fail={fail} errors={errors}".format(
             errors=errors,
             **counts,
         )

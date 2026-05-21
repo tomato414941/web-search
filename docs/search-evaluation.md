@@ -44,7 +44,7 @@ make evaluate-search
 Evaluation exit behavior:
 
 - any evaluator runtime error exits non-zero
-- case statuses are report output, not deployment gates
+- case pass/fail statuses are report output, not deployment gates
 
 Validate the config before changing it:
 

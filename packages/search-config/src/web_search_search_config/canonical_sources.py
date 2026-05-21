@@ -364,7 +364,9 @@ def _load_case(
     source_preferred_paths: tuple[str, ...],
     source_news_paths: tuple[str, ...],
 ) -> CanonicalEvalCase:
-    manual_judgments = tuple(_load_judgment(row) for row in item.get("judgments", []))
+    configured_judgments = tuple(
+        _load_judgment(row) for row in item.get("judgments", [])
+    )
     return CanonicalEvalCase(
         query=item["query"],
         query_type=item["query_type"],
@@ -385,7 +387,7 @@ def _load_case(
         ),
         pass_reason=item.get("pass_reason"),
         fail_reason=item.get("fail_reason"),
-        judgments=manual_judgments
+        judgments=configured_judgments
         or _derive_case_judgments(
             query_type=item["query_type"],
             source_domains=source_domains,

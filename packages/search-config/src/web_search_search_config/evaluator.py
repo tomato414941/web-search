@@ -367,7 +367,7 @@ def classify_case(
 
     if case.query_type == "navigational":
         if not expected_domain:
-            return "manual", "no expected domain parsed"
+            return "fail", "no expected domain parsed"
         expects_homepage = "homepage" in case.notes.lower()
         allow_subdomain = not expects_homepage
         for idx, (domain, path) in enumerate(zip(top_domains, top_paths), start=1):
@@ -383,7 +383,7 @@ def classify_case(
 
     if "reference" in case.query_type:
         if not expected_domain:
-            return "manual", "no expected domain parsed"
+            return "fail", "no expected domain parsed"
         if any(
             domain_matches(expected_domain, domain, allow_subdomain=True)
             for domain in top_domains
@@ -394,12 +394,12 @@ def classify_case(
     if case.query_type == "news" and expected_domain:
         if any(expected_domain in domain for domain in top_domains):
             return "pass", "expected source is in top 3"
-        return "manual", "manual recency review needed"
+        return "fail", "expected source missing from top 3"
 
     if case.query_type in {"overview", "troubleshooting", "comparison", "news"}:
-        return "manual", "manual usefulness review required"
+        return "fail", "no automatic pass rule matched"
 
-    return "manual", "unsupported query type"
+    return "fail", "unsupported query type"
 
 
 def aggregate_metrics(cases: list[CaseEvaluation]) -> dict[str, dict[str, float]]:
