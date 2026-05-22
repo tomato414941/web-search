@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from web_search_crawler.api.deps import get_frontier_service
-from web_search_crawler.models.frontier import FrontierItem, FrontierStats
+from web_search_crawler.models.frontier import FrontierItem, FrontierSummary
 from web_search_crawler.services.frontier import FrontierService
 
 router = APIRouter()
@@ -14,7 +14,15 @@ _status_cache: dict[str, Any] = {"data": None, "expires": 0}
 _STATUS_TTL = 30
 
 
-@router.get("/frontier/status", response_model=FrontierStats)
+@router.get("/frontier/summary", response_model=FrontierSummary)
+async def get_frontier_summary(
+    frontier_service: FrontierService = Depends(get_frontier_service),
+):
+    """Get lightweight frontier summary."""
+    return FrontierSummary(pending=frontier_service.url_store.pending_count())
+
+
+@router.get("/frontier/status", response_model=FrontierSummary)
 async def get_frontier_status(
     frontier_service: FrontierService = Depends(get_frontier_service),
 ):
@@ -24,7 +32,7 @@ async def get_frontier_status(
         return _status_cache["data"]
 
     stats = frontier_service.get_frontier_summary()
-    result = FrontierStats(**stats)
+    result = FrontierSummary(**stats)
     _status_cache["data"] = result
     _status_cache["expires"] = now + _STATUS_TTL
     return result

@@ -50,10 +50,10 @@ Logs a click event tied to a prior search response.
 
 Public summary endpoint.
 
-This endpoint reads crawler summary data and indexed-document counts for a
-lightweight public system overview. Frontier counts come from crawler summary
-state and may briefly fall back to the last successful crawler read when the
-crawler is temporarily unavailable.
+This endpoint reads crawler frontier summary data and indexed-document counts
+for a lightweight public system overview. Frontier counts come from the crawler
+frontier summary endpoint and may briefly fall back to the last successful
+crawler read when the crawler is temporarily unavailable.
 
 ### `GET /api/v1/quality/summary`
 
@@ -123,6 +123,14 @@ Admits URLs into the frontier.
 
 Immediately fetches a single URL and submits it to the indexer.
 
+### `GET /api/v1/frontier/summary`
+
+Returns lightweight frontier summary data.
+
+### `GET /api/v1/frontier/status`
+
+Returns lightweight frontier status data.
+
 ### `GET /api/v1/worker/status`
 
 Returns crawler worker lifecycle state and volatile in-memory task status.
@@ -131,8 +139,7 @@ Returns crawler worker lifecycle state and volatile in-memory task status.
 
 Returns operator-facing crawler summary data.
 
-This is the crawler-side summary contract used by frontend public stats and
-admin views.
+This is the crawler-side summary contract used by admin views.
 
 ### `GET /api/v1/stats/breakdown`
 

@@ -41,20 +41,20 @@ def _crawler_headers() -> dict[str, str]:
 
 
 async def _fetch_crawler_stats() -> dict[str, int]:
-    """Fetch frontier summary stats from the crawler API."""
+    """Fetch lightweight frontier stats from the crawler API."""
     now = time.monotonic()
     cached = _crawler_stats_cache["data"]
     empty_stats: dict[str, int] = {"pending": 0}
     try:
         async with httpx.AsyncClient(timeout=_CRAWLER_STATS_TIMEOUT_SEC) as client:
             resp = await client.get(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/stats",
+                f"{settings.CRAWLER_SERVICE_URL}/api/v1/frontier/summary",
                 headers=_crawler_headers(),
             )
             if resp.status_code == 200:
                 data = resp.json()
                 stats = {
-                    "pending": int(data.get("frontier_pending", 0) or 0),
+                    "pending": int(data.get("pending", 0) or 0),
                 }
                 _crawler_stats_cache["data"] = dict(stats)
                 _crawler_stats_cache["expires"] = now + _CRAWLER_STATS_TTL
