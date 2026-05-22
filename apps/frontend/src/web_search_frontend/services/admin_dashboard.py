@@ -45,7 +45,6 @@ def _empty_dashboard_data() -> dict[str, Any]:
         "uptime_seconds": None,
         "active_tasks": 0,
         "recent_error_count": 0,
-        "recent_errors": [],
         "health": {"level": "ok", "messages": []},
         "snapshot_generated_at": None,
         "snapshot_loaded_from": "empty",
@@ -158,7 +157,6 @@ async def _build_dashboard_data() -> dict[str, Any]:
         data["uptime_seconds"] = stats.get("uptime_seconds")
         data["active_tasks"] = stats.get("active_tasks", 0)
         data["recent_error_count"] = stats.get("error_count_1h", 0)
-        data["recent_errors"] = stats.get("recent_errors", [])
 
     health_messages: list[str] = []
     if not crawler_reachable:

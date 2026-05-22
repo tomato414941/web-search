@@ -70,19 +70,5 @@
 
     </div>
 
-    {% if data.recent_errors %}
-    <div class="card attention">
-        <h2>Attention Required</h2>
-        <div class="attention-section">
-            <h3>Recent Crawl Errors</h3>
-            <ul>
-            {% for e in data.recent_errors %}
-                <li>{{ e.url[:60] }}{% if e.url|length > 60 %}...{% endif %} &mdash; {{ e.error_message }}</li>
-            {% endfor %}
-            </ul>
-        </div>
-    </div>
-    {% endif %}
-
 </div>
 {% endblock %}
