@@ -284,3 +284,88 @@ class DomainSchedulingStateStore:
                 """,
                 (now, MAX_DOMAIN_BACKOFF_SEC, now, domain),
             )
+
+    def record_crawl_result(
+        self,
+        cur,
+        *,
+        domain: str,
+        policy,
+        is_success: bool,
+        now: int,
+    ) -> None:
+        """Persist domain-level scheduling state after a crawl attempt."""
+        if not domain:
+            return
+        ph = sql_placeholder()
+        if is_success:
+            cur.execute(
+                f"""
+                UPDATE domain_state
+                SET
+                    next_request_at = {ph} + GREATEST(CEIL(crawl_delay_sec)::INTEGER, 1),
+                    backoff_until = NULL,
+                    fail_streak = 0,
+                    updated_at = {ph}
+                WHERE domain = {ph}
+                """,
+                (now, now, domain),
+            )
+            if cur.rowcount == 0:
+                self.ensure_missing_domain_state_rows(
+                    cur,
+                    [domain],
+                    now=now,
+                    default_crawl_delay_sec=policy.host_min_interval_sec,
+                )
+                cur.execute(
+                    f"""
+                    UPDATE domain_state
+                    SET
+                        next_request_at = {ph} + GREATEST(CEIL(crawl_delay_sec)::INTEGER, 1),
+                        backoff_until = NULL,
+                        fail_streak = 0,
+                        updated_at = {ph}
+                    WHERE domain = {ph}
+                    """,
+                    (now, now, domain),
+                )
+            return
+
+        cur.execute(
+            f"""
+            UPDATE domain_state
+            SET
+                fail_streak = fail_streak + 1,
+                backoff_until = {ph} + LEAST(
+                    GREATEST(CEIL(crawl_delay_sec)::INTEGER, 1)
+                    * (2 ^ LEAST(fail_streak + 1, 10)),
+                    {ph}
+                ),
+                updated_at = {ph}
+            WHERE domain = {ph}
+            """,
+            (now, MAX_DOMAIN_BACKOFF_SEC, now, domain),
+        )
+        if cur.rowcount == 0:
+            self.ensure_missing_domain_state_rows(
+                cur,
+                [domain],
+                now=now,
+                default_crawl_delay_sec=policy.host_min_interval_sec,
+            )
+            cur.execute(
+                f"""
+                UPDATE domain_state
+                SET
+                    fail_streak = fail_streak + 1,
+                    backoff_until = {ph} + LEAST(
+                        GREATEST(CEIL(crawl_delay_sec)::INTEGER, 1)
+                        * (2 ^ LEAST(fail_streak + 1, 10)),
+                        {ph}
+                    ),
+                    updated_at = {ph}
+                WHERE domain = {ph}
+                """,
+                (now, MAX_DOMAIN_BACKOFF_SEC, now, domain),
+            )
