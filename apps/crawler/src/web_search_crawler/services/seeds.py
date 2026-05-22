@@ -24,11 +24,7 @@ class SeedService:
         return [
             SeedItem(
                 url=row["url"],
-                status=row["status"],
                 created_at=datetime.fromtimestamp(row["created_at"]),
-                last_crawled_at=datetime.fromtimestamp(row["last_crawled_at"])
-                if row["last_crawled_at"]
-                else None,
             )
             for row in rows
         ]

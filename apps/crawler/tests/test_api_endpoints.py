@@ -415,6 +415,8 @@ def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
     assert data["limit"] == 2
     assert data["offset"] == 0
     assert len(data["items"]) == 2
+    assert "status" not in data["items"][0]
+    assert "last_crawled_at" not in data["items"][0]
 
 
 def test_prewarm_admin_stats_caches_populates_route_caches(test_url_store):

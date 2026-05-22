@@ -12,9 +12,7 @@ class SeedItem(BaseModel):
     """Single seed URL with metadata"""
 
     url: str = Field(..., description="Seed URL")
-    status: str = Field(..., description="URL status (pending/done)")
     created_at: datetime = Field(..., description="When the URL was first added")
-    last_crawled_at: datetime | None = Field(None, description="When last crawled")
 
 
 class SeedAddRequest(BaseModel):

@@ -254,13 +254,13 @@ class UrlSeedsMixin:
         with db_connection(self.db_path) as cur:
             if limit is None:
                 cur.execute(
-                    "SELECT url, domain, crawl_count, created_at, last_crawled_at"
+                    "SELECT url, created_at"
                     " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
                 )
             else:
                 ph = sql_placeholder()
                 cur.execute(
-                    "SELECT url, domain, crawl_count, created_at, last_crawled_at"
+                    "SELECT url, created_at"
                     " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
                     f" LIMIT {ph} OFFSET {ph}",
                     (limit, max(0, offset)),
@@ -268,10 +268,7 @@ class UrlSeedsMixin:
             return [
                 {
                     "url": row[0],
-                    "domain": row[1],
-                    "status": "done" if row[2] > 0 else "pending",
-                    "created_at": row[3],
-                    "last_crawled_at": row[4],
+                    "created_at": row[1],
                 }
                 for row in cur.fetchall()
             ]
