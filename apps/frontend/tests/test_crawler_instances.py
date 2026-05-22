@@ -2,10 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from web_search_frontend.services import (
-    crawler_admin_client as crawler_admin_client_module,
-)
-from web_search_frontend.services.crawler_admin_client import (
+from web_search_frontend.services import crawler_instances as crawler_instances_module
+from web_search_frontend.services.crawler_instances import (
     clear_crawler_instances_cache,
     get_all_crawler_instances,
     get_crawler_instances_read_model,
@@ -101,7 +99,7 @@ async def test_get_crawler_instance_status_requires_current_stats_contract():
 @pytest.mark.asyncio
 async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        crawler_admin_client_module,
+        crawler_instances_module,
         "_SHARED_CRAWLER_INSTANCES_CACHE_PATH",
         str(tmp_path / "crawler-instances-cache.json"),
     )
@@ -123,7 +121,7 @@ async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
         first = await get_all_crawler_instances(instances)
-        crawler_admin_client_module._clear_crawler_instances_memory_cache()
+        crawler_instances_module._clear_crawler_instances_memory_cache()
         second = await get_all_crawler_instances(instances)
 
     assert mock_instance.get.await_count == 2
@@ -136,7 +134,7 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
     monkeypatch, tmp_path
 ):
     monkeypatch.setattr(
-        crawler_admin_client_module,
+        crawler_instances_module,
         "_SHARED_CRAWLER_INSTANCES_CACHE_PATH",
         str(tmp_path / "crawler-instances-cache.json"),
     )
@@ -158,7 +156,7 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
         first = await get_crawler_instances_read_model(instances)
-        crawler_admin_client_module._clear_crawler_instances_memory_cache()
+        crawler_instances_module._clear_crawler_instances_memory_cache()
         second = await get_crawler_instances_read_model(instances)
 
     assert first["instances"][0]["state"] == "running"
@@ -174,7 +172,7 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
     monkeypatch, tmp_path
 ):
     monkeypatch.setattr(
-        crawler_admin_client_module,
+        crawler_instances_module,
         "_SHARED_CRAWLER_INSTANCES_CACHE_PATH",
         str(tmp_path / "crawler-instances-cache.json"),
     )
@@ -196,7 +194,7 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
         await prewarm_crawler_instances_cache(instances, attempts=1, delay_seconds=0)
-        crawler_admin_client_module._clear_crawler_instances_memory_cache()
+        crawler_instances_module._clear_crawler_instances_memory_cache()
         cached = await get_all_crawler_instances(instances)
 
     assert mock_instance.get.await_count == 2

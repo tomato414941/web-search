@@ -12,13 +12,15 @@ from web_search_frontend.core.config import settings
 from web_search_frontend.services.admin_auth import CSRF_FORM_FIELD, get_csrf_token
 from web_search_frontend.services.admin_dashboard import clear_dashboard_cache
 from web_search_frontend.services.crawler_admin_client import (
-    clear_crawler_instances_cache,
-    find_crawler_url as _find_crawler_url,
-    get_crawler_instances_read_model as _get_crawler_instances_read_model,
     start_crawler_instance,
     start_worker,
     stop_crawler_instance,
     stop_worker,
+)
+from web_search_frontend.services.crawler_instances import (
+    clear_crawler_instances_cache,
+    find_crawler_url as _find_crawler_url,
+    get_crawler_instances_read_model as _get_crawler_instances_read_model,
 )
 
 router = APIRouter()
