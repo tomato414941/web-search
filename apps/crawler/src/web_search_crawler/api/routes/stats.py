@@ -46,7 +46,6 @@ def _empty_frontier_snapshot() -> dict[str, Any]:
             "done": 0,
             "failed": 0,
             "total": 0,
-            "recent": 0,
         },
         "frontier_status_counts": {"pending": 0, "leased": 0},
         "maintenance": get_frontier_maintenance_state(),

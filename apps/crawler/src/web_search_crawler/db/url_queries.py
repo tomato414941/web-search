@@ -1,8 +1,6 @@
-"""URL read-only queries: counts, stats, domain lookups."""
+"""URL read-only queries: counts and frontier inspection."""
 
-import ast
 import os
-import time
 
 from web_search_crawler.services.crawl_policy import POLICIES
 from web_search_crawler.db.connection import db_connection
@@ -19,48 +17,6 @@ _PROFILES_BY_BUDGET_TIER = {
     )
     for tier in _BUDGET_TIER_ORDER
 }
-
-
-def _parse_histogram_bounds(value: object) -> list[float]:
-    """Parse pg_stats histogram bounds into a sorted float list."""
-    if value is None:
-        return []
-    if isinstance(value, (list, tuple)):
-        return [float(item) for item in value]
-    if isinstance(value, str):
-        normalized = value.strip()
-        if not normalized:
-            return []
-        if normalized.startswith("{") and normalized.endswith("}"):
-            normalized = "[" + normalized[1:-1] + "]"
-        parsed = ast.literal_eval(normalized)
-        if isinstance(parsed, (list, tuple)):
-            return [float(item) for item in parsed]
-    return []
-
-
-def _estimate_tail_ratio_from_histogram(
-    bounds: list[float], cutoff: int
-) -> float | None:
-    """Estimate the fraction of rows above cutoff from pg_stats histogram bounds."""
-    if len(bounds) < 2:
-        return None
-    if cutoff < bounds[0]:
-        return 1.0
-    if cutoff >= bounds[-1]:
-        return 0.0
-
-    bins = len(bounds) - 1
-    for index, (lo, hi) in enumerate(zip(bounds, bounds[1:], strict=False)):
-        if cutoff >= hi:
-            continue
-        tail_bins = bins - index - 1
-        if hi <= lo:
-            in_bin_ratio = 1.0
-        else:
-            in_bin_ratio = max(0.0, min(1.0, (hi - cutoff) / (hi - lo)))
-        return (tail_bins + in_bin_ratio) / bins
-    return 0.0
 
 
 class UrlQueriesMixin:
@@ -88,37 +44,6 @@ class UrlQueriesMixin:
             return approx
         cur.execute(f"SELECT COUNT(*) FROM {table_name}")
         return cur.fetchone()[0]
-
-    def _approx_recent_crawled_count(
-        self,
-        cur,
-        *,
-        total: int,
-        crawled: int,
-        cutoff: int,
-    ) -> int | None:
-        cur.execute(
-            """
-            SELECT null_frac, histogram_bounds
-            FROM pg_stats
-            WHERE schemaname = 'public'
-              AND tablename = 'urls'
-              AND attname = 'last_crawled_at'
-            """
-        )
-        row = cur.fetchone()
-        if row is None:
-            return None
-
-        null_frac = float(row[0] or 0.0)
-        bounds = _parse_histogram_bounds(row[1])
-        tail_ratio = _estimate_tail_ratio_from_histogram(bounds, cutoff)
-        if tail_ratio is None:
-            return None
-
-        non_null_ratio = max(0.0, min(1.0, 1.0 - null_frac))
-        estimated = round(total * non_null_ratio * tail_ratio)
-        return max(0, min(crawled, estimated))
 
     def pending_count(self) -> int:
         """Return number of pending frontier rows."""
@@ -213,8 +138,6 @@ class UrlQueriesMixin:
         cached = self._get_cached_stats()
         if cached is not None:
             return cached
-        now = int(time.time())
-        cutoff = now - self.recrawl_threshold
 
         counters = (
             self.frontier_admin_state.get_frontier_counters()
@@ -261,30 +184,12 @@ class UrlQueriesMixin:
                 uncrawled = row[1]
                 total = crawled + uncrawled
 
-            if total > 100000:
-                recent = self._approx_recent_crawled_count(
-                    cur,
-                    total=total,
-                    crawled=crawled,
-                    cutoff=cutoff,
-                )
-                if recent is None:
-                    recent = crawled
-            else:
-                ph = sql_placeholder()
-                cur.execute(
-                    f"SELECT COUNT(*) FROM urls WHERE last_crawled_at > {ph}",
-                    (cutoff,),
-                )
-                recent = cur.fetchone()[0]
-
             stats = {
                 "pending": pending,
                 "crawling": crawling,
                 "done": crawled,
                 "failed": 0,
                 "total": total,
-                "recent": recent,
             }
             self._set_cached_stats(stats)
             return stats

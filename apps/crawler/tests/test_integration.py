@@ -1199,7 +1199,7 @@ def test_frontier_snapshot_persists_across_store_restart(tmp_path):
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     url_store.write_frontier_snapshot(
         {
-            "url_stats": {"recent": 9},
+            "url_stats": {"total": 9},
             "frontier_status_counts": {"pending": 4, "leased": 2},
         },
         generated_at=int(time.time()),
@@ -1211,7 +1211,7 @@ def test_frontier_snapshot_persists_across_store_restart(tmp_path):
         empty_snapshot=_empty_frontier_snapshot(),
     )
 
-    assert snapshot["url_stats"]["recent"] == 9
+    assert snapshot["url_stats"]["total"] == 9
     assert snapshot["frontier_status_counts"] == {"pending": 4, "leased": 2}
     assert snapshot["snapshot_stale"] is False
 
@@ -1244,7 +1244,7 @@ def test_frontier_dashboard_summary_prefers_live_leased_rows_over_stale_counters
     assert [item.url for item in leased] == ["https://example.com/live-leased"]
     test_url_store.write_frontier_snapshot(
         {
-            "url_stats": {"recent": 1, "total": 1},
+            "url_stats": {"total": 1},
             "frontier_status_counts": {"pending": 0, "leased": 1},
         },
         generated_at=int(time.time()),
