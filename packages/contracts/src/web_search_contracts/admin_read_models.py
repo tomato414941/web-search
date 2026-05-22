@@ -42,7 +42,6 @@ class CrawlerStatsApiResponse(BaseModel):
     recent_errors: list[RecentErrorEntryReadModel] = Field(default_factory=list)
     frontier_pending: int = Field(default=0, ge=0)
     leased_tasks: int = Field(default=0, ge=0)
-    total_seen: int = Field(default=0, ge=0)
     frontier_snapshot_age_seconds: int = Field(default=0, ge=0)
     frontier_snapshot_stale: bool = Field(default=True)
 

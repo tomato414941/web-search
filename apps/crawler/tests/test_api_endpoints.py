@@ -112,7 +112,6 @@ def test_frontier_status_endpoint(test_client, test_url_store):
         assert response.status_code == 200
         data = response.json()
         assert data["pending"] == 1
-        assert data["total_seen"] == 2
 
 
 def test_history_endpoint(test_client):
@@ -267,12 +266,6 @@ def test_stats_endpoint_uses_frontier_snapshot(test_client):
     assert [item.url for item in leased] == ["https://example.com/frontier-snapshot"]
     test_url_store.write_frontier_snapshot(
         {
-            "url_stats": {
-                "total": 20,
-                "pending": 5,
-                "leased": 1,
-                "done": 14,
-            },
             "frontier_status_counts": {"pending": 5, "leased": 1},
             "maintenance": {"total_reclaimed": 0},
         },
@@ -312,7 +305,6 @@ def test_stats_endpoint_uses_frontier_snapshot(test_client):
     data = response.json()
     assert data["frontier_pending"] == 5
     assert data["leased_tasks"] == 1
-    assert data["total_seen"] == 20
     assert data["crawl_rate_1h"] == 8
     assert data["submitted_count_1h"] == 6
     assert data["submit_rate_1h"] == 75.0
@@ -334,12 +326,6 @@ def test_stats_endpoint_prefers_live_leased_rows_over_stale_counters(test_client
     assert [item.url for item in leased] == ["https://example.com/live-leased"]
     test_url_store.write_frontier_snapshot(
         {
-            "url_stats": {
-                "total": 10,
-                "pending": 0,
-                "leased": 1,
-                "done": 9,
-            },
             "frontier_status_counts": {"pending": 0, "leased": 1},
             "maintenance": {"total_reclaimed": 0},
         },

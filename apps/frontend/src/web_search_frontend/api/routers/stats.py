@@ -22,7 +22,6 @@ _CRAWLER_STATS_TIMEOUT_SEC = 10.0
 
 class PublicFrontierStats(BaseModel):
     pending: int = Field(default=0, ge=0)
-    discovered: int = Field(default=0, ge=0)
 
 
 class PublicIndexStats(BaseModel):
@@ -45,7 +44,7 @@ async def _fetch_crawler_stats() -> dict[str, int]:
     """Fetch frontier summary stats from the crawler API."""
     now = time.monotonic()
     cached = _crawler_stats_cache["data"]
-    empty_stats: dict[str, int] = {"pending": 0, "discovered": 0}
+    empty_stats: dict[str, int] = {"pending": 0}
     try:
         async with httpx.AsyncClient(timeout=_CRAWLER_STATS_TIMEOUT_SEC) as client:
             resp = await client.get(
@@ -56,7 +55,6 @@ async def _fetch_crawler_stats() -> dict[str, int]:
                 data = resp.json()
                 stats = {
                     "pending": int(data.get("frontier_pending", 0) or 0),
-                    "discovered": int(data.get("total_seen", 0) or 0),
                 }
                 _crawler_stats_cache["data"] = dict(stats)
                 _crawler_stats_cache["expires"] = now + _CRAWLER_STATS_TTL

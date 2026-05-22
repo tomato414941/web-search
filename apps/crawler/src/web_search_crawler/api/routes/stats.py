@@ -40,13 +40,6 @@ def _clear_stats_caches() -> None:
 
 def _empty_frontier_snapshot() -> dict[str, Any]:
     return {
-        "url_stats": {
-            "pending": 0,
-            "crawling": 0,
-            "done": 0,
-            "failed": 0,
-            "total": 0,
-        },
         "frontier_status_counts": {"pending": 0, "leased": 0},
         "maintenance": get_frontier_maintenance_state(),
     }
@@ -61,7 +54,6 @@ async def _build_frontier_stats(frontier_service: FrontierService) -> dict[str, 
     }
 
     return {
-        "url_stats": stats,
         "frontier_status_counts": frontier_status_counts,
         "maintenance": get_frontier_maintenance_state(),
     }
@@ -152,7 +144,6 @@ async def get_stats(
         "recent_errors": recent_errors,
         "frontier_pending": frontier_summary.get("frontier_pending", 0),
         "leased_tasks": frontier_summary.get("leased_tasks", 0),
-        "total_seen": frontier_summary.get("total_seen", 0),
         "frontier_snapshot_age_seconds": frontier_summary.get(
             "frontier_snapshot_age_seconds", 0
         ),

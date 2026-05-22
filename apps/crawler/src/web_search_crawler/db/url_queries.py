@@ -159,42 +159,9 @@ class UrlQueriesMixin:
                 pending = counters["pending_rows"]
                 crawling = counters["leased_rows"]
 
-            # Ledger stats (approximate for large tables)
-            total = self._approx_table_count(cur, "urls") or 0
-
-            if total > 100000:
-                # Approximate: use pg_stats for null fraction of last_crawled_at
-                cur.execute(
-                    "SELECT null_frac FROM pg_stats "
-                    "WHERE tablename = 'urls' AND attname = 'last_crawled_at'"
-                )
-                row = cur.fetchone()
-                null_frac = row[0] if row else 0
-                uncrawled = round(total * null_frac)
-                crawled = total - uncrawled
-            else:
-                cur.execute("""
-                    SELECT
-                        COUNT(*) FILTER (WHERE last_crawled_at IS NOT NULL),
-                        COUNT(*) FILTER (WHERE last_crawled_at IS NULL)
-                    FROM urls
-                """)
-                row = cur.fetchone()
-                crawled = row[0]
-                uncrawled = row[1]
-                total = crawled + uncrawled
-
             stats = {
                 "pending": pending,
                 "crawling": crawling,
-                "done": crawled,
-                "failed": 0,
-                "total": total,
             }
             self._set_cached_stats(stats)
             return stats
-
-    def size(self) -> int:
-        """Return total number of discovered URLs. For health checks."""
-        with db_connection(self.db_path) as cur:
-            return self._table_count(cur, "urls")

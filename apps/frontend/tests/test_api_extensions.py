@@ -13,11 +13,9 @@ def test_api_stats(client):
     assert "frontier" in data
     assert "index" in data
     assert "pending" in data["frontier"]
-    assert "discovered" in data["frontier"]
     assert "indexed" in data["index"]
     # Values should be integers
     assert isinstance(data["frontier"]["pending"], int)
-    assert isinstance(data["frontier"]["discovered"], int)
     assert isinstance(data["index"]["indexed"], int)
 
 
@@ -27,7 +25,7 @@ def test_api_stats_uses_last_successful_crawler_snapshot_on_timeout(client):
 
     _stats_cache["data"] = None
     _stats_cache["expires"] = 0
-    _crawler_stats_cache["data"] = {"pending": 12, "discovered": 34}
+    _crawler_stats_cache["data"] = {"pending": 12}
     _crawler_stats_cache["expires"] = float("inf")
 
     with (
@@ -50,7 +48,7 @@ def test_api_stats_uses_last_successful_crawler_snapshot_on_timeout(client):
 
     assert response.status_code == 200
     assert response.json() == {
-        "frontier": {"pending": 12, "discovered": 34},
+        "frontier": {"pending": 12},
         "index": {"indexed": 56},
     }
 

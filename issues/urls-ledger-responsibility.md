@@ -21,10 +21,10 @@ That makes `urls` less simple than a discovery ledger should be.
 The main observed consumers are management and scheduling-adjacent reads:
 
 - recently crawled suppression before frontier admission
-- crawler stats such as done/recent/uncrawled
-- seed list status and last-crawled display
-- stale URL helpers
-- domain crawled-count helpers
+- crawler stats formerly used `done`, `recent`, `uncrawled`, and total URL counts
+- seed list status and last-crawled display formerly read crawl state from `urls`
+- stale URL helpers and domain crawled-count helpers formerly read crawl state
+  from `urls`
 
 Most of these concerns overlap with execution state already present in
 `frontier_entries`, such as `last_fetched_at`, `last_success_at`, `last_status`,
@@ -58,8 +58,8 @@ Candidate target shape:
 Before removing columns, replace active reads with more appropriate sources:
 
 - use frontier/runtime state for crawl scheduling and recent-crawl suppression
-- use frontier/admin snapshots or crawl logs for crawler stats
-- remove or simplify seed-list crawl status if it is not operationally useful
-- delete unused stale/domain helper methods if no callers remain
+- avoid using `urls` as an admin statistics source
+- keep removing remaining `last_crawled_at` and `crawl_count` reads that do not
+  belong in the discovery ledger
 
 Do not move more execution state into `urls` just to reduce table count.

@@ -11,8 +11,8 @@ import logging
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
+from web_search_crawler.db.connection import db_connection
 from web_search_crawler.db.executor import run_in_db_executor
-from web_search_crawler.db.url_store import UrlStore
 from web_search_crawler.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -21,19 +21,17 @@ logger = logging.getLogger(__name__)
 root_router = APIRouter()
 
 
-_cached_url_store: UrlStore | None = None
+def _ping_db() -> None:
+    with db_connection(settings.CRAWLER_DB_PATH) as cur:
+        cur.execute("SELECT 1")
 
 
 async def _check_db() -> bool:
     """Check PostgreSQL/SQLite connectivity."""
-    global _cached_url_store
     try:
-        if _cached_url_store is None:
-            _cached_url_store = UrlStore(settings.CRAWLER_DB_PATH)
-        await run_in_db_executor(_cached_url_store.size)
+        await run_in_db_executor(_ping_db)
         return True
     except Exception:
-        _cached_url_store = None
         return False
 
 

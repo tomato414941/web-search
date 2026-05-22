@@ -71,13 +71,12 @@ class FrontierService:
         Get frontier summary statistics.
 
         Returns:
-            Dict with pending frontier depth and discovered URL count
+            Dict with pending frontier depth
         """
         stats = self.url_store.get_stats()
 
         return {
             "pending": stats["pending"],
-            "total_seen": stats["total"],
         }
 
     def get_frontier_items(self, limit: int = 20) -> list[dict]:

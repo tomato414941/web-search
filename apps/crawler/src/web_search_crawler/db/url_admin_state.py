@@ -301,11 +301,9 @@ class FrontierAdminStateStore:
         if generated_at is not None:
             age_seconds = max(0, current_time - generated_at)
             snapshot_stale = age_seconds >= snapshot_ttl_sec
-        snapshot_url_stats = snapshot_record["snapshot"].get("url_stats") or {}
         snapshot_frontier_status_counts = (
             snapshot_record["snapshot"].get("frontier_status_counts") or {}
         )
-        total_seen = int(snapshot_url_stats.get("total") or 0)
         pending_rows = counters["pending_rows"]
         if not snapshot_stale:
             pending_rows = int(
@@ -315,7 +313,6 @@ class FrontierAdminStateStore:
         return {
             "frontier_pending": pending_rows,
             "leased_tasks": leased_rows,
-            "total_seen": total_seen,
             "frontier_snapshot_age_seconds": age_seconds,
             "frontier_snapshot_stale": snapshot_stale,
         }
