@@ -208,40 +208,6 @@ class UrlQueriesMixin:
                 for row in cur.fetchall()
             ]
 
-    def get_stale_urls(self, limit: int = 100) -> list[str]:
-        """Get URLs ready for re-crawl (crawled and past threshold)."""
-        now = int(time.time())
-        cutoff = now - self.recrawl_threshold
-        ph = sql_placeholder()
-
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                f"""
-                SELECT url FROM urls
-                WHERE last_crawled_at < {ph} AND last_crawled_at IS NOT NULL
-                ORDER BY last_crawled_at ASC
-                LIMIT {ph}
-                """,
-                (cutoff, limit),
-            )
-            return [row[0] for row in cur.fetchall()]
-
-    def get_stale_url_count(self) -> int:
-        """Count URLs ready for re-crawl."""
-        now = int(time.time())
-        cutoff = now - self.recrawl_threshold
-        ph = sql_placeholder()
-
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                f"""
-                SELECT COUNT(*) FROM urls
-                WHERE last_crawled_at < {ph} AND last_crawled_at IS NOT NULL
-                """,
-                (cutoff,),
-            )
-            return cur.fetchone()[0]
-
     def get_stats(self) -> dict:
         """Get URL statistics from ledger and frontier."""
         cached = self._get_cached_stats()
