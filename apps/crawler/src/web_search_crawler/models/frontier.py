@@ -18,9 +18,6 @@ class FrontierStats(BaseModel):
         description="Number of pending frontier entries",
     )
     total_seen: int = Field(default=0, ge=0, description="Total unique URLs in history")
-    active_seen: int = Field(
-        default=0, ge=0, description="URLs crawled within recrawl threshold"
-    )
     total_indexed: int = Field(
         default=0,
         ge=0,

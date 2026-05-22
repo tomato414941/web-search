@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 class CrawlerInstanceStatusReadModel(BaseModel):
     state: str = "unreachable"
     frontier_pending: int = Field(default=0, ge=0)
-    active_seen: int = Field(default=0, ge=0)
     uptime: float | int | None = Field(default=None, ge=0)
     concurrency: int | None = Field(default=None, ge=0)
     attempts_1h: int | None = Field(default=None, ge=0)
@@ -44,7 +43,6 @@ class CrawlerStatsApiResponse(BaseModel):
     frontier_pending: int = Field(default=0, ge=0)
     leased_tasks: int = Field(default=0, ge=0)
     total_seen: int = Field(default=0, ge=0)
-    active_seen: int = Field(default=0, ge=0)
     frontier_snapshot_age_seconds: int = Field(default=0, ge=0)
     frontier_snapshot_stale: bool = Field(default=True)
 

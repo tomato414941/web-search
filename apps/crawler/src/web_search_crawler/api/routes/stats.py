@@ -181,7 +181,6 @@ async def get_stats(
         "frontier_pending": frontier_summary.get("frontier_pending", 0),
         "leased_tasks": frontier_summary.get("leased_tasks", 0),
         "total_seen": frontier_summary.get("total_seen", 0),
-        "active_seen": frontier_summary.get("active_seen", 0),
         "frontier_snapshot_age_seconds": frontier_summary.get(
             "frontier_snapshot_age_seconds", 0
         ),

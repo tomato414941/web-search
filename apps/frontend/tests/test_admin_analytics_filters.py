@@ -48,7 +48,6 @@ async def test_dashboard_uses_cache(monkeypatch):
     mock_fetch_stats = AsyncMock(
         return_value={
             "frontier_pending": 0,
-            "active_seen": 0,
             "worker_status": "running",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -93,7 +92,6 @@ async def test_dashboard_prefers_leased_tasks_when_present(monkeypatch):
         AsyncMock(
             return_value={
                 "frontier_pending": 9,
-                "active_seen": 5,
                 "worker_status": "running",
                 "uptime_seconds": 10,
                 "active_tasks": 0,
@@ -136,7 +134,6 @@ async def test_dashboard_records_cache_access_metrics(monkeypatch, tmp_path):
         AsyncMock(
             return_value={
                 "frontier_pending": 0,
-                "active_seen": 0,
                 "worker_status": "running",
                 "uptime_seconds": 1,
                 "active_tasks": 0,
@@ -216,7 +213,6 @@ async def test_dashboard_uses_shared_file_cache_across_workers(monkeypatch, tmp_
     mock_fetch_stats = AsyncMock(
         return_value={
             "frontier_pending": 1,
-            "active_seen": 2,
             "worker_status": "running",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -270,7 +266,6 @@ async def test_dashboard_singleflights_concurrent_cache_misses(monkeypatch, tmp_
         await release.wait()
         return {
             "frontier_pending": 1,
-            "active_seen": 2,
             "worker_status": "running",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -367,7 +362,6 @@ async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
     mock_fetch_stats = AsyncMock(
         return_value={
             "frontier_pending": 1,
-            "active_seen": 2,
             "worker_status": "stopped",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -410,7 +404,6 @@ async def test_prewarm_dashboard_cache_records_metrics(monkeypatch):
         AsyncMock(
             return_value={
                 "frontier_pending": 0,
-                "active_seen": 0,
                 "worker_status": "running",
                 "uptime_seconds": 5,
                 "active_tasks": 0,

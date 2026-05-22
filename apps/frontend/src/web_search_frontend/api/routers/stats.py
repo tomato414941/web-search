@@ -56,9 +56,7 @@ async def _fetch_crawler_stats() -> dict[str, int]:
                 data = resp.json()
                 stats = {
                     "pending": int(data.get("frontier_pending", 0) or 0),
-                    "discovered": int(
-                        data.get("total_seen", data.get("active_seen", 0)) or 0
-                    ),
+                    "discovered": int(data.get("total_seen", 0) or 0),
                 }
                 _crawler_stats_cache["data"] = dict(stats)
                 _crawler_stats_cache["expires"] = now + _CRAWLER_STATS_TTL

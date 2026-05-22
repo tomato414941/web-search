@@ -29,7 +29,6 @@ async def test_get_crawler_instance_status_maps_extended_metrics():
         "submit_rate_1h": 50.0,
         "error_count_1h": 5,
         "frontier_pending": 11,
-        "active_seen": 22,
     }
     worker_resp = MagicMock()
     worker_resp.status_code = 200
@@ -51,7 +50,6 @@ async def test_get_crawler_instance_status_maps_extended_metrics():
 
     assert result["state"] == "running"
     assert result["frontier_pending"] == 11
-    assert result["active_seen"] == 22
     assert result["uptime"] == 123.4
     assert result["concurrency"] == 4
     assert result["attempts_1h"] == 80
@@ -66,7 +64,6 @@ async def test_get_crawler_instance_status_requires_current_stats_contract():
     stats_resp.status_code = 200
     stats_resp.json.return_value = {
         "frontier_pending": 3,
-        "active_seen": 9,
         "submitted_count_1h": 6,
         "submit_rate_1h": 50.0,
         "error_count_1h": 2,

@@ -78,7 +78,6 @@ class FrontierService:
         return {
             "pending": stats["pending"],
             "total_seen": stats["total"],
-            "active_seen": stats["recent"],
             "total_indexed": stats["done"],
         }
 

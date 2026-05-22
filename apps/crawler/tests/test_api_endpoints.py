@@ -114,7 +114,6 @@ def test_frontier_status_endpoint(test_client, test_url_store):
         assert data["pending"] == 1
         assert data["total_seen"] == 2
         assert data["total_indexed"] == 1
-        assert "active_seen" in data
 
 
 def test_history_endpoint(test_client):
@@ -316,7 +315,6 @@ def test_stats_endpoint_uses_frontier_snapshot(test_client):
     assert data["frontier_pending"] == 5
     assert data["leased_tasks"] == 1
     assert data["total_seen"] == 20
-    assert data["active_seen"] == 7
     assert data["crawl_rate_1h"] == 8
     assert data["submitted_count_1h"] == 6
     assert data["submit_rate_1h"] == 75.0

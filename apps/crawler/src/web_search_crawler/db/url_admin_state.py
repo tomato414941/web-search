@@ -305,7 +305,6 @@ class FrontierAdminStateStore:
         snapshot_frontier_status_counts = (
             snapshot_record["snapshot"].get("frontier_status_counts") or {}
         )
-        recent = int(snapshot_url_stats.get("recent") or 0)
         total_seen = int(snapshot_url_stats.get("total") or 0)
         pending_rows = counters["pending_rows"]
         if not snapshot_stale:
@@ -317,7 +316,6 @@ class FrontierAdminStateStore:
             "frontier_pending": pending_rows,
             "leased_tasks": leased_rows,
             "total_seen": total_seen,
-            "active_seen": recent,
             "frontier_snapshot_age_seconds": age_seconds,
             "frontier_snapshot_stale": snapshot_stale,
         }
