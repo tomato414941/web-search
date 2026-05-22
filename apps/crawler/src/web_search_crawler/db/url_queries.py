@@ -7,7 +7,7 @@ import time
 from web_search_crawler.services.crawl_policy import POLICIES
 from web_search_crawler.db.connection import db_connection
 from web_search_crawler.db.url_types import FrontierEntry, UrlItem, url_hash
-from web_search_postgres.search import sql_placeholder, sql_placeholders
+from web_search_postgres.search import sql_placeholder
 
 _APPROX_COUNT_THRESHOLD = int(os.getenv("CRAWL_APPROX_COUNT_THRESHOLD", "100000"))
 _BUDGET_TIER_ORDER = ("hot", "reference", "bulk", "operator")
@@ -288,48 +288,6 @@ class UrlQueriesMixin:
             }
             self._set_cached_stats(stats)
             return stats
-
-    def get_domains(self, limit: int = 100) -> list[tuple[str, int]]:
-        """Get domain counts for crawled URLs."""
-        ph = sql_placeholder()
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                f"""
-                SELECT domain, COUNT(*) as cnt
-                FROM urls
-                WHERE last_crawled_at IS NOT NULL
-                GROUP BY domain
-                ORDER BY cnt DESC
-                LIMIT {ph}
-                """,
-                (limit,),
-            )
-            return [(row[0], row[1]) for row in cur.fetchall()]
-
-    def domain_done_count(self, domain: str) -> int:
-        """Return number of crawled URLs for a given domain."""
-        ph = sql_placeholder()
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                f"SELECT COUNT(*) FROM urls "
-                f"WHERE domain = {ph} AND last_crawled_at IS NOT NULL",
-                (domain,),
-            )
-            return cur.fetchone()[0]
-
-    def domain_done_count_batch(self, domains: list[str]) -> dict[str, int]:
-        """Return crawled-URL counts for multiple domains in a single query."""
-        if not domains:
-            return {}
-        phs = sql_placeholders(len(domains))
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                f"SELECT domain, COUNT(*) FROM urls "
-                f"WHERE domain IN ({phs}) AND last_crawled_at IS NOT NULL "
-                f"GROUP BY domain",
-                tuple(domains),
-            )
-            return {row[0]: row[1] for row in cur.fetchall()}
 
     def size(self) -> int:
         """Return total number of discovered URLs. For health checks."""
