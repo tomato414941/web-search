@@ -325,7 +325,6 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
                 "uptime_seconds": 1,
                 "active_tasks": 0,
                 "recent_error_count": 0,
-                "crawl_rate": 0,
                 "recent_errors": [],
                 "health": {"level": "ok", "messages": []},
             }
