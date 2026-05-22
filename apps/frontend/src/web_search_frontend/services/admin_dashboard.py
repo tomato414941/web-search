@@ -157,10 +157,7 @@ async def _build_dashboard_data() -> dict[str, Any]:
         data["frontier_pending"] = stats.get("frontier_pending", 0)
         data["worker_status"] = stats.get("worker_status", "unknown")
         data["uptime_seconds"] = stats.get("uptime_seconds")
-        data["active_tasks"] = stats.get(
-            "leased_tasks",
-            stats.get("active_tasks", 0),
-        )
+        data["active_tasks"] = stats.get("active_tasks", 0)
         data["crawl_rate"] = stats.get("crawl_rate_1h", 0)
         data["recent_error_count"] = stats.get("error_count_1h", 0)
         data["recent_errors"] = stats.get("recent_errors", [])

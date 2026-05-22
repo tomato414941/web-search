@@ -78,7 +78,7 @@ async def test_dashboard_uses_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_prefers_leased_tasks_when_present(monkeypatch):
+async def test_dashboard_uses_worker_active_tasks(monkeypatch):
     monkeypatch.setattr(
         "web_search_frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
         0,
@@ -94,7 +94,7 @@ async def test_dashboard_prefers_leased_tasks_when_present(monkeypatch):
                 "frontier_pending": 9,
                 "worker_status": "running",
                 "uptime_seconds": 10,
-                "active_tasks": 0,
+                "active_tasks": 2,
                 "leased_tasks": 4,
                 "crawl_rate_1h": 0,
                 "error_count_1h": 0,
@@ -106,7 +106,7 @@ async def test_dashboard_prefers_leased_tasks_when_present(monkeypatch):
     data = await admin_dashboard.get_dashboard_data()
 
     assert data["frontier_pending"] == 9
-    assert data["active_tasks"] == 4
+    assert data["active_tasks"] == 2
 
 
 @pytest.mark.asyncio
