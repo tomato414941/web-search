@@ -184,28 +184,6 @@ class UrlQueriesMixin:
                 next_fetch_at=row[9],
             )
 
-    def is_recently_crawled(self, url: str) -> bool:
-        """
-        Check if URL was crawled within recrawl threshold.
-
-        Returns:
-            True if recently crawled (should skip)
-        """
-        h = url_hash(url)
-        now = int(time.time())
-        cutoff = now - self.recrawl_threshold
-        ph = sql_placeholder()
-
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                f"""
-                SELECT 1 FROM urls
-                WHERE url_hash = {ph} AND last_crawled_at > {ph}
-                """,
-                (h, cutoff),
-            )
-            return cur.fetchone() is not None
-
     def peek(self, count: int = 10) -> list[UrlItem]:
         """View top pending frontier URLs without modifying them."""
         ph = sql_placeholder()
