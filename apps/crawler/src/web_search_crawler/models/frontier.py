@@ -18,11 +18,6 @@ class FrontierStats(BaseModel):
         description="Number of pending frontier entries",
     )
     total_seen: int = Field(default=0, ge=0, description="Total unique URLs in history")
-    total_indexed: int = Field(
-        default=0,
-        ge=0,
-        description="Total URLs successfully indexed",
-    )
 
 
 class HealthResponse(BaseModel):

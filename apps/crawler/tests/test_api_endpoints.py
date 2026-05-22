@@ -113,7 +113,6 @@ def test_frontier_status_endpoint(test_client, test_url_store):
         data = response.json()
         assert data["pending"] == 1
         assert data["total_seen"] == 2
-        assert data["total_indexed"] == 1
 
 
 def test_history_endpoint(test_client):
