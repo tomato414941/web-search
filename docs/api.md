@@ -134,10 +134,6 @@ Returns operator-facing crawler summary data.
 This is the crawler-side summary contract used by frontend public stats and
 admin views.
 
-### `GET /api/v1/stats/frontier`
-
-Returns the persisted frontier snapshot used by operator views.
-
 ### `GET /api/v1/stats/breakdown`
 
 Returns crawler status buckets for operator-facing summaries.

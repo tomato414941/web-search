@@ -47,43 +47,6 @@ class CrawlerStatsApiResponse(BaseModel):
     frontier_snapshot_stale: bool = Field(default=True)
 
 
-class UrlStatsSnapshotReadModel(BaseModel):
-    pending: int = Field(default=0, ge=0)
-    crawling: int = Field(default=0, ge=0)
-    done: int = Field(default=0, ge=0)
-    failed: int = Field(default=0, ge=0)
-    total: int = Field(default=0, ge=0)
-    recent: int = Field(default=0, ge=0)
-
-
-class FrontierStatusCountsReadModel(BaseModel):
-    pending: int = Field(default=0, ge=0)
-    leased: int = Field(default=0, ge=0)
-
-
-class FrontierMaintenanceStateReadModel(BaseModel):
-    last_run_started_at: int | None = Field(default=None, ge=0)
-    last_run_completed_at: int | None = Field(default=None, ge=0)
-    last_reclaimed: int = Field(default=0, ge=0)
-    total_reclaimed: int = Field(default=0, ge=0)
-    last_error_at: int | None = Field(default=None, ge=0)
-    last_error: str | None = None
-
-
-class FrontierSnapshotApiResponse(BaseModel):
-    url_stats: UrlStatsSnapshotReadModel = Field(
-        default_factory=UrlStatsSnapshotReadModel
-    )
-    frontier_status_counts: FrontierStatusCountsReadModel = Field(
-        default_factory=FrontierStatusCountsReadModel
-    )
-    maintenance: FrontierMaintenanceStateReadModel = Field(
-        default_factory=FrontierMaintenanceStateReadModel
-    )
-    snapshot_age_seconds: int = Field(default=0, ge=0)
-    snapshot_stale: bool = Field(default=True)
-
-
 class StatusBreakdownEntryReadModel(BaseModel):
     status: str = ""
     count: int = Field(default=0, ge=0)

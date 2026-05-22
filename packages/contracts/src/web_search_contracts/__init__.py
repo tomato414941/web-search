@@ -5,9 +5,6 @@ from web_search_contracts.admin_read_models import (
     CrawlerInstanceStatusReadModel,
     CrawlerInstancesReadModel,
     CrawlerStatsApiResponse,
-    FrontierMaintenanceStateReadModel,
-    FrontierSnapshotApiResponse,
-    FrontierStatusCountsReadModel,
     IndexerAdminReadModel,
     IndexerFailedJobsApiResponse,
     IndexerFailedJobReadModel,
@@ -16,7 +13,6 @@ from web_search_contracts.admin_read_models import (
     RecentErrorEntryReadModel,
     StatusBreakdownApiResponse,
     StatusBreakdownEntryReadModel,
-    UrlStatsSnapshotReadModel,
 )
 from web_search_contracts.enums import (
     CrawlAttemptStatus,
@@ -33,9 +29,6 @@ __all__ = [
     "CrawlerStatsApiResponse",
     "CrawlAttemptStatus",
     "CrawlUrlStatus",
-    "FrontierMaintenanceStateReadModel",
-    "FrontierSnapshotApiResponse",
-    "FrontierStatusCountsReadModel",
     "IndexJobStatus",
     "IndexPageRequest",
     "IndexPageResponse",
@@ -48,5 +41,4 @@ __all__ = [
     "SearchMode",
     "StatusBreakdownApiResponse",
     "StatusBreakdownEntryReadModel",
-    "UrlStatsSnapshotReadModel",
 ]

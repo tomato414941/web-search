@@ -15,7 +15,6 @@ from web_search_crawler.core.events import get_frontier_maintenance_state
 from web_search_crawler.services.frontier import FrontierService
 from web_search_contracts.admin_read_models import (
     CrawlerStatsApiResponse,
-    FrontierSnapshotApiResponse,
     StatusBreakdownApiResponse,
 )
 from web_search_contracts.enums import (
@@ -26,7 +25,6 @@ from web_search_contracts.enums import (
 router = APIRouter()
 
 _stats_cache: dict[str, Any] = {"data": None, "expires": 0}
-_frontier_cache: dict[str, Any] = {"data": None, "expires": 0}
 _breakdown_cache: dict[int | None, dict[str, Any]] = {}
 _frontier_refresh_lock = asyncio.Lock()
 _STATS_TTL = 30
@@ -37,8 +35,6 @@ _BREAKDOWN_TTL = 60
 def _clear_stats_caches() -> None:
     _stats_cache["data"] = None
     _stats_cache["expires"] = 0
-    _frontier_cache["data"] = None
-    _frontier_cache["expires"] = 0
     _breakdown_cache.clear()
 
 
@@ -55,26 +51,6 @@ def _empty_frontier_snapshot() -> dict[str, Any]:
         "frontier_status_counts": {"pending": 0, "leased": 0},
         "maintenance": get_frontier_maintenance_state(),
     }
-
-
-def _snapshot_cache_stale(*, now: float) -> bool:
-    return _frontier_cache["data"] is None or now >= float(_frontier_cache["expires"])
-
-
-async def _get_persisted_frontier_snapshot(
-    frontier_service: FrontierService,
-) -> dict[str, Any]:
-    now = time.monotonic()
-    if not _snapshot_cache_stale(now=now):
-        return dict(_frontier_cache["data"])
-    payload = await run_in_db_executor(
-        frontier_service.url_store.get_frontier_snapshot_payload,
-        snapshot_ttl_sec=_FRONTIER_TTL,
-        empty_snapshot=_empty_frontier_snapshot(),
-    )
-    _frontier_cache["data"] = dict(payload)
-    _frontier_cache["expires"] = now + _FRONTIER_TTL
-    return dict(payload)
 
 
 async def _build_frontier_stats(frontier_service: FrontierService) -> dict[str, Any]:
@@ -122,9 +98,6 @@ async def refresh_frontier_stats_cache(
             empty_snapshot=_empty_frontier_snapshot(),
             now=generated_at,
         )
-        now = time.monotonic()
-        _frontier_cache["data"] = dict(payload)
-        _frontier_cache["expires"] = now + _FRONTIER_TTL
         return payload
 
 
@@ -192,15 +165,6 @@ async def get_stats(
     _stats_cache["data"] = validated
     _stats_cache["expires"] = now + _STATS_TTL
     return validated
-
-
-@router.get("/stats/frontier", response_model=FrontierSnapshotApiResponse)
-async def get_frontier_stats(
-    frontier_service: FrontierService = Depends(get_frontier_service),
-):
-    """Frontier health snapshot for admin dashboard."""
-    payload = await _get_persisted_frontier_snapshot(frontier_service)
-    return FrontierSnapshotApiResponse(**payload)
 
 
 @router.get("/stats/breakdown", response_model=StatusBreakdownApiResponse)
