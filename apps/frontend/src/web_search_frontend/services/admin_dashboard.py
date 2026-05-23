@@ -43,7 +43,6 @@ def _empty_dashboard_data() -> dict[str, Any]:
         "last_crawl": None,
         "worker_status": "unknown",
         "uptime_seconds": None,
-        "active_tasks": 0,
         "recent_error_count": 0,
         "health": {"level": "ok", "messages": []},
         "snapshot_generated_at": None,
@@ -155,7 +154,6 @@ async def _build_dashboard_data() -> dict[str, Any]:
         data["frontier_pending"] = stats.get("frontier_pending", 0)
         data["worker_status"] = stats.get("worker_status", "unknown")
         data["uptime_seconds"] = stats.get("uptime_seconds")
-        data["active_tasks"] = stats.get("active_tasks", 0)
         data["recent_error_count"] = stats.get("error_count_1h", 0)
 
     health_messages: list[str] = []

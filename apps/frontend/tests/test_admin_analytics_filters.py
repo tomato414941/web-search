@@ -78,38 +78,6 @@ async def test_dashboard_uses_cache(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_uses_worker_active_tasks(monkeypatch):
-    monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.settings.ADMIN_DASHBOARD_CACHE_TTL_SEC",
-        0,
-    )
-    monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
-        MagicMock(return_value={"indexed_pages": 1}),
-    )
-    monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
-        AsyncMock(
-            return_value={
-                "frontier_pending": 9,
-                "worker_status": "running",
-                "uptime_seconds": 10,
-                "active_tasks": 2,
-                "leased_tasks": 4,
-                "crawl_rate_1h": 0,
-                "error_count_1h": 0,
-                "recent_errors": [],
-            }
-        ),
-    )
-
-    data = await admin_dashboard.get_dashboard_data()
-
-    assert data["frontier_pending"] == 9
-    assert data["active_tasks"] == 2
-
-
-@pytest.mark.asyncio
 async def test_dashboard_records_cache_access_metrics(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "web_search_frontend.services.admin_dashboard._SHARED_CACHE_PATH",
@@ -323,7 +291,6 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
                 "last_crawl": None,
                 "worker_status": "running",
                 "uptime_seconds": 1,
-                "active_tasks": 0,
                 "recent_error_count": 0,
                 "health": {"level": "ok", "messages": []},
             }
