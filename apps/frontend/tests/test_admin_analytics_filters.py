@@ -290,7 +290,6 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
                 "frontier_pending": 0,
                 "last_crawl": None,
                 "worker_status": "running",
-                "recent_error_count": 0,
                 "health": {"level": "ok", "messages": []},
             }
         )

@@ -48,14 +48,6 @@
                 <span class="status-indicator {{ data.worker_status }}"></span>
                 <span>{{ data.worker_status | title }}</span>
             </div>
-            <div class="table-scroll">
-                <table class="admin-table compact">
-                    <tr>
-                        <th>Errors (1h)</th>
-                        <td>{{ data.recent_error_count }}</td>
-                    </tr>
-                </table>
-            </div>
             <a href="/admin/crawlers" class="link">Manage Instances &rarr;</a>
         </div>
 
