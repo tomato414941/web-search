@@ -47,11 +47,6 @@
             <div class="status-row">
                 <span class="status-indicator {{ data.worker_status }}"></span>
                 <span>{{ data.worker_status | title }}</span>
-                {% if data.uptime_seconds %}
-                <span class="muted">
-                    (Uptime: {{ (data.uptime_seconds // 3600) }}h {{ ((data.uptime_seconds % 3600) // 60) }}m)
-                </span>
-                {% endif %}
             </div>
             <div class="table-scroll">
                 <table class="admin-table compact">
