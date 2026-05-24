@@ -32,14 +32,10 @@ def get_frontier_maintenance_state() -> dict[str, object | None]:
 
 
 async def _refresh_admin_caches() -> None:
-    from web_search_crawler.api.deps import get_frontier_service, get_seed_service
+    from web_search_crawler.api.deps import get_seed_service
     from web_search_crawler.api.routes.seeds import prewarm_seeds_page_cache
-    from web_search_crawler.api.routes.stats import prewarm_admin_stats_caches
 
-    await asyncio.gather(
-        prewarm_admin_stats_caches(get_frontier_service()),
-        prewarm_seeds_page_cache(get_seed_service()),
-    )
+    await prewarm_seeds_page_cache(get_seed_service())
 
 
 async def maintain_admin_caches(*, refresh_interval_seconds: float) -> None:

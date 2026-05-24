@@ -29,17 +29,36 @@ def _crawler_base_url(base_url: str | None = None) -> str:
     return (base_url or settings.CRAWLER_SERVICE_URL).rstrip("/")
 
 
-async def fetch_stats(*, base_url: str | None = None) -> dict[str, Any] | None:
+async def fetch_frontier_summary(
+    *, base_url: str | None = None
+) -> dict[str, Any] | None:
     try:
         async with httpx.AsyncClient(timeout=_CRAWLER_REQUEST_TIMEOUT_SEC) as client:
             resp = await client.get(
-                f"{_crawler_base_url(base_url)}/api/v1/stats",
+                f"{_crawler_base_url(base_url)}/api/v1/frontier/summary",
                 headers=_auth_headers(),
             )
             if resp.status_code == 200:
                 return resp.json()
     except Exception as exc:
-        logger.warning(f"Failed to get crawler stats: {exc}")
+        logger.warning(f"Failed to get crawler frontier summary: {exc}")
+    return None
+
+
+async def fetch_crawl_attempt_summary(
+    *, base_url: str | None = None, hours: int = 1
+) -> dict[str, Any] | None:
+    try:
+        async with httpx.AsyncClient(timeout=_CRAWLER_REQUEST_TIMEOUT_SEC) as client:
+            resp = await client.get(
+                f"{_crawler_base_url(base_url)}/api/v1/crawl-attempts/summary",
+                params={"hours": hours},
+                headers=_auth_headers(),
+            )
+            if resp.status_code == 200:
+                return resp.json()
+    except Exception as exc:
+        logger.warning(f"Failed to get crawler attempt summary: {exc}")
     return None
 
 
@@ -57,15 +76,40 @@ async def fetch_worker_status(*, base_url: str | None = None) -> dict[str, Any] 
     return None
 
 
-async def fetch_admin_stats(*, base_url: str | None = None) -> dict[str, Any] | None:
-    stats, worker = await asyncio.gather(
-        fetch_stats(base_url=base_url),
+async def fetch_dashboard_status(
+    *, base_url: str | None = None
+) -> dict[str, Any] | None:
+    frontier, worker = await asyncio.gather(
+        fetch_frontier_summary(base_url=base_url),
         fetch_worker_status(base_url=base_url),
     )
-    if stats is None and worker is None:
+    if frontier is None and worker is None:
         return None
 
-    combined = dict(stats or {})
+    worker_data = worker or {}
+    return {
+        "frontier_pending": (frontier or {}).get("pending", 0),
+        "worker_status": worker_data.get("status", "unknown"),
+    }
+
+
+async def fetch_admin_stats(*, base_url: str | None = None) -> dict[str, Any] | None:
+    frontier, attempts, worker = await asyncio.gather(
+        fetch_frontier_summary(base_url=base_url),
+        fetch_crawl_attempt_summary(base_url=base_url),
+        fetch_worker_status(base_url=base_url),
+    )
+    if frontier is None and attempts is None and worker is None:
+        return None
+
+    attempt_data = attempts or {}
+    combined = {
+        "frontier_pending": (frontier or {}).get("pending", 0),
+        "attempts_count_1h": attempt_data.get("attempts_count"),
+        "submitted_count_1h": attempt_data.get("submitted_count"),
+        "submit_rate_1h": attempt_data.get("submit_rate"),
+        "error_count_1h": attempt_data.get("error_count"),
+    }
     worker_data = worker or {}
     combined["worker_status"] = worker_data.get("status", "unknown")
     combined["uptime_seconds"] = worker_data.get("uptime_seconds")

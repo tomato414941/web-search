@@ -39,12 +39,10 @@ Frontend callers use different subsets:
 
 ## Direction
 
-Do not delete the whole endpoint until its active consumers are separated.
+Resolved.
 
-Cleanup path:
-
-- keep admin dashboard metrics only if they directly support crawler operation
-- split public stats away from admin crawler stats if public stats only need a
-  small frontier/index summary
-- consider whether crawler instance monitoring should use worker status plus a
-  narrower crawler health summary instead of the full stats response
+- public stats use the crawler frontier summary endpoint
+- admin dashboard uses a lightweight dashboard status fetch
+- crawler instance monitoring uses separate frontier, crawl-attempt, and worker
+  APIs
+- crawler `GET /api/v1/stats` was removed

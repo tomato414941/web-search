@@ -5,7 +5,6 @@ Tests for all FastAPI routes in the crawler service.
 """
 
 import asyncio
-import time
 from unittest.mock import patch
 
 import pytest
@@ -244,16 +243,16 @@ def test_worker_status_running(test_client, reset_worker_manager):
 
 
 def test_status_breakdown_endpoint_uses_cache(test_client):
-    from web_search_crawler.api.routes.stats import _breakdown_cache
+    from web_search_crawler.api.routes.crawl_attempts import _breakdown_cache
 
     _breakdown_cache.clear()
 
     with patch(
-        "web_search_crawler.api.routes.stats.run_in_db_executor",
+        "web_search_crawler.api.routes.crawl_attempts.run_in_db_executor",
         return_value={"queued_for_index": 3, "blocked": 1},
     ) as mock_exec:
-        first = test_client.get("/api/v1/stats/breakdown?hours=1")
-        second = test_client.get("/api/v1/stats/breakdown?hours=1")
+        first = test_client.get("/api/v1/crawl-attempts/breakdown?hours=1")
+        second = test_client.get("/api/v1/crawl-attempts/breakdown?hours=1")
 
     _breakdown_cache.clear()
 
@@ -264,117 +263,59 @@ def test_status_breakdown_endpoint_uses_cache(test_client):
     assert mock_exec.call_count == 1
 
 
-def test_stats_endpoint_uses_frontier_snapshot(test_client):
-    from web_search_crawler.api.routes.stats import _clear_stats_caches
+def test_crawl_attempt_summary_endpoint(test_client):
+    from web_search_crawler.api.routes.crawl_attempts import (
+        _clear_crawl_attempt_caches,
+    )
 
-    async def passthrough(func, *args, **kwargs):
+    _clear_crawl_attempt_caches()
+
+    def fake_executor(func, *args, **kwargs):
         return func(*args, **kwargs)
-
-    _clear_stats_caches()
-    from web_search_crawler.db import UrlStore
-
-    test_url_store = UrlStore("/unused", recrawl_after_days=30)
-    test_url_store.discover_and_admit_urls(["https://example.com/frontier-snapshot"])
-    leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
-    assert [item.url for item in leased] == ["https://example.com/frontier-snapshot"]
-    test_url_store.write_frontier_snapshot(
-        {
-            "frontier_status_counts": {"pending": 5, "leased": 1},
-            "maintenance": {"total_reclaimed": 0},
-        },
-        generated_at=int(time.time()),
-    )
-    test_url_store.set_frontier_counters(
-        pending_rows=5,
-        leased_rows=1,
-        frontier_rows=6,
-        now=int(time.time()),
-    )
 
     with (
         patch(
-            "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
-        ),
-        patch(
-            "web_search_crawler.api.routes.stats.run_in_db_executor",
-            side_effect=passthrough,
+            "web_search_crawler.api.routes.crawl_attempts.run_in_db_executor",
+            side_effect=fake_executor,
         ),
         patch(
             "web_search_crawler.utils.history.get_status_counts",
             return_value={"queued_for_index": 6, "dead_letter": 2},
         ),
-        patch("web_search_crawler.utils.history.get_crawl_rate", return_value=8),
         patch("web_search_crawler.utils.history.get_error_count", return_value=2),
-        patch(
-            "web_search_crawler.utils.history.get_recent_errors",
-            return_value=[{"url": "https://example.com", "error_message": "boom"}],
-        ),
     ):
-        response = test_client.get("/api/v1/stats")
+        response = test_client.get("/api/v1/crawl-attempts/summary?hours=1")
 
-    _clear_stats_caches()
+    _clear_crawl_attempt_caches()
 
     assert response.status_code == 200
     data = response.json()
-    assert data["frontier_pending"] == 5
-    assert data["leased_tasks"] == 1
-    assert data["crawl_rate_1h"] == 8
-    assert data["submitted_count_1h"] == 6
-    assert data["submit_rate_1h"] == 75.0
-    assert data["error_count_1h"] == 2
-    assert data["frontier_snapshot_stale"] is False
+    assert data["hours"] == 1
+    assert data["attempts_count"] == 8
+    assert data["submitted_count"] == 6
+    assert data["submit_rate"] == 75.0
+    assert data["error_count"] == 2
 
 
-def test_stats_endpoint_prefers_live_leased_rows_over_stale_counters(test_client):
-    from web_search_crawler.api.routes.stats import _clear_stats_caches
-    from web_search_crawler.db import UrlStore
-
-    async def passthrough(func, *args, **kwargs):
-        return func(*args, **kwargs)
-
-    _clear_stats_caches()
-    test_url_store = UrlStore("/unused", recrawl_after_days=30)
-    test_url_store.discover_and_admit_urls(["https://example.com/live-leased"])
-    leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
-    assert [item.url for item in leased] == ["https://example.com/live-leased"]
-    test_url_store.write_frontier_snapshot(
-        {
-            "frontier_status_counts": {"pending": 0, "leased": 1},
-            "maintenance": {"total_reclaimed": 0},
-        },
-        generated_at=int(time.time()),
-    )
-    test_url_store.set_frontier_counters(
-        pending_rows=200,
-        leased_rows=200,
-        frontier_rows=200,
-        now=int(time.time()),
+def test_recent_crawl_errors_endpoint(test_client):
+    from web_search_crawler.api.routes.crawl_attempts import (
+        _clear_crawl_attempt_caches,
     )
 
-    with (
-        patch(
-            "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
-        ),
-        patch(
-            "web_search_crawler.api.routes.stats.run_in_db_executor",
-            side_effect=passthrough,
-        ),
-        patch(
-            "web_search_crawler.utils.history.get_status_counts",
-            return_value={"queued_for_index": 1},
-        ),
-        patch("web_search_crawler.utils.history.get_crawl_rate", return_value=1),
-        patch("web_search_crawler.utils.history.get_error_count", return_value=0),
-        patch("web_search_crawler.utils.history.get_recent_errors", return_value=[]),
+    _clear_crawl_attempt_caches()
+
+    with patch(
+        "web_search_crawler.api.routes.crawl_attempts.run_in_db_executor",
+        return_value=[{"url": "https://example.com", "error_message": "boom"}],
     ):
-        response = test_client.get("/api/v1/stats")
+        response = test_client.get("/api/v1/crawl-errors/recent?limit=1")
 
-    _clear_stats_caches()
+    _clear_crawl_attempt_caches()
 
     assert response.status_code == 200
     data = response.json()
-    assert data["frontier_pending"] == 0
-    assert data["leased_tasks"] == 1
+    assert data["count"] == 1
+    assert data["errors"][0]["url"] == "https://example.com"
 
 
 def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
@@ -411,45 +352,6 @@ def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
     assert len(data["items"]) == 2
     assert "status" not in data["items"][0]
     assert "last_crawled_at" not in data["items"][0]
-
-
-def test_prewarm_admin_stats_caches_populates_route_caches(test_url_store):
-    from web_search_crawler.api.routes.stats import (
-        _clear_stats_caches,
-        _stats_cache,
-        prewarm_admin_stats_caches,
-    )
-    from web_search_crawler.services.frontier import FrontierService
-
-    async def passthrough(func, *args, **kwargs):
-        return func(*args, **kwargs)
-
-    _clear_stats_caches()
-    frontier_service = FrontierService(test_url_store)
-
-    with (
-        patch(
-            "web_search_crawler.api.routes.stats.run_in_db_executor",
-            side_effect=passthrough,
-        ),
-        patch(
-            "web_search_crawler.utils.history.get_status_counts",
-            return_value={"queued_for_index": 3},
-        ),
-        patch("web_search_crawler.utils.history.get_crawl_rate", return_value=2),
-        patch("web_search_crawler.utils.history.get_error_count", return_value=0),
-        patch("web_search_crawler.utils.history.get_recent_errors", return_value=[]),
-        patch(
-            "web_search_crawler.utils.history.get_robots_blocked_domains_with_counts",
-            return_value=[],
-        ),
-        patch(
-            "web_search_crawler.utils.history.get_high_failure_domains", return_value=[]
-        ),
-    ):
-        asyncio.run(prewarm_admin_stats_caches(frontier_service))
-
-    assert _stats_cache["data"] is not None
 
 
 def test_prewarm_seeds_page_cache_populates_first_page(test_url_store):

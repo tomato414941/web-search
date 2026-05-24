@@ -33,17 +33,17 @@ class RecentErrorEntryReadModel(BaseModel):
     created_at: int = Field(default=0, ge=0)
 
 
-class CrawlerStatsApiResponse(BaseModel):
-    crawl_rate_1h: int = Field(default=0, ge=0)
-    attempts_count_1h: int = Field(default=0, ge=0)
-    submitted_count_1h: int = Field(default=0, ge=0)
-    submit_rate_1h: float = Field(default=0.0, ge=0.0)
-    error_count_1h: int = Field(default=0, ge=0)
-    recent_errors: list[RecentErrorEntryReadModel] = Field(default_factory=list)
-    frontier_pending: int = Field(default=0, ge=0)
-    leased_tasks: int = Field(default=0, ge=0)
-    frontier_snapshot_age_seconds: int = Field(default=0, ge=0)
-    frontier_snapshot_stale: bool = Field(default=True)
+class CrawlAttemptSummaryApiResponse(BaseModel):
+    hours: int = Field(default=1, ge=1)
+    attempts_count: int = Field(default=0, ge=0)
+    submitted_count: int = Field(default=0, ge=0)
+    submit_rate: float = Field(default=0.0, ge=0.0)
+    error_count: int = Field(default=0, ge=0)
+
+
+class RecentCrawlErrorsApiResponse(BaseModel):
+    errors: list[RecentErrorEntryReadModel] = Field(default_factory=list)
+    count: int = Field(default=0, ge=0)
 
 
 class StatusBreakdownEntryReadModel(BaseModel):

@@ -1194,8 +1194,6 @@ def test_frontier_counters_are_read_side_in_prod_shape(tmp_path):
 
 
 def test_frontier_snapshot_persists_across_store_restart(tmp_path):
-    from web_search_crawler.api.routes.stats import _empty_frontier_snapshot
-
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     url_store.write_frontier_snapshot(
         {
@@ -1207,7 +1205,7 @@ def test_frontier_snapshot_persists_across_store_restart(tmp_path):
     restarted = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     snapshot = restarted.get_frontier_snapshot_payload(
         snapshot_ttl_sec=30,
-        empty_snapshot=_empty_frontier_snapshot(),
+        empty_snapshot={"frontier_status_counts": {"pending": 0, "leased": 0}},
     )
 
     assert snapshot["frontier_status_counts"] == {"pending": 4, "leased": 2}

@@ -57,7 +57,7 @@ async def test_dashboard_uses_cache(monkeypatch):
         }
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         mock_fetch_stats,
     )
 
@@ -98,7 +98,7 @@ async def test_dashboard_records_cache_access_metrics(monkeypatch, tmp_path):
         ),
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         AsyncMock(
             return_value={
                 "frontier_pending": 0,
@@ -190,7 +190,7 @@ async def test_dashboard_uses_shared_file_cache_across_workers(monkeypatch, tmp_
         }
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         mock_fetch_stats,
     )
 
@@ -229,7 +229,7 @@ async def test_dashboard_singleflights_concurrent_cache_misses(monkeypatch, tmp_
     started = asyncio.Event()
     release = asyncio.Event()
 
-    async def slow_fetch_stats():
+    async def slow_fetch_dashboard_status():
         started.set()
         await release.wait()
         return {
@@ -242,9 +242,9 @@ async def test_dashboard_singleflights_concurrent_cache_misses(monkeypatch, tmp_
             "recent_errors": [],
         }
 
-    mock_fetch_stats = AsyncMock(side_effect=slow_fetch_stats)
+    mock_fetch_stats = AsyncMock(side_effect=slow_fetch_dashboard_status)
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         mock_fetch_stats,
     )
 
@@ -277,7 +277,7 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
         MagicMock(return_value={"indexed_pages": 999}),
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         AsyncMock(return_value={"worker_status": "running"}),
     )
 
@@ -303,7 +303,7 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
 
     assert data["indexed_pages"] == 777
     assert admin_dashboard._get_db_dashboard_data.call_count == 0  # type: ignore[attr-defined]
-    assert admin_dashboard.fetch_admin_stats.await_count == 0  # type: ignore[attr-defined]
+    assert admin_dashboard.fetch_dashboard_status.await_count == 0  # type: ignore[attr-defined]
 
 
 @pytest.mark.asyncio
@@ -334,7 +334,7 @@ async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
         }
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         mock_fetch_stats,
     )
 
@@ -363,7 +363,7 @@ async def test_prewarm_dashboard_cache_records_metrics(monkeypatch):
         ),
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         AsyncMock(
             return_value={
                 "frontier_pending": 0,
@@ -416,7 +416,7 @@ async def test_prewarm_dashboard_cache_skips_unreachable_crawler(monkeypatch):
         MagicMock(return_value={"indexed_pages": 10, "indexed_delta": 1}),
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard.fetch_admin_stats",
+        "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         AsyncMock(return_value=None),
     )
     await admin_dashboard.prewarm_dashboard_cache(attempts=1, delay_seconds=0)

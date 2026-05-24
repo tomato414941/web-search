@@ -15,7 +15,7 @@ from web_search_frontend.services.admin_cache import (
     build_singleflight,
     snapshot_timestamp,
 )
-from web_search_frontend.services.crawler_admin_client import fetch_admin_stats
+from web_search_frontend.services.crawler_admin_client import fetch_dashboard_status
 from web_search_frontend.services.shared_json_cache import SharedJsonTtlCache
 from web_search_core.background import maintain_refresh_loop
 from web_search_frontend.services.db_helpers import db_cursor
@@ -142,7 +142,7 @@ async def _build_dashboard_data() -> dict[str, Any]:
     data = _empty_dashboard_data()
     db_data, stats = await asyncio.gather(
         asyncio.to_thread(_get_db_dashboard_data),
-        fetch_admin_stats(),
+        fetch_dashboard_status(),
     )
     data.update(db_data)
 

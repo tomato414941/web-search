@@ -6,7 +6,14 @@ FastAPI application factory and router registration.
 
 from fastapi import Depends, FastAPI
 from web_search_crawler.api.deps import verify_api_key
-from web_search_crawler.api.routes import crawl, frontier, worker, history, seeds, stats
+from web_search_crawler.api.routes import (
+    crawl,
+    crawl_attempts,
+    frontier,
+    worker,
+    history,
+    seeds,
+)
 from web_search_crawler.api.routes.health import root_router as health_root_router
 from web_search_crawler.core.events import lifespan
 from web_search_crawler.core.config import settings
@@ -40,15 +47,17 @@ def create_app() -> FastAPI:
         frontier.router, prefix="/api/v1", tags=["frontier"], dependencies=api_deps
     )
     app.include_router(
+        crawl_attempts.router,
+        prefix="/api/v1",
+        tags=["crawl-attempts"],
+        dependencies=api_deps,
+    )
+    app.include_router(
         history.router, prefix="/api/v1", tags=["history"], dependencies=api_deps
     )
     app.include_router(
         seeds.router, prefix="/api/v1", tags=["seeds"], dependencies=api_deps
     )
-    app.include_router(
-        stats.router, prefix="/api/v1", tags=["stats"], dependencies=api_deps
-    )
-
     return app
 
 

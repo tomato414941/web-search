@@ -21,14 +21,16 @@ def clear_crawler_instances_state():
 
 @pytest.mark.asyncio
 async def test_get_crawler_instance_status_maps_extended_metrics():
-    stats_resp = MagicMock()
-    stats_resp.status_code = 200
-    stats_resp.json.return_value = {
-        "attempts_count_1h": 80,
-        "submitted_count_1h": 40,
-        "submit_rate_1h": 50.0,
-        "error_count_1h": 5,
-        "frontier_pending": 11,
+    frontier_resp = MagicMock()
+    frontier_resp.status_code = 200
+    frontier_resp.json.return_value = {"pending": 11}
+    attempts_resp = MagicMock()
+    attempts_resp.status_code = 200
+    attempts_resp.json.return_value = {
+        "attempts_count": 80,
+        "submitted_count": 40,
+        "submit_rate": 50.0,
+        "error_count": 5,
     }
     worker_resp = MagicMock()
     worker_resp.status_code = 200
@@ -43,7 +45,7 @@ async def test_get_crawler_instance_status_maps_extended_metrics():
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [stats_resp, worker_resp]
+        mock_instance.get.side_effect = [frontier_resp, attempts_resp, worker_resp]
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         result = await get_crawler_instance_status("http://crawler:8000")
@@ -59,14 +61,16 @@ async def test_get_crawler_instance_status_maps_extended_metrics():
 
 
 @pytest.mark.asyncio
-async def test_get_crawler_instance_status_requires_current_stats_contract():
-    stats_resp = MagicMock()
-    stats_resp.status_code = 200
-    stats_resp.json.return_value = {
-        "frontier_pending": 3,
-        "submitted_count_1h": 6,
-        "submit_rate_1h": 50.0,
-        "error_count_1h": 2,
+async def test_get_crawler_instance_status_maps_independent_api_contracts():
+    frontier_resp = MagicMock()
+    frontier_resp.status_code = 200
+    frontier_resp.json.return_value = {"pending": 3}
+    attempts_resp = MagicMock()
+    attempts_resp.status_code = 200
+    attempts_resp.json.return_value = {
+        "submitted_count": 6,
+        "submit_rate": 50.0,
+        "error_count": 2,
     }
     worker_resp = MagicMock()
     worker_resp.status_code = 200
@@ -79,7 +83,7 @@ async def test_get_crawler_instance_status_requires_current_stats_contract():
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [stats_resp, worker_resp]
+        mock_instance.get.side_effect = [frontier_resp, attempts_resp, worker_resp]
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         result = await get_crawler_instance_status("http://crawler:8000")
@@ -102,9 +106,12 @@ async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path
     )
     clear_crawler_instances_cache()
 
-    stats_resp = MagicMock()
-    stats_resp.status_code = 200
-    stats_resp.json.return_value = {"frontier_pending": 5}
+    frontier_resp = MagicMock()
+    frontier_resp.status_code = 200
+    frontier_resp.json.return_value = {"pending": 5}
+    attempts_resp = MagicMock()
+    attempts_resp.status_code = 200
+    attempts_resp.json.return_value = {}
     worker_resp = MagicMock()
     worker_resp.status_code = 200
     worker_resp.json.return_value = {"status": "running"}
@@ -113,7 +120,7 @@ async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [stats_resp, worker_resp]
+        mock_instance.get.side_effect = [frontier_resp, attempts_resp, worker_resp]
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
@@ -121,7 +128,7 @@ async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path
         crawler_instances_module._clear_crawler_instances_memory_cache()
         second = await get_all_crawler_instances(instances)
 
-    assert mock_instance.get.await_count == 2
+    assert mock_instance.get.await_count == 3
     assert first == second
     assert second[0]["state"] == "running"
 
@@ -137,9 +144,12 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
     )
     clear_crawler_instances_cache()
 
-    stats_resp = MagicMock()
-    stats_resp.status_code = 200
-    stats_resp.json.return_value = {"frontier_pending": 5}
+    frontier_resp = MagicMock()
+    frontier_resp.status_code = 200
+    frontier_resp.json.return_value = {"pending": 5}
+    attempts_resp = MagicMock()
+    attempts_resp.status_code = 200
+    attempts_resp.json.return_value = {}
     worker_resp = MagicMock()
     worker_resp.status_code = 200
     worker_resp.json.return_value = {"status": "running"}
@@ -148,7 +158,7 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [stats_resp, worker_resp]
+        mock_instance.get.side_effect = [frontier_resp, attempts_resp, worker_resp]
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
@@ -161,7 +171,7 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
     assert first["snapshot_generated_at"] == second["snapshot_generated_at"]
     assert first["snapshot_loaded_from"] == "live"
     assert second["snapshot_loaded_from"] == "shared"
-    assert mock_instance.get.await_count == 2
+    assert mock_instance.get.await_count == 3
 
 
 @pytest.mark.asyncio
@@ -175,9 +185,12 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
     )
     clear_crawler_instances_cache()
 
-    stats_resp = MagicMock()
-    stats_resp.status_code = 200
-    stats_resp.json.return_value = {"frontier_pending": 8}
+    frontier_resp = MagicMock()
+    frontier_resp.status_code = 200
+    frontier_resp.json.return_value = {"pending": 8}
+    attempts_resp = MagicMock()
+    attempts_resp.status_code = 200
+    attempts_resp.json.return_value = {}
     worker_resp = MagicMock()
     worker_resp.status_code = 200
     worker_resp.json.return_value = {"status": "running"}
@@ -186,7 +199,7 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [stats_resp, worker_resp]
+        mock_instance.get.side_effect = [frontier_resp, attempts_resp, worker_resp]
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
@@ -194,5 +207,5 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
         crawler_instances_module._clear_crawler_instances_memory_cache()
         cached = await get_all_crawler_instances(instances)
 
-    assert mock_instance.get.await_count == 2
+    assert mock_instance.get.await_count == 3
     assert cached[0]["frontier_pending"] == 8

@@ -135,15 +135,17 @@ Returns lightweight frontier status data.
 
 Returns crawler worker lifecycle state and volatile in-memory task status.
 
-### `GET /api/v1/stats`
+### `GET /api/v1/crawl-attempts/summary`
 
-Returns operator-facing crawler summary data.
+Returns crawl-attempt counters for a time window.
 
-This is the crawler-side summary contract used by admin views.
+### `GET /api/v1/crawl-attempts/breakdown`
 
-### `GET /api/v1/stats/breakdown`
+Returns crawl-attempt status buckets for operator-facing summaries.
 
-Returns crawler status buckets for operator-facing summaries.
+### `GET /api/v1/crawl-errors/recent`
+
+Returns recent crawl errors.
 
 ### `GET /api/v1/history`
 
