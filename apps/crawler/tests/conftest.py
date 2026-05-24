@@ -19,7 +19,6 @@ from web_search_postgres.migrate import migrate  # noqa: E402
 
 # Crawler tables to truncate
 _CRAWLER_TABLES = [
-    "frontier_snapshot",
     "frontier_counters",
     "domain_state",
     "frontier_entries",

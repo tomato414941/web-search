@@ -98,7 +98,7 @@ in `frontier_entries`.
 *   `urls`: discovered URLs, discovery route, and crawl history
 *   `frontier_entries`: durable crawl queue state
 *   `domain_state`: host-level pacing and inflight lease state
-*   `frontier_counters` / `frontier_snapshot`: operator read models, not scheduling truth
+*   `frontier_counters`: operator read model, not scheduling truth
 
 URL discovery and frontier admission are separate operations. A URL can be known
 to the crawler without being scheduled as an active crawl candidate.

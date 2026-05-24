@@ -1193,25 +1193,6 @@ def test_frontier_counters_are_read_side_in_prod_shape(tmp_path):
     }
 
 
-def test_frontier_snapshot_persists_across_store_restart(tmp_path):
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    url_store.write_frontier_snapshot(
-        {
-            "frontier_status_counts": {"pending": 4, "leased": 2},
-        },
-        generated_at=int(time.time()),
-    )
-
-    restarted = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    snapshot = restarted.get_frontier_snapshot_payload(
-        snapshot_ttl_sec=30,
-        empty_snapshot={"frontier_status_counts": {"pending": 0, "leased": 0}},
-    )
-
-    assert snapshot["frontier_status_counts"] == {"pending": 4, "leased": 2}
-    assert snapshot["snapshot_stale"] is False
-
-
 def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp_path):
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     url_store.discover_and_admit_urls(["https://example.com/bootstrap"])
@@ -1219,7 +1200,7 @@ def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp
     from web_search_crawler.db.connection import db_transaction
 
     with db_transaction(url_store.db_path) as cur:
-        cur.execute("TRUNCATE frontier_snapshot, frontier_counters, domain_state")
+        cur.execute("TRUNCATE frontier_counters, domain_state")
 
     restarted = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
@@ -1230,32 +1211,6 @@ def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp
     }
     domain_state = restarted.get_domain_state("example.com")
     assert domain_state is None
-
-
-def test_frontier_dashboard_summary_prefers_live_leased_rows_over_stale_counters(
-    test_url_store,
-):
-    test_url_store.discover_and_admit_urls(["https://example.com/live-leased"])
-    leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
-    assert [item.url for item in leased] == ["https://example.com/live-leased"]
-    test_url_store.write_frontier_snapshot(
-        {
-            "frontier_status_counts": {"pending": 0, "leased": 1},
-        },
-        generated_at=int(time.time()),
-    )
-
-    test_url_store.set_frontier_counters(
-        pending_rows=200,
-        leased_rows=200,
-        frontier_rows=200,
-        now=int(time.time()),
-    )
-
-    summary = test_url_store.get_frontier_dashboard_summary(snapshot_ttl_sec=30)
-
-    assert summary["frontier_pending"] == 0
-    assert summary["leased_tasks"] == 1
 
 
 def test_requeue_noop_if_already_queued(tmp_path):

@@ -71,7 +71,6 @@ class UrlStore(
         now = int(time.time())
         with db_transaction(self.db_path) as cur:
             self.frontier_admin_state.ensure_frontier_counters_row(cur, now=now)
-            self.frontier_admin_state.ensure_frontier_snapshot_row(cur, now=now)
             self.domain_scheduling_state.reconcile_inflight_leases(cur, now=now)
         if self.frontier_admin_state._refresh_interval_sec == 0:
             self.frontier_admin_state.rebuild_frontier_counters(now=now)
@@ -111,49 +110,6 @@ class UrlStore(
 
     def rebuild_frontier_counters(self, *, now: int | None = None) -> dict[str, int]:
         return self.frontier_admin_state.rebuild_frontier_counters(now=now)
-
-    def write_frontier_snapshot(
-        self,
-        snapshot: dict,
-        *,
-        generated_at: int | None = None,
-        last_error: str | None = None,
-    ) -> dict:
-        return self.frontier_admin_state.write_frontier_snapshot(
-            snapshot,
-            generated_at=generated_at,
-            last_error=last_error,
-        )
-
-    def record_frontier_snapshot_error(self, last_error: str) -> None:
-        self.frontier_admin_state.record_frontier_snapshot_error(last_error)
-
-    def get_frontier_snapshot_record(self) -> dict:
-        return self.frontier_admin_state.get_frontier_snapshot_record()
-
-    def get_frontier_snapshot_payload(
-        self,
-        *,
-        snapshot_ttl_sec: int,
-        empty_snapshot: dict,
-        now: int | None = None,
-    ) -> dict:
-        return self.frontier_admin_state.get_frontier_snapshot_payload(
-            snapshot_ttl_sec=snapshot_ttl_sec,
-            empty_snapshot=empty_snapshot,
-            now=now,
-        )
-
-    def get_frontier_dashboard_summary(
-        self,
-        *,
-        snapshot_ttl_sec: int,
-        now: int | None = None,
-    ) -> dict[str, int | bool]:
-        return self.frontier_admin_state.get_frontier_dashboard_summary(
-            snapshot_ttl_sec=snapshot_ttl_sec,
-            now=now,
-        )
 
     def get_domain_state(self, domain: str):
         return self.domain_scheduling_state.get_domain_state(domain)
