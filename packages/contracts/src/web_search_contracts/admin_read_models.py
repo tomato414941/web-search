@@ -34,20 +34,6 @@ class RecentCrawlErrorsApiResponse(BaseModel):
     count: int = Field(default=0, ge=0)
 
 
-class StatusBreakdownEntryReadModel(BaseModel):
-    status: str = ""
-    count: int = Field(default=0, ge=0)
-    pct: float = Field(default=0.0, ge=0.0)
-
-
-class StatusBreakdownApiResponse(BaseModel):
-    total: int = Field(default=0, ge=0)
-    submitted: int = Field(default=0, ge=0)
-    submit_rate_pct: float = Field(default=0.0, ge=0.0)
-    hours: int | None = Field(default=None, ge=1)
-    breakdown: list[StatusBreakdownEntryReadModel] = Field(default_factory=list)
-
-
 class IndexerHealthReadModel(BaseModel):
     reachable: bool = False
     ok: bool = False

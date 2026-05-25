@@ -11,8 +11,6 @@ from web_search_contracts.admin_read_models import (
     IndexerStatsApiResponse,
     RecentErrorEntryReadModel,
     RecentCrawlErrorsApiResponse,
-    StatusBreakdownApiResponse,
-    StatusBreakdownEntryReadModel,
 )
 from web_search_contracts.enums import (
     CrawlAttemptStatus,
@@ -39,6 +37,4 @@ __all__ = [
     "RecentErrorEntryReadModel",
     "RecentCrawlErrorsApiResponse",
     "SearchMode",
-    "StatusBreakdownApiResponse",
-    "StatusBreakdownEntryReadModel",
 ]

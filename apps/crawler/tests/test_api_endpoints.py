@@ -242,27 +242,6 @@ def test_worker_status_running(test_client, reset_worker_manager):
         assert data["concurrency"] == 1
 
 
-def test_status_breakdown_endpoint_uses_cache(test_client):
-    from web_search_crawler.api.routes.crawl_attempts import _breakdown_cache
-
-    _breakdown_cache.clear()
-
-    with patch(
-        "web_search_crawler.api.routes.crawl_attempts.run_in_db_executor",
-        return_value={"queued_for_index": 3, "blocked": 1},
-    ) as mock_exec:
-        first = test_client.get("/api/v1/crawl-attempts/breakdown?hours=1")
-        second = test_client.get("/api/v1/crawl-attempts/breakdown?hours=1")
-
-    _breakdown_cache.clear()
-
-    assert first.status_code == 200
-    assert second.status_code == 200
-    assert first.json()["total"] == 4
-    assert second.json()["submitted"] == 3
-    assert mock_exec.call_count == 1
-
-
 def test_recent_crawl_errors_endpoint(test_client):
     from web_search_crawler.api.routes.crawl_attempts import (
         _clear_crawl_attempt_caches,
