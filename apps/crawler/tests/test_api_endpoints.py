@@ -242,27 +242,6 @@ def test_worker_status_running(test_client, reset_worker_manager):
         assert data["concurrency"] == 1
 
 
-def test_recent_crawl_errors_endpoint(test_client):
-    from web_search_crawler.api.routes.crawl_attempts import (
-        _clear_crawl_attempt_caches,
-    )
-
-    _clear_crawl_attempt_caches()
-
-    with patch(
-        "web_search_crawler.api.routes.crawl_attempts.run_in_db_executor",
-        return_value=[{"url": "https://example.com", "error_message": "boom"}],
-    ):
-        response = test_client.get("/api/v1/crawl-errors/recent?limit=1")
-
-    _clear_crawl_attempt_caches()
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["count"] == 1
-    assert data["errors"][0]["url"] == "https://example.com"
-
-
 def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
     from web_search_crawler.api.routes.seeds import _clear_seeds_cache
 

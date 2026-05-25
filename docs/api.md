@@ -135,10 +135,6 @@ Returns lightweight frontier status data.
 
 Returns crawler worker lifecycle state and volatile in-memory task status.
 
-### `GET /api/v1/crawl-errors/recent`
-
-Returns recent crawl errors.
-
 ### `GET /api/v1/history`
 
 Returns raw crawl-attempt history from `crawl_logs`.

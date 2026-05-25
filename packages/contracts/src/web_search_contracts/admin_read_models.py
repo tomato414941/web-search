@@ -23,17 +23,6 @@ class CrawlerInstancesReadModel(BaseModel):
     snapshot_loaded_from: str = "empty"
 
 
-class RecentErrorEntryReadModel(BaseModel):
-    url: str = Field(default="")
-    error_message: str = Field(default="Unknown")
-    created_at: int = Field(default=0, ge=0)
-
-
-class RecentCrawlErrorsApiResponse(BaseModel):
-    errors: list[RecentErrorEntryReadModel] = Field(default_factory=list)
-    count: int = Field(default=0, ge=0)
-
-
 class IndexerHealthReadModel(BaseModel):
     reachable: bool = False
     ok: bool = False
