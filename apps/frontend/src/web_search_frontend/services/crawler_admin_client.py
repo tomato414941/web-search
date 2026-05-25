@@ -145,25 +145,3 @@ async def stop_worker() -> None:
                 logger.warning(f"Failed to stop crawler: {resp.text}")
     except httpx.RequestError as exc:
         logger.warning(f"Failed to stop crawler: {exc}")
-
-
-async def start_crawler_instance(url: str, concurrency: int) -> None:
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(
-                f"{url}/api/v1/worker/start",
-                json={"concurrency": concurrency},
-                headers=_auth_headers(),
-            )
-    except httpx.RequestError as exc:
-        logger.warning(f"Failed to start crawler instance at {url}: {exc}")
-
-
-async def stop_crawler_instance(url: str) -> None:
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(
-                f"{url}/api/v1/worker/stop", json={}, headers=_auth_headers()
-            )
-    except httpx.RequestError as exc:
-        logger.warning(f"Failed to stop crawler instance at {url}: {exc}")

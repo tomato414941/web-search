@@ -186,27 +186,6 @@ class TestAdminAuthentication:
         assert "Pending Jobs" not in response.text
         assert "Processing Jobs" not in response.text
 
-    def test_crawler_start_requires_auth(self, client):
-        """Starting a crawler instance should require authentication."""
-        client.cookies.clear()
-        response = client.post(
-            "/admin/crawlers/default/start",
-            data={"concurrency": 1},
-            follow_redirects=False,
-        )
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/login"
-
-    def test_crawler_stop_requires_auth(self, client):
-        """Stopping a crawler instance should require authentication."""
-        client.cookies.clear()
-        response = client.post(
-            "/admin/crawlers/default/stop",
-            follow_redirects=False,
-        )
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/login"
-
 
 class TestSessionSecurity:
     """Test session security properties."""
@@ -390,100 +369,6 @@ class TestAdminCrawlerRoutes:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/"
         mock_stop.assert_awaited_once()
-        mock_clear_dashboard.assert_called_once_with()
-        mock_clear.assert_called_once_with()
-
-    def test_crawler_instance_start_ignores_unknown_name(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
-
-        with (
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers._find_crawler_url",
-                return_value=None,
-            ) as mock_find,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.start_crawler_instance",
-                new=AsyncMock(),
-            ) as mock_start,
-        ):
-            response = client.post(
-                "/admin/crawlers/missing/start",
-                data={"concurrency": 3, "csrf_token": csrf_token},
-                follow_redirects=False,
-            )
-
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/crawlers"
-        mock_find.assert_called_once()
-        mock_start.assert_not_awaited()
-
-    def test_crawler_instance_start_redirects_after_starting_instance(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
-
-        with (
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers._find_crawler_url",
-                return_value="http://crawler:8000",
-            ) as mock_find,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.start_crawler_instance",
-                new=AsyncMock(),
-            ) as mock_start,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_dashboard_cache"
-            ) as mock_clear_dashboard,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
-            ) as mock_clear,
-        ):
-            response = client.post(
-                "/admin/crawlers/default/start",
-                data={"concurrency": 3, "csrf_token": csrf_token},
-                follow_redirects=False,
-            )
-
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/crawlers"
-        mock_find.assert_called_once_with("default", settings.CRAWLER_INSTANCES)
-        mock_start.assert_awaited_once_with("http://crawler:8000", 3)
-        mock_clear_dashboard.assert_called_once_with()
-        mock_clear.assert_called_once_with()
-
-    def test_crawler_instance_stop_redirects_after_stopping_instance(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
-
-        with (
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers._find_crawler_url",
-                return_value="http://crawler:8000",
-            ) as mock_find,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.stop_crawler_instance",
-                new=AsyncMock(),
-            ) as mock_stop,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_dashboard_cache"
-            ) as mock_clear_dashboard,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
-            ) as mock_clear,
-        ):
-            response = client.post(
-                "/admin/crawlers/default/stop",
-                data={"csrf_token": csrf_token},
-                follow_redirects=False,
-            )
-
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/crawlers"
-        mock_find.assert_called_once_with("default", settings.CRAWLER_INSTANCES)
-        mock_stop.assert_awaited_once_with("http://crawler:8000")
         mock_clear_dashboard.assert_called_once_with()
         mock_clear.assert_called_once_with()
 

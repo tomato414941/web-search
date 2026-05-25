@@ -262,10 +262,3 @@ async def maintain_crawler_instances_cache(
         periodic_call=refresh_once,
         refresh_interval_seconds=refresh_interval_seconds,
     )
-
-
-def find_crawler_url(name: str, instances_config: list[dict[str, str]]) -> str | None:
-    for inst in instances_config:
-        if inst["name"] == name:
-            return inst["url"]
-    return None
