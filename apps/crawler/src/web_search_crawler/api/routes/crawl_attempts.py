@@ -1,4 +1,4 @@
-"""Crawl attempt summary endpoints."""
+"""Crawl attempt inspection endpoints."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from fastapi import APIRouter, Query
 
 from web_search_crawler.db.executor import run_in_db_executor
 from web_search_contracts.admin_read_models import (
-    CrawlAttemptSummaryApiResponse,
     RecentCrawlErrorsApiResponse,
     StatusBreakdownApiResponse,
 )
@@ -20,58 +19,15 @@ from web_search_contracts.enums import (
 
 router = APIRouter()
 
-_summary_cache: dict[int, dict[str, Any]] = {}
 _breakdown_cache: dict[int | None, dict[str, Any]] = {}
 _recent_errors_cache: dict[int, dict[str, Any]] = {}
-_SUMMARY_TTL = 30
 _BREAKDOWN_TTL = 60
 _RECENT_ERRORS_TTL = 30
 
 
 def _clear_crawl_attempt_caches() -> None:
-    _summary_cache.clear()
     _breakdown_cache.clear()
     _recent_errors_cache.clear()
-
-
-@router.get("/crawl-attempts/summary", response_model=CrawlAttemptSummaryApiResponse)
-async def get_crawl_attempt_summary(
-    hours: int = Query(1, ge=1, description="Time window in hours."),
-):
-    """Return crawl attempt counters for a time window."""
-    now = time.monotonic()
-    cached = _summary_cache.get(hours)
-    if cached is not None and now < cached["expires"]:
-        return cached["data"]
-
-    from web_search_crawler.utils.history import get_error_count, get_status_counts
-
-    status_counts, error_count = await run_in_db_executor(
-        lambda: (
-            get_status_counts(hours),
-            get_error_count(hours),
-        )
-    )
-    summary_status_counts = summarize_crawl_attempt_counts(status_counts)
-    attempts_count = sum(status_counts.values())
-    submitted_count = summary_status_counts.get(
-        str(CrawlAttemptSummaryStatus.SUBMITTED), 0
-    )
-    submit_rate = (
-        round((submitted_count / attempts_count) * 100, 1)
-        if attempts_count > 0
-        else 0.0
-    )
-
-    result = CrawlAttemptSummaryApiResponse(
-        hours=hours,
-        attempts_count=attempts_count,
-        submitted_count=submitted_count,
-        submit_rate=submit_rate,
-        error_count=error_count,
-    )
-    _summary_cache[hours] = {"data": result, "expires": now + _SUMMARY_TTL}
-    return result
 
 
 @router.get("/crawl-attempts/breakdown", response_model=StatusBreakdownApiResponse)

@@ -1,7 +1,6 @@
 """Shared contracts: enums and typed models for inter-service communication."""
 
 from web_search_contracts.admin_read_models import (
-    CrawlAttemptSummaryApiResponse,
     CrawlerInstanceReadModel,
     CrawlerInstanceStatusReadModel,
     CrawlerInstancesReadModel,
@@ -27,7 +26,6 @@ __all__ = [
     "CrawlerInstanceReadModel",
     "CrawlerInstanceStatusReadModel",
     "CrawlerInstancesReadModel",
-    "CrawlAttemptSummaryApiResponse",
     "CrawlAttemptStatus",
     "CrawlUrlStatus",
     "IndexJobStatus",

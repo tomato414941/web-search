@@ -10,10 +10,6 @@ class CrawlerInstanceStatusReadModel(BaseModel):
     frontier_pending: int = Field(default=0, ge=0)
     uptime: float | int | None = Field(default=None, ge=0)
     concurrency: int | None = Field(default=None, ge=0)
-    attempts_1h: int | None = Field(default=None, ge=0)
-    submitted_1h: int | None = Field(default=None, ge=0)
-    submit_rate_1h: float | None = Field(default=None, ge=0.0)
-    error_1h: int | None = Field(default=None, ge=0)
 
 
 class CrawlerInstanceReadModel(CrawlerInstanceStatusReadModel):
@@ -31,14 +27,6 @@ class RecentErrorEntryReadModel(BaseModel):
     url: str = Field(default="")
     error_message: str = Field(default="Unknown")
     created_at: int = Field(default=0, ge=0)
-
-
-class CrawlAttemptSummaryApiResponse(BaseModel):
-    hours: int = Field(default=1, ge=1)
-    attempts_count: int = Field(default=0, ge=0)
-    submitted_count: int = Field(default=0, ge=0)
-    submit_rate: float = Field(default=0.0, ge=0.0)
-    error_count: int = Field(default=0, ge=0)
 
 
 class RecentCrawlErrorsApiResponse(BaseModel):

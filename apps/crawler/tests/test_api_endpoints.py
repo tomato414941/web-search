@@ -263,40 +263,6 @@ def test_status_breakdown_endpoint_uses_cache(test_client):
     assert mock_exec.call_count == 1
 
 
-def test_crawl_attempt_summary_endpoint(test_client):
-    from web_search_crawler.api.routes.crawl_attempts import (
-        _clear_crawl_attempt_caches,
-    )
-
-    _clear_crawl_attempt_caches()
-
-    def fake_executor(func, *args, **kwargs):
-        return func(*args, **kwargs)
-
-    with (
-        patch(
-            "web_search_crawler.api.routes.crawl_attempts.run_in_db_executor",
-            side_effect=fake_executor,
-        ),
-        patch(
-            "web_search_crawler.utils.history.get_status_counts",
-            return_value={"queued_for_index": 6, "dead_letter": 2},
-        ),
-        patch("web_search_crawler.utils.history.get_error_count", return_value=2),
-    ):
-        response = test_client.get("/api/v1/crawl-attempts/summary?hours=1")
-
-    _clear_crawl_attempt_caches()
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["hours"] == 1
-    assert data["attempts_count"] == 8
-    assert data["submitted_count"] == 6
-    assert data["submit_rate"] == 75.0
-    assert data["error_count"] == 2
-
-
 def test_recent_crawl_errors_endpoint(test_client):
     from web_search_crawler.api.routes.crawl_attempts import (
         _clear_crawl_attempt_caches,

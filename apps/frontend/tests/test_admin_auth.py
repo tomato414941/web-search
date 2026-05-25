@@ -151,10 +151,6 @@ class TestAdminAuthentication:
                     "state": "running",
                     "concurrency": 1,
                     "frontier_pending": 10,
-                    "attempts_1h": 8,
-                    "submitted_1h": 4,
-                    "submit_rate_1h": 50.0,
-                    "error_1h": 1,
                     "uptime": 123,
                 }
             ],

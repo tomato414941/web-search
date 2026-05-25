@@ -132,10 +132,6 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
             frontier_pending=stats.get("frontier_pending", 0),
             uptime=stats.get("uptime_seconds"),
             concurrency=stats.get("concurrency"),
-            attempts_1h=stats.get("attempts_count_1h"),
-            submitted_1h=stats.get("submitted_count_1h"),
-            submit_rate_1h=stats.get("submit_rate_1h"),
-            error_1h=stats.get("error_count_1h"),
         ).model_dump(mode="json")
     except Exception as exc:
         logger.debug(f"Crawler instance {url} unreachable: {exc}")
