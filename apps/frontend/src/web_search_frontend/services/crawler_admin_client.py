@@ -118,30 +118,3 @@ async def crawl_now_url(url: str) -> dict[str, Any]:
         if resp.status_code != 200:
             raise _api_error(resp)
         return resp.json()
-
-
-async def start_worker() -> None:
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/start",
-                headers=_auth_headers(),
-            )
-            if resp.status_code != 200:
-                logger.warning(f"Failed to start crawler: {resp.text}")
-    except httpx.RequestError as exc:
-        logger.warning(f"Failed to start crawler: {exc}")
-
-
-async def stop_worker() -> None:
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/worker/stop",
-                json={},
-                headers=_auth_headers(),
-            )
-            if resp.status_code != 200:
-                logger.warning(f"Failed to stop crawler: {resp.text}")
-    except httpx.RequestError as exc:
-        logger.warning(f"Failed to stop crawler: {exc}")

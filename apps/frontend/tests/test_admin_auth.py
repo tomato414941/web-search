@@ -313,66 +313,6 @@ class TestCrawlerInstancesConfig:
             assert instances[1]["url"] == "http://host2:8000"
 
 
-class TestAdminCrawlerRoutes:
-    def test_crawler_start_redirects_after_starting_worker(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
-
-        with (
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.start_worker",
-                new=AsyncMock(),
-            ) as mock_start,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_dashboard_cache"
-            ) as mock_clear_dashboard,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
-            ) as mock_clear,
-        ):
-            response = client.post(
-                "/admin/crawler/start",
-                data={"csrf_token": csrf_token},
-                follow_redirects=False,
-            )
-
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/"
-        mock_start.assert_awaited_once()
-        mock_clear_dashboard.assert_called_once_with()
-        mock_clear.assert_called_once_with()
-
-    def test_crawler_stop_redirects_after_stopping_worker(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
-
-        with (
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.stop_worker",
-                new=AsyncMock(),
-            ) as mock_stop,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_dashboard_cache"
-            ) as mock_clear_dashboard,
-            patch(
-                "web_search_frontend.api.routers.admin_crawlers.clear_crawler_instances_cache"
-            ) as mock_clear,
-        ):
-            response = client.post(
-                "/admin/crawler/stop",
-                data={"csrf_token": csrf_token},
-                follow_redirects=False,
-            )
-
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/"
-        mock_stop.assert_awaited_once()
-        mock_clear_dashboard.assert_called_once_with()
-        mock_clear.assert_called_once_with()
-
-
 class TestAdminIndexerRoutes:
     def test_indexer_page_renders_stats_and_failed_jobs(self, client):
         client.cookies.clear()
