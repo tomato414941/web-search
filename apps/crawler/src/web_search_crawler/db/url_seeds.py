@@ -16,8 +16,6 @@ class UrlSeedsMixin:
         """Set is_seed = TRUE for the given URLs."""
         if not urls:
             return 0
-        self._drop_cached_stats()
-
         ph = sql_placeholder()
         hashes = [url_hash(u) for u in urls]
         with db_transaction(self.db_path) as cur:
@@ -31,8 +29,6 @@ class UrlSeedsMixin:
         """Set is_seed = FALSE for the given URLs."""
         if not urls:
             return 0
-        self._drop_cached_stats()
-
         ph = sql_placeholder()
         hashes = [url_hash(u) for u in urls]
         with db_transaction(self.db_path) as cur:
@@ -52,8 +48,6 @@ class UrlSeedsMixin:
         """
         if not denylist:
             return 0
-        self._drop_cached_stats()
-
         with db_transaction(self.db_path) as cur:
             conditions = []
             params: list[str] = []
@@ -205,7 +199,6 @@ class UrlSeedsMixin:
         if dry_run or not candidates:
             return summary
 
-        self._drop_cached_stats()
         ph = sql_placeholder()
         frontier_hashes = [
             row["url_hash"] for row in candidates if row["source"] == "frontier"

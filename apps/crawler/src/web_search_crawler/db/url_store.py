@@ -5,7 +5,6 @@ urls table: ledger of all discovered URLs and their discovery route.
 frontier_entries table: durable crawl frontier.
 """
 
-import os
 import time
 
 from web_search_crawler.core.config import settings
@@ -57,8 +56,6 @@ class UrlStore(
             refresh_interval_sec=counter_refresh_sec,
         )
         self.domain_scheduling_state = DomainSchedulingStateStore(db_path)
-        self._stats_cache_ttl_sec = int(os.getenv("CRAWL_STATS_CACHE_TTL_SEC", "15"))
-        self._stats_cache: tuple[dict[str, int], float] | None = None
         self._init_db()
 
     def _init_db(self):
@@ -74,21 +71,6 @@ class UrlStore(
             self.domain_scheduling_state.reconcile_inflight_leases(cur, now=now)
         if self.frontier_admin_state._refresh_interval_sec == 0:
             self.frontier_admin_state.rebuild_frontier_counters(now=now)
-
-    def _get_cached_stats(self) -> dict[str, int] | None:
-        if self._stats_cache is None:
-            return None
-        stats, cached_at = self._stats_cache
-        if time.time() - cached_at >= self._stats_cache_ttl_sec:
-            self._stats_cache = None
-            return None
-        return stats.copy()
-
-    def _set_cached_stats(self, stats: dict[str, int]) -> None:
-        self._stats_cache = (stats.copy(), time.time())
-
-    def _drop_cached_stats(self) -> None:
-        self._stats_cache = None
 
     def get_frontier_counters(self) -> dict[str, int]:
         return self.frontier_admin_state.get_frontier_counters()

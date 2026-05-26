@@ -60,36 +60,3 @@ class UrlQueriesMixin:
                 status=row[8],
                 next_fetch_at=row[9],
             )
-
-    def get_stats(self) -> dict:
-        """Get URL statistics from ledger and frontier."""
-        cached = self._get_cached_stats()
-        if cached is not None:
-            return cached
-
-        counters = (
-            self.frontier_admin_state.get_frontier_counters()
-            if hasattr(self, "frontier_admin_state")
-            else None
-        )
-        with db_connection(self.db_path) as cur:
-            if counters is None:
-                cur.execute(
-                    """
-                    SELECT
-                        COUNT(*) FILTER (WHERE status = 'pending'),
-                        COUNT(*) FILTER (WHERE status = 'leased')
-                    FROM frontier_entries
-                    """
-                )
-                pending, crawling = cur.fetchone()
-            else:
-                pending = counters["pending_rows"]
-                crawling = counters["leased_rows"]
-
-            stats = {
-                "pending": pending,
-                "crawling": crawling,
-            }
-            self._set_cached_stats(stats)
-            return stats

@@ -187,8 +187,9 @@ async def test_process_url_network_error(test_components):
         )
 
         # URL should be returned to pending frontier state for retry
-        stats = url_store.get_stats()
-        assert stats["pending"] == 1
+        entry = url_store.get_frontier_entry(test_url)
+        assert entry is not None
+        assert entry.status == "pending"
 
 
 @pytest.mark.asyncio
@@ -1084,8 +1085,9 @@ async def test_process_url_retry_returns_url_to_frontier(test_components):
     url_store.discover_and_admit_url(test_url)
     popped = url_store.pop_frontier_batch(1)
     assert len(popped) == 1
-    stats = url_store.get_stats()
-    assert stats["pending"] == 0
+    entry = url_store.get_frontier_entry(test_url)
+    assert entry is not None
+    assert entry.status == "leased"
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -1107,8 +1109,9 @@ async def test_process_url_retry_returns_url_to_frontier(test_components):
         )
 
     # URL should be back in the frontier after retry
-    stats = url_store.get_stats()
-    assert stats["pending"] == 1, f"Expected pending=1, got {stats}"
+    entry = url_store.get_frontier_entry(test_url)
+    assert entry is not None
+    assert entry.status == "pending"
 
 
 def test_requeue_releases_leased_url_back_to_pending(tmp_path):
@@ -1120,20 +1123,9 @@ def test_requeue_releases_leased_url_back_to_pending(tmp_path):
     result = url_store.requeue("http://example.com/r")
     assert result is True
 
-    stats = url_store.get_stats()
-    assert stats["pending"] == 1
-
-
-def test_get_stats_cache_is_invalidated_on_mutation(tmp_path):
-    """get_stats should refresh after frontier mutations."""
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-
-    assert url_store.get_stats()["pending"] == 0
-    assert url_store.discover_and_admit_url("http://example.com/cache") is True
-    assert url_store.get_stats()["pending"] == 1
-
-    url_store.pop_frontier_batch(1)
-    assert url_store.get_stats()["pending"] == 0
+    entry = url_store.get_frontier_entry("http://example.com/r")
+    assert entry is not None
+    assert entry.status == "pending"
 
 
 def test_frontier_counters_track_status_transitions(test_url_store):
@@ -1245,7 +1237,11 @@ def test_pop_frontier_batch_respects_max_per_domain(tmp_path):
 
     assert per_domain["a.example.com"] == 2
     assert max(per_domain.values()) <= 2
-    assert url_store.get_stats()["pending"] == len(urls) - len(popped)
+    popped_urls = {item.url for item in popped}
+    for url in urls:
+        entry = url_store.get_frontier_entry(url)
+        assert entry is not None
+        assert entry.status == ("leased" if url in popped_urls else "pending")
 
 
 def test_discover_and_admit_deduplicates_urls(tmp_path):
@@ -1261,10 +1257,14 @@ def test_discover_and_admit_deduplicates_urls(tmp_path):
 
     assert url_store.discover_and_admit_urls(urls) == 2
 
-    stats = url_store.get_stats()
-    assert stats["pending"] == 2
     assert url_store.contains("http://example.com/1")
     assert url_store.contains("http://example.com/2")
+    entry_1 = url_store.get_frontier_entry("http://example.com/1")
+    entry_2 = url_store.get_frontier_entry("http://example.com/2")
+    assert entry_1 is not None
+    assert entry_1.status == "pending"
+    assert entry_2 is not None
+    assert entry_2.status == "pending"
 
 
 def test_discover_and_admit_retries_db_concurrency_error(tmp_path):
@@ -1285,7 +1285,9 @@ def test_discover_and_admit_retries_db_concurrency_error(tmp_path):
 
     assert url_store.discover_and_admit_urls(["http://example.com/retry"]) == 1
     assert calls == 2
-    assert url_store.get_stats()["pending"] == 1
+    entry = url_store.get_frontier_entry("http://example.com/retry")
+    assert entry is not None
+    assert entry.status == "pending"
 
 
 def test_discover_and_admit_collapses_tracking_param_variants(test_url_store):

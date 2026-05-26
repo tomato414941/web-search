@@ -341,8 +341,6 @@ class UrlFrontierMixin:
 
     def reconcile_expired_frontier_leases(self) -> int:
         """Return expired leased frontier entries back to pending."""
-        self._drop_cached_stats()
-
         now = int(time.time())
         with db_transaction(self.db_path) as cur:
             return self._reconcile_expired_frontier_leases(cur, now=now)
@@ -357,8 +355,6 @@ class UrlFrontierMixin:
         """Lease ready frontier entries with basic domain diversity."""
         if count <= 0:
             return []
-        self._drop_cached_stats()
-
         now = int(time.time())
         lease_token = uuid.uuid4().hex
         lease_expires_at = now + max(1, lease_seconds)
@@ -440,8 +436,6 @@ class UrlFrontierMixin:
         """Release leased frontier entries back to pending."""
         if not urls:
             return 0
-        self._drop_cached_stats()
-
         now = int(time.time())
         next_fetch_at = now + max(0, delay_seconds)
         hashes = [url_hash(url) for url in urls]

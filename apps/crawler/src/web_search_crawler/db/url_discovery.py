@@ -298,8 +298,6 @@ class UrlDiscoveryMixin:
         """Record discovered URLs in the urls ledger without frontier admission."""
         if not urls:
             return 0
-        self._drop_cached_stats()
-
         rows = self._normalize_batch_urls(
             urls,
             discovered_via=discovered_via,
@@ -365,8 +363,6 @@ class UrlDiscoveryMixin:
         """Admit URLs into the crawl frontier if eligible."""
         if not urls:
             return 0
-        self._drop_cached_stats()
-
         rows = self._normalize_batch_urls(
             urls,
             discovered_via=discovered_via,
@@ -434,8 +430,6 @@ class UrlDiscoveryMixin:
         """Record discovered URLs and admit them into the frontier if eligible."""
         if not urls:
             return 0
-        self._drop_cached_stats()
-
         rows = self._normalize_batch_urls(
             urls,
             discovered_via=discovered_via,
@@ -483,8 +477,6 @@ class UrlDiscoveryMixin:
         domain = get_domain(url)
         now = int(time.time())
         ph = sql_placeholder()
-        self._drop_cached_stats()
-
         with db_transaction(self.db_path) as cur:
             cur.execute(
                 f"""
