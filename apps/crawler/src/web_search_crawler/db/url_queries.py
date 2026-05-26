@@ -45,22 +45,6 @@ class UrlQueriesMixin:
         cur.execute(f"SELECT COUNT(*) FROM {table_name}")
         return cur.fetchone()[0]
 
-    def pending_count(self) -> int:
-        """Return number of pending frontier rows."""
-        if hasattr(self, "frontier_admin_state"):
-            return int(
-                self.frontier_admin_state.get_frontier_counters()["pending_rows"]
-            )
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM frontier_entries
-                WHERE status = 'pending'
-                """
-            )
-            return cur.fetchone()[0]
-
     def frontier_count(self) -> int:
         """Return number of URLs in the frontier table."""
         if hasattr(self, "frontier_admin_state"):

@@ -311,7 +311,6 @@ def test_pop_frontier_batch_leases_url_and_clears_pending_frontier_state(
     assert [item.url for item in leased] == ["http://example.com/frontier"]
     assert entry is not None
     assert entry.status == "leased"
-    assert test_url_store.pending_count() == 0
     assert domain_state is not None
     assert domain_state.inflight_leases == 1
 
@@ -356,7 +355,9 @@ def test_pop_frontier_batch_does_not_duplicate_tier_fallback_leases(test_url_sto
 
     assert sorted(leased_urls) == sorted(urls)
     assert len(leased_urls) == len(set(leased_urls))
-    assert test_url_store.pending_count() == 0
+    assert all(
+        test_url_store.get_frontier_entry(url).status == "leased" for url in urls
+    )
 
 
 def test_pop_frontier_batch_skips_domains_blocked_by_domain_state(test_url_store):
@@ -528,7 +529,6 @@ def test_requeue_releases_frontier_for_retry(test_url_store):
     assert requeued is True
     assert entry is not None
     assert entry.status == "pending"
-    assert test_url_store.pending_count() == 1
     assert domain_state is not None
     assert domain_state.inflight_leases == 0
     assert domain_state.fail_streak == 1
@@ -586,7 +586,6 @@ def test_purge_denied_domains_removes_frontier_rows(test_url_store):
     assert deleted == 2
     assert test_url_store.get_frontier_entry(leased_url) is None
     assert test_url_store.get_frontier_entry(pending_url) is None
-    assert test_url_store.pending_count() == 1
     assert allowed_entry is not None
     assert allowed_entry.status == "pending"
     assert blocked_state is not None
@@ -661,8 +660,8 @@ def test_frontier_planner_leases_from_frontier_for_real_store(test_url_store):
         "https://example.com/a",
         "https://example.org/b",
     }
-    assert test_url_store.pending_count() == 0
     assert test_url_store.get_frontier_entry("https://example.com/a").status == "leased"
+    assert test_url_store.get_frontier_entry("https://example.org/b").status == "leased"
 
 
 def test_frontier_planner_prefetches_past_skewed_domains(test_url_store):
@@ -1304,7 +1303,7 @@ def test_discover_and_admit_collapses_tracking_param_variants(test_url_store):
     assert added == 1
     assert entry is not None
     assert entry.url == "https://example.com/docs?id=1"
-    assert test_url_store.pending_count() == 1
+    assert entry.status == "pending"
 
 
 def test_discover_and_admit_rejects_low_value_admission_urls(test_url_store):
@@ -1312,7 +1311,6 @@ def test_discover_and_admit_rejects_low_value_admission_urls(test_url_store):
 
     assert added == 0
     assert test_url_store.get_frontier_entry("https://example.com/login") is None
-    assert test_url_store.pending_count() == 0
 
 
 @pytest.mark.asyncio
