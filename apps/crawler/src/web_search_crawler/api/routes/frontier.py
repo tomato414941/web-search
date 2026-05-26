@@ -14,14 +14,6 @@ _status_cache: dict[str, Any] = {"data": None, "expires": 0}
 _STATUS_TTL = 30
 
 
-@router.get("/frontier/summary", response_model=FrontierSummary)
-async def get_frontier_summary(
-    frontier_service: FrontierService = Depends(get_frontier_service),
-):
-    """Get lightweight frontier summary."""
-    return FrontierSummary(pending=frontier_service.url_store.pending_count())
-
-
 @router.get("/frontier/status", response_model=FrontierSummary)
 async def get_frontier_status(
     frontier_service: FrontierService = Depends(get_frontier_service),
