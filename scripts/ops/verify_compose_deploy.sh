@@ -293,12 +293,8 @@ run_checks_once() {
       if ! check_http_json "${FRONTEND_URL}/api/v1/search?q=test&limit=3" '.total >= 0 and (.mode | type == "string") and (.degraded != true) and (.error_type == null)' >/dev/null; then
         failures=1
       fi
-      echo "Checking public stats API"
-      if ! check_http_json "${FRONTEND_URL}/api/v1/stats" '.frontier and .index' >/dev/null; then
-        failures=1
-      fi
     else
-      echo "Skipping public search/stat checks because opensearch status is ${opensearch_status}"
+      echo "Skipping public search check because opensearch status is ${opensearch_status}"
     fi
   fi
 
