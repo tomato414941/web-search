@@ -10,7 +10,6 @@ class TestFrontierPlannerBehavior:
     def _make_planner(self, buffer_items=None, **kwargs):
         url_store = MagicMock()
         url_store.pop_frontier_batch.return_value = []
-        url_store.pending_count.return_value = 0
         url_store.release_frontier_urls.return_value = 0
         config = FrontierPlannerConfig(**kwargs)
         planner = FrontierPlanner(url_store, config)
@@ -43,7 +42,6 @@ class TestFrontierPlannerBehavior:
             ],
             [],
         ]
-        url_store.pending_count.return_value = 0
         url_store.release_frontier_urls.return_value = 0
         planner = FrontierPlanner(url_store, FrontierPlannerConfig())
 
@@ -69,7 +67,6 @@ class TestFrontierPlannerBehavior:
             ],
             [],
         ]
-        url_store.pending_count.return_value = 0
         url_store.release_frontier_urls.return_value = 0
         planner = FrontierPlanner(url_store, FrontierPlannerConfig(batch_size=32))
 
@@ -116,7 +113,6 @@ class TestFrontierPlannerBehavior:
         good_item = self._make_item("http://example.com/1", "example.com")
         url_store = MagicMock()
         url_store.pop_frontier_batch.side_effect = [[blocked_item, good_item], []]
-        url_store.pending_count.return_value = 0
         url_store.release_frontier_urls.return_value = 1
         planner = FrontierPlanner(url_store, FrontierPlannerConfig())
         planner.set_temporarily_blocked_domains(frozenset({"t.co"}))
@@ -135,7 +131,6 @@ class TestFrontierPlannerBehavior:
         good_item = self._make_item("http://example.com/1", "example.com")
         url_store = MagicMock()
         url_store.pop_frontier_batch.side_effect = [[denied_item, good_item], []]
-        url_store.pending_count.return_value = 0
         url_store.release_frontier_urls.return_value = 0
         planner = FrontierPlanner(url_store, FrontierPlannerConfig())
         planner.set_denied_domains(frozenset({"accounts.example.com"}))
