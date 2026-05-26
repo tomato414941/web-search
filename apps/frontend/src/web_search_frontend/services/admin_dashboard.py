@@ -159,9 +159,6 @@ async def _build_dashboard_data() -> dict[str, Any]:
     elif data["worker_status"] == "stopped":
         health_messages.append("Crawler is stopped. Indexing paused.")
         data["health"]["level"] = "warning"
-    elif data["frontier_pending"] == 0 and data["worker_status"] == "running":
-        health_messages.append("Frontier is empty. Waiting for new URLs.")
-        data["health"]["level"] = "warning"
 
     data["health"]["messages"] = health_messages
     data["snapshot_generated_at"] = snapshot_timestamp()
