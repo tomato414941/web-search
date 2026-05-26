@@ -79,7 +79,7 @@ The project uses a **Folder-Separated Monorepo** pattern:
 | `packages/opensearch/` | `web_search_opensearch` | **Retrieval Adapter**. OpenSearch client, mapping, and BM25 query builder. | `client.py`, `mapping.py`, `search.py` |
 | `packages/indexing/` | `web_search_indexing` | **Experimental Enrichment Adapter**. OpenAI embedding client, schema bootstrap, and backfill image. | `embedding.py`, `backfill_embeddings.py` |
 | `packages/search-config/` | `web_search_search_config` | **Search Policy Config**. Canonical-source and search-eval definitions. | `canonical_sources.py`, `search_eval.py`, `evaluator.py` |
-| `db/alembic/` | - | **Database Migrations**. | `versions/001_initial_schema.py` ... `versions/018_add_frontier_admin_state.py` |
+| `db/alembic/` | - | **Database Migrations**. | `versions/001_initial_schema.py` |
 | `docs/` | - | **Documentation**. | `architecture.md`, `setup.md`, `api.md` |
 | `scripts/ops/` | - | **Operations**. | PageRank calculation, seed import, OpenSearch verify |
 
@@ -98,7 +98,6 @@ in `frontier_entries`.
 *   `urls`: discovered URLs, discovery route, and crawl history
 *   `frontier_entries`: durable crawl queue state
 *   `domain_state`: host-level pacing and inflight lease state
-*   `frontier_counters`: operator read model, not scheduling truth
 
 URL discovery and frontier admission are separate operations. A URL can be known
 to the crawler without being scheduled as an active crawl candidate.

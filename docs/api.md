@@ -46,15 +46,6 @@ Use [search-ranking-policy.md](./search-ranking-policy.md) and
 
 Logs a click event tied to a prior search response.
 
-### `GET /api/v1/stats`
-
-Public summary endpoint.
-
-This endpoint reads crawler frontier summary data and indexed-document counts
-for a lightweight public system overview. Frontier counts come from the crawler
-frontier summary endpoint and may briefly fall back to the last successful
-crawler read when the crawler is temporarily unavailable.
-
 ### `GET /api/v1/quality/summary`
 
 Search analytics summary endpoint.
@@ -122,14 +113,6 @@ Admits URLs into the frontier.
 ### `POST /api/v1/crawl-now`
 
 Immediately fetches a single URL and submits it to the indexer.
-
-### `GET /api/v1/frontier/summary`
-
-Returns lightweight frontier summary data.
-
-### `GET /api/v1/frontier/status`
-
-Returns lightweight frontier status data.
 
 ### `GET /api/v1/worker/status`
 
