@@ -4,7 +4,7 @@ import os
 
 from web_search_crawler.services.crawl_policy import POLICIES
 from web_search_crawler.db.connection import db_connection
-from web_search_crawler.db.url_types import FrontierEntry, UrlItem, url_hash
+from web_search_crawler.db.url_types import FrontierEntry, url_hash
 from web_search_postgres.search import sql_placeholder
 
 _APPROX_COUNT_THRESHOLD = int(os.getenv("CRAWL_APPROX_COUNT_THRESHOLD", "100000"))
@@ -108,30 +108,6 @@ class UrlQueriesMixin:
                 status=row[8],
                 next_fetch_at=row[9],
             )
-
-    def peek(self, count: int = 10) -> list[UrlItem]:
-        """View top pending frontier URLs without modifying them."""
-        ph = sql_placeholder()
-        with db_connection(self.db_path) as cur:
-            cur.execute(
-                f"""
-                SELECT url, domain, discovered_at
-                FROM frontier_entries
-                WHERE status = 'pending'
-                ORDER BY
-                    priority_bucket ASC,
-                    priority_score DESC,
-                    next_fetch_at ASC,
-                    discovered_at ASC,
-                    url ASC
-                LIMIT {ph}
-                """,
-                (count,),
-            )
-            return [
-                UrlItem(url=row[0], domain=row[1], created_at=row[2])
-                for row in cur.fetchall()
-            ]
 
     def get_stats(self) -> dict:
         """Get URL statistics from ledger and frontier."""

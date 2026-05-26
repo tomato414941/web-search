@@ -8,7 +8,6 @@ from fastapi import Depends, FastAPI
 from web_search_crawler.api.deps import verify_api_key
 from web_search_crawler.api.routes import (
     crawl,
-    frontier,
     worker,
     history,
     seeds,
@@ -41,9 +40,6 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         worker.router, prefix="/api/v1/worker", tags=["worker"], dependencies=api_deps
-    )
-    app.include_router(
-        frontier.router, prefix="/api/v1", tags=["frontier"], dependencies=api_deps
     )
     app.include_router(
         history.router, prefix="/api/v1", tags=["history"], dependencies=api_deps

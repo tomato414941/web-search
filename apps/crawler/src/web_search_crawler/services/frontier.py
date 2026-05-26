@@ -65,16 +65,3 @@ class FrontierService:
         )
         logger.info("Admitted %d/%d URLs into frontier", count, len(urls))
         return count
-
-    def get_frontier_items(self, limit: int = 20) -> list[dict]:
-        """
-        Peek pending frontier items.
-
-        Args:
-            limit: Maximum number of items to return
-
-        Returns:
-            List of dicts with URL info
-        """
-        items = self.url_store.peek(limit)
-        return [{"url": item.url} for item in items]

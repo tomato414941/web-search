@@ -76,23 +76,6 @@ def test_crawl_now_endpoint(test_client):
     }
 
 
-def test_frontier_peek_endpoint(test_client, test_url_store):
-    """Test GET /api/v1/frontier endpoint."""
-    # Add some URLs to url_store
-    test_url_store.discover_and_admit_url("http://example.com")
-    test_url_store.discover_and_admit_url("http://test.com")
-
-    with patch(
-        "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
-    ):
-        response = test_client.get("/api/v1/frontier?limit=10")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 2
-        assert data[0]["url"] == "http://example.com"
-
-
 def test_history_endpoint(test_client):
     """Test GET /api/v1/history endpoint"""
     from web_search_crawler.utils import history

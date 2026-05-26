@@ -1,12 +1,6 @@
-"""Pydantic models for frontier endpoints."""
+"""Pydantic models for crawler utility endpoints."""
 
 from pydantic import BaseModel, Field
-
-
-class FrontierItem(BaseModel):
-    """Single item in the frontier."""
-
-    url: str = Field(..., description="URL to be crawled")
 
 
 class HealthResponse(BaseModel):
