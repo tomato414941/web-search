@@ -46,12 +46,3 @@ class PaleBlueClient:
             )
             resp.raise_for_status()
             return resp.json()
-
-    async def get_stats(self) -> dict:
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            resp = await client.get(
-                f"{self.base_url}/api/v1/stats",
-                headers=self._headers(),
-            )
-            resp.raise_for_status()
-            return resp.json()

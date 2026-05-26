@@ -27,11 +27,6 @@ MOCK_SEARCH_RESPONSE = {
     "request_id": "abc123",
 }
 
-MOCK_STATS_RESPONSE = {
-    "frontier": {"pending": 100, "visited": 5000},
-    "index": {"indexed": 4500},
-}
-
 
 @pytest.mark.asyncio
 async def test_search_sends_correct_params():

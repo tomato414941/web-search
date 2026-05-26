@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from paleblue_mcp.server import _format_hits, fetch_content, get_stats, web_search
+from paleblue_mcp.server import _format_hits, fetch_content, web_search
 
 MOCK_SEARCH_DATA = {
     "query": "python frameworks",
@@ -119,28 +119,3 @@ async def test_fetch_content_error():
         mock_client.get_content = AsyncMock(side_effect=Exception("Not found"))
         result = await fetch_content("https://missing.com")
         assert "Content fetch failed" in result
-
-
-@pytest.mark.asyncio
-async def test_get_stats_uses_frontier_contract():
-    with patch("paleblue_mcp.server._client") as mock_client:
-        mock_client.get_stats = AsyncMock(
-            return_value={
-                "frontier": {"pending": 42, "discovered": 100},
-                "index": {"indexed": 77},
-            }
-        )
-        result = await get_stats()
-
-    assert "## PaleBlueSearch Stats" in result
-    assert "- **Indexed pages**: 77" in result
-    assert "- **Frontier (pending)**: 42" in result
-    assert "- **URLs discovered**: 100" in result
-
-
-@pytest.mark.asyncio
-async def test_get_stats_error_handling():
-    with patch("paleblue_mcp.server._client") as mock_client:
-        mock_client.get_stats = AsyncMock(side_effect=Exception("Timeout"))
-        result = await get_stats()
-        assert "Failed to get stats" in result

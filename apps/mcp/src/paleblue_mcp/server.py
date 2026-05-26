@@ -158,28 +158,5 @@ async def fetch_content(url: str) -> str:
         return f"Content fetch failed: {e}"
 
 
-@mcp.tool()
-async def get_stats() -> str:
-    """Get PaleBlueSearch index statistics.
-
-    Returns the number of indexed pages and crawler frontier status.
-    """
-    try:
-        data = await _client.get_stats()
-        frontier = data.get("frontier", {})
-        index = data.get("index", {})
-
-        lines = [
-            "## PaleBlueSearch Stats",
-            f"- **Indexed pages**: {index.get('indexed', 'N/A')}",
-            f"- **Frontier (pending)**: {frontier.get('pending', 'N/A')}",
-            f"- **URLs discovered**: {frontier.get('discovered', 'N/A')}",
-        ]
-        return "\n".join(lines)
-    except Exception as e:
-        logger.error("Stats failed: %s", e)
-        return f"Failed to get stats: {e}"
-
-
 if __name__ == "__main__":
     mcp.run()
