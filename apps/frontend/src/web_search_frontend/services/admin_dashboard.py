@@ -39,7 +39,6 @@ def _empty_dashboard_data() -> dict[str, Any]:
     return {
         "indexed_pages": 0,
         "indexed_delta": None,
-        "frontier_pending": 0,
         "last_crawl": None,
         "worker_status": "unknown",
         "health": {"level": "ok", "messages": []},
@@ -149,7 +148,6 @@ async def _build_dashboard_data() -> dict[str, Any]:
     crawler_reachable = False
     if stats:
         crawler_reachable = True
-        data["frontier_pending"] = stats.get("frontier_pending", 0)
         data["worker_status"] = stats.get("worker_status", "unknown")
 
     health_messages: list[str] = []

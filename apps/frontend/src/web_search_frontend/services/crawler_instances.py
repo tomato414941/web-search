@@ -129,7 +129,6 @@ async def get_crawler_instance_status(url: str) -> dict[str, Any]:
 
         status = CrawlerInstanceStatusReadModel(
             state=stats.get("worker_status", "unknown"),
-            frontier_pending=stats.get("frontier_pending", 0),
             uptime=stats.get("uptime_seconds"),
             concurrency=stats.get("concurrency"),
         ).model_dump(mode="json")

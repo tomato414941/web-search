@@ -150,7 +150,6 @@ class TestAdminAuthentication:
                     "url": "http://crawler:8000",
                     "state": "running",
                     "concurrency": 1,
-                    "frontier_pending": 10,
                     "uptime": 123,
                 }
             ],

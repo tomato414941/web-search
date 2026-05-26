@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 class CrawlerInstanceStatusReadModel(BaseModel):
     state: str = "unreachable"
-    frontier_pending: int = Field(default=0, ge=0)
     uptime: float | int | None = Field(default=None, ge=0)
     concurrency: int | None = Field(default=None, ge=0)
 

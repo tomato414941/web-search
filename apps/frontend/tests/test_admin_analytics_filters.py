@@ -47,7 +47,6 @@ async def test_dashboard_uses_cache(monkeypatch):
     )
     mock_fetch_stats = AsyncMock(
         return_value={
-            "frontier_pending": 0,
             "worker_status": "running",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -101,7 +100,6 @@ async def test_dashboard_records_cache_access_metrics(monkeypatch, tmp_path):
         "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         AsyncMock(
             return_value={
-                "frontier_pending": 0,
                 "worker_status": "running",
                 "uptime_seconds": 1,
                 "active_tasks": 0,
@@ -180,7 +178,6 @@ async def test_dashboard_uses_shared_file_cache_across_workers(monkeypatch, tmp_
     )
     mock_fetch_stats = AsyncMock(
         return_value={
-            "frontier_pending": 1,
             "worker_status": "running",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -233,7 +230,6 @@ async def test_dashboard_singleflights_concurrent_cache_misses(monkeypatch, tmp_
         started.set()
         await release.wait()
         return {
-            "frontier_pending": 1,
             "worker_status": "running",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -287,7 +283,6 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
             {
                 "indexed_pages": 777,
                 "indexed_delta": 0,
-                "frontier_pending": 0,
                 "last_crawl": None,
                 "worker_status": "running",
                 "health": {"level": "ok", "messages": []},
@@ -324,7 +319,6 @@ async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
     )
     mock_fetch_stats = AsyncMock(
         return_value={
-            "frontier_pending": 1,
             "worker_status": "stopped",
             "uptime_seconds": 10,
             "active_tasks": 0,
@@ -366,7 +360,6 @@ async def test_prewarm_dashboard_cache_records_metrics(monkeypatch):
         "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
         AsyncMock(
             return_value={
-                "frontier_pending": 0,
                 "worker_status": "running",
                 "uptime_seconds": 5,
                 "active_tasks": 0,

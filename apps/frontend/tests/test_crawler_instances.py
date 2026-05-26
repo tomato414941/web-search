@@ -21,9 +21,6 @@ def clear_crawler_instances_state():
 
 @pytest.mark.asyncio
 async def test_get_crawler_instance_status_maps_independent_api_contracts():
-    frontier_resp = MagicMock()
-    frontier_resp.status_code = 200
-    frontier_resp.json.return_value = {"pending": 3}
     worker_resp = MagicMock()
     worker_resp.status_code = 200
     worker_resp.json.return_value = {
@@ -36,13 +33,12 @@ async def test_get_crawler_instance_status_maps_independent_api_contracts():
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [frontier_resp, worker_resp]
+        mock_instance.get.return_value = worker_resp
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         result = await get_crawler_instance_status("http://crawler:8000")
 
     assert result["state"] == "running"
-    assert result["frontier_pending"] == 3
     assert result["uptime"] == 123.4
     assert result["concurrency"] == 2
 
@@ -56,9 +52,6 @@ async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path
     )
     clear_crawler_instances_cache()
 
-    frontier_resp = MagicMock()
-    frontier_resp.status_code = 200
-    frontier_resp.json.return_value = {"pending": 5}
     worker_resp = MagicMock()
     worker_resp.status_code = 200
     worker_resp.json.return_value = {"status": "running"}
@@ -67,7 +60,7 @@ async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [frontier_resp, worker_resp]
+        mock_instance.get.return_value = worker_resp
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
@@ -75,7 +68,7 @@ async def test_get_all_crawler_instances_uses_shared_cache(monkeypatch, tmp_path
         crawler_instances_module._clear_crawler_instances_memory_cache()
         second = await get_all_crawler_instances(instances)
 
-    assert mock_instance.get.await_count == 2
+    assert mock_instance.get.await_count == 1
     assert first == second
     assert second[0]["state"] == "running"
 
@@ -91,9 +84,6 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
     )
     clear_crawler_instances_cache()
 
-    frontier_resp = MagicMock()
-    frontier_resp.status_code = 200
-    frontier_resp.json.return_value = {"pending": 5}
     worker_resp = MagicMock()
     worker_resp.status_code = 200
     worker_resp.json.return_value = {"status": "running"}
@@ -102,7 +92,7 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [frontier_resp, worker_resp]
+        mock_instance.get.return_value = worker_resp
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
@@ -115,7 +105,7 @@ async def test_get_crawler_instances_read_model_exposes_snapshot_metadata(
     assert first["snapshot_generated_at"] == second["snapshot_generated_at"]
     assert first["snapshot_loaded_from"] == "live"
     assert second["snapshot_loaded_from"] == "shared"
-    assert mock_instance.get.await_count == 2
+    assert mock_instance.get.await_count == 1
 
 
 @pytest.mark.asyncio
@@ -129,9 +119,6 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
     )
     clear_crawler_instances_cache()
 
-    frontier_resp = MagicMock()
-    frontier_resp.status_code = 200
-    frontier_resp.json.return_value = {"pending": 8}
     worker_resp = MagicMock()
     worker_resp.status_code = 200
     worker_resp.json.return_value = {"status": "running"}
@@ -140,7 +127,7 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
         "web_search_frontend.services.crawler_admin_client.httpx.AsyncClient"
     ) as mock_client:
         mock_instance = AsyncMock()
-        mock_instance.get.side_effect = [frontier_resp, worker_resp]
+        mock_instance.get.return_value = worker_resp
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         instances = [{"name": "default", "url": "http://crawler:8000"}]
@@ -148,5 +135,5 @@ async def test_prewarm_crawler_instances_cache_populates_shared_cache(
         crawler_instances_module._clear_crawler_instances_memory_cache()
         cached = await get_all_crawler_instances(instances)
 
-    assert mock_instance.get.await_count == 2
-    assert cached[0]["frontier_pending"] == 8
+    assert mock_instance.get.await_count == 1
+    assert cached[0]["state"] == "running"

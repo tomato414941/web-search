@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from typing import Any
 
@@ -29,22 +28,6 @@ def _crawler_base_url(base_url: str | None = None) -> str:
     return (base_url or settings.CRAWLER_SERVICE_URL).rstrip("/")
 
 
-async def fetch_frontier_summary(
-    *, base_url: str | None = None
-) -> dict[str, Any] | None:
-    try:
-        async with httpx.AsyncClient(timeout=_CRAWLER_REQUEST_TIMEOUT_SEC) as client:
-            resp = await client.get(
-                f"{_crawler_base_url(base_url)}/api/v1/frontier/summary",
-                headers=_auth_headers(),
-            )
-            if resp.status_code == 200:
-                return resp.json()
-    except Exception as exc:
-        logger.warning(f"Failed to get crawler frontier summary: {exc}")
-    return None
-
-
 async def fetch_worker_status(*, base_url: str | None = None) -> dict[str, Any] | None:
     try:
         async with httpx.AsyncClient(timeout=_CRAWLER_REQUEST_TIMEOUT_SEC) as client:
@@ -62,32 +45,22 @@ async def fetch_worker_status(*, base_url: str | None = None) -> dict[str, Any] 
 async def fetch_dashboard_status(
     *, base_url: str | None = None
 ) -> dict[str, Any] | None:
-    frontier, worker = await asyncio.gather(
-        fetch_frontier_summary(base_url=base_url),
-        fetch_worker_status(base_url=base_url),
-    )
-    if frontier is None and worker is None:
+    worker = await fetch_worker_status(base_url=base_url)
+    if worker is None:
         return None
 
-    worker_data = worker or {}
     return {
-        "frontier_pending": (frontier or {}).get("pending", 0),
-        "worker_status": worker_data.get("status", "unknown"),
+        "worker_status": worker.get("status", "unknown"),
     }
 
 
 async def fetch_admin_stats(*, base_url: str | None = None) -> dict[str, Any] | None:
-    frontier, worker = await asyncio.gather(
-        fetch_frontier_summary(base_url=base_url),
-        fetch_worker_status(base_url=base_url),
-    )
-    if frontier is None and worker is None:
+    worker = await fetch_worker_status(base_url=base_url)
+    if worker is None:
         return None
 
-    combined = {
-        "frontier_pending": (frontier or {}).get("pending", 0),
-    }
-    worker_data = worker or {}
+    combined = {}
+    worker_data = worker
     combined["worker_status"] = worker_data.get("status", "unknown")
     combined["uptime_seconds"] = worker_data.get("uptime_seconds")
     combined["active_tasks"] = worker_data.get("active_tasks", 0)
