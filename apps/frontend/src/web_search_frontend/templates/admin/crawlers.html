@@ -24,7 +24,6 @@
                         <th>URL</th>
                         <th>Status</th>
                         <th class="admin-head-num" title="Concurrency">Conc.</th>
-                        <th class="admin-head-num" title="Pending frontier">Frontier</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -42,7 +41,6 @@
                             {% endif %}
                         </td>
                         <td class="admin-cell-num">{{ inst.concurrency if inst.concurrency is not none else "-" }}</td>
-                        <td class="admin-cell-num">{{ "{:,}".format(inst.frontier_pending) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
