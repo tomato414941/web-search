@@ -258,27 +258,3 @@ async def maintain_indexer_admin_cache(*, refresh_interval_seconds: float) -> No
         periodic_call=refresh_once,
         refresh_interval_seconds=refresh_interval_seconds,
     )
-
-
-async def retry_failed_job(job_id: str) -> bool:
-    """Retry a permanently failed job via the indexer service."""
-    if not settings.INDEXER_API_KEY:
-        return False
-
-    base_url = (settings.INDEXER_SERVICE_URL or "").rstrip("/")
-    if not base_url:
-        return False
-
-    url = f"{base_url}/api/v1/indexer/jobs/{job_id}/retry"
-    headers = {"X-API-Key": settings.INDEXER_API_KEY}
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(url, headers=headers)
-            if resp.status_code == 200:
-                clear_indexer_admin_cache()
-                return True
-            return False
-    except Exception as exc:
-        logger.warning("Failed to retry job %s: %s", job_id, exc)
-
-    return False

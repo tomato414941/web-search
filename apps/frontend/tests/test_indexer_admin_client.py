@@ -1,4 +1,3 @@
-import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -82,49 +81,3 @@ async def test_prewarm_indexer_admin_cache_populates_cache():
     assert cached["snapshot_loaded_from"] == "shared"
     mock_stats.assert_awaited_once_with()
     mock_failed.assert_awaited_once_with(limit=50)
-
-
-@pytest.mark.asyncio
-async def test_retry_failed_job_clears_cached_read_model():
-    with (
-        patch(
-            "web_search_frontend.services.indexer_admin_client.fetch_indexer_stats",
-            new=AsyncMock(return_value={"reachable": True, "ok": True}),
-        ),
-        patch(
-            "web_search_frontend.services.indexer_admin_client.fetch_failed_jobs",
-            new=AsyncMock(return_value=[{"job_id": "job-1"}]),
-        ),
-    ):
-        read_model = await indexer_admin_client_module.get_indexer_admin_read_model()
-
-    assert read_model["failed_jobs"][0]["job_id"] == "job-1"
-
-    mock_response = AsyncMock()
-    mock_response.status_code = 200
-    mock_client = AsyncMock()
-    mock_client.post.return_value = mock_response
-
-    with (
-        patch(
-            "web_search_frontend.services.indexer_admin_client.settings.INDEXER_API_KEY",
-            "test-key",
-        ),
-        patch(
-            "web_search_frontend.services.indexer_admin_client.settings.INDEXER_SERVICE_URL",
-            "http://indexer",
-        ),
-        patch(
-            "web_search_frontend.services.indexer_admin_client.httpx.AsyncClient"
-        ) as mock_async_client,
-    ):
-        mock_async_client.return_value.__aenter__.return_value = mock_client
-        ok = await indexer_admin_client_module.retry_failed_job("job-1")
-
-    assert ok is True
-    assert (
-        indexer_admin_client_module._get_memory_cached_indexer_admin_read_model(
-            time.monotonic()
-        )
-        is None
-    )

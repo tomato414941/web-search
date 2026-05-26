@@ -55,7 +55,6 @@
                         <th>URL</th>
                         <th>Error</th>
                         <th>Retries</th>
-                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,13 +65,6 @@
                         </td>
                         <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis;">{{ job.last_error or "Unknown" }}</td>
                         <td>{{ job.retry_count }}</td>
-                        <td>
-                            <form method="post" action="/admin/indexer/retry-job" style="display:inline;">
-                                <input type="hidden" name="job_id" value="{{ job.job_id }}">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                                <button type="submit" class="btn btn-small">Retry</button>
-                            </form>
-                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>

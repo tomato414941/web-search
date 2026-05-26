@@ -335,22 +335,3 @@ class TestAdminIndexerRoutes:
         assert "Snapshot refreshed" not in response.text
         assert "Stats are fetched server-side" not in response.text
         mock_read_model.assert_awaited_once_with()
-
-    def test_retry_job_redirects_after_retrying_failed_job(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-        csrf_token = client.cookies.get(CSRF_COOKIE_NAME, "")
-
-        with patch(
-            "web_search_frontend.api.routers.admin_indexer.retry_failed_job",
-            new=AsyncMock(),
-        ) as mock_retry:
-            response = client.post(
-                "/admin/indexer/retry-job",
-                data={"job_id": "job-1", "csrf_token": csrf_token},
-                follow_redirects=False,
-            )
-
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/indexer"
-        mock_retry.assert_awaited_once_with("job-1")
