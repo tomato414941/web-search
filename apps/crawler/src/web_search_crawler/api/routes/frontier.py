@@ -1,33 +1,11 @@
 """Frontier router."""
 
-import time
-from typing import Any
-
 from fastapi import APIRouter, Depends
 from web_search_crawler.api.deps import get_frontier_service
-from web_search_crawler.models.frontier import FrontierItem, FrontierSummary
+from web_search_crawler.models.frontier import FrontierItem
 from web_search_crawler.services.frontier import FrontierService
 
 router = APIRouter()
-
-_status_cache: dict[str, Any] = {"data": None, "expires": 0}
-_STATUS_TTL = 30
-
-
-@router.get("/frontier/status", response_model=FrontierSummary)
-async def get_frontier_status(
-    frontier_service: FrontierService = Depends(get_frontier_service),
-):
-    """Get frontier summary statistics."""
-    now = time.monotonic()
-    if _status_cache["data"] is not None and now < _status_cache["expires"]:
-        return _status_cache["data"]
-
-    stats = frontier_service.get_frontier_summary()
-    result = FrontierSummary(**stats)
-    _status_cache["data"] = result
-    _status_cache["expires"] = now + _STATUS_TTL
-    return result
 
 
 @router.get("/frontier", response_model=list[FrontierItem])

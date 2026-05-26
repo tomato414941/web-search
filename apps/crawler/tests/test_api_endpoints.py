@@ -93,26 +93,6 @@ def test_frontier_peek_endpoint(test_client, test_url_store):
         assert data[0]["url"] == "http://example.com"
 
 
-def test_frontier_status_endpoint(test_client, test_url_store):
-    """Test GET /api/v1/frontier/status endpoint."""
-    from web_search_crawler.api.routes.frontier import _status_cache
-
-    _status_cache["data"] = None
-    _status_cache["expires"] = 0
-
-    # Add some data
-    test_url_store.discover_and_admit_url("http://example.com")
-    test_url_store.record_crawl_result("http://crawled.com", "done")
-
-    with patch(
-        "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
-    ):
-        response = test_client.get("/api/v1/frontier/status")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["pending"] == 1
-
-
 def test_history_endpoint(test_client):
     """Test GET /api/v1/history endpoint"""
     from web_search_crawler.utils import history

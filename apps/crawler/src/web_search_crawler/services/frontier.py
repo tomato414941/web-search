@@ -66,19 +66,6 @@ class FrontierService:
         logger.info("Admitted %d/%d URLs into frontier", count, len(urls))
         return count
 
-    def get_frontier_summary(self) -> dict:
-        """
-        Get frontier summary statistics.
-
-        Returns:
-            Dict with pending frontier depth
-        """
-        stats = self.url_store.get_stats()
-
-        return {
-            "pending": stats["pending"],
-        }
-
     def get_frontier_items(self, limit: int = 20) -> list[dict]:
         """
         Peek pending frontier items.

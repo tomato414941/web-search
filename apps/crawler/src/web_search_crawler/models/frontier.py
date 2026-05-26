@@ -9,16 +9,6 @@ class FrontierItem(BaseModel):
     url: str = Field(..., description="URL to be crawled")
 
 
-class FrontierSummary(BaseModel):
-    """Lightweight frontier summary."""
-
-    pending: int = Field(
-        default=0,
-        ge=0,
-        description="Number of pending frontier entries",
-    )
-
-
 class HealthResponse(BaseModel):
     """Health check response"""
 
