@@ -19,7 +19,6 @@ from web_search_frontend.api.routers import (
     search,
     search_api,
     content_api,
-    stats,
     crawler,
     admin,
     quality,
@@ -218,9 +217,6 @@ app.include_router(admin.router, include_in_schema=False)
 # API routes with /api/v1 prefix
 app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
 app.include_router(content_api.router, prefix="/api/v1", tags=["content"])
-app.include_router(
-    stats.router, prefix="/api/v1", tags=["system"], include_in_schema=False
-)
 app.include_router(
     crawler.router, prefix="/api/v1", tags=["crawler"], include_in_schema=False
 )

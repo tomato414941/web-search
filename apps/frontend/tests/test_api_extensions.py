@@ -1,58 +1,6 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
-def test_api_stats(client):
-    from web_search_frontend.api.routers.stats import _stats_cache
-
-    _stats_cache["data"] = None
-    _stats_cache["expires"] = 0
-
-    response = client.get("/api/v1/stats")
-    assert response.status_code == 200
-    data = response.json()
-    assert "frontier" in data
-    assert "index" in data
-    assert "pending" in data["frontier"]
-    assert "indexed" in data["index"]
-    # Values should be integers
-    assert isinstance(data["frontier"]["pending"], int)
-    assert isinstance(data["index"]["indexed"], int)
-
-
-def test_api_stats_uses_last_successful_crawler_snapshot_on_timeout(client):
-    from web_search_frontend.api.routers.stats import _crawler_stats_cache, _stats_cache
-    import httpx
-
-    _stats_cache["data"] = None
-    _stats_cache["expires"] = 0
-    _crawler_stats_cache["data"] = {"pending": 12}
-    _crawler_stats_cache["expires"] = float("inf")
-
-    with (
-        patch("web_search_frontend.api.routers.stats.httpx.AsyncClient") as mock_client,
-        patch(
-            "web_search_frontend.api.routers.stats.search_service.get_index_stats",
-            return_value={"indexed": 56},
-        ),
-    ):
-        mock_instance = AsyncMock()
-        mock_instance.get.side_effect = httpx.ReadTimeout("crawler timed out")
-        mock_client.return_value.__aenter__.return_value = mock_instance
-
-        response = client.get("/api/v1/stats")
-
-    _stats_cache["data"] = None
-    _stats_cache["expires"] = 0
-    _crawler_stats_cache["data"] = None
-    _crawler_stats_cache["expires"] = 0
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "frontier": {"pending": 12},
-        "index": {"indexed": 56},
-    }
-
-
 def test_api_urls_empty_url(client):
     payload = {"url": "   "}
     response = client.post("/api/v1/urls", json=payload)
