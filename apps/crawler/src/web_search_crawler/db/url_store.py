@@ -9,7 +9,6 @@ import time
 
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.url_admin_state import FrontierAdminStateStore
 from web_search_crawler.db.url_discovery import UrlDiscoveryMixin
 from web_search_crawler.db.url_domain_state import DomainSchedulingStateStore
 from web_search_crawler.db.url_frontier import UrlFrontierMixin
@@ -20,7 +19,6 @@ from web_search_crawler.services.url_admission import (
     URLAdmissionPolicy,
     load_url_admission_policy,
 )
-from web_search_core.infrastructure_config import Environment
 from web_search_postgres.search import get_connection
 
 
@@ -48,13 +46,6 @@ class UrlStore(
         self.url_admission_policy: URLAdmissionPolicy = load_url_admission_policy(
             settings.URL_ADMISSION_RULES_PATH
         )
-        counter_refresh_sec = settings.ADMIN_CACHE_REFRESH_SEC
-        if settings.ENVIRONMENT == Environment.TEST:
-            counter_refresh_sec = 0
-        self.frontier_admin_state = FrontierAdminStateStore(
-            db_path,
-            refresh_interval_sec=counter_refresh_sec,
-        )
         self.domain_scheduling_state = DomainSchedulingStateStore(db_path)
         self._init_db()
 
@@ -67,31 +58,7 @@ class UrlStore(
     def _bootstrap_runtime_state(self) -> None:
         now = int(time.time())
         with db_transaction(self.db_path) as cur:
-            self.frontier_admin_state.ensure_frontier_counters_row(cur, now=now)
             self.domain_scheduling_state.reconcile_inflight_leases(cur, now=now)
-        if self.frontier_admin_state._refresh_interval_sec == 0:
-            self.frontier_admin_state.rebuild_frontier_counters(now=now)
-
-    def get_frontier_counters(self) -> dict[str, int]:
-        return self.frontier_admin_state.get_frontier_counters()
-
-    def set_frontier_counters(
-        self,
-        *,
-        pending_rows: int,
-        leased_rows: int,
-        frontier_rows: int,
-        now: int | None = None,
-    ) -> dict[str, int]:
-        return self.frontier_admin_state.set_frontier_counters(
-            pending_rows=pending_rows,
-            leased_rows=leased_rows,
-            frontier_rows=frontier_rows,
-            now=now,
-        )
-
-    def rebuild_frontier_counters(self, *, now: int | None = None) -> dict[str, int]:
-        return self.frontier_admin_state.rebuild_frontier_counters(now=now)
 
     def get_domain_state(self, domain: str):
         return self.domain_scheduling_state.get_domain_state(domain)

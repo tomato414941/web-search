@@ -417,7 +417,6 @@ def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     after = int(time.time())
     entry = test_url_store.get_frontier_entry(url)
     domain_state = test_url_store.get_domain_state("example.com")
-    counters = test_url_store.get_frontier_counters()
 
     assert entry is not None
     assert entry.status == "pending"
@@ -429,11 +428,6 @@ def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     assert domain_state.fail_streak == 1
     assert domain_state.backoff_until is not None
     assert domain_state.backoff_until >= before
-    assert counters == {
-        "pending_rows": 1,
-        "leased_rows": 0,
-        "frontier_rows": 1,
-    }
 
 
 def test_seed_success_uses_shorter_recrawl_interval(test_url_store):
@@ -550,7 +544,6 @@ def test_release_frontier_urls_only_decrements_leased_domain_state(test_url_stor
     leased_entry = test_url_store.get_frontier_entry(leased_url)
     pending_entry = test_url_store.get_frontier_entry(pending_url)
     domain_state = test_url_store.get_domain_state("example.com")
-    counters = test_url_store.get_frontier_counters()
 
     assert released == 2
     assert leased_entry is not None
@@ -559,11 +552,6 @@ def test_release_frontier_urls_only_decrements_leased_domain_state(test_url_stor
     assert pending_entry.status == "pending"
     assert domain_state is not None
     assert domain_state.inflight_leases == 0
-    assert counters == {
-        "pending_rows": 2,
-        "leased_rows": 0,
-        "frontier_rows": 2,
-    }
 
 
 def test_purge_denied_domains_removes_frontier_rows(test_url_store):
@@ -786,33 +774,6 @@ def test_reconcile_expired_frontier_leases_recovers_domain_state(test_url_store)
     assert entry.status == "pending"
     assert domain_state is not None
     assert domain_state.inflight_leases == 0
-
-
-def test_reconcile_expired_frontier_leases_updates_counters(test_url_store):
-    test_url_store.discover_and_admit_urls(["https://example.com/expired-counters"])
-    leased = test_url_store.pop_frontier_batch(1, lease_seconds=1)
-    assert [item.url for item in leased] == ["https://example.com/expired-counters"]
-
-    with db_transaction(test_url_store.db_path) as cur:
-        cur.execute(
-            """
-            UPDATE frontier_entries
-            SET lease_expires_at = %s
-            WHERE url_hash = %s
-            """,
-            (
-                int(time.time()) - 5,
-                url_hash("https://example.com/expired-counters"),
-            ),
-        )
-
-    assert test_url_store.reconcile_expired_frontier_leases() == 1
-
-    assert test_url_store.get_frontier_counters() == {
-        "pending_rows": 1,
-        "leased_rows": 0,
-        "frontier_rows": 1,
-    }
 
 
 def test_reconcile_domain_state_inflight_leases_recovers_drift(test_url_store):
@@ -1128,60 +1089,6 @@ def test_requeue_releases_leased_url_back_to_pending(tmp_path):
     assert entry.status == "pending"
 
 
-def test_frontier_counters_track_status_transitions(test_url_store):
-    assert test_url_store.get_frontier_counters() == {
-        "pending_rows": 0,
-        "leased_rows": 0,
-        "frontier_rows": 0,
-    }
-
-    test_url_store.discover_and_admit_urls(["https://example.com/counters"])
-    assert test_url_store.get_frontier_counters() == {
-        "pending_rows": 1,
-        "leased_rows": 0,
-        "frontier_rows": 1,
-    }
-
-    leased = test_url_store.pop_frontier_batch(1, lease_seconds=120)
-    assert [item.url for item in leased] == ["https://example.com/counters"]
-    assert test_url_store.get_frontier_counters() == {
-        "pending_rows": 0,
-        "leased_rows": 1,
-        "frontier_rows": 1,
-    }
-
-    assert test_url_store.requeue("https://example.com/counters") is True
-    assert test_url_store.get_frontier_counters() == {
-        "pending_rows": 1,
-        "leased_rows": 0,
-        "frontier_rows": 1,
-    }
-
-
-def test_frontier_counters_are_read_side_in_prod_shape(tmp_path):
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
-    url_store.frontier_admin_state._refresh_interval_sec = 3600
-
-    assert url_store.get_frontier_counters() == {
-        "pending_rows": 0,
-        "leased_rows": 0,
-        "frontier_rows": 0,
-    }
-
-    assert url_store.discover_and_admit_url("https://example.com/read-side") is True
-    assert url_store.get_frontier_counters() == {
-        "pending_rows": 0,
-        "leased_rows": 0,
-        "frontier_rows": 0,
-    }
-
-    assert url_store.rebuild_frontier_counters() == {
-        "pending_rows": 1,
-        "leased_rows": 0,
-        "frontier_rows": 1,
-    }
-
-
 def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp_path):
     url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     url_store.discover_and_admit_urls(["https://example.com/bootstrap"])
@@ -1189,15 +1096,10 @@ def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp
     from web_search_crawler.db.connection import db_transaction
 
     with db_transaction(url_store.db_path) as cur:
-        cur.execute("TRUNCATE frontier_counters, domain_state")
+        cur.execute("TRUNCATE domain_state")
 
     restarted = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
-    assert restarted.get_frontier_counters() == {
-        "pending_rows": 1,
-        "leased_rows": 0,
-        "frontier_rows": 1,
-    }
     domain_state = restarted.get_domain_state("example.com")
     assert domain_state is None
 
