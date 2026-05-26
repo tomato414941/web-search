@@ -163,12 +163,3 @@ class FrontierPlanner:
     def buffer_size(self) -> int:
         """Return number of items in the local planner buffer."""
         return len(self._buffer)
-
-    def stats(self) -> dict:
-        """Get frontier planner statistics."""
-        return {
-            "buffer_size": len(self._buffer),
-            "pending_count": self.url_store.pending_count(),
-            "active_domains": 0,
-            "backed_off_domains": 0,
-        }

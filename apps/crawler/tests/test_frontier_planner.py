@@ -146,14 +146,3 @@ class TestFrontierPlannerBehavior:
         assert result[0].domain == "example.com"
         assert planner.buffer_size() == 0
         url_store.release_frontier_urls.assert_not_called()
-
-    def test_stats_are_frontier_only(self):
-        planner = self._make_planner()
-        stats = planner.stats()
-
-        assert stats == {
-            "buffer_size": 0,
-            "pending_count": 0,
-            "active_domains": 0,
-            "backed_off_domains": 0,
-        }
