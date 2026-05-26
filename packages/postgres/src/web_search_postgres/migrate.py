@@ -37,25 +37,6 @@ def _get_alembic_dir() -> Path | None:
     return None
 
 
-def _get_migration_files() -> list[tuple[int, str, Path]]:
-    """List Alembic revision files (kept for backward compat)."""
-    alembic_dir = _get_alembic_dir()
-    if alembic_dir is None:
-        return []
-
-    versions_dir = alembic_dir / "alembic" / "versions"
-    if not versions_dir.exists():
-        return []
-    files: list[tuple[int, str, Path]] = []
-    for path in sorted(versions_dir.glob("*.py")):
-        if path.name.startswith("__"):
-            continue
-        parts = path.stem.split("_", 1)
-        if len(parts) >= 2 and parts[0].isdigit():
-            files.append((int(parts[0]), parts[1], path))
-    return files
-
-
 def migrate() -> int:
     """Run pending Alembic migrations (upgrade head).
 
