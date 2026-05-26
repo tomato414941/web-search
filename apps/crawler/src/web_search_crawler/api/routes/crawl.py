@@ -26,8 +26,8 @@ async def admit_urls_to_frontier(
     """
     Admit URLs into the crawl frontier.
 
-    URLs are admitted into the durable frontier for asynchronous processing by
-    the crawler worker.
+    URLs are admitted into the durable frontier for asynchronous processing.
+    Worker must be started separately via POST /worker/start.
     """
     try:
         count = await frontier_service.admit_urls(

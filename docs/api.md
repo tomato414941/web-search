@@ -135,16 +135,6 @@ Returns lightweight frontier status data.
 
 Returns crawler worker lifecycle state and volatile in-memory task status.
 
-### `POST /api/v1/worker/start`
-
-Starts the crawler worker for manual operations or recovery.
-
-Normal deployments should prefer automatic startup with `CRAWL_AUTO_START`.
-
-### `POST /api/v1/worker/stop`
-
-Stops the crawler worker for manual operations or recovery.
-
 ### `GET /api/v1/history`
 
 Returns raw crawl-attempt history from `crawl_logs`.
