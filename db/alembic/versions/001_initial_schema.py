@@ -1,11 +1,8 @@
-"""Initial schema: all tables, indexes, and extensions.
-
-Consolidates the previous custom migrations (001-004) plus crawler tables
-into a single Alembic baseline.
+"""Initial schema baseline.
 
 Revision ID: 001
 Revises:
-Create Date: 2026-02-27
+Create Date: 2026-05-26
 """
 
 from typing import Sequence, Union
@@ -19,7 +16,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # -- Link Graph --
     op.execute("""
         CREATE TABLE IF NOT EXISTS links (
             src TEXT NOT NULL,
@@ -37,14 +33,17 @@ def upgrade() -> None:
         )
     """)
 
-    # -- Document & Search Index --
     op.execute("""
         CREATE TABLE IF NOT EXISTS documents (
             url TEXT PRIMARY KEY,
             title TEXT,
             content TEXT,
             word_count INTEGER DEFAULT 0,
-            indexed_at TIMESTAMP
+            indexed_at TIMESTAMP,
+            published_at TIMESTAMP,
+            updated_at TIMESTAMP,
+            author TEXT,
+            organization TEXT
         )
     """)
 
@@ -56,32 +55,19 @@ def upgrade() -> None:
     """)
 
     op.execute("""
-        CREATE TABLE IF NOT EXISTS inverted_index (
-            token TEXT NOT NULL,
-            url TEXT NOT NULL REFERENCES documents(url) ON DELETE CASCADE,
-            field TEXT NOT NULL,
-            term_freq INTEGER DEFAULT 1,
-            PRIMARY KEY (token, url, field)
+        CREATE TABLE IF NOT EXISTS information_origins (
+            url TEXT PRIMARY KEY REFERENCES documents(url) ON DELETE CASCADE,
+            origin_type TEXT NOT NULL DEFAULT 'river',
+            score REAL NOT NULL DEFAULT 0.5,
+            inlink_count INTEGER DEFAULT 0,
+            outlink_count INTEGER DEFAULT 0
         )
     """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_inverted_token ON inverted_index(token)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_inverted_url ON inverted_index(url)")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_info_origins_type "
+        "ON information_origins(origin_type)"
+    )
 
-    op.execute("""
-        CREATE TABLE IF NOT EXISTS index_stats (
-            key TEXT PRIMARY KEY,
-            value REAL
-        )
-    """)
-
-    op.execute("""
-        CREATE TABLE IF NOT EXISTS token_stats (
-            token TEXT PRIMARY KEY,
-            doc_freq INTEGER DEFAULT 0
-        )
-    """)
-
-    # -- Search Analytics --
     op.execute("""
         CREATE TABLE IF NOT EXISTS search_logs (
             id SERIAL PRIMARY KEY,
@@ -133,7 +119,6 @@ def upgrade() -> None:
         "ON search_events(request_id)"
     )
 
-    # -- Indexer Job Queue --
     op.execute("""
         CREATE TABLE IF NOT EXISTS index_jobs (
             job_id TEXT PRIMARY KEY,
@@ -151,7 +136,10 @@ def upgrade() -> None:
             created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
             updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
             content_hash TEXT NOT NULL,
-            dedupe_key TEXT NOT NULL UNIQUE
+            dedupe_key TEXT NOT NULL UNIQUE,
+            published_at TEXT,
+            author TEXT,
+            organization TEXT
         )
     """)
     op.execute(
@@ -166,7 +154,6 @@ def upgrade() -> None:
         "CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at)"
     )
 
-    # -- API Keys --
     op.execute("""
         CREATE TABLE IF NOT EXISTS api_keys (
             id TEXT PRIMARY KEY,
@@ -182,36 +169,104 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)")
     op.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(status)")
 
-    # -- Crawler: URLs --
     op.execute("""
         CREATE TABLE IF NOT EXISTS urls (
             url_hash TEXT PRIMARY KEY,
             url TEXT NOT NULL,
             domain TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'pending',
-            priority REAL NOT NULL DEFAULT 0,
             crawl_count INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             last_crawled_at INTEGER,
-            is_seed BOOLEAN NOT NULL DEFAULT FALSE
+            is_seed BOOLEAN NOT NULL DEFAULT FALSE,
+            discovered_via TEXT NOT NULL DEFAULT 'unknown'
+        )
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain)")
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_urls_seed_created_at "
+        "ON urls(created_at DESC) "
+        "INCLUDE (url, domain, crawl_count, last_crawled_at) "
+        "WHERE is_seed = TRUE"
+    )
+
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS frontier_entries (
+            url_hash TEXT PRIMARY KEY,
+            url TEXT NOT NULL,
+            domain TEXT NOT NULL,
+            normalized_url TEXT NOT NULL,
+            discovered_at INTEGER NOT NULL,
+            discovered_via TEXT NOT NULL,
+            discovery_depth INTEGER NOT NULL DEFAULT 0,
+            is_seed BOOLEAN NOT NULL DEFAULT FALSE,
+            canonical_source TEXT,
+            crawl_profile TEXT NOT NULL,
+            priority_bucket SMALLINT NOT NULL,
+            priority_score DOUBLE PRECISION NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
+            next_fetch_at INTEGER NOT NULL,
+            last_fetched_at INTEGER,
+            last_success_at INTEGER,
+            last_status TEXT,
+            fail_streak INTEGER NOT NULL DEFAULT 0,
+            lease_token TEXT,
+            lease_expires_at INTEGER,
+            etag TEXT,
+            last_modified TEXT,
+            content_hash TEXT,
+            outlinks_last_discovered INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL
         )
     """)
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_urls_pending "
-        "ON urls(priority DESC) WHERE status = 'pending'"
-    )
-    op.execute("CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_urls_status ON urls(status)")
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_urls_recrawl "
-        "ON urls(last_crawled_at) WHERE status IN ('done', 'failed')"
+        "CREATE INDEX IF NOT EXISTS idx_frontier_ready "
+        "ON frontier_entries "
+        "(status, next_fetch_at, priority_bucket, priority_score DESC)"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_urls_pending_claim "
-        "ON urls(status, priority DESC, created_at) WHERE status = 'pending'"
+        "CREATE INDEX IF NOT EXISTS idx_frontier_domain_ready "
+        "ON frontier_entries(domain, status, next_fetch_at)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_frontier_profile_ready "
+        "ON frontier_entries("
+        "crawl_profile, next_fetch_at, priority_bucket, priority_score DESC, "
+        "last_success_at, discovered_at, url_hash"
+        ") WHERE status = 'pending'"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_frontier_pending_planner_order "
+        "ON frontier_entries("
+        "priority_bucket, priority_score DESC, next_fetch_at, "
+        "last_success_at ASC NULLS FIRST, discovered_at, url_hash"
+        ") INCLUDE (url, domain, lease_expires_at) "
+        "WHERE status = 'pending'"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_frontier_profile_planner_order "
+        "ON frontier_entries("
+        "crawl_profile, priority_bucket, priority_score DESC, next_fetch_at, "
+        "last_success_at ASC NULLS FIRST, discovered_at, url_hash"
+        ") INCLUDE (url, domain, lease_expires_at) "
+        "WHERE status = 'pending'"
     )
 
-    # -- Crawler: Crawl Logs --
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS domain_state (
+            domain TEXT PRIMARY KEY,
+            next_request_at INTEGER NOT NULL DEFAULT 0,
+            crawl_delay_sec DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+            backoff_until INTEGER,
+            fail_streak INTEGER NOT NULL DEFAULT 0,
+            inflight_leases INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL
+        )
+    """)
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_domain_state_ready "
+        "ON domain_state(backoff_until, next_request_at)"
+    )
+
     op.execute("""
         CREATE TABLE IF NOT EXISTS crawl_logs (
             id SERIAL PRIMARY KEY,
@@ -219,26 +274,44 @@ def upgrade() -> None:
             status TEXT NOT NULL,
             http_code INTEGER,
             error_message TEXT,
-            created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())::INTEGER
+            created_at INTEGER DEFAULT EXTRACT(EPOCH FROM NOW())::INTEGER,
+            precheck_ms INTEGER,
+            fetch_ms INTEGER,
+            parse_ms INTEGER,
+            submit_ms INTEGER,
+            total_ms INTEGER,
+            robots_ms INTEGER,
+            ssrf_ms INTEGER,
+            crawl_delay_ms INTEGER,
+            fetch_request_ms INTEGER,
+            fetch_body_read_ms INTEGER
         )
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_crawl_logs_url ON crawl_logs(url)")
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_crawl_logs_created ON crawl_logs(created_at)"
     )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_crawl_logs_created_status "
+        "ON crawl_logs(created_at, status)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_crawl_logs_status_created "
+        "ON crawl_logs(status, created_at DESC)"
+    )
 
 
 def downgrade() -> None:
     for table in [
         "crawl_logs",
+        "domain_state",
+        "frontier_entries",
         "urls",
         "api_keys",
         "index_jobs",
         "search_events",
         "search_logs",
-        "token_stats",
-        "index_stats",
-        "inverted_index",
+        "information_origins",
         "page_ranks",
         "documents",
         "domain_ranks",
