@@ -1,13 +1,10 @@
-"""URL read-only queries: counts and frontier inspection."""
-
-import os
+"""URL read-only queries: frontier entry inspection."""
 
 from web_search_crawler.services.crawl_policy import POLICIES
 from web_search_crawler.db.connection import db_connection
 from web_search_crawler.db.url_types import FrontierEntry, url_hash
 from web_search_postgres.search import sql_placeholder
 
-_APPROX_COUNT_THRESHOLD = int(os.getenv("CRAWL_APPROX_COUNT_THRESHOLD", "100000"))
 _BUDGET_TIER_ORDER = ("hot", "reference", "bulk", "operator")
 _PROFILES_BY_BUDGET_TIER = {
     tier: tuple(
@@ -24,35 +21,6 @@ class UrlQueriesMixin:
 
     db_path: str
     recrawl_threshold: int
-
-    def _approx_table_count(self, cur, table_name: str) -> int | None:
-        cur.execute(
-            "SELECT reltuples::bigint FROM pg_class WHERE oid = %s::regclass",
-            (table_name,),
-        )
-        row = cur.fetchone()
-        if row is None:
-            return None
-        count = row[0]
-        if count is None or count <= 0:
-            return None
-        return int(count)
-
-    def _table_count(self, cur, table_name: str) -> int:
-        approx = self._approx_table_count(cur, table_name)
-        if approx is not None and approx >= _APPROX_COUNT_THRESHOLD:
-            return approx
-        cur.execute(f"SELECT COUNT(*) FROM {table_name}")
-        return cur.fetchone()[0]
-
-    def frontier_count(self) -> int:
-        """Return number of URLs in the frontier table."""
-        if hasattr(self, "frontier_admin_state"):
-            return int(
-                self.frontier_admin_state.get_frontier_counters()["frontier_rows"]
-            )
-        with db_connection(self.db_path) as cur:
-            return self._table_count(cur, "frontier_entries")
 
     def contains(self, url: str) -> bool:
         """Check if URL exists in the discovery ledger."""

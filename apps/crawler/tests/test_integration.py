@@ -257,7 +257,6 @@ def test_discover_and_admit_populates_frontier_entry_for_outlinks(test_url_store
     domain_state = test_url_store.get_domain_state("example.com")
 
     assert added == 1
-    assert test_url_store.frontier_count() == 1
     assert entry is not None
     assert entry.discovered_via == "outlink"
     assert entry.crawl_profile == "generic"
@@ -276,7 +275,6 @@ def test_record_discovered_urls_writes_ledger_without_frontier(test_url_store):
     assert (
         test_url_store.get_frontier_entry("https://example.com/article-entry") is None
     )
-    assert test_url_store.frontier_count() == 0
 
 
 def test_pop_frontier_batch_retries_after_deadlock(test_url_store, monkeypatch):
