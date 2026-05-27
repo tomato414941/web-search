@@ -226,18 +226,12 @@ class IndexJobService:
         record_job_result(result_status)
         return True
 
-    def get_queue_stats(self) -> dict[str, int]:
-        """Return lightweight queue stats using indexed status lookups."""
-        counts = IndexJobRepository.get_queue_stats(
-            status_pending=STATUS_PENDING,
-            status_failed_retry=STATUS_FAILED_RETRY,
-            status_failed_permanent=STATUS_FAILED_PERMANENT,
-            status_processing=STATUS_PROCESSING,
+    def get_failure_stats(self) -> dict[str, int]:
+        """Return lightweight failure stats using indexed status lookups."""
+        counts = IndexJobRepository.count_jobs_by_status(
+            statuses=(STATUS_FAILED_PERMANENT,)
         )
-        pending = counts.get(STATUS_PENDING, 0) + counts.get(STATUS_FAILED_RETRY, 0)
         return {
-            "pending_jobs": pending,
-            "processing_jobs": counts.get(STATUS_PROCESSING, 0),
             "failed_permanent_jobs": counts.get(STATUS_FAILED_PERMANENT, 0),
         }
 

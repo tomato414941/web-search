@@ -425,29 +425,22 @@ class IndexJobRepository:
             con.close()
 
     @staticmethod
-    def get_queue_stats(
+    def count_jobs_by_status(
         *,
-        status_pending: str,
-        status_failed_retry: str,
-        status_processing: str,
-        status_failed_permanent: str,
+        statuses: tuple[str, ...],
     ) -> dict[str, int]:
         con = get_connection()
         ph = sql_placeholder()
+        placeholders = ", ".join(ph for _ in statuses)
         try:
             cur = con.cursor()
             cur.execute(
                 f"""
                 SELECT status, COUNT(*) FROM index_jobs
-                WHERE status IN ({ph}, {ph}, {ph}, {ph})
+                WHERE status IN ({placeholders})
                 GROUP BY status
                 """,
-                (
-                    status_pending,
-                    status_failed_retry,
-                    status_processing,
-                    status_failed_permanent,
-                ),
+                statuses,
             )
             counts: dict[str, int] = {}
             for status, count in cur.fetchall():

@@ -5,8 +5,8 @@ from web_search_contracts.admin_read_models import (
     CrawlerInstanceStatusReadModel,
     CrawlerInstancesReadModel,
     IndexerIndexSummaryApiResponse,
-    IndexerJobSummaryApiResponse,
-    IndexerJobSummaryReadModel,
+    IndexerJobFailureSummaryApiResponse,
+    IndexerJobFailureSummaryReadModel,
     IndexerServiceReadModel,
 )
 from web_search_contracts.enums import (
@@ -27,8 +27,8 @@ __all__ = [
     "IndexPageRequest",
     "IndexPageResponse",
     "IndexerIndexSummaryApiResponse",
-    "IndexerJobSummaryApiResponse",
-    "IndexerJobSummaryReadModel",
+    "IndexerJobFailureSummaryApiResponse",
+    "IndexerJobFailureSummaryReadModel",
     "IndexerServiceReadModel",
     "SearchMode",
 ]

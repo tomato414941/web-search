@@ -24,13 +24,13 @@ class _FakeAsyncClient:
         return None
 
     async def get(self, url, *, headers):
-        assert url == "http://indexer:8000/api/v1/indexer/job-summary"
+        assert url == "http://indexer:8000/api/v1/indexer/job-failure-summary"
         assert headers == {"X-API-Key": "secret"}
         return _FakeResponse()
 
 
 @pytest.mark.asyncio
-async def test_fetch_indexer_job_summary_returns_read_model(monkeypatch):
+async def test_fetch_indexer_job_failure_summary_returns_read_model(monkeypatch):
     monkeypatch.setattr(indexer_admin_client.settings, "INDEXER_API_KEY", "secret")
     monkeypatch.setattr(
         indexer_admin_client.settings,
@@ -39,7 +39,7 @@ async def test_fetch_indexer_job_summary_returns_read_model(monkeypatch):
     )
     monkeypatch.setattr(indexer_admin_client.httpx, "AsyncClient", _FakeAsyncClient)
 
-    stats = await indexer_admin_client.fetch_indexer_job_summary()
+    stats = await indexer_admin_client.fetch_indexer_job_failure_summary()
 
     assert stats["reachable"] is True
     assert stats["ok"] is True
@@ -47,10 +47,10 @@ async def test_fetch_indexer_job_summary_returns_read_model(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_fetch_indexer_job_summary_reports_missing_api_key(monkeypatch):
+async def test_fetch_indexer_job_failure_summary_reports_missing_api_key(monkeypatch):
     monkeypatch.setattr(indexer_admin_client.settings, "INDEXER_API_KEY", "")
 
-    stats = await indexer_admin_client.fetch_indexer_job_summary()
+    stats = await indexer_admin_client.fetch_indexer_job_failure_summary()
 
     assert stats["reachable"] is False
     assert stats["error"] == "missing INDEXER_API_KEY"
