@@ -22,18 +22,11 @@ def clear_indexer_admin_state(monkeypatch, tmp_path):
 @pytest.mark.asyncio
 async def test_get_indexer_admin_read_model_uses_cache():
     health = {"reachable": True, "ok": True, "indexed_pages": 12}
-    failed_jobs = [{"job_id": "job-1"}]
 
-    with (
-        patch(
-            "web_search_frontend.services.indexer_admin_client.fetch_indexer_stats",
-            new=AsyncMock(return_value=health),
-        ) as mock_stats,
-        patch(
-            "web_search_frontend.services.indexer_admin_client.fetch_failed_jobs",
-            new=AsyncMock(return_value=failed_jobs),
-        ) as mock_failed,
-    ):
+    with patch(
+        "web_search_frontend.services.indexer_admin_client.fetch_indexer_stats",
+        new=AsyncMock(return_value=health),
+    ) as mock_stats:
         first = await indexer_admin_client_module.get_indexer_admin_read_model()
         second = await indexer_admin_client_module.get_indexer_admin_read_model()
 
@@ -43,31 +36,21 @@ async def test_get_indexer_admin_read_model_uses_cache():
     assert second["health"]["reachable"] is True
     assert second["health"]["ok"] is True
     assert second["health"]["indexed_pages"] == 12
-    assert first["failed_jobs"][0]["job_id"] == "job-1"
-    assert second["failed_jobs"][0]["job_id"] == "job-1"
     assert first["snapshot_generated_at"] == second["snapshot_generated_at"]
     assert first["snapshot_generated_at"] is not None
     assert first["snapshot_loaded_from"] == "live"
     assert second["snapshot_loaded_from"] == "memory"
     mock_stats.assert_awaited_once_with()
-    mock_failed.assert_awaited_once_with(limit=50)
 
 
 @pytest.mark.asyncio
 async def test_prewarm_indexer_admin_cache_populates_cache():
     health = {"reachable": True, "ok": True, "indexed_pages": 12}
-    failed_jobs = [{"job_id": "job-1"}]
 
-    with (
-        patch(
-            "web_search_frontend.services.indexer_admin_client.fetch_indexer_stats",
-            new=AsyncMock(return_value=health),
-        ) as mock_stats,
-        patch(
-            "web_search_frontend.services.indexer_admin_client.fetch_failed_jobs",
-            new=AsyncMock(return_value=failed_jobs),
-        ) as mock_failed,
-    ):
+    with patch(
+        "web_search_frontend.services.indexer_admin_client.fetch_indexer_stats",
+        new=AsyncMock(return_value=health),
+    ) as mock_stats:
         await indexer_admin_client_module.prewarm_indexer_admin_cache(
             attempts=1, delay_seconds=0
         )
@@ -77,7 +60,5 @@ async def test_prewarm_indexer_admin_cache_populates_cache():
     assert cached["health"]["reachable"] is True
     assert cached["health"]["ok"] is True
     assert cached["health"]["indexed_pages"] == 12
-    assert cached["failed_jobs"][0]["job_id"] == "job-1"
     assert cached["snapshot_loaded_from"] == "shared"
     mock_stats.assert_awaited_once_with()
-    mock_failed.assert_awaited_once_with(limit=50)

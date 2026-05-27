@@ -314,13 +314,12 @@ class TestCrawlerInstancesConfig:
 
 
 class TestAdminIndexerRoutes:
-    def test_indexer_page_renders_stats_and_failed_jobs(self, client):
+    def test_indexer_page_renders_failed_job_count(self, client):
         client.cookies.clear()
         login_as_admin(client)
 
         indexer_data = {
             "health": {"failed_permanent_jobs": 1},
-            "failed_jobs": [{"job_id": "job-1"}],
             "snapshot_generated_at": "2026-03-25 00:00:00 UTC",
             "snapshot_loaded_from": "live",
         }
@@ -333,6 +332,7 @@ class TestAdminIndexerRoutes:
         assert response.status_code == 200
         assert "Indexer Status" not in response.text
         assert "Failed (Permanent)" in response.text
+        assert "Failed Jobs (Permanent)" not in response.text
         assert "Snapshot refreshed" not in response.text
         assert "Stats are fetched server-side" not in response.text
         mock_read_model.assert_awaited_once_with()

@@ -54,6 +54,5 @@ class IndexerFailedJobsApiResponse(BaseModel):
 
 class IndexerAdminReadModel(BaseModel):
     health: IndexerHealthReadModel = Field(default_factory=IndexerHealthReadModel)
-    failed_jobs: list[IndexerFailedJobReadModel] = Field(default_factory=list)
     snapshot_generated_at: str | None = None
     snapshot_loaded_from: str = "empty"

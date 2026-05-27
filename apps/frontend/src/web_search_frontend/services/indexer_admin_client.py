@@ -15,7 +15,6 @@ from web_search_frontend.services.admin_cache import (
 from web_search_frontend.services.shared_json_cache import SharedJsonTtlCache
 from web_search_contracts.admin_read_models import (
     IndexerAdminReadModel,
-    IndexerFailedJobReadModel,
     IndexerHealthReadModel,
 )
 from web_search_core.background import maintain_refresh_loop
@@ -152,43 +151,10 @@ async def fetch_indexer_stats() -> dict[str, Any]:
     return IndexerHealthReadModel.model_validate(result).model_dump(mode="json")
 
 
-async def fetch_failed_jobs(limit: int = 50) -> list[dict[str, Any]]:
-    """Fetch permanently failed indexing jobs from the indexer service."""
-    if not settings.INDEXER_API_KEY:
-        return []
-
-    base_url = (settings.INDEXER_SERVICE_URL or "").rstrip("/")
-    if not base_url:
-        return []
-
-    url = f"{base_url}/api/v1/indexer/jobs/failed?limit={limit}"
-    headers = {"X-API-Key": settings.INDEXER_API_KEY}
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                jobs = data.get("jobs", [])
-                return [
-                    IndexerFailedJobReadModel.model_validate(job).model_dump(
-                        mode="json"
-                    )
-                    for job in jobs
-                ]
-    except Exception as exc:
-        logger.warning("Failed to fetch failed jobs: %s", exc)
-
-    return []
-
-
 async def _build_indexer_admin_read_model() -> dict[str, Any]:
-    health, failed_jobs = await asyncio.gather(
-        fetch_indexer_stats(),
-        fetch_failed_jobs(limit=50),
-    )
+    health = await fetch_indexer_stats()
     return IndexerAdminReadModel(
         health=health,
-        failed_jobs=failed_jobs,
         snapshot_generated_at=snapshot_timestamp(),
     ).model_dump(mode="json")
 
