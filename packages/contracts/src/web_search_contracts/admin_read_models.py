@@ -20,16 +20,3 @@ class CrawlerInstancesReadModel(BaseModel):
     instances: list[CrawlerInstanceReadModel] = Field(default_factory=list)
     snapshot_generated_at: str | None = None
     snapshot_loaded_from: str = "empty"
-
-
-class IndexerServiceReadModel(BaseModel):
-    reachable: bool = False
-    ok: bool = False
-    http_status: int | None = Field(default=None, ge=100)
-    error: str | None = None
-
-
-class IndexerIndexSummaryApiResponse(BaseModel):
-    ok: bool = True
-    service: str = "indexer"
-    indexed_pages: int = Field(default=0, ge=0)

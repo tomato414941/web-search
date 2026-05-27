@@ -5,7 +5,6 @@ from fastapi import APIRouter, Response
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     Counter,
-    Gauge,
     Histogram,
     generate_latest,
     start_http_server,
@@ -14,11 +13,6 @@ from prometheus_client import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-INDEXER_INDEXED_PAGES = Gauge(
-    "indexer_indexed_pages",
-    "Number of indexed pages stored in documents",
-)
 
 INDEXER_JOB_CLAIMS_TOTAL = Counter(
     "indexer_worker_job_claims_total",
@@ -58,10 +52,6 @@ INDEXER_JOB_CLEANUP_DELETED_TOTAL = Counter(
     "indexer_job_cleanup_deleted_total",
     "Total number of old done jobs deleted by cleanup",
 )
-
-
-def update_indexed_pages_metric(indexed_pages: int) -> None:
-    INDEXER_INDEXED_PAGES.set(indexed_pages)
 
 
 def record_claim_batch(claimed_jobs: int) -> None:

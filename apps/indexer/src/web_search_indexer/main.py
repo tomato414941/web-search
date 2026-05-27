@@ -1,10 +1,9 @@
 """Indexer Service - FastAPI Application (API-only)."""
 
-import asyncio
 import logging
 import os
 import uvicorn
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -14,7 +13,6 @@ from web_search_postgres.migrate import migrate
 from web_search_indexer.api.routes import indexer
 from web_search_indexer.api.routes.health import root_router as health_root_router
 from web_search_indexer.services.index_job_container import configure_index_job_service
-from web_search_core.infrastructure_config import Environment
 
 logger = logging.getLogger(__name__)
 
@@ -26,21 +24,7 @@ async def lifespan(app: FastAPI):
         migrate()
 
     configure_index_job_service()
-    prewarm_task: asyncio.Task[None] | None = None
-    if settings.ENVIRONMENT != Environment.TEST:
-        prewarm_task = asyncio.create_task(
-            indexer.maintain_summary_cache(
-                refresh_interval_seconds=settings.INDEXER_STATS_REFRESH_SEC
-            )
-        )
-
-    try:
-        yield
-    finally:
-        if prewarm_task is not None:
-            prewarm_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await prewarm_task
+    yield
 
 
 # --- FastAPI Application ---

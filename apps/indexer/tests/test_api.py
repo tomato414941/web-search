@@ -1,12 +1,8 @@
 """Test Indexer API security and async queue behavior."""
 
-import asyncio
 from unittest.mock import patch
 
-import pytest
-
 from web_search_indexer.core.config import settings
-from web_search_core import background as background_module
 
 
 class TestIndexerAPIAuth:
@@ -266,15 +262,12 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert "checks" in data
 
-    def test_index_summary_contains_indexed_pages(self, test_client):
+    def test_index_summary_endpoint_is_removed(self, test_client):
         response = test_client.get(
             "/api/v1/indexer/index-summary",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
         )
-        assert response.status_code == 200
-        body = response.json()
-        assert body["ok"] is True
-        assert "indexed_pages" in body
+        assert response.status_code == 404
 
     def test_job_failure_summary_endpoint_is_removed(self, test_client):
         response = test_client.get(
@@ -297,76 +290,7 @@ class TestHealthEndpoint:
         )
         assert response.status_code == 404
 
-    def test_index_summary_uses_short_ttl_cache(self, test_client):
-        from web_search_indexer.api.routes import indexer as route_module
-
-        route_module._clear_index_summary_cache()
-
-        with patch(
-            "web_search_indexer.api.routes.indexer.indexer_service.get_index_stats"
-        ) as mock_stats:
-            mock_stats.return_value = {"total": 42}
-
-            first = test_client.get(
-                "/api/v1/indexer/index-summary",
-                headers={"X-API-Key": settings.INDEXER_API_KEY},
-            )
-            first_stats_calls = mock_stats.call_count
-            second = test_client.get(
-                "/api/v1/indexer/index-summary",
-                headers={"X-API-Key": settings.INDEXER_API_KEY},
-            )
-
-        route_module._clear_index_summary_cache()
-
-        assert first.status_code == 200
-        assert second.status_code == 200
-        assert first.json()["indexed_pages"] == 42
-        assert second.json()["indexed_pages"] == 42
-        assert first_stats_calls == 1
-        assert mock_stats.call_count == first_stats_calls
-
-    def test_prewarm_summary_cache_populates_index_summary_cache(self):
-        from web_search_indexer.api.routes import indexer as route_module
-
-        route_module._clear_index_summary_cache()
-
-        with patch(
-            "web_search_indexer.api.routes.indexer.indexer_service.get_index_stats",
-            return_value={"total": 24},
-        ):
-            asyncio.run(route_module.prewarm_summary_cache(delay_seconds=0))
-
-        assert route_module._index_summary_cache["data"] is not None
-        assert route_module._index_summary_cache["data"]["indexed_pages"] == 24
-
-    def test_maintain_summary_cache_refreshes_periodically(self):
-        from web_search_indexer.api.routes import indexer as route_module
-
-        calls = []
-
-        async def fake_prewarm(*, attempts=60, delay_seconds=5.0):
-            calls.append((attempts, delay_seconds))
-            if len(calls) >= 2:
-                raise asyncio.CancelledError
-
-        async def fake_sleep(_):
-            return None
-
-        with (
-            patch.object(route_module, "prewarm_summary_cache", fake_prewarm),
-            patch.object(background_module.asyncio, "sleep", fake_sleep),
-        ):
-            with pytest.raises(asyncio.CancelledError):
-                asyncio.run(
-                    route_module.maintain_summary_cache(refresh_interval_seconds=15)
-                )
-
-        assert calls == [(60, 5.0), (1, 0)]
-
-    def test_metrics_endpoint_exposes_indexed_pages(self, test_client):
+    def test_metrics_endpoint_returns_prometheus_payload(self, test_client):
         response = test_client.get("/metrics")
         assert response.status_code == 200
         assert "text/plain" in response.headers["content-type"]
-        body = response.text
-        assert "indexer_indexed_pages" in body

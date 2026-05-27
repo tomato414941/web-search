@@ -1,17 +1,11 @@
 """Indexer API Router - for remote crawler to submit pages."""
 
-import asyncio
 import logging
 import secrets
-import time
 from fastapi import APIRouter, HTTPException, Header
 from web_search_indexer.core.config import settings
-from web_search_indexer.metrics import update_indexed_pages_metric
-from web_search_indexer.services.indexer import indexer_service
 from web_search_indexer.services.index_job_container import index_job_service
-from web_search_contracts.admin_read_models import IndexerIndexSummaryApiResponse
 from web_search_contracts.indexer_api import IndexPageRequest
-from web_search_core.background import maintain_refresh_loop
 from web_search_indexer.services.information_origin import calculate_information_origin
 from web_search_indexer.services.pagerank import (
     calculate_domain_pagerank,
@@ -21,35 +15,6 @@ from web_search_indexer.services.pagerank import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/indexer")
-
-_index_summary_cache: dict[str, object] = {"data": None, "expires": 0.0}
-
-
-def _clear_index_summary_cache() -> None:
-    _index_summary_cache["data"] = None
-    _index_summary_cache["expires"] = 0.0
-
-
-def _cache_index_summary_payload(payload: dict) -> dict:
-    normalized = IndexerIndexSummaryApiResponse.model_validate(payload).model_dump(
-        mode="json"
-    )
-    _index_summary_cache["data"] = normalized
-    _index_summary_cache["expires"] = time.monotonic() + max(
-        1, settings.INDEXER_STATS_CACHE_TTL_SEC
-    )
-    return normalized
-
-
-async def _refresh_index_summary_cache() -> dict:
-    stats = await asyncio.to_thread(indexer_service.get_index_stats)
-    payload = {
-        "ok": True,
-        "service": "indexer",
-        "indexed_pages": stats.get("total", 0),
-    }
-    update_indexed_pages_metric(payload["indexed_pages"])
-    return _cache_index_summary_payload(payload)
 
 
 def verify_api_key(x_api_key: str) -> None:
@@ -136,48 +101,3 @@ async def trigger_origin_scores(
     except Exception as e:
         logger.error("Origin score calculation failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Origin score calculation failed")
-
-
-@router.get("/index-summary", response_model=IndexerIndexSummaryApiResponse)
-async def index_summary(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
-    """Indexer index summary."""
-    verify_api_key(x_api_key)
-
-    now = time.monotonic()
-    cached = _index_summary_cache["data"]
-    if cached is not None and now < float(_index_summary_cache["expires"]):
-        update_indexed_pages_metric(cached["indexed_pages"])  # type: ignore[index]
-        return cached  # type: ignore[return-value]
-
-    return await _refresh_index_summary_cache()
-
-
-async def prewarm_summary_cache(
-    *, attempts: int = 60, delay_seconds: float = 5.0
-) -> None:
-    for _attempt in range(attempts):
-        if delay_seconds > 0:
-            await asyncio.sleep(delay_seconds)
-        try:
-            await _refresh_index_summary_cache()
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            logger.warning("Failed to prewarm indexer summary cache: %s", exc)
-            _clear_index_summary_cache()
-            continue
-        logger.info("Prewarmed indexer summary cache")
-        return
-
-    logger.warning("Indexer summary prewarm gave up after %d attempts", attempts)
-
-
-async def maintain_summary_cache(*, refresh_interval_seconds: float) -> None:
-    async def refresh_once() -> None:
-        await prewarm_summary_cache(attempts=1, delay_seconds=0)
-
-    await maintain_refresh_loop(
-        initial_call=prewarm_summary_cache,
-        periodic_call=refresh_once,
-        refresh_interval_seconds=refresh_interval_seconds,
-    )

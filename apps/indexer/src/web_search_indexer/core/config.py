@@ -30,8 +30,6 @@ class IndexerSettings(InfrastructureSettings):
     INDEXER_JOB_RETRY_BASE_SEC: int = 5
     INDEXER_JOB_RETRY_MAX_SEC: int = 1800
     INDEXER_JOB_CONCURRENCY: int = 5
-    INDEXER_STATS_CACHE_TTL_SEC: int = 120
-    INDEXER_STATS_REFRESH_SEC: int = 60
 
     # PageRank scheduling
     PAGERANK_INTERVAL_HOURS: int = 24
