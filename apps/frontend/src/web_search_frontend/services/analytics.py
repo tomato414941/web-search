@@ -155,64 +155,56 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
     }
 
     with db_cursor() as (conn, _):
-        if _repo.table_exists(conn, "search_requests"):
-            impression_rows = _telemetry_repo.request_metrics(conn, cutoff_str)
+        impression_rows = _telemetry_repo.request_metrics(conn, cutoff_str)
 
-            impressions = len(impression_rows)
-            zero_hits = sum(
-                1 for _, result_count, _ in impression_rows if result_count == 0
-            )
-            request_ids = {
-                request_id for request_id, _, _ in impression_rows if request_id
-            }
-            latencies = [
-                int(latency) for _, _, latency in impression_rows if latency is not None
-            ]
+        impressions = len(impression_rows)
+        zero_hits = sum(
+            1 for _, result_count, _ in impression_rows if result_count == 0
+        )
+        request_ids = {request_id for request_id, _, _ in impression_rows if request_id}
+        latencies = [
+            int(latency) for _, _, latency in impression_rows if latency is not None
+        ]
 
-            clicked_request_ids = _telemetry_repo.clicked_request_ids(conn, cutoff_str)
-            clicked_impressions = len(request_ids & clicked_request_ids)
+        clicked_request_ids = _telemetry_repo.clicked_request_ids(conn, cutoff_str)
+        clicked_impressions = len(request_ids & clicked_request_ids)
 
-            click_ranks = _telemetry_repo.click_ranks(conn, cutoff_str)
+        click_ranks = _telemetry_repo.click_ranks(conn, cutoff_str)
 
-            search_data["impressions"] = impressions
-            search_data["zero_hit_rate"] = _ratio_percent(zero_hits, impressions)
-            search_data["click_through_rate"] = _ratio_percent(
-                clicked_impressions, impressions
-            )
-            search_data["avg_click_rank"] = (
-                round(sum(click_ranks) / len(click_ranks), 2) if click_ranks else 0.0
-            )
-            search_data["p50_ms"] = _percentile(latencies, 0.50)
-            search_data["p95_ms"] = _percentile(latencies, 0.95)
+        search_data["impressions"] = impressions
+        search_data["zero_hit_rate"] = _ratio_percent(zero_hits, impressions)
+        search_data["click_through_rate"] = _ratio_percent(
+            clicked_impressions, impressions
+        )
+        search_data["avg_click_rank"] = (
+            round(sum(click_ranks) / len(click_ranks), 2) if click_ranks else 0.0
+        )
+        search_data["p50_ms"] = _percentile(latencies, 0.50)
+        search_data["p95_ms"] = _percentile(latencies, 0.95)
 
-        if _repo.table_exists(conn, "documents"):
-            indexed_count = _repo.count_indexed_since(conn, cutoff_str)
-            crawl_data["indexed_count"] = indexed_count
+        indexed_count = _repo.count_indexed_since(conn, cutoff_str)
+        crawl_data["indexed_count"] = indexed_count
 
-            short_count = _repo.count_short_content_since(conn, cutoff_str)
-            crawl_data["short_content_rate"] = _ratio_percent(
-                short_count, indexed_count
-            )
+        short_count = _repo.count_short_content_since(conn, cutoff_str)
+        crawl_data["short_content_rate"] = _ratio_percent(short_count, indexed_count)
 
-            total_with_content, unique_contents = _repo.content_duplicate_counts(
-                conn, cutoff_str
-            )
-            duplicate_count = max(total_with_content - unique_contents, 0)
-            crawl_data["duplicate_content_rate"] = _ratio_percent(
-                duplicate_count, total_with_content
-            )
+        total_with_content, unique_contents = _repo.content_duplicate_counts(
+            conn, cutoff_str
+        )
+        duplicate_count = max(total_with_content - unique_contents, 0)
+        crawl_data["duplicate_content_rate"] = _ratio_percent(
+            duplicate_count, total_with_content
+        )
 
-        if _repo.table_exists(conn, "urls"):
-            crawl_data["pending_count"] = _repo.count_pending_urls(conn)
+        crawl_data["pending_count"] = _repo.count_pending_urls(conn)
 
-        if _repo.table_exists(conn, "crawl_logs"):
-            raw_status_counts = _repo.crawl_status_counts(
-                conn, cutoff_epoch, CRAWL_ATTEMPT_STATUSES
-            )
-            status_counts = summarize_crawl_attempt_counts(raw_status_counts)
-            attempts = sum(status_counts.values())
-            success = status_counts.get(str(CrawlAttemptSummaryStatus.SUBMITTED), 0)
-            crawl_data["crawl_success_rate"] = _ratio_percent(success, attempts)
+        raw_status_counts = _repo.crawl_status_counts(
+            conn, cutoff_epoch, CRAWL_ATTEMPT_STATUSES
+        )
+        status_counts = summarize_crawl_attempt_counts(raw_status_counts)
+        attempts = sum(status_counts.values())
+        success = status_counts.get(str(CrawlAttemptSummaryStatus.SUBMITTED), 0)
+        crawl_data["crawl_success_rate"] = _ratio_percent(success, attempts)
 
     return {
         "window": f"{window_hours}h",

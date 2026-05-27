@@ -138,20 +138,3 @@ class AnalyticsRepository:
         counts = {str(status): int(count) for status, count in cur.fetchall()}
         cur.close()
         return counts
-
-    # -- helpers --------------------------------------------------------------
-
-    @staticmethod
-    def table_exists(conn: Any, table_name: str) -> bool:
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                "SELECT EXISTS ("
-                "  SELECT 1 FROM information_schema.tables"
-                "  WHERE table_schema = 'public' AND table_name = %s"
-                ")",
-                (table_name,),
-            )
-            return bool(cur.fetchone()[0])
-        finally:
-            cur.close()
