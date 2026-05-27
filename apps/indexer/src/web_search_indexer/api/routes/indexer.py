@@ -154,23 +154,6 @@ async def get_job_status(
     return {"ok": True, **job}
 
 
-@router.post("/jobs/{job_id}/retry")
-async def retry_failed_job(
-    job_id: str,
-    x_api_key: str = Header(..., alias="X-API-Key"),
-) -> dict:
-    """Reset a permanently failed job back to pending for re-processing."""
-    verify_api_key(x_api_key)
-    success = index_job_service.retry_failed_job(job_id)
-    if not success:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found or not in failed_permanent status",
-        )
-    _clear_failed_jobs_cache()
-    return {"ok": True, "job_id": job_id, "message": "Job reset to pending"}
-
-
 @router.post("/pagerank")
 async def trigger_pagerank(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
     """Manually trigger PageRank recalculation (both page and domain)."""

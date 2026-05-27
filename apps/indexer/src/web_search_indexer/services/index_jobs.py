@@ -12,7 +12,6 @@ from web_search_indexer.services.dedupe import build_dedupe_key, hash_text
 from web_search_indexer.services.job_recovery import (
     cleanup_old_done_jobs,
     get_failed_permanent_jobs,
-    retry_failed_job,
 )
 from web_search_core.retry import RetryPolicy
 from web_search_contracts.enums import CLAIMABLE_JOB_STATUSES, IndexJobStatus
@@ -252,10 +251,6 @@ class IndexJobService:
     ) -> list[dict[str, Any]]:
         """Return failed_permanent jobs for admin visibility."""
         return get_failed_permanent_jobs(limit=limit, offset=offset)
-
-    def retry_failed_job(self, job_id: str) -> bool:
-        """Reset a failed_permanent job back to pending. Returns True if reset."""
-        return retry_failed_job(job_id, self._now_ts())
 
     def _row_to_job(self, row: tuple[Any, ...]) -> IndexJob:
         return IndexJob(

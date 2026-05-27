@@ -61,13 +61,3 @@ def get_failed_permanent_jobs(
         }
         for row in rows
     ]
-
-
-def retry_failed_job(job_id: str, now_ts: int) -> bool:
-    """Reset a failed_permanent job back to pending. Returns True if reset."""
-    return IndexJobRepository.retry_failed_job(
-        job_id=job_id,
-        now_ts=now_ts,
-        status_pending=STATUS_PENDING,
-        status_failed_permanent=STATUS_FAILED_PERMANENT,
-    )

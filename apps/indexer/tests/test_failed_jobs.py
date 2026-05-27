@@ -1,10 +1,9 @@
-"""Tests for failed_permanent job visibility and retry."""
+"""Tests for failed_permanent job visibility."""
 
 from web_search_indexer.core.config import settings
 from web_search_indexer.services.index_job_container import index_job_service
 from web_search_indexer.services.index_jobs import (
     STATUS_FAILED_PERMANENT,
-    STATUS_PENDING,
 )
 from web_search_postgres.search import get_connection, sql_placeholder
 
@@ -47,34 +46,6 @@ class TestGetFailedPermanentJobs:
         assert jobs[0]["last_error"] == "test error"
 
 
-class TestRetryFailedJob:
-    def test_resets_to_pending(self):
-        job_id, _ = index_job_service.enqueue(
-            url="http://retry.example.com",
-            title="Retry",
-            content="Content",
-            outlinks=[],
-        )
-        _force_fail_job(job_id)
-
-        success = index_job_service.retry_failed_job(job_id)
-        assert success is True
-
-        status = index_job_service.get_job_status(job_id)
-        assert status["status"] == STATUS_PENDING
-        assert status["retry_count"] == 0
-
-    def test_returns_false_for_non_failed_job(self):
-        job_id, _ = index_job_service.enqueue(
-            url="http://pending.example.com",
-            title="Pending",
-            content="Content2",
-            outlinks=[],
-        )
-        success = index_job_service.retry_failed_job(job_id)
-        assert success is False
-
-
 class TestFailedJobsAPI:
     def test_get_failed_jobs_requires_api_key(self, test_client):
         resp = test_client.get("/api/v1/indexer/jobs/failed")
@@ -89,26 +60,3 @@ class TestFailedJobsAPI:
         data = resp.json()
         assert data["ok"] is True
         assert isinstance(data["jobs"], list)
-
-    def test_retry_nonexistent_job(self, test_client):
-        resp = test_client.post(
-            "/api/v1/indexer/jobs/nonexistent-id/retry",
-            headers=API_KEY_HEADER,
-        )
-        assert resp.status_code == 404
-
-    def test_retry_failed_job_via_api(self, test_client):
-        job_id, _ = index_job_service.enqueue(
-            url="http://api-retry.example.com",
-            title="API Retry",
-            content="API Content",
-            outlinks=[],
-        )
-        _force_fail_job(job_id)
-
-        resp = test_client.post(
-            f"/api/v1/indexer/jobs/{job_id}/retry",
-            headers=API_KEY_HEADER,
-        )
-        assert resp.status_code == 200
-        assert resp.json()["ok"] is True

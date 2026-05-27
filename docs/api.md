@@ -86,10 +86,6 @@ Returns asynchronous indexing job status.
 
 Lists failed indexing jobs.
 
-### `POST /api/v1/indexer/jobs/{job_id}/retry`
-
-Retries a failed indexing job.
-
 ### `GET /api/v1/indexer/stats`
 
 Returns indexer statistics and job queue metrics.

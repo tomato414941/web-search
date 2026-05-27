@@ -500,36 +500,3 @@ class IndexJobRepository:
             return rows
         finally:
             con.close()
-
-    @staticmethod
-    def retry_failed_job(
-        *,
-        job_id: str,
-        now_ts: int,
-        status_pending: str,
-        status_failed_permanent: str,
-    ) -> bool:
-        ph = sql_placeholder()
-        con = get_connection()
-        try:
-            cur = con.cursor()
-            cur.execute(
-                f"""
-                UPDATE index_jobs
-                SET status = {ph},
-                    retry_count = 0,
-                    available_at = {ph},
-                    lease_until = NULL,
-                    worker_id = NULL,
-                    last_error = NULL,
-                    updated_at = {ph}
-                WHERE job_id = {ph} AND status = {ph}
-                """,
-                (status_pending, now_ts, now_ts, job_id, status_failed_permanent),
-            )
-            affected = cur.rowcount
-            con.commit()
-            cur.close()
-            return affected > 0
-        finally:
-            con.close()
