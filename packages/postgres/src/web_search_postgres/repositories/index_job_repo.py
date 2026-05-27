@@ -473,30 +473,3 @@ class IndexJobRepository:
             return deleted
         finally:
             con.close()
-
-    @staticmethod
-    def list_failed_permanent_jobs(
-        *,
-        status_failed_permanent: str,
-        limit: int,
-        offset: int,
-    ) -> list[tuple[Any, ...]]:
-        ph = sql_placeholder()
-        con = get_connection()
-        try:
-            cur = con.cursor()
-            cur.execute(
-                f"""
-                SELECT job_id, url, last_error, retry_count, created_at, updated_at
-                FROM index_jobs
-                WHERE status = {ph}
-                ORDER BY updated_at DESC
-                LIMIT {ph} OFFSET {ph}
-                """,
-                (status_failed_permanent, limit, offset),
-            )
-            rows = cur.fetchall()
-            cur.close()
-            return rows
-        finally:
-            con.close()

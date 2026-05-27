@@ -4,8 +4,6 @@ from web_search_contracts.admin_read_models import (
     CrawlerInstanceReadModel,
     CrawlerInstanceStatusReadModel,
     CrawlerInstancesReadModel,
-    IndexerFailedJobsApiResponse,
-    IndexerFailedJobReadModel,
     IndexerHealthReadModel,
     IndexerStatsApiResponse,
 )
@@ -26,8 +24,6 @@ __all__ = [
     "IndexJobStatus",
     "IndexPageRequest",
     "IndexPageResponse",
-    "IndexerFailedJobsApiResponse",
-    "IndexerFailedJobReadModel",
     "IndexerHealthReadModel",
     "IndexerStatsApiResponse",
     "SearchMode",

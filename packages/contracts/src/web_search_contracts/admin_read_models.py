@@ -33,20 +33,5 @@ class IndexerHealthReadModel(BaseModel):
     failed_permanent_jobs: int = Field(default=0, ge=0)
 
 
-class IndexerFailedJobReadModel(BaseModel):
-    job_id: str = ""
-    url: str | None = None
-    last_error: str | None = None
-    retry_count: int | None = Field(default=None, ge=0)
-    created_at: int | str | None = None
-    updated_at: int | str | None = None
-
-
 class IndexerStatsApiResponse(IndexerHealthReadModel):
     service: str = "indexer"
-
-
-class IndexerFailedJobsApiResponse(BaseModel):
-    ok: bool = True
-    jobs: list[IndexerFailedJobReadModel] = Field(default_factory=list)
-    count: int = Field(default=0, ge=0)

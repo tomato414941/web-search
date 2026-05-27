@@ -11,7 +11,6 @@ from web_search_indexer.metrics import record_claim_batch, record_job_result
 from web_search_indexer.services.dedupe import build_dedupe_key, hash_text
 from web_search_indexer.services.job_recovery import (
     cleanup_old_done_jobs,
-    get_failed_permanent_jobs,
 )
 from web_search_core.retry import RetryPolicy
 from web_search_contracts.enums import CLAIMABLE_JOB_STATUSES, IndexJobStatus
@@ -245,12 +244,6 @@ class IndexJobService:
     def cleanup_old_done_jobs(self, max_age_seconds: int = 7 * 86400) -> int:
         """Delete completed jobs older than max_age_seconds. Returns deleted count."""
         return cleanup_old_done_jobs(self._now_ts(), max_age_seconds)
-
-    def get_failed_permanent_jobs(
-        self, *, limit: int = 100, offset: int = 0
-    ) -> list[dict[str, Any]]:
-        """Return failed_permanent jobs for admin visibility."""
-        return get_failed_permanent_jobs(limit=limit, offset=offset)
 
     def _row_to_job(self, row: tuple[Any, ...]) -> IndexJob:
         return IndexJob(

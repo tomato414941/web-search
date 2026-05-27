@@ -39,25 +39,3 @@ def cleanup_old_done_jobs(now_ts: int, max_age_seconds: int = 7 * 86400) -> int:
     if deleted > 0:
         logger.info("Cleaned up %d old done jobs", deleted)
     return deleted
-
-
-def get_failed_permanent_jobs(
-    *, limit: int = 100, offset: int = 0
-) -> list[dict[str, Any]]:
-    """Return failed_permanent jobs for admin visibility."""
-    rows = IndexJobRepository.list_failed_permanent_jobs(
-        status_failed_permanent=STATUS_FAILED_PERMANENT,
-        limit=limit,
-        offset=offset,
-    )
-    return [
-        {
-            "job_id": str(row[0]),
-            "url": str(row[1]),
-            "last_error": row[2],
-            "retry_count": int(row[3]),
-            "created_at": row[4],
-            "updated_at": row[5],
-        }
-        for row in rows
-    ]
