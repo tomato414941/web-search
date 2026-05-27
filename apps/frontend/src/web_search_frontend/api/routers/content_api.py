@@ -1,9 +1,8 @@
 """Content API Router - Full text content retrieval for indexed pages."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from web_search_frontend.api.deps import require_api_key
 from web_search_frontend.api.middleware.rate_limiter import limiter
 from web_search_frontend.services.db_helpers import db_cursor
 from web_search_postgres.repositories.document_repo import DocumentRepository
@@ -34,12 +33,11 @@ class ContentResponse(BaseModel):
 async def api_content(
     request: Request,  # needed by limiter
     url: str,
-    api_key_info: dict = Depends(require_api_key),
 ):
     """Retrieve full text content for a previously indexed URL.
 
-    Requires API key authentication. Use this after searching to get
-    the complete text of a page without re-crawling.
+    Use this after searching to get the complete text of a page without
+    re-crawling.
     """
     with db_cursor() as (conn, _):
         row = DocumentRepository.fetch_by_url(conn, url)

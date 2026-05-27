@@ -80,7 +80,7 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
 ### Authentication
 
 Anonymous access is available with IP-based rate limiting (100 req/min).
-For higher limits, use an API key via header or query parameter:
+Provisioned API keys are optional and add usage tracking:
 
 ```bash
 # Header (recommended)

@@ -100,7 +100,7 @@ class SearchHit(BaseModel):
     )
     content: str | None = Field(
         default=None,
-        description="Full page text (only when include_content=true with API key)",
+        description="Full page text (only when include_content=true)",
     )
 
 
@@ -193,7 +193,7 @@ async def api_search(
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
     search_mode = SearchMode.BM25
 
-    want_content = include_content == "true" and api_key_info is not None
+    want_content = include_content == "true"
 
     data = (
         await asyncio.to_thread(

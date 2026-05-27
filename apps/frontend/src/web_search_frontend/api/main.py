@@ -100,14 +100,12 @@ API keys are **optional**. Anonymous requests work but don't include usage track
 | Header | `X-API-Key: pbs_...` |
 | Query param | `?api_key=pbs_...` |
 
-Request an API key via the [admin dashboard](/admin/).
-
 ## Rate Limits
 
 | Scope | Limit |
 |---|---|
 | IP-based (anonymous) | 100 req/min |
-| API key (authenticated) | 1,000 req/day |
+| API key usage tracking | 1,000 req/day |
 """
 
 app = FastAPI(
