@@ -18,12 +18,9 @@ from web_search_frontend.services.admin_cache import (
 from web_search_frontend.services.crawler_admin_client import fetch_dashboard_status
 from web_search_frontend.services.shared_json_cache import SharedJsonTtlCache
 from web_search_core.background import maintain_refresh_loop
-from web_search_frontend.services.db_helpers import db_cursor
-from web_search_postgres.repositories.analytics_repo import AnalyticsRepository
 
 logger = logging.getLogger(__name__)
 
-_repo = AnalyticsRepository
 _SHARED_CACHE_PATH = os.path.join(
     tempfile.gettempdir(), "pbs-admin-dashboard-cache.json"
 )
@@ -37,9 +34,7 @@ _dashboard_build_lock = asyncio.Lock()
 
 def _empty_dashboard_data() -> dict[str, Any]:
     return {
-        "indexed_pages": 0,
-        "indexed_delta": None,
-        "last_crawl": None,
+        "indexed_documents": None,
         "worker_status": "unknown",
         "health": {"level": "ok", "messages": []},
         "snapshot_generated_at": None,
@@ -121,29 +116,25 @@ def _dashboard_build_singleflight():
     )
 
 
-def _get_db_dashboard_data() -> dict[str, Any]:
-    data: dict[str, Any] = {
-        "indexed_pages": 0,
-        "indexed_delta": None,
-        "last_crawl": None,
-    }
-
+def _get_search_index_dashboard_data() -> dict[str, Any]:
     try:
-        with db_cursor() as (conn, _):
-            data["indexed_pages"] = _repo.document_count_estimate(conn)
-    except Exception as exc:
-        logger.warning(f"Failed to get DB stats: {exc}")
+        from web_search_opensearch.client import INDEX_NAME, get_client
 
-    return data
+        client = get_client(settings.OPENSEARCH_URL)
+        count = client.count(index=INDEX_NAME)["count"]
+        return {"indexed_documents": int(count)}
+    except Exception as exc:
+        logger.warning("Failed to get OpenSearch document count: %s", exc)
+        return {"indexed_documents": None}
 
 
 async def _build_dashboard_data() -> dict[str, Any]:
     data = _empty_dashboard_data()
-    db_data, stats = await asyncio.gather(
-        asyncio.to_thread(_get_db_dashboard_data),
+    index_data, stats = await asyncio.gather(
+        asyncio.to_thread(_get_search_index_dashboard_data),
         fetch_dashboard_status(),
     )
-    data.update(db_data)
+    data.update(index_data)
 
     crawler_reachable = False
     if stats:

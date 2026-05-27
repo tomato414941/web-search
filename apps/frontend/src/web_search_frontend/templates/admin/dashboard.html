@@ -25,13 +25,14 @@
         <h2>Key Metrics</h2>
         <div class="stats-grid">
             <div class="stat-box">
-                <div class="value">{{ "{:,}".format(data.indexed_pages) }}</div>
-                <div class="label">Indexed Pages</div>
-                {% if data.indexed_delta is not none and data.indexed_delta > 0 %}
-                <div class="delta positive">+{{ data.indexed_delta }} today</div>
-                {% elif data.indexed_delta is not none and data.indexed_delta == 0 %}
-                <div class="delta neutral">No change today</div>
-                {% endif %}
+                <div class="value">
+                    {% if data.indexed_documents is none %}
+                    Unavailable
+                    {% else %}
+                    {{ "{:,}".format(data.indexed_documents) }}
+                    {% endif %}
+                </div>
+                <div class="label">Indexed Documents</div>
             </div>
         </div>
     </div>

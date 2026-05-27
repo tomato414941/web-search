@@ -36,12 +36,10 @@ async def test_dashboard_uses_cache(monkeypatch):
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
         MagicMock(
             return_value={
-                "indexed_pages": 123,
-                "indexed_delta": 7,
-                "last_crawl": "2026-03-06T00:00:00Z",
+                "indexed_documents": 123,
             }
         ),
     )
@@ -64,14 +62,14 @@ async def test_dashboard_uses_cache(monkeypatch):
     first["health"]["messages"].append("mutated")
     second = await admin_dashboard.get_dashboard_data()
 
-    assert first["indexed_pages"] == 123
-    assert second["indexed_pages"] == 123
+    assert first["indexed_documents"] == 123
+    assert second["indexed_documents"] == 123
     assert first["snapshot_generated_at"] == second["snapshot_generated_at"]
     assert first["snapshot_loaded_from"] == "live"
     assert second["snapshot_loaded_from"] == "memory"
     assert "mutated" not in second["health"]["messages"]
     assert (
-        admin_dashboard._get_db_dashboard_data.call_count == 1  # type: ignore[attr-defined]
+        admin_dashboard._get_search_index_dashboard_data.call_count == 1  # type: ignore[attr-defined]
     )
     assert mock_fetch_stats.await_count == 1
 
@@ -87,12 +85,10 @@ async def test_dashboard_records_cache_access_metrics(monkeypatch, tmp_path):
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
         MagicMock(
             return_value={
-                "indexed_pages": 111,
-                "indexed_delta": 2,
-                "last_crawl": "2026-03-07T00:00:00Z",
+                "indexed_documents": 111,
             }
         ),
     )
@@ -167,12 +163,10 @@ async def test_dashboard_uses_shared_file_cache_across_workers(monkeypatch, tmp_
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
         MagicMock(
             return_value={
-                "indexed_pages": 456,
-                "indexed_delta": 11,
-                "last_crawl": "2026-03-07T00:00:00Z",
+                "indexed_documents": 456,
             }
         ),
     )
@@ -195,11 +189,11 @@ async def test_dashboard_uses_shared_file_cache_across_workers(monkeypatch, tmp_
     admin_dashboard._clear_dashboard_memory_cache()
     second = await admin_dashboard.get_dashboard_data()
 
-    assert first["indexed_pages"] == 456
-    assert second["indexed_pages"] == 456
+    assert first["indexed_documents"] == 456
+    assert second["indexed_documents"] == 456
     assert first["snapshot_generated_at"] == second["snapshot_generated_at"]
     assert second["snapshot_loaded_from"] == "shared"
-    assert admin_dashboard._get_db_dashboard_data.call_count == 1  # type: ignore[attr-defined]
+    assert admin_dashboard._get_search_index_dashboard_data.call_count == 1  # type: ignore[attr-defined]
     assert mock_fetch_stats.await_count == 1
 
 
@@ -214,12 +208,10 @@ async def test_dashboard_singleflights_concurrent_cache_misses(monkeypatch, tmp_
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
         MagicMock(
             return_value={
-                "indexed_pages": 654,
-                "indexed_delta": 12,
-                "last_crawl": "2026-03-21T00:00:00Z",
+                "indexed_documents": 654,
             }
         ),
     )
@@ -252,9 +244,9 @@ async def test_dashboard_singleflights_concurrent_cache_misses(monkeypatch, tmp_
 
     first, second = await asyncio.gather(first_task, second_task)
 
-    assert first["indexed_pages"] == 654
-    assert second["indexed_pages"] == 654
-    assert admin_dashboard._get_db_dashboard_data.call_count == 1  # type: ignore[attr-defined]
+    assert first["indexed_documents"] == 654
+    assert second["indexed_documents"] == 654
+    assert admin_dashboard._get_search_index_dashboard_data.call_count == 1  # type: ignore[attr-defined]
     assert mock_fetch_stats.await_count == 1
 
 
@@ -269,8 +261,8 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
-        MagicMock(return_value={"indexed_pages": 999}),
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
+        MagicMock(return_value={"indexed_documents": 999}),
     )
     monkeypatch.setattr(
         "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",
@@ -281,9 +273,7 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
     async def fake_singleflight():
         admin_dashboard._set_cached_dashboard_data(
             {
-                "indexed_pages": 777,
-                "indexed_delta": 0,
-                "last_crawl": None,
+                "indexed_documents": 777,
                 "worker_status": "running",
                 "health": {"level": "ok", "messages": []},
             }
@@ -296,8 +286,8 @@ async def test_dashboard_rechecks_cache_after_singleflight_wait(monkeypatch, tmp
 
     data = await admin_dashboard.get_dashboard_data()
 
-    assert data["indexed_pages"] == 777
-    assert admin_dashboard._get_db_dashboard_data.call_count == 0  # type: ignore[attr-defined]
+    assert data["indexed_documents"] == 777
+    assert admin_dashboard._get_search_index_dashboard_data.call_count == 0  # type: ignore[attr-defined]
     assert admin_dashboard.fetch_dashboard_status.await_count == 0  # type: ignore[attr-defined]
 
 
@@ -308,12 +298,10 @@ async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
         MagicMock(
             return_value={
-                "indexed_pages": 321,
-                "indexed_delta": 8,
-                "last_crawl": "2026-03-07T00:00:00Z",
+                "indexed_documents": 321,
             }
         ),
     )
@@ -336,7 +324,7 @@ async def test_prewarm_dashboard_cache_populates_cache(monkeypatch):
     cached = admin_dashboard._get_cached_dashboard_data(time.monotonic())
 
     assert cached is not None
-    assert cached["indexed_pages"] == 321
+    assert cached["indexed_documents"] == 321
     assert mock_fetch_stats.await_count == 1
 
 
@@ -347,12 +335,10 @@ async def test_prewarm_dashboard_cache_records_metrics(monkeypatch):
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
         MagicMock(
             return_value={
-                "indexed_pages": 20,
-                "indexed_delta": 1,
-                "last_crawl": "2026-03-07T00:00:00Z",
+                "indexed_documents": 20,
             }
         ),
     )
@@ -405,8 +391,8 @@ async def test_prewarm_dashboard_cache_skips_unreachable_crawler(monkeypatch):
         30,
     )
     monkeypatch.setattr(
-        "web_search_frontend.services.admin_dashboard._get_db_dashboard_data",
-        MagicMock(return_value={"indexed_pages": 10, "indexed_delta": 1}),
+        "web_search_frontend.services.admin_dashboard._get_search_index_dashboard_data",
+        MagicMock(return_value={"indexed_documents": 10}),
     )
     monkeypatch.setattr(
         "web_search_frontend.services.admin_dashboard.fetch_dashboard_status",

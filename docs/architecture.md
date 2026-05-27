@@ -74,7 +74,7 @@ The project uses a **Folder-Separated Monorepo** pattern:
 | `apps/crawler/` | `web_search_crawler` | **Worker Node**. Fetching & URL Management. | `workers/pipeline.py`, `db/url_store.py`, `db/url_admin_state.py`, `db/url_domain_state.py`, `frontier_planner.py` |
 | `packages/contracts/` | `web_search_contracts` | **Contracts**. Typed APIs and read models shared across services. | `admin_read_models.py`, `indexer_api.py`, `enums.py` |
 | `packages/core/` | `web_search_core` | **Core Runtime**. Shared config, logging, retry, and utility helpers. | `logging_config.py`, `retry.py`, `utils.py` |
-| `packages/postgres/` | `web_search_postgres` | **Database Layer**. PostgreSQL connections, migrations, and repositories. | `search.py`, `migrate.py`, `repositories/analytics_repo.py` |
+| `packages/postgres/` | `web_search_postgres` | **Database Layer**. PostgreSQL connections, migrations, and repositories. | `search.py`, `migrate.py`, `repositories/document_repo.py` |
 | `packages/kernel/` | `web_search_kernel` | **Search Kernel**. Analyzer, query parsing, snippets, and scoring helpers. | `analyzer.py`, `searcher.py`, `snippet.py` |
 | `packages/opensearch/` | `web_search_opensearch` | **Retrieval Adapter**. OpenSearch client, mapping, and BM25 query builder. | `client.py`, `mapping.py`, `search.py` |
 | `packages/indexing/` | `web_search_indexing` | **Experimental Enrichment Adapter**. OpenAI embedding client, schema bootstrap, and backfill image. | `embedding.py`, `backfill_embeddings.py` |
