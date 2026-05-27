@@ -51,4 +51,3 @@ uv run --package web-search-indexer web-search-backfill-temporal-anchor
 *   `GET /api/v1/indexer/jobs/{job_id}`: Get async indexing job status.
 *   `GET /health`: Health check.
 *   `GET /api/v1/indexer/index-summary`: Index summary (requires `X-API-Key`).
-*   `GET /api/v1/indexer/job-failure-summary`: Job failure summary (requires `X-API-Key`).

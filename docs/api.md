@@ -86,10 +86,6 @@ Returns asynchronous indexing job status.
 
 Returns indexer index summary.
 
-### `GET /api/v1/indexer/job-failure-summary`
-
-Returns indexer job failure summary.
-
 ### `GET /health`
 
 Simple liveness check.

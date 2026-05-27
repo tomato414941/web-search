@@ -226,15 +226,6 @@ class IndexJobService:
         record_job_result(result_status)
         return True
 
-    def get_failure_stats(self) -> dict[str, int]:
-        """Return lightweight failure stats using indexed status lookups."""
-        counts = IndexJobRepository.count_jobs_by_status(
-            statuses=(STATUS_FAILED_PERMANENT,)
-        )
-        return {
-            "failed_permanent_jobs": counts.get(STATUS_FAILED_PERMANENT, 0),
-        }
-
     def cleanup_old_done_jobs(self, max_age_seconds: int = 7 * 86400) -> int:
         """Delete completed jobs older than max_age_seconds. Returns deleted count."""
         return cleanup_old_done_jobs(self._now_ts(), max_age_seconds)

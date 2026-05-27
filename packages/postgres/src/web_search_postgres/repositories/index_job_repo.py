@@ -425,32 +425,6 @@ class IndexJobRepository:
             con.close()
 
     @staticmethod
-    def count_jobs_by_status(
-        *,
-        statuses: tuple[str, ...],
-    ) -> dict[str, int]:
-        con = get_connection()
-        ph = sql_placeholder()
-        placeholders = ", ".join(ph for _ in statuses)
-        try:
-            cur = con.cursor()
-            cur.execute(
-                f"""
-                SELECT status, COUNT(*) FROM index_jobs
-                WHERE status IN ({placeholders})
-                GROUP BY status
-                """,
-                statuses,
-            )
-            counts: dict[str, int] = {}
-            for status, count in cur.fetchall():
-                counts[str(status)] = int(count)
-            cur.close()
-            return counts
-        finally:
-            con.close()
-
-    @staticmethod
     def cleanup_old_done_jobs(*, now_ts: int, cutoff: int, status_done: str) -> int:
         ph = sql_placeholder()
         con = get_connection()

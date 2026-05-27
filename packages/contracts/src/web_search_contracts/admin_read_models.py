@@ -33,13 +33,3 @@ class IndexerIndexSummaryApiResponse(BaseModel):
     ok: bool = True
     service: str = "indexer"
     indexed_pages: int = Field(default=0, ge=0)
-
-
-class IndexerJobFailureSummaryReadModel(IndexerServiceReadModel):
-    failed_permanent_jobs: int = Field(default=0, ge=0)
-
-
-class IndexerJobFailureSummaryApiResponse(BaseModel):
-    ok: bool = True
-    service: str = "indexer"
-    failed_permanent_jobs: int = Field(default=0, ge=0)

@@ -9,10 +9,7 @@ from web_search_indexer.core.config import settings
 from web_search_indexer.metrics import update_indexed_pages_metric
 from web_search_indexer.services.indexer import indexer_service
 from web_search_indexer.services.index_job_container import index_job_service
-from web_search_contracts.admin_read_models import (
-    IndexerIndexSummaryApiResponse,
-    IndexerJobFailureSummaryApiResponse,
-)
+from web_search_contracts.admin_read_models import IndexerIndexSummaryApiResponse
 from web_search_contracts.indexer_api import IndexPageRequest
 from web_search_core.background import maintain_refresh_loop
 from web_search_indexer.services.information_origin import calculate_information_origin
@@ -26,17 +23,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/indexer")
 
 _index_summary_cache: dict[str, object] = {"data": None, "expires": 0.0}
-_job_failure_summary_cache: dict[str, object] = {"data": None, "expires": 0.0}
 
 
 def _clear_index_summary_cache() -> None:
     _index_summary_cache["data"] = None
     _index_summary_cache["expires"] = 0.0
-
-
-def _clear_job_failure_summary_cache() -> None:
-    _job_failure_summary_cache["data"] = None
-    _job_failure_summary_cache["expires"] = 0.0
 
 
 def _cache_index_summary_payload(payload: dict) -> dict:
@@ -45,17 +36,6 @@ def _cache_index_summary_payload(payload: dict) -> dict:
     )
     _index_summary_cache["data"] = normalized
     _index_summary_cache["expires"] = time.monotonic() + max(
-        1, settings.INDEXER_STATS_CACHE_TTL_SEC
-    )
-    return normalized
-
-
-def _cache_job_failure_summary_payload(payload: dict) -> dict:
-    normalized = IndexerJobFailureSummaryApiResponse.model_validate(payload).model_dump(
-        mode="json"
-    )
-    _job_failure_summary_cache["data"] = normalized
-    _job_failure_summary_cache["expires"] = time.monotonic() + max(
         1, settings.INDEXER_STATS_CACHE_TTL_SEC
     )
     return normalized
@@ -70,16 +50,6 @@ async def _refresh_index_summary_cache() -> dict:
     }
     update_indexed_pages_metric(payload["indexed_pages"])
     return _cache_index_summary_payload(payload)
-
-
-async def _refresh_job_failure_summary_cache() -> dict:
-    failure_stats = await asyncio.to_thread(index_job_service.get_failure_stats)
-    payload = {
-        "ok": True,
-        "service": "indexer",
-        **failure_stats,
-    }
-    return _cache_job_failure_summary_payload(payload)
 
 
 def verify_api_key(x_api_key: str) -> None:
@@ -182,22 +152,6 @@ async def index_summary(x_api_key: str = Header(..., alias="X-API-Key")) -> dict
     return await _refresh_index_summary_cache()
 
 
-@router.get(
-    "/job-failure-summary",
-    response_model=IndexerJobFailureSummaryApiResponse,
-)
-async def job_failure_summary(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
-    """Indexer job failure summary."""
-    verify_api_key(x_api_key)
-
-    now = time.monotonic()
-    cached = _job_failure_summary_cache["data"]
-    if cached is not None and now < float(_job_failure_summary_cache["expires"]):
-        return cached  # type: ignore[return-value]
-
-    return await _refresh_job_failure_summary_cache()
-
-
 async def prewarm_summary_cache(
     *, attempts: int = 60, delay_seconds: float = 5.0
 ) -> None:
@@ -205,16 +159,12 @@ async def prewarm_summary_cache(
         if delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
         try:
-            await asyncio.gather(
-                _refresh_index_summary_cache(),
-                _refresh_job_failure_summary_cache(),
-            )
+            await _refresh_index_summary_cache()
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             logger.warning("Failed to prewarm indexer summary cache: %s", exc)
             _clear_index_summary_cache()
-            _clear_job_failure_summary_cache()
             continue
         logger.info("Prewarmed indexer summary cache")
         return

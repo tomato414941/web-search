@@ -276,17 +276,12 @@ class TestHealthEndpoint:
         assert body["ok"] is True
         assert "indexed_pages" in body
 
-    def test_job_failure_summary_contains_failed_permanent_count(self, test_client):
+    def test_job_failure_summary_endpoint_is_removed(self, test_client):
         response = test_client.get(
             "/api/v1/indexer/job-failure-summary",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
         )
-        assert response.status_code == 200
-        body = response.json()
-        assert body["ok"] is True
-        assert "failed_permanent_jobs" in body
-        assert "pending_jobs" not in body
-        assert "processing_jobs" not in body
+        assert response.status_code == 404
 
     def test_job_summary_endpoint_is_removed(self, test_client):
         response = test_client.get(
@@ -331,34 +326,19 @@ class TestHealthEndpoint:
         assert first_stats_calls == 1
         assert mock_stats.call_count == first_stats_calls
 
-    def test_prewarm_summary_cache_populates_caches(self):
+    def test_prewarm_summary_cache_populates_index_summary_cache(self):
         from web_search_indexer.api.routes import indexer as route_module
 
         route_module._clear_index_summary_cache()
-        route_module._clear_job_failure_summary_cache()
-        failure_stats = {
-            "failed_permanent_jobs": 0,
-        }
 
-        with (
-            patch(
-                "web_search_indexer.api.routes.indexer.indexer_service.get_index_stats",
-                return_value={"total": 24},
-            ),
-            patch(
-                "web_search_indexer.services.index_job_container.index_job_service.get_failure_stats",
-                return_value=failure_stats,
-            ),
+        with patch(
+            "web_search_indexer.api.routes.indexer.indexer_service.get_index_stats",
+            return_value={"total": 24},
         ):
             asyncio.run(route_module.prewarm_summary_cache(delay_seconds=0))
 
         assert route_module._index_summary_cache["data"] is not None
         assert route_module._index_summary_cache["data"]["indexed_pages"] == 24
-        assert route_module._job_failure_summary_cache["data"] is not None
-        assert (
-            route_module._job_failure_summary_cache["data"]["failed_permanent_jobs"]
-            == 0
-        )
 
     def test_maintain_summary_cache_refreshes_periodically(self):
         from web_search_indexer.api.routes import indexer as route_module
