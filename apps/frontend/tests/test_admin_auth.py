@@ -178,7 +178,8 @@ class TestAdminAuthentication:
         login_as_admin(client)
         response = client.get("/admin/indexer")
         assert response.status_code == 200
-        assert "Indexer Status" in response.text
+        assert "Indexer Jobs" in response.text
+        assert "Indexer Status" not in response.text
         assert "Job Queue" not in response.text
         assert "Service URL" not in response.text
         assert "Indexed Pages" not in response.text
@@ -318,7 +319,7 @@ class TestAdminIndexerRoutes:
         login_as_admin(client)
 
         indexer_data = {
-            "health": {"status": "ok"},
+            "health": {"failed_permanent_jobs": 1},
             "failed_jobs": [{"job_id": "job-1"}],
             "snapshot_generated_at": "2026-03-25 00:00:00 UTC",
             "snapshot_loaded_from": "live",
@@ -330,7 +331,7 @@ class TestAdminIndexerRoutes:
             response = client.get("/admin/indexer")
 
         assert response.status_code == 200
-        assert "Indexer Status" in response.text
+        assert "Indexer Status" not in response.text
         assert "Failed (Permanent)" in response.text
         assert "Snapshot refreshed" not in response.text
         assert "Stats are fetched server-side" not in response.text

@@ -15,25 +15,7 @@
     </div>
 
     <div class="card">
-        <h2>Indexer Status</h2>
-        {% if health.reachable %}
-        <div class="status-row">
-            <span class="status-indicator running"></span>
-            <span>Reachable</span>
-            {% if health.http_status %}
-            <span class="muted">(HTTP {{ health.http_status }})</span>
-            {% endif %}
-        </div>
-        {% else %}
-        <div class="status-row">
-            <span class="status-indicator stopped"></span>
-            <span>Unreachable</span>
-            {% if health.error %}
-            <span class="muted">({{ health.error }})</span>
-            {% endif %}
-        </div>
-        {% endif %}
-
+        <h2>Indexer Jobs</h2>
         <div class="table-scroll">
             <table class="admin-table compact">
                 <tr>
