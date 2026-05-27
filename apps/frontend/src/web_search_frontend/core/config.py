@@ -63,9 +63,6 @@ class Settings(InfrastructureSettings):
     # Indexer API (required - no default for security)
     INDEXER_API_KEY: str | None = None
 
-    # Public API Key Settings
-    API_KEY_DAILY_LIMIT: int = 1000
-
     # Analytics
     ANALYTICS_SALT: str = ""
 

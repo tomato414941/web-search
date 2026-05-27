@@ -63,10 +63,7 @@ Add to `claude_desktop_config.json`:
         "python",
         "-m",
         "paleblue_mcp"
-      ],
-      "env": {
-        "PALEBLUE_API_KEY": "pbs_your_key_here"
-      }
+      ]
     }
   }
 }
@@ -83,7 +80,6 @@ make sync-mcp
 | Environment Variable | Default | Description |
 |---------------------|---------|-------------|
 | `PALEBLUE_BASE_URL` | `https://palebluesearch.com` | API base URL |
-| `PALEBLUE_API_KEY` | (none) | Optional API key for usage tracking |
 | `PALEBLUE_TIMEOUT` | `30` | HTTP timeout in seconds |
 
 ## Why Freshness Metadata?

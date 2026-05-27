@@ -6,16 +6,12 @@ from paleblue_mcp.config import settings
 class PaleBlueClient:
     """HTTP client for PaleBlueSearch API."""
 
-    def __init__(self, base_url: str | None = None, api_key: str | None = None):
+    def __init__(self, base_url: str | None = None):
         self.base_url = base_url or settings.base_url
-        self.api_key = api_key if api_key is not None else settings.api_key
         self.timeout = settings.timeout
 
     def _headers(self) -> dict[str, str]:
-        headers = {"User-Agent": "paleblue-mcp/1.0"}
-        if self.api_key:
-            headers["X-API-Key"] = self.api_key
-        return headers
+        return {"User-Agent": "paleblue-mcp/1.0"}
 
     async def search(
         self,

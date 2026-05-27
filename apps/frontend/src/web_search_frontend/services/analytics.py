@@ -66,13 +66,10 @@ def log_search(
     result_count: int,
     user_agent: str | None,
     search_mode: str = "bm25",
-    api_key_id: str | None = None,
 ) -> None:
     try:
         with db_cursor() as (conn, _):
-            _repo.insert_search_log(
-                conn, query, result_count, search_mode, user_agent, api_key_id
-            )
+            _repo.insert_search_log(conn, query, result_count, search_mode, user_agent)
     except Exception as exc:
         logger.warning(f"Failed to persist search log: {exc}")
 

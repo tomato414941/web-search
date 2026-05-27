@@ -75,7 +75,6 @@ def upgrade() -> None:
             result_count INTEGER DEFAULT 0,
             search_mode TEXT DEFAULT 'default',
             user_agent TEXT,
-            api_key_id TEXT,
             created_at TIMESTAMP DEFAULT NOW()
         )
     """)
@@ -83,9 +82,6 @@ def upgrade() -> None:
         "CREATE INDEX IF NOT EXISTS idx_search_logs_created ON search_logs(created_at)"
     )
     op.execute("CREATE INDEX IF NOT EXISTS idx_search_logs_query ON search_logs(query)")
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_search_logs_api_key ON search_logs(api_key_id)"
-    )
 
     op.execute("""
         CREATE TABLE IF NOT EXISTS search_events (
@@ -153,21 +149,6 @@ def upgrade() -> None:
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_index_jobs_created ON index_jobs(created_at)"
     )
-
-    op.execute("""
-        CREATE TABLE IF NOT EXISTS api_keys (
-            id TEXT PRIMARY KEY,
-            key_hash TEXT NOT NULL UNIQUE,
-            key_prefix TEXT NOT NULL,
-            name TEXT NOT NULL,
-            rate_limit_daily INTEGER NOT NULL DEFAULT 1000,
-            status TEXT NOT NULL DEFAULT 'active',
-            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-            last_used_at TIMESTAMP
-        )
-    """)
-    op.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)")
-    op.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(status)")
 
     op.execute("""
         CREATE TABLE IF NOT EXISTS urls (
@@ -307,7 +288,6 @@ def downgrade() -> None:
         "domain_state",
         "frontier_entries",
         "urls",
-        "api_keys",
         "index_jobs",
         "search_events",
         "search_logs",

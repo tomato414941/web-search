@@ -91,21 +91,11 @@ async def lifespan(app: FastAPI):
 API_DESCRIPTION = """\
 Web search API powered by a custom crawler with BM25 ranking and PageRank boosting.
 
-## Authentication
-
-API keys are **optional**. Anonymous requests work but don't include usage tracking.
-
-| Method | Example |
-|---|---|
-| Header | `X-API-Key: pbs_...` |
-| Query param | `?api_key=pbs_...` |
-
 ## Rate Limits
 
 | Scope | Limit |
 |---|---|
-| IP-based (anonymous) | 100 req/min |
-| API key usage tracking | 1,000 req/day |
+| IP-based | 100 req/min |
 """
 
 app = FastAPI(

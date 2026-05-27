@@ -30,7 +30,7 @@ MOCK_SEARCH_RESPONSE = {
 
 @pytest.mark.asyncio
 async def test_search_sends_correct_params():
-    client = PaleBlueClient(base_url="https://example.com", api_key="pbs_test")
+    client = PaleBlueClient(base_url="https://example.com")
     mock_resp = httpx.Response(
         200,
         json=MOCK_SEARCH_RESPONSE,
@@ -45,23 +45,7 @@ async def test_search_sends_correct_params():
         assert call_kwargs.kwargs["params"]["q"] == "python"
         assert call_kwargs.kwargs["params"]["limit"] == 5
         assert call_kwargs.kwargs["params"]["mode"] == "bm25"
-        assert call_kwargs.kwargs["headers"]["X-API-Key"] == "pbs_test"
-
-
-@pytest.mark.asyncio
-async def test_search_no_api_key():
-    client = PaleBlueClient(base_url="https://example.com", api_key="")
-    mock_resp = httpx.Response(
-        200,
-        json=MOCK_SEARCH_RESPONSE,
-        request=httpx.Request("GET", "https://example.com"),
-    )
-
-    with patch(
-        "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp
-    ) as mock_get:
-        await client.search("python")
-        assert "X-API-Key" not in mock_get.call_args.kwargs["headers"]
+        assert call_kwargs.kwargs["headers"] == {"User-Agent": "paleblue-mcp/1.0"}
 
 
 @pytest.mark.asyncio

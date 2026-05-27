@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "001"
+            assert rows[0][0] == "002"
             cur.close()
         finally:
             conn.close()
@@ -38,8 +38,6 @@ class TestMigrate:
             cur.execute("SELECT COUNT(*) FROM documents")
             assert cur.fetchone()[0] == 0
             cur.execute("SELECT COUNT(*) FROM index_jobs")
-            assert cur.fetchone()[0] == 0
-            cur.execute("SELECT COUNT(*) FROM api_keys")
             assert cur.fetchone()[0] == 0
             cur.execute("SELECT COUNT(*) FROM urls")
             assert cur.fetchone()[0] == 0

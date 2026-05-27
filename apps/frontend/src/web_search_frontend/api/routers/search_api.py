@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 import uuid
-from fastapi import APIRouter, Depends, Request, BackgroundTasks, Response
+from fastapi import APIRouter, Request, BackgroundTasks, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -17,7 +17,6 @@ from web_search_frontend.services.analytics import (
     log_impression_event,
     log_click_event,
 )
-from web_search_frontend.api.deps import optional_api_key
 from web_search_frontend.api.middleware.rate_limiter import limiter
 from web_search_contracts.enums import SearchMode
 
@@ -104,11 +103,6 @@ class SearchHit(BaseModel):
     )
 
 
-class UsageInfo(BaseModel):
-    daily_used: int = Field(description="Requests used today")
-    daily_limit: int = Field(description="Daily request limit")
-
-
 class SearchResponse(BaseModel):
     query: str = Field(description="Normalized search query")
     total: int = Field(description="Total matching documents")
@@ -120,9 +114,6 @@ class SearchResponse(BaseModel):
     requested_mode: str = Field(description="Search mode requested by client (bm25)")
     request_id: str | None = Field(
         default=None, description="Request ID for click tracking"
-    )
-    usage: UsageInfo | None = Field(
-        default=None, description="API key usage info (only present with valid key)"
     )
 
 
@@ -138,12 +129,9 @@ def log_search(
     result_count: int,
     user_agent: str | None,
     search_mode: str = "bm25",
-    api_key_id: str | None = None,
 ):
     """Compatibility wrapper used by existing tests."""
-    analytics_log_search(
-        query, result_count, user_agent, search_mode=search_mode, api_key_id=api_key_id
-    )
+    analytics_log_search(query, result_count, user_agent, search_mode=search_mode)
 
 
 def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
@@ -169,20 +157,13 @@ async def api_search(
     page: str | None = None,
     mode: str | None = None,
     include_content: str | None = None,
-    api_key_info: dict | None = Depends(optional_api_key),
 ):
     """Full-text web search with BM25 ranking and PageRank boosting.
-
-    **Authentication** (optional):
-    - Header: `X-API-Key: pbs_...`
-    - Query param: `?api_key=pbs_...`
-
-    Anonymous requests are allowed but do not include usage info.
 
     **Search modes**:
     - `bm25` — keyword-based search
 
-    **Rate limits**: 100 requests/minute (IP-based), 1000 requests/day (per API key).
+    **Rate limits**: 100 requests/minute (IP-based).
     """
     started_at = time.perf_counter()
     query = (q or "").strip()
@@ -215,15 +196,7 @@ async def api_search(
         request_id = uuid.uuid4().hex
         data["request_id"] = request_id
 
-    if api_key_info:
-        data["usage"] = {
-            "daily_used": api_key_info.get("daily_used", 0) + (1 if query else 0),
-            "daily_limit": api_key_info["rate_limit_daily"],
-        }
-
     response = JSONResponse(data)
-
-    api_key_id = api_key_info["id"] if api_key_info else None
 
     if query:
         latency_ms = int((time.perf_counter() - started_at) * 1000)
@@ -232,7 +205,7 @@ async def api_search(
         session_hash = hash_session_id(session_id)
 
         background_tasks.add_task(
-            log_search, query, data["total"], user_agent, search_mode, api_key_id
+            log_search, query, data["total"], user_agent, search_mode
         )
         background_tasks.add_task(
             log_impression_event,

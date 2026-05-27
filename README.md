@@ -77,28 +77,6 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
 }
 ```
 
-### Authentication
-
-Anonymous access is available with IP-based rate limiting (100 req/min).
-Provisioned API keys are optional and add usage tracking:
-
-```bash
-# Header (recommended)
-curl -H "X-API-Key: pbs_your_key_here" \
-  "https://palebluesearch.com/api/v1/search?q=rust"
-
-# Query parameter
-curl "https://palebluesearch.com/api/v1/search?q=rust&api_key=pbs_your_key_here"
-```
-
-With a valid key, the response includes usage info:
-
-```json
-{
-  "usage": { "daily_used": 5, "daily_limit": 1000 }
-}
-```
-
 ### Search Modes
 
 | Mode | Description |
@@ -129,7 +107,6 @@ curl -X POST "https://palebluesearch.com/api/v1/search/click" \
 
 | Code | Description |
 |---|---|
-| `401` | Invalid API key |
 | `429` | Rate limit exceeded |
 
 ## Documentation

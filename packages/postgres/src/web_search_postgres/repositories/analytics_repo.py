@@ -15,14 +15,13 @@ class AnalyticsRepository:
         result_count: int,
         search_mode: str,
         user_agent: str | None,
-        api_key_id: str | None,
     ) -> None:
         cur = conn.cursor()
         cur.execute(
             "INSERT INTO search_logs"
-            " (query, result_count, search_mode, user_agent, api_key_id)"
-            " VALUES (%s, %s, %s, %s, %s)",
-            (query, result_count, search_mode, user_agent, api_key_id),
+            " (query, result_count, search_mode, user_agent)"
+            " VALUES (%s, %s, %s, %s)",
+            (query, result_count, search_mode, user_agent),
         )
         conn.commit()
         cur.close()

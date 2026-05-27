@@ -3,12 +3,9 @@
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 
-from web_search_frontend.api.deps_admin import (
-    require_admin_session,
-    require_admin_session_api,
-)
+from web_search_frontend.api.deps_admin import require_admin_session
 from web_search_frontend.api.middleware.rate_limiter import limiter
 from web_search_frontend.api.routers.admin_crawlers import router as crawlers_router
 from web_search_frontend.api.templates import templates
@@ -24,11 +21,6 @@ from web_search_frontend.services.admin_auth import (
     validate_csrf_token,
 )
 from web_search_frontend.services.admin_dashboard import get_dashboard_data
-from web_search_frontend.services.api_key import (
-    create_api_key,
-    list_api_keys,
-    revoke_api_key,
-)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -113,34 +105,6 @@ async def dashboard(
             "csrf_token": csrf_token,
         },
     )
-
-
-@router.get("/api-keys")
-async def api_keys_list(_auth: None = Depends(require_admin_session_api)):
-    return JSONResponse({"keys": list_api_keys()})
-
-
-@router.post("/api-keys")
-async def api_keys_create(
-    request: Request, _auth: None = Depends(require_admin_session_api)
-):
-    body = await request.json()
-    name = body.get("name", "").strip()
-    if not name:
-        return JSONResponse({"error": "name is required"}, status_code=400)
-
-    rate_limit = body.get("rate_limit_daily")
-    key_info = create_api_key(name, rate_limit)
-    return JSONResponse(key_info, status_code=201)
-
-
-@router.delete("/api-keys/{key_id}")
-async def api_keys_revoke(
-    key_id: str, _auth: None = Depends(require_admin_session_api)
-):
-    if revoke_api_key(key_id):
-        return JSONResponse({"status": "revoked"})
-    return JSONResponse({"error": "Key not found or already revoked"}, status_code=404)
 
 
 router.include_router(crawlers_router)

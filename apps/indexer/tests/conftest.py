@@ -20,7 +20,6 @@ _TABLES = [
     "documents",
     "domain_ranks",
     "links",
-    "api_keys",
     "urls",
     "crawl_logs",
 ]

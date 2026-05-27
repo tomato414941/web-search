@@ -33,7 +33,6 @@ Current behavior:
 
 - retrieval is BM25-based
 - query operators such as `site:`, quoted phrases, and negation are supported
-- API key auth is optional
 - successful responses may include transparency metadata such as
   `published_at`, `temporal_anchor`, `authorship_clarity`, `factual_density`,
   `origin_score`, `origin_type`, `page_rank`, `domain_rank`, and other
