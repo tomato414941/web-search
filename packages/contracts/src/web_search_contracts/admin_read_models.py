@@ -50,9 +50,3 @@ class IndexerFailedJobsApiResponse(BaseModel):
     ok: bool = True
     jobs: list[IndexerFailedJobReadModel] = Field(default_factory=list)
     count: int = Field(default=0, ge=0)
-
-
-class IndexerAdminReadModel(BaseModel):
-    health: IndexerHealthReadModel = Field(default_factory=IndexerHealthReadModel)
-    snapshot_generated_at: str | None = None
-    snapshot_loaded_from: str = "empty"

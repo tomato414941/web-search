@@ -134,7 +134,6 @@ checks = [
     ("POST", "/admin/login", 303, {"data": "login"}),
     ("GET", "/admin/", 200, {}),
     ("GET", "/admin/crawlers", 200, {}),
-    ("GET", "/admin/indexer", 200, {}),
 ]
 
 failures: list[str] = []

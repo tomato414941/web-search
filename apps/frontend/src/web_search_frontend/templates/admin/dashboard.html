@@ -9,7 +9,6 @@
         <div class="nav">
             <a href="/admin/" class="active">Dashboard</a>
             <a href="/admin/crawlers">Crawlers</a>
-            <a href="/admin/indexer">Indexer</a>
             <a href="/admin/logout">Logout</a>
         </div>
     </div>
@@ -34,6 +33,10 @@
                 <div class="delta neutral">No change today</div>
                 {% endif %}
             </div>
+            <div class="stat-box">
+                <div class="value">{{ "{:,}".format(data.indexer_failed_permanent_jobs or 0) }}</div>
+                <div class="label">Indexer Failed Jobs</div>
+            </div>
         </div>
     </div>
 
@@ -46,7 +49,6 @@
             </div>
             <a href="/admin/crawlers" class="link">Manage Instances &rarr;</a>
         </div>
-
     </div>
 
 </div>

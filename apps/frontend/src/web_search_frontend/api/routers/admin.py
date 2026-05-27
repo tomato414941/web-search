@@ -11,7 +11,6 @@ from web_search_frontend.api.deps_admin import (
 )
 from web_search_frontend.api.middleware.rate_limiter import limiter
 from web_search_frontend.api.routers.admin_crawlers import router as crawlers_router
-from web_search_frontend.api.routers.admin_indexer import router as indexer_router
 from web_search_frontend.api.templates import templates
 from web_search_frontend.core.config import settings
 from web_search_frontend.services.admin_auth import (
@@ -145,4 +144,3 @@ async def api_keys_revoke(
 
 
 router.include_router(crawlers_router)
-router.include_router(indexer_router)

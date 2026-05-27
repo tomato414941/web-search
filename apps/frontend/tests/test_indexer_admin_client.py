@@ -1,64 +1,60 @@
-from unittest.mock import AsyncMock, patch
-
 import pytest
 
-from web_search_frontend.services import (
-    indexer_admin_client as indexer_admin_client_module,
-)
+from web_search_frontend.services import indexer_admin_client
 
 
-@pytest.fixture(autouse=True)
-def clear_indexer_admin_state(monkeypatch, tmp_path):
+class _FakeResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "ok": True,
+            "indexed_pages": 12,
+            "pending_jobs": 3,
+            "processing_jobs": 1,
+            "failed_permanent_jobs": 2,
+        }
+
+
+class _FakeAsyncClient:
+    def __init__(self, *, timeout):
+        self.timeout = timeout
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def get(self, url, *, headers):
+        assert url == "http://indexer:8000/api/v1/indexer/stats"
+        assert headers == {"X-API-Key": "secret"}
+        return _FakeResponse()
+
+
+@pytest.mark.asyncio
+async def test_fetch_indexer_stats_returns_health_model(monkeypatch):
+    monkeypatch.setattr(indexer_admin_client.settings, "INDEXER_API_KEY", "secret")
     monkeypatch.setattr(
-        indexer_admin_client_module,
-        "_SHARED_INDEXER_CACHE_PATH",
-        str(tmp_path / "indexer-admin-cache.json"),
+        indexer_admin_client.settings,
+        "INDEXER_SERVICE_URL",
+        "http://indexer:8000",
     )
-    indexer_admin_client_module.clear_indexer_admin_cache()
-    yield
-    indexer_admin_client_module.clear_indexer_admin_cache()
+    monkeypatch.setattr(indexer_admin_client.httpx, "AsyncClient", _FakeAsyncClient)
+
+    stats = await indexer_admin_client.fetch_indexer_stats()
+
+    assert stats["reachable"] is True
+    assert stats["ok"] is True
+    assert stats["indexed_pages"] == 12
+    assert stats["failed_permanent_jobs"] == 2
 
 
 @pytest.mark.asyncio
-async def test_get_indexer_admin_read_model_uses_cache():
-    health = {"reachable": True, "ok": True, "indexed_pages": 12}
+async def test_fetch_indexer_stats_reports_missing_api_key(monkeypatch):
+    monkeypatch.setattr(indexer_admin_client.settings, "INDEXER_API_KEY", "")
 
-    with patch(
-        "web_search_frontend.services.indexer_admin_client.fetch_indexer_stats",
-        new=AsyncMock(return_value=health),
-    ) as mock_stats:
-        first = await indexer_admin_client_module.get_indexer_admin_read_model()
-        second = await indexer_admin_client_module.get_indexer_admin_read_model()
+    stats = await indexer_admin_client.fetch_indexer_stats()
 
-    assert first["health"]["reachable"] is True
-    assert first["health"]["ok"] is True
-    assert first["health"]["indexed_pages"] == 12
-    assert second["health"]["reachable"] is True
-    assert second["health"]["ok"] is True
-    assert second["health"]["indexed_pages"] == 12
-    assert first["snapshot_generated_at"] == second["snapshot_generated_at"]
-    assert first["snapshot_generated_at"] is not None
-    assert first["snapshot_loaded_from"] == "live"
-    assert second["snapshot_loaded_from"] == "memory"
-    mock_stats.assert_awaited_once_with()
-
-
-@pytest.mark.asyncio
-async def test_prewarm_indexer_admin_cache_populates_cache():
-    health = {"reachable": True, "ok": True, "indexed_pages": 12}
-
-    with patch(
-        "web_search_frontend.services.indexer_admin_client.fetch_indexer_stats",
-        new=AsyncMock(return_value=health),
-    ) as mock_stats:
-        await indexer_admin_client_module.prewarm_indexer_admin_cache(
-            attempts=1, delay_seconds=0
-        )
-        indexer_admin_client_module._indexer_admin_cache.clear_memory()
-        cached = await indexer_admin_client_module.get_indexer_admin_read_model()
-
-    assert cached["health"]["reachable"] is True
-    assert cached["health"]["ok"] is True
-    assert cached["health"]["indexed_pages"] == 12
-    assert cached["snapshot_loaded_from"] == "shared"
-    mock_stats.assert_awaited_once_with()
+    assert stats["reachable"] is False
+    assert stats["error"] == "missing INDEXER_API_KEY"

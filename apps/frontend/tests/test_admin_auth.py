@@ -98,6 +98,7 @@ class TestAdminAuthentication:
         response = client.get("/admin/")
         assert response.status_code == 200
         assert "Pale Blue Search Admin" in response.text
+        assert "Indexer Failed Jobs" in response.text
 
     def test_logout_clears_session(self, client):
         """Logout should clear session cookie."""
@@ -120,13 +121,6 @@ class TestAdminAuthentication:
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
 
-    def test_indexer_page_requires_auth(self, client):
-        """Indexer page should require authentication."""
-        client.cookies.clear()
-        response = client.get("/admin/indexer", follow_redirects=False)
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/login"
-
     def test_frontier_page_is_removed(self, client):
         client.cookies.clear()
         login_as_admin(client)
@@ -137,6 +131,12 @@ class TestAdminAuthentication:
         client.cookies.clear()
         login_as_admin(client)
         response = client.get("/admin/history")
+        assert response.status_code == 404
+
+    def test_indexer_page_is_removed(self, client):
+        client.cookies.clear()
+        login_as_admin(client)
+        response = client.get("/admin/indexer")
         assert response.status_code == 404
 
     def test_crawlers_page_with_valid_session(self, client):
@@ -171,20 +171,6 @@ class TestAdminAuthentication:
         assert "Submit rate" not in response.text
         assert "Errors/h" not in response.text
         assert "Uptime" not in response.text
-
-    def test_indexer_page_with_valid_session(self, client):
-        """Indexer page should be accessible with valid session."""
-        client.cookies.clear()
-        login_as_admin(client)
-        response = client.get("/admin/indexer")
-        assert response.status_code == 200
-        assert "Indexer Jobs" in response.text
-        assert "Indexer Status" not in response.text
-        assert "Job Queue" not in response.text
-        assert "Service URL" not in response.text
-        assert "Indexed Pages" not in response.text
-        assert "Pending Jobs" not in response.text
-        assert "Processing Jobs" not in response.text
 
 
 class TestSessionSecurity:
@@ -311,28 +297,3 @@ class TestCrawlerInstancesConfig:
             assert instances[0]["url"] == "http://host1:8000"
             assert instances[1]["name"] == "crawler2"
             assert instances[1]["url"] == "http://host2:8000"
-
-
-class TestAdminIndexerRoutes:
-    def test_indexer_page_renders_failed_job_count(self, client):
-        client.cookies.clear()
-        login_as_admin(client)
-
-        indexer_data = {
-            "health": {"failed_permanent_jobs": 1},
-            "snapshot_generated_at": "2026-03-25 00:00:00 UTC",
-            "snapshot_loaded_from": "live",
-        }
-        with patch(
-            "web_search_frontend.api.routers.admin_indexer.get_indexer_admin_read_model",
-            new=AsyncMock(return_value=indexer_data),
-        ) as mock_read_model:
-            response = client.get("/admin/indexer")
-
-        assert response.status_code == 200
-        assert "Indexer Status" not in response.text
-        assert "Failed (Permanent)" in response.text
-        assert "Failed Jobs (Permanent)" not in response.text
-        assert "Snapshot refreshed" not in response.text
-        assert "Stats are fetched server-side" not in response.text
-        mock_read_model.assert_awaited_once_with()
