@@ -98,7 +98,7 @@ class TestAdminAuthentication:
         response = client.get("/admin/")
         assert response.status_code == 200
         assert "Pale Blue Search Admin" in response.text
-        assert "Indexer Failed Jobs" in response.text
+        assert "Indexer Failed Jobs" not in response.text
 
     def test_logout_clears_session(self, client):
         """Logout should clear session cookie."""

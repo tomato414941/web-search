@@ -16,9 +16,6 @@ from web_search_frontend.services.admin_cache import (
     snapshot_timestamp,
 )
 from web_search_frontend.services.crawler_admin_client import fetch_dashboard_status
-from web_search_frontend.services.indexer_admin_client import (
-    fetch_indexer_job_failure_summary,
-)
 from web_search_frontend.services.shared_json_cache import SharedJsonTtlCache
 from web_search_core.background import maintain_refresh_loop
 from web_search_frontend.services.db_helpers import db_cursor
@@ -43,7 +40,6 @@ def _empty_dashboard_data() -> dict[str, Any]:
         "indexed_pages": 0,
         "indexed_delta": None,
         "last_crawl": None,
-        "indexer_failed_permanent_jobs": 0,
         "worker_status": "unknown",
         "health": {"level": "ok", "messages": []},
         "snapshot_generated_at": None,
@@ -143,15 +139,11 @@ def _get_db_dashboard_data() -> dict[str, Any]:
 
 async def _build_dashboard_data() -> dict[str, Any]:
     data = _empty_dashboard_data()
-    db_data, stats, indexer_job_failure_summary = await asyncio.gather(
+    db_data, stats = await asyncio.gather(
         asyncio.to_thread(_get_db_dashboard_data),
         fetch_dashboard_status(),
-        fetch_indexer_job_failure_summary(),
     )
     data.update(db_data)
-    data["indexer_failed_permanent_jobs"] = indexer_job_failure_summary.get(
-        "failed_permanent_jobs", 0
-    )
 
     crawler_reachable = False
     if stats:
