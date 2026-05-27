@@ -41,13 +41,6 @@ Current behavior:
 Use [search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md) for ranking and signal semantics.
 
-### `GET /api/v1/quality/summary`
-
-Search analytics summary endpoint.
-
-This is an analytics surface, not the source of truth for ranking evaluation.
-Use [search-evaluation.md](./search-evaluation.md) for evaluation policy.
-
 ### `GET /health`
 
 Simple liveness check. Returns `{"status":"ok"}`.

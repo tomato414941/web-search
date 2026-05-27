@@ -21,7 +21,6 @@ from web_search_frontend.api.routers import (
     content_api,
     crawler,
     admin,
-    quality,
     telemetry,
 )
 from web_search_frontend.api.routers.system import root_router as health_root_router
@@ -199,9 +198,6 @@ app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
 app.include_router(content_api.router, prefix="/api/v1", tags=["content"])
 app.include_router(
     crawler.router, prefix="/api/v1", tags=["crawler"], include_in_schema=False
-)
-app.include_router(
-    quality.router, prefix="/api/v1", tags=["system"], include_in_schema=False
 )
 app.include_router(
     metrics_router, prefix="/api/v1", tags=["metrics"], include_in_schema=False
