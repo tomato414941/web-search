@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
     prewarm_task: asyncio.Task[None] | None = None
     if settings.ENVIRONMENT != Environment.TEST:
         prewarm_task = asyncio.create_task(
-            indexer.maintain_stats_cache(
+            indexer.maintain_summary_cache(
                 refresh_interval_seconds=settings.INDEXER_STATS_REFRESH_SEC
             )
         )

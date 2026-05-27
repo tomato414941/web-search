@@ -22,16 +22,26 @@ class CrawlerInstancesReadModel(BaseModel):
     snapshot_loaded_from: str = "empty"
 
 
-class IndexerHealthReadModel(BaseModel):
+class IndexerServiceReadModel(BaseModel):
     reachable: bool = False
     ok: bool = False
     http_status: int | None = Field(default=None, ge=100)
     error: str | None = None
+
+
+class IndexerIndexSummaryApiResponse(BaseModel):
+    ok: bool = True
+    service: str = "indexer"
     indexed_pages: int = Field(default=0, ge=0)
-    pending_jobs: int = Field(default=0, ge=0)
-    processing_jobs: int = Field(default=0, ge=0)
+
+
+class IndexerJobSummaryReadModel(IndexerServiceReadModel):
     failed_permanent_jobs: int = Field(default=0, ge=0)
 
 
-class IndexerStatsApiResponse(IndexerHealthReadModel):
+class IndexerJobSummaryApiResponse(BaseModel):
+    ok: bool = True
     service: str = "indexer"
+    pending_jobs: int = Field(default=0, ge=0)
+    processing_jobs: int = Field(default=0, ge=0)
+    failed_permanent_jobs: int = Field(default=0, ge=0)

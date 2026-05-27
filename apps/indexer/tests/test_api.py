@@ -266,9 +266,9 @@ class TestHealthEndpoint:
         assert data["status"] == "ok"
         assert "checks" in data
 
-    def test_indexer_stats_contains_indexed_pages(self, test_client):
+    def test_index_summary_contains_indexed_pages(self, test_client):
         response = test_client.get(
-            "/api/v1/indexer/stats",
+            "/api/v1/indexer/index-summary",
             headers={"X-API-Key": settings.INDEXER_API_KEY},
         )
         assert response.status_code == 200
@@ -276,11 +276,27 @@ class TestHealthEndpoint:
         assert body["ok"] is True
         assert "indexed_pages" in body
 
-    def test_indexer_stats_uses_short_ttl_cache(self, test_client):
+    def test_job_summary_contains_queue_counts(self, test_client):
+        response = test_client.get(
+            "/api/v1/indexer/job-summary",
+            headers={"X-API-Key": settings.INDEXER_API_KEY},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["ok"] is True
+        assert "failed_permanent_jobs" in body
+
+    def test_indexer_stats_endpoint_is_removed(self, test_client):
+        response = test_client.get(
+            "/api/v1/indexer/stats",
+            headers={"X-API-Key": settings.INDEXER_API_KEY},
+        )
+        assert response.status_code == 404
+
+    def test_index_summary_uses_short_ttl_cache(self, test_client):
         from web_search_indexer.api.routes import indexer as route_module
 
-        route_module._stats_cache["data"] = None
-        route_module._stats_cache["expires"] = 0.0
+        route_module._clear_index_summary_cache()
 
         with patch(
             "web_search_indexer.api.routes.indexer.indexer_service.get_index_stats"
@@ -288,17 +304,16 @@ class TestHealthEndpoint:
             mock_stats.return_value = {"total": 42}
 
             first = test_client.get(
-                "/api/v1/indexer/stats",
+                "/api/v1/indexer/index-summary",
                 headers={"X-API-Key": settings.INDEXER_API_KEY},
             )
             first_stats_calls = mock_stats.call_count
             second = test_client.get(
-                "/api/v1/indexer/stats",
+                "/api/v1/indexer/index-summary",
                 headers={"X-API-Key": settings.INDEXER_API_KEY},
             )
 
-        route_module._stats_cache["data"] = None
-        route_module._stats_cache["expires"] = 0.0
+        route_module._clear_index_summary_cache()
 
         assert first.status_code == 200
         assert second.status_code == 200
@@ -307,10 +322,11 @@ class TestHealthEndpoint:
         assert first_stats_calls == 1
         assert mock_stats.call_count == first_stats_calls
 
-    def test_prewarm_stats_cache_populates_cache(self):
+    def test_prewarm_summary_cache_populates_caches(self):
         from web_search_indexer.api.routes import indexer as route_module
 
-        route_module._clear_stats_cache()
+        route_module._clear_index_summary_cache()
+        route_module._clear_job_summary_cache()
         queue_stats = {
             "pending_jobs": 2,
             "processing_jobs": 1,
@@ -330,12 +346,14 @@ class TestHealthEndpoint:
                 return_value=queue_stats,
             ),
         ):
-            asyncio.run(route_module.prewarm_stats_cache(delay_seconds=0))
+            asyncio.run(route_module.prewarm_summary_cache(delay_seconds=0))
 
-        assert route_module._stats_cache["data"] is not None
-        assert route_module._stats_cache["data"]["indexed_pages"] == 24
+        assert route_module._index_summary_cache["data"] is not None
+        assert route_module._index_summary_cache["data"]["indexed_pages"] == 24
+        assert route_module._job_summary_cache["data"] is not None
+        assert route_module._job_summary_cache["data"]["failed_permanent_jobs"] == 0
 
-    def test_maintain_stats_cache_refreshes_periodically(self):
+    def test_maintain_summary_cache_refreshes_periodically(self):
         from web_search_indexer.api.routes import indexer as route_module
 
         calls = []
@@ -349,12 +367,12 @@ class TestHealthEndpoint:
             return None
 
         with (
-            patch.object(route_module, "prewarm_stats_cache", fake_prewarm),
+            patch.object(route_module, "prewarm_summary_cache", fake_prewarm),
             patch.object(background_module.asyncio, "sleep", fake_sleep),
         ):
             with pytest.raises(asyncio.CancelledError):
                 asyncio.run(
-                    route_module.maintain_stats_cache(refresh_interval_seconds=15)
+                    route_module.maintain_summary_cache(refresh_interval_seconds=15)
                 )
 
         assert calls == [(60, 5.0), (1, 0)]

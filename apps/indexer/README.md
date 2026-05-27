@@ -50,4 +50,5 @@ uv run --package web-search-indexer web-search-backfill-temporal-anchor
 *   `POST /api/v1/indexer/page`: Queue a page for asynchronous indexing (`202 Accepted` + `job_id`).
 *   `GET /api/v1/indexer/jobs/{job_id}`: Get async indexing job status.
 *   `GET /health`: Health check.
-*   `GET /api/v1/indexer/stats`: Indexer statistics (requires `X-API-Key`).
+*   `GET /api/v1/indexer/index-summary`: Index summary (requires `X-API-Key`).
+*   `GET /api/v1/indexer/job-summary`: Job queue summary (requires `X-API-Key`).

@@ -4,33 +4,33 @@ from typing import Any
 import httpx
 
 from web_search_frontend.core.config import settings
-from web_search_contracts.admin_read_models import IndexerHealthReadModel
+from web_search_contracts.admin_read_models import IndexerJobSummaryReadModel
 
 logger = logging.getLogger(__name__)
 
 
-def _default_stats() -> dict[str, Any]:
-    return IndexerHealthReadModel().model_dump(mode="json")
+def _default_job_summary() -> dict[str, Any]:
+    return IndexerJobSummaryReadModel().model_dump(mode="json")
 
 
-async def fetch_indexer_stats() -> dict[str, Any]:
+async def fetch_indexer_job_summary() -> dict[str, Any]:
     """
-    Fetch indexer stats from the internal indexer service.
+    Fetch indexer job summary from the internal indexer service.
 
     This call is server-side only to avoid exposing API keys in the browser.
     """
-    result = _default_stats()
+    result = _default_job_summary()
 
     if not settings.INDEXER_API_KEY:
         result["error"] = "missing INDEXER_API_KEY"
-        return IndexerHealthReadModel.model_validate(result).model_dump(mode="json")
+        return IndexerJobSummaryReadModel.model_validate(result).model_dump(mode="json")
 
     base_url = (settings.INDEXER_SERVICE_URL or "").rstrip("/")
     if not base_url:
         result["error"] = "missing INDEXER_SERVICE_URL"
-        return IndexerHealthReadModel.model_validate(result).model_dump(mode="json")
+        return IndexerJobSummaryReadModel.model_validate(result).model_dump(mode="json")
 
-    url = f"{base_url}/api/v1/indexer/stats"
+    url = f"{base_url}/api/v1/indexer/job-summary"
     headers = {"X-API-Key": settings.INDEXER_API_KEY}
     try:
         async with httpx.AsyncClient(
@@ -40,23 +40,18 @@ async def fetch_indexer_stats() -> dict[str, Any]:
             result["http_status"] = resp.status_code
             if resp.status_code != 200:
                 result["error"] = f"indexer returned {resp.status_code}"
-                return IndexerHealthReadModel.model_validate(result).model_dump(
+                return IndexerJobSummaryReadModel.model_validate(result).model_dump(
                     mode="json"
                 )
 
             data = resp.json()
             result["reachable"] = True
             result["ok"] = bool(data.get("ok"))
-            for key in (
-                "indexed_pages",
-                "pending_jobs",
-                "processing_jobs",
-                "failed_permanent_jobs",
-            ):
+            for key in ("failed_permanent_jobs",):
                 if key in data and data.get(key) is not None:
                     result[key] = data[key]
     except Exception as exc:
-        logger.warning("Failed to fetch indexer stats: %s", exc)
+        logger.warning("Failed to fetch indexer job summary: %s", exc)
         result["error"] = str(exc)
 
-    return IndexerHealthReadModel.model_validate(result).model_dump(mode="json")
+    return IndexerJobSummaryReadModel.model_validate(result).model_dump(mode="json")

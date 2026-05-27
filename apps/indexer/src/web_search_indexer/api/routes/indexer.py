@@ -9,7 +9,10 @@ from web_search_indexer.core.config import settings
 from web_search_indexer.metrics import update_indexed_pages_metric
 from web_search_indexer.services.indexer import indexer_service
 from web_search_indexer.services.index_job_container import index_job_service
-from web_search_contracts.admin_read_models import IndexerStatsApiResponse
+from web_search_contracts.admin_read_models import (
+    IndexerIndexSummaryApiResponse,
+    IndexerJobSummaryApiResponse,
+)
 from web_search_contracts.indexer_api import IndexPageRequest
 from web_search_core.background import maintain_refresh_loop
 from web_search_indexer.services.information_origin import calculate_information_origin
@@ -22,37 +25,61 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/indexer")
 
-_stats_cache: dict[str, object] = {"data": None, "expires": 0.0}
+_index_summary_cache: dict[str, object] = {"data": None, "expires": 0.0}
+_job_summary_cache: dict[str, object] = {"data": None, "expires": 0.0}
 
 
-def _clear_stats_cache() -> None:
-    _stats_cache["data"] = None
-    _stats_cache["expires"] = 0.0
+def _clear_index_summary_cache() -> None:
+    _index_summary_cache["data"] = None
+    _index_summary_cache["expires"] = 0.0
 
 
-def _cache_stats_payload(payload: dict) -> dict:
-    normalized = IndexerStatsApiResponse.model_validate(payload).model_dump(mode="json")
-    _stats_cache["data"] = normalized
-    _stats_cache["expires"] = time.monotonic() + max(
+def _clear_job_summary_cache() -> None:
+    _job_summary_cache["data"] = None
+    _job_summary_cache["expires"] = 0.0
+
+
+def _cache_index_summary_payload(payload: dict) -> dict:
+    normalized = IndexerIndexSummaryApiResponse.model_validate(payload).model_dump(
+        mode="json"
+    )
+    _index_summary_cache["data"] = normalized
+    _index_summary_cache["expires"] = time.monotonic() + max(
         1, settings.INDEXER_STATS_CACHE_TTL_SEC
     )
     return normalized
 
 
-async def _refresh_stats_cache() -> dict:
-    stats, queue_stats = await asyncio.gather(
-        asyncio.to_thread(indexer_service.get_index_stats),
-        asyncio.to_thread(index_job_service.get_queue_stats),
+def _cache_job_summary_payload(payload: dict) -> dict:
+    normalized = IndexerJobSummaryApiResponse.model_validate(payload).model_dump(
+        mode="json"
     )
+    _job_summary_cache["data"] = normalized
+    _job_summary_cache["expires"] = time.monotonic() + max(
+        1, settings.INDEXER_STATS_CACHE_TTL_SEC
+    )
+    return normalized
 
+
+async def _refresh_index_summary_cache() -> dict:
+    stats = await asyncio.to_thread(indexer_service.get_index_stats)
     payload = {
         "ok": True,
         "service": "indexer",
         "indexed_pages": stats.get("total", 0),
-        **queue_stats,
     }
     update_indexed_pages_metric(payload["indexed_pages"])
-    return _cache_stats_payload(payload)
+    return _cache_index_summary_payload(payload)
+
+
+async def _refresh_job_summary_cache() -> dict:
+    queue_stats = await asyncio.to_thread(index_job_service.get_queue_stats)
+    payload = {
+        "ok": True,
+        "service": "indexer",
+        **queue_stats,
+    }
+    return _cache_job_summary_payload(payload)
 
 
 def verify_api_key(x_api_key: str) -> None:
@@ -141,46 +168,63 @@ async def trigger_origin_scores(
         raise HTTPException(status_code=500, detail="Origin score calculation failed")
 
 
-@router.get("/stats", response_model=IndexerStatsApiResponse)
-async def indexer_stats(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
-    """Indexer statistics: page count and job queue metrics."""
+@router.get("/index-summary", response_model=IndexerIndexSummaryApiResponse)
+async def index_summary(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
+    """Indexer index summary."""
     verify_api_key(x_api_key)
 
     now = time.monotonic()
-    cached = _stats_cache["data"]
-    if cached is not None and now < float(_stats_cache["expires"]):
+    cached = _index_summary_cache["data"]
+    if cached is not None and now < float(_index_summary_cache["expires"]):
         update_indexed_pages_metric(cached["indexed_pages"])  # type: ignore[index]
         return cached  # type: ignore[return-value]
 
-    return await _refresh_stats_cache()
+    return await _refresh_index_summary_cache()
 
 
-async def prewarm_stats_cache(
+@router.get("/job-summary", response_model=IndexerJobSummaryApiResponse)
+async def job_summary(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
+    """Indexer job queue summary."""
+    verify_api_key(x_api_key)
+
+    now = time.monotonic()
+    cached = _job_summary_cache["data"]
+    if cached is not None and now < float(_job_summary_cache["expires"]):
+        return cached  # type: ignore[return-value]
+
+    return await _refresh_job_summary_cache()
+
+
+async def prewarm_summary_cache(
     *, attempts: int = 60, delay_seconds: float = 5.0
 ) -> None:
     for _attempt in range(attempts):
         if delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
         try:
-            await _refresh_stats_cache()
+            await asyncio.gather(
+                _refresh_index_summary_cache(),
+                _refresh_job_summary_cache(),
+            )
         except asyncio.CancelledError:
             raise
         except Exception as exc:
-            logger.warning("Failed to prewarm indexer stats cache: %s", exc)
-            _clear_stats_cache()
+            logger.warning("Failed to prewarm indexer summary cache: %s", exc)
+            _clear_index_summary_cache()
+            _clear_job_summary_cache()
             continue
-        logger.info("Prewarmed indexer stats cache")
+        logger.info("Prewarmed indexer summary cache")
         return
 
-    logger.warning("Indexer stats prewarm gave up after %d attempts", attempts)
+    logger.warning("Indexer summary prewarm gave up after %d attempts", attempts)
 
 
-async def maintain_stats_cache(*, refresh_interval_seconds: float) -> None:
+async def maintain_summary_cache(*, refresh_interval_seconds: float) -> None:
     async def refresh_once() -> None:
-        await prewarm_stats_cache(attempts=1, delay_seconds=0)
+        await prewarm_summary_cache(attempts=1, delay_seconds=0)
 
     await maintain_refresh_loop(
-        initial_call=prewarm_stats_cache,
+        initial_call=prewarm_summary_cache,
         periodic_call=refresh_once,
         refresh_interval_seconds=refresh_interval_seconds,
     )

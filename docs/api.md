@@ -82,9 +82,13 @@ This is the main crawler-to-indexer handoff boundary.
 
 Returns asynchronous indexing job status.
 
-### `GET /api/v1/indexer/stats`
+### `GET /api/v1/indexer/index-summary`
 
-Returns indexer statistics and job queue metrics.
+Returns indexer index summary.
+
+### `GET /api/v1/indexer/job-summary`
+
+Returns indexer job queue summary.
 
 ### `GET /health`
 
