@@ -15,6 +15,7 @@ members = [
     "web-search-opensearch",
     "web-search-postgres",
     "web-search-search-config",
+    "web-search-telemetry",
     "web-search-workspace",
 ]
 
@@ -3076,6 +3077,7 @@ dependencies = [
     { name = "web-search-opensearch" },
     { name = "web-search-postgres" },
     { name = "web-search-search-config" },
+    { name = "web-search-telemetry" },
 ]
 
 [package.metadata]
@@ -3095,6 +3097,7 @@ requires-dist = [
     { name = "web-search-opensearch", editable = "packages/opensearch" },
     { name = "web-search-postgres", editable = "packages/postgres" },
     { name = "web-search-search-config", editable = "packages/search-config" },
+    { name = "web-search-telemetry", editable = "packages/search-telemetry" },
 ]
 
 [[package]]
@@ -3194,6 +3197,11 @@ requires-dist = [
 name = "web-search-search-config"
 version = "0.1.0"
 source = { editable = "packages/search-config" }
+
+[[package]]
+name = "web-search-telemetry"
+version = "0.1.0"
+source = { editable = "packages/search-telemetry" }
 
 [[package]]
 name = "web-search-workspace"

@@ -1,11 +1,12 @@
 import hashlib
 import logging
 import time
-import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from uuid import uuid4
 
 from fastapi import Request, Response
+from web_search_telemetry import SearchResultImpression, SearchTelemetryRepository
 
 from web_search_frontend.core.config import settings
 from web_search_contracts.enums import (
@@ -21,6 +22,7 @@ from web_search_postgres.repositories.analytics_repo import AnalyticsRepository
 logger = logging.getLogger(__name__)
 
 _repo = AnalyticsRepository
+_telemetry_repo = SearchTelemetryRepository
 
 ANON_SESSION_COOKIE = "anon_sid"
 ANON_SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
@@ -33,16 +35,15 @@ CRAWL_ATTEMPT_STATUSES = CRAWL_ERROR_STATUSES + (
 )
 
 
-def normalize_query(query: str) -> str:
-    return " ".join((query or "").strip().lower().split())
-
-
-def get_or_set_anon_session_id(request: Request, response: Response) -> str:
+def get_or_create_anon_session_id(request: Request) -> tuple[str, bool]:
     existing = request.cookies.get(ANON_SESSION_COOKIE)
     if existing:
-        return existing
+        return existing, False
 
-    session_id = uuid.uuid4().hex
+    return uuid4().hex, True
+
+
+def set_anon_session_cookie(response: Response, session_id: str) -> None:
     response.set_cookie(
         key=ANON_SESSION_COOKIE,
         value=session_id,
@@ -51,7 +52,6 @@ def get_or_set_anon_session_id(request: Request, response: Response) -> str:
         secure=settings.ENVIRONMENT == Environment.PRODUCTION,
         samesite="lax",
     )
-    return session_id
 
 
 def hash_session_id(session_id: str | None) -> str | None:
@@ -61,86 +61,75 @@ def hash_session_id(session_id: str | None) -> str | None:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def log_search(
+def _snippet_hash(value: str | None) -> str | None:
+    if not value:
+        return None
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _build_impressions(
+    hits: list[dict[str, Any]], page: int, per_page: int
+) -> list[SearchResultImpression]:
+    rank_offset = max(page - 1, 0) * per_page
+    impressions: list[SearchResultImpression] = []
+    for index, hit in enumerate(hits, start=1):
+        impressions.append(
+            SearchResultImpression(
+                rank=rank_offset + index,
+                url=hit["url"],
+                title=hit.get("title"),
+                score=hit.get("score"),
+                snippet_hash=_snippet_hash(hit.get("snip_plain")),
+            )
+        )
+    return impressions
+
+
+def record_search_telemetry(
+    *,
     query: str,
+    source: str,
+    mode: str,
+    page: int,
+    limit: int,
     result_count: int,
+    latency_ms: int | None,
+    session_hash: str | None,
     user_agent: str | None,
-    search_mode: str = "bm25",
-) -> None:
+    hits: list[dict[str, Any]],
+) -> str | None:
     try:
         with db_cursor() as (conn, _):
-            _repo.insert_search_log(conn, query, result_count, search_mode, user_agent)
-    except Exception as exc:
-        logger.warning(f"Failed to persist search log: {exc}")
-
-
-def log_impression_event(
-    *,
-    query: str,
-    request_id: str,
-    result_count: int,
-    session_hash: str | None,
-    latency_ms: int | None,
-) -> None:
-    _log_search_event(
-        event_type="impression",
-        query=query,
-        request_id=request_id,
-        session_hash=session_hash,
-        result_count=result_count,
-        clicked_url=None,
-        clicked_rank=None,
-        latency_ms=latency_ms,
-    )
-
-
-def log_click_event(
-    *,
-    query: str,
-    request_id: str,
-    clicked_url: str,
-    clicked_rank: int,
-    session_hash: str | None,
-) -> None:
-    _log_search_event(
-        event_type="click",
-        query=query,
-        request_id=request_id,
-        session_hash=session_hash,
-        result_count=None,
-        clicked_url=clicked_url,
-        clicked_rank=clicked_rank,
-        latency_ms=None,
-    )
-
-
-def _log_search_event(
-    *,
-    event_type: str,
-    query: str,
-    request_id: str | None,
-    session_hash: str | None,
-    result_count: int | None,
-    clicked_url: str | None,
-    clicked_rank: int | None,
-    latency_ms: int | None,
-) -> None:
-    try:
-        with db_cursor() as (conn, _):
-            _repo.insert_search_event(
+            request_id, impression_ids = _telemetry_repo.record_search(
                 conn,
-                event_type=event_type,
                 query=query,
-                query_norm=normalize_query(query),
-                request_id=request_id,
-                session_hash=session_hash,
+                source=source,
+                mode=mode,
+                page=page,
+                limit=limit,
                 result_count=result_count,
-                clicked_url=clicked_url,
-                clicked_rank=clicked_rank,
                 latency_ms=latency_ms,
+                session_hash=session_hash,
+                user_agent=user_agent,
+                impressions=_build_impressions(hits, page, limit),
+            )
+        for hit, impression_id in zip(hits, impression_ids):
+            hit["impression_id"] = impression_id
+        return request_id
+    except Exception as exc:
+        logger.warning(f"Failed to persist search telemetry: {exc}")
+        return None
+
+
+def record_search_result_click(*, impression_id: str, session_hash: str | None) -> bool:
+    try:
+        with db_cursor() as (conn, _):
+            return _telemetry_repo.record_click(
+                conn, impression_id=impression_id, session_hash=session_hash
             )
     except Exception as exc:
-        logger.warning(f"Failed to persist search event '{event_type}': {exc}")
+        logger.warning(f"Failed to persist search click telemetry: {exc}")
+        return False
 
 
 def get_quality_summary(window_hours: int) -> dict[str, Any]:
@@ -166,8 +155,8 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
     }
 
     with db_cursor() as (conn, _):
-        if _repo.table_exists(conn, "search_events"):
-            impression_rows = _repo.get_impressions(conn, cutoff_str)
+        if _repo.table_exists(conn, "search_requests"):
+            impression_rows = _telemetry_repo.request_metrics(conn, cutoff_str)
 
             impressions = len(impression_rows)
             zero_hits = sum(
@@ -180,10 +169,10 @@ def get_quality_summary(window_hours: int) -> dict[str, Any]:
                 int(latency) for _, _, latency in impression_rows if latency is not None
             ]
 
-            clicked_request_ids = _repo.get_clicked_request_ids(conn, cutoff_str)
+            clicked_request_ids = _telemetry_repo.clicked_request_ids(conn, cutoff_str)
             clicked_impressions = len(request_ids & clicked_request_ids)
 
-            click_ranks = _repo.get_click_ranks(conn, cutoff_str)
+            click_ranks = _telemetry_repo.click_ranks(conn, cutoff_str)
 
             search_data["impressions"] = impressions
             search_data["zero_hit_rate"] = _ratio_percent(zero_hits, impressions)

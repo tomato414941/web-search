@@ -85,7 +85,7 @@ def _fetch_internal_queries(days: int, limit: int) -> list[tuple[str, int, str]]
     sql = """
         WITH recent AS (
             SELECT query, result_count
-            FROM search_logs
+            FROM search_requests
             WHERE created_at >= NOW() - (%s || ' days')::interval
         )
         (
@@ -207,7 +207,7 @@ def main() -> int:
         "--internal-days",
         type=int,
         default=30,
-        help="Lookback window for internal search_logs in days (default: 30).",
+        help="Lookback window for internal search telemetry in days (default: 30).",
     )
     parser.add_argument(
         "--internal-limit",

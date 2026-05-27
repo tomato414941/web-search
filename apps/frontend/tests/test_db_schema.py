@@ -25,8 +25,9 @@ def test_db_creation():
     assert "page_ranks" in tables
 
     # Analytics tables
-    assert "search_logs" in tables
-    assert "search_events" in tables
+    assert "search_requests" in tables
+    assert "search_result_impressions" in tables
+    assert "search_result_clicks" in tables
 
 
 def test_documents_table_schema():

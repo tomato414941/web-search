@@ -30,6 +30,7 @@ members = ["apps/*", "packages/*"]
 "web-search-opensearch" = { workspace = true }
 "web-search-indexing" = { workspace = true }
 "web-search-search-config" = { workspace = true }
+"web-search-telemetry" = { workspace = true }
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
@@ -51,6 +52,7 @@ src = [
     "packages/opensearch/src",
     "packages/indexing/src",
     "packages/search-config/src",
+    "packages/search-telemetry/src",
     "apps/crawler/src",
     "apps/indexer/src",
     "apps/mcp/src",

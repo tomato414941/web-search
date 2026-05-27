@@ -19,11 +19,13 @@ COPY packages/contracts/pyproject.toml ./packages/contracts/pyproject.toml
 COPY packages/core/pyproject.toml ./packages/core/pyproject.toml
 COPY packages/postgres/pyproject.toml ./packages/postgres/pyproject.toml
 COPY packages/search-config/pyproject.toml ./packages/search-config/pyproject.toml
+COPY packages/search-telemetry/pyproject.toml ./packages/search-telemetry/pyproject.toml
 COPY apps/crawler/src/ ./apps/crawler/src/
 COPY packages/contracts/src/ ./packages/contracts/src/
 COPY packages/core/src/ ./packages/core/src/
 COPY packages/postgres/src/ ./packages/postgres/src/
 COPY packages/search-config/src/ ./packages/search-config/src/
+COPY packages/search-telemetry/src/ ./packages/search-telemetry/src/
 
 # Build a production venv for the crawler package
 RUN uv sync --frozen --package web-search-crawler --no-dev --no-editable

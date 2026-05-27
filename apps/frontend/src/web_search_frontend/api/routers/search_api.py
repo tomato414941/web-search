@@ -3,19 +3,17 @@
 import asyncio
 import logging
 import time
-import uuid
-from fastapi import APIRouter, Request, BackgroundTasks, Response
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field
 
 from web_search_frontend.core.config import settings
 from web_search_frontend.services.search import search_service
 from web_search_frontend.services.analytics import (
-    get_or_set_anon_session_id,
+    get_or_create_anon_session_id,
     hash_session_id,
-    log_search as analytics_log_search,
-    log_impression_event,
-    log_click_event,
+    record_search_telemetry,
+    set_anon_session_cookie,
 )
 from web_search_frontend.api.middleware.rate_limiter import limiter
 from web_search_contracts.enums import SearchMode
@@ -101,6 +99,10 @@ class SearchHit(BaseModel):
         default=None,
         description="Full page text (only when include_content=true)",
     )
+    impression_id: str | None = Field(
+        default=None,
+        description="Search telemetry impression ID for UI click telemetry",
+    )
 
 
 class SearchResponse(BaseModel):
@@ -113,25 +115,8 @@ class SearchResponse(BaseModel):
     mode: str = Field(description="Actual search mode executed (bm25)")
     requested_mode: str = Field(description="Search mode requested by client (bm25)")
     request_id: str | None = Field(
-        default=None, description="Request ID for click tracking"
+        default=None, description="Search telemetry request ID"
     )
-
-
-class SearchClickRequest(BaseModel):
-    request_id: str = Field(min_length=8, max_length=128)
-    query: str = Field(min_length=1, max_length=500)
-    url: HttpUrl
-    rank: int = Field(ge=1, le=1000)
-
-
-def log_search(
-    query: str,
-    result_count: int,
-    user_agent: str | None,
-    search_mode: str = "bm25",
-):
-    """Compatibility wrapper used by existing tests."""
-    analytics_log_search(query, result_count, user_agent, search_mode=search_mode)
 
 
 def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
@@ -151,7 +136,6 @@ def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
 @limiter.limit("100/minute")
 async def api_search(
     request: Request,
-    background_tasks: BackgroundTasks,
     q: str | None = None,
     limit: str | None = None,
     page: str | None = None,
@@ -192,50 +176,30 @@ async def api_search(
     if "mode" not in data:
         data["mode"] = SearchMode.BM25
 
-    if query:
-        request_id = uuid.uuid4().hex
-        data["request_id"] = request_id
-
-    response = JSONResponse(data)
-
+    should_set_cookie = False
+    session_id: str | None = None
     if query:
         latency_ms = int((time.perf_counter() - started_at) * 1000)
         user_agent = request.headers.get("user-agent")
-        session_id = get_or_set_anon_session_id(request, response)
+        session_id, should_set_cookie = get_or_create_anon_session_id(request)
         session_hash = hash_session_id(session_id)
-
-        background_tasks.add_task(
-            log_search, query, data["total"], user_agent, search_mode
-        )
-        background_tasks.add_task(
-            log_impression_event,
+        request_id = record_search_telemetry(
             query=query,
-            request_id=request_id,
+            source="public_api",
+            mode=search_mode,
+            page=data["page"],
+            limit=data["per_page"],
             result_count=data["total"],
-            session_hash=session_hash,
             latency_ms=latency_ms,
+            session_hash=session_hash,
+            user_agent=user_agent,
+            hits=data["hits"],
         )
+        if request_id is not None:
+            data["request_id"] = request_id
 
-    return response
+    response = JSONResponse(data)
+    if session_id is not None and should_set_cookie:
+        set_anon_session_cookie(response, session_id)
 
-
-@router.post(
-    "/search/click",
-    status_code=204,
-    summary="Log a click event",
-)
-@limiter.limit("300/minute")
-async def api_search_click(request: Request, payload: SearchClickRequest):
-    """Record that a user clicked a search result. Used for relevance feedback."""
-    response = Response(status_code=204)
-    session_id = get_or_set_anon_session_id(request, response)
-    session_hash = hash_session_id(session_id)
-
-    log_click_event(
-        query=payload.query,
-        request_id=payload.request_id,
-        clicked_url=str(payload.url),
-        clicked_rank=payload.rank,
-        session_hash=session_hash,
-    )
     return response

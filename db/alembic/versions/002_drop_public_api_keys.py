@@ -16,8 +16,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("DROP INDEX IF EXISTS idx_search_logs_api_key")
-    op.execute("ALTER TABLE search_logs DROP COLUMN IF EXISTS api_key_id")
     op.execute("DROP TABLE IF EXISTS api_keys CASCADE")
 
 
@@ -36,7 +34,3 @@ def downgrade() -> None:
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash)")
     op.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_status ON api_keys(status)")
-    op.execute("ALTER TABLE search_logs ADD COLUMN IF NOT EXISTS api_key_id TEXT")
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_search_logs_api_key ON search_logs(api_key_id)"
-    )

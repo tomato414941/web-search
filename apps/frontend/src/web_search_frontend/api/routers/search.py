@@ -2,20 +2,19 @@
 
 import asyncio
 import time
-import uuid
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, Request, Cookie, BackgroundTasks
+from fastapi import APIRouter, Request, Cookie
 from fastapi.responses import HTMLResponse
 
 from web_search_frontend.core.config import settings
 from web_search_frontend.i18n.messages import MESSAGES
 from web_search_frontend.services.search import search_service
 from web_search_frontend.services.analytics import (
-    log_search,
-    log_impression_event,
-    get_or_set_anon_session_id,
+    get_or_create_anon_session_id,
     hash_session_id,
+    record_search_telemetry,
+    set_anon_session_cookie,
 )
 from web_search_frontend.api.templates import templates
 from web_search_frontend.api.middleware.rate_limiter import limiter
@@ -70,7 +69,6 @@ def _detect_language(
 @limiter.limit("60/minute")
 async def search_page(
     request: Request,
-    background_tasks: BackgroundTasks,
     q: str | None = None,
     page: str | None = None,
     mode: str | None = None,
@@ -95,7 +93,7 @@ async def search_page(
 
     page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
     per_page = min(settings.RESULTS_LIMIT, settings.MAX_PER_PAGE)
-    request_id = uuid.uuid4().hex if query else None
+    request_id = None
 
     effective_search_mode = SearchMode.BM25
     current_page = page_number
@@ -109,6 +107,26 @@ async def search_page(
     )
     if result is not None:
         current_page = result["page"]
+
+    should_set_session_cookie = False
+    session_id: str | None = None
+    if query and result is not None:
+        user_agent = request.headers.get("user-agent")
+        latency_ms = int((time.perf_counter() - started_at) * 1000)
+        session_id, should_set_session_cookie = get_or_create_anon_session_id(request)
+        session_hash = hash_session_id(session_id)
+        request_id = record_search_telemetry(
+            query=query,
+            source="web_ui",
+            mode=effective_search_mode,
+            page=result["page"],
+            limit=result["per_page"],
+            result_count=result["total"],
+            latency_ms=latency_ms,
+            session_hash=session_hash,
+            user_agent=user_agent,
+            hits=result["hits"],
+        )
 
     resp = templates.TemplateResponse(
         request,
@@ -172,22 +190,8 @@ async def search_page(
         },
     )
 
-    if query and result is not None and request_id is not None:
-        user_agent = request.headers.get("user-agent")
-        latency_ms = int((time.perf_counter() - started_at) * 1000)
-        session_id = get_or_set_anon_session_id(request, resp)
-        session_hash = hash_session_id(session_id)
-        background_tasks.add_task(
-            log_search, query, result["total"], user_agent, effective_search_mode
-        )
-        background_tasks.add_task(
-            log_impression_event,
-            query=query,
-            request_id=request_id,
-            result_count=result["total"],
-            session_hash=session_hash,
-            latency_ms=latency_ms,
-        )
+    if session_id is not None and should_set_session_cookie:
+        set_anon_session_cookie(resp, session_id)
 
     if mode in ["simple", "modern"]:
         resp.set_cookie(key="ui_mode", value=mode)

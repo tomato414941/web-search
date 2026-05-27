@@ -22,6 +22,7 @@ from web_search_frontend.api.routers import (
     crawler,
     admin,
     quality,
+    telemetry,
 )
 from web_search_frontend.api.routers.system import root_router as health_root_router
 from web_search_frontend.api.middleware.rate_limiter import (
@@ -104,7 +105,7 @@ app = FastAPI(
     version="1.0.0",
     description=API_DESCRIPTION,
     openapi_tags=[
-        {"name": "search", "description": "Search and click tracking"},
+        {"name": "search", "description": "Search"},
     ],
     license_info={"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
 )
@@ -191,6 +192,7 @@ app.include_router(health_root_router, tags=["health"], include_in_schema=False)
 # UI routes (no /api/v1 prefix)
 app.include_router(search.router, tags=["ui"], include_in_schema=False)
 app.include_router(admin.router, include_in_schema=False)
+app.include_router(telemetry.router, include_in_schema=False)
 
 # API routes with /api/v1 prefix
 app.include_router(search_api.router, prefix="/api/v1", tags=["search"])

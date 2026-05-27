@@ -93,16 +93,6 @@ curl "https://palebluesearch.com/api/v1/search?q=machine+learning&mode=bm25"
 curl "https://palebluesearch.com/api/v1/search?q=python&limit=20&page=2"
 ```
 
-### Click Tracking
-
-Report user clicks to improve search quality:
-
-```bash
-curl -X POST "https://palebluesearch.com/api/v1/search/click" \
-  -H "Content-Type: application/json" \
-  -d '{"request_id": "a1b2c3d4e5f6", "query": "python", "url": "https://example.com", "rank": 1}'
-```
-
 ### Error Codes
 
 | Code | Description |

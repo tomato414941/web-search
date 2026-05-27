@@ -1,6 +1,4 @@
-from web_search_frontend.api.routers.search_api import log_search
 from web_search_frontend.core.config import settings
-from web_search_postgres.search import get_connection
 
 MAX_QUERY_LEN = settings.MAX_QUERY_LEN
 MAX_PER_PAGE = settings.MAX_PER_PAGE
@@ -67,30 +65,3 @@ def test_search_special_characters(client):
     # Just ensure it doesn't crash 500
     response = client.get("/api/v1/search?q=%22%27%3Cscript%3E")
     assert response.status_code == 200
-
-
-def test_log_search_insert_works(client):
-    query = "pg-log-insert-check"
-    log_search(query, 2, "pytest-agent")
-
-    conn = get_connection()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT query, result_count, search_mode, user_agent
-        FROM search_logs
-        WHERE query = %s
-        ORDER BY id DESC
-        LIMIT 1
-        """,
-        (query,),
-    )
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    assert row is not None
-    assert row[0] == query
-    assert row[1] == 2
-    assert row[2] == "bm25"
-    assert row[3] == "pytest-agent"

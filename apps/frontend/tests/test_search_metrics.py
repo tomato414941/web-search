@@ -1,7 +1,7 @@
 from web_search_postgres.search import get_connection
 
 
-def test_search_api_returns_request_id_and_logs_impression(client):
+def test_search_api_records_request_and_impressions(client):
     response = client.get("/api/v1/search?q=metrics-impression")
     assert response.status_code == 200
     data = response.json()
@@ -13,36 +13,60 @@ def test_search_api_returns_request_id_and_logs_impression(client):
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT event_type, query, request_id
-        FROM search_events
-        WHERE event_type = %s
-        ORDER BY id DESC
-        LIMIT 1
+        SELECT query, source, result_count
+        FROM search_requests
+        WHERE id = %s
         """,
-        ("impression",),
+        (data["request_id"],),
     )
-    row = cur.fetchone()
+    request_row = cur.fetchone()
+    cur.execute(
+        """
+        SELECT COUNT(*)
+        FROM search_result_impressions
+        WHERE search_request_id = %s
+        """,
+        (data["request_id"],),
+    )
+    impression_count = cur.fetchone()[0]
     cur.close()
     conn.close()
 
-    assert row is not None
-    assert row[0] == "impression"
-    assert row[1] == "metrics-impression"
-    assert row[2] == data["request_id"]
+    assert request_row is not None
+    assert request_row[0] == "metrics-impression"
+    assert request_row[1] == "public_api"
+    assert request_row[2] == data["total"]
+    assert impression_count == len(data["hits"])
+    if data["hits"]:
+        assert data["hits"][0]["impression_id"]
 
 
 def test_search_click_endpoint_logs_click_event(client):
-    search_response = client.get("/api/v1/search?q=metrics-click")
-    request_id = search_response.json()["request_id"]
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO search_requests (
+            id, query, query_norm, source, mode, page, result_limit, result_count
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        ("req-click", "metrics-click", "metrics-click", "public_api", "bm25", 1, 10, 1),
+    )
+    cur.execute(
+        """
+        INSERT INTO search_result_impressions (
+            id, search_request_id, rank, url, title, score
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        ("imp-click", "req-click", 1, "https://example.com", "Example", 1.0),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
     click_response = client.post(
-        "/api/v1/search/click",
-        json={
-            "request_id": request_id,
-            "query": "metrics-click",
-            "url": "https://example.com/page",
-            "rank": 2,
-        },
+        "/telemetry/search-result-click",
+        json={"impression_id": "imp-click"},
     )
     assert click_response.status_code == 204
 
@@ -50,22 +74,28 @@ def test_search_click_endpoint_logs_click_event(client):
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT event_type, request_id, clicked_rank
-        FROM search_events
-        WHERE event_type = %s AND request_id = %s
-        ORDER BY id DESC
-        LIMIT 1
+        SELECT c.impression_id, i.rank
+        FROM search_result_clicks c
+        JOIN search_result_impressions i ON i.id = c.impression_id
+        WHERE c.impression_id = %s
         """,
-        ("click", request_id),
+        ("imp-click",),
     )
     row = cur.fetchone()
     cur.close()
     conn.close()
 
     assert row is not None
-    assert row[0] == "click"
-    assert row[1] == request_id
-    assert row[2] == 2
+    assert row[0] == "imp-click"
+    assert row[1] == 1
+
+
+def test_search_click_endpoint_rejects_unknown_impression(client):
+    response = client.post(
+        "/telemetry/search-result-click",
+        json={"impression_id": "missing-impression"},
+    )
+    assert response.status_code == 404
 
 
 def test_quality_summary_endpoint_returns_metrics(client):
@@ -73,27 +103,37 @@ def test_quality_summary_endpoint_returns_metrics(client):
     cur = conn.cursor()
     cur.execute(
         """
-        INSERT INTO search_events (
-            event_type, query, query_norm, request_id, result_count, latency_ms
-        ) VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO search_requests (
+            id, query, query_norm, source, mode, page, result_limit,
+            result_count, latency_ms
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        ("impression", "q1", "q1", "req-a", 0, 120),
+        ("req-a", "q1", "q1", "public_api", "bm25", 1, 10, 0, 120),
     )
     cur.execute(
         """
-        INSERT INTO search_events (
-            event_type, query, query_norm, request_id, result_count, latency_ms
-        ) VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO search_requests (
+            id, query, query_norm, source, mode, page, result_limit,
+            result_count, latency_ms
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        ("impression", "q2", "q2", "req-b", 3, 240),
+        ("req-b", "q2", "q2", "public_api", "bm25", 1, 10, 3, 240),
     )
     cur.execute(
         """
-        INSERT INTO search_events (
-            event_type, query, query_norm, request_id, clicked_url, clicked_rank
+        INSERT INTO search_result_impressions (
+            id, search_request_id, rank, url, title, score
         ) VALUES (%s, %s, %s, %s, %s, %s)
         """,
-        ("click", "q2", "q2", "req-b", "https://example.com", 3),
+        ("imp-b", "req-b", 3, "https://example.com", "Example", 1.0),
+    )
+    cur.execute(
+        """
+        INSERT INTO search_result_clicks (
+            id, search_request_id, impression_id
+        ) VALUES (%s, %s, %s)
+        """,
+        ("click-b", "req-b", "imp-b"),
     )
     conn.commit()
     cur.close()

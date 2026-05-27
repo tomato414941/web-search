@@ -18,8 +18,9 @@ from web_search_postgres.migrate import migrate  # noqa: E402
 # Tables to truncate between tests
 _TABLES = [
     "index_jobs",
-    "search_events",
-    "search_logs",
+    "search_result_clicks",
+    "search_result_impressions",
+    "search_requests",
     "page_ranks",
     "documents",
     "domain_ranks",

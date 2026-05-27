@@ -41,10 +41,6 @@ Current behavior:
 Use [search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md) for ranking and signal semantics.
 
-### `POST /api/v1/search/click`
-
-Logs a click event tied to a prior search response.
-
 ### `GET /api/v1/quality/summary`
 
 Search analytics summary endpoint.

@@ -14,8 +14,9 @@ ensure_test_pg()
 
 _TABLES = [
     "index_jobs",
-    "search_events",
-    "search_logs",
+    "search_result_clicks",
+    "search_result_impressions",
+    "search_requests",
     "page_ranks",
     "documents",
     "domain_ranks",
