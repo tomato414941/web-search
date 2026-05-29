@@ -71,7 +71,7 @@ The project uses a **Folder-Separated Monorepo** pattern:
 | :--- | :--- | :--- | :--- |
 | `apps/frontend/` | `web_search_frontend` | **Search Cluster**. UI & Search Logic. | `api/routers/search_api.py`, `services/search.py` |
 | `apps/indexer/` | `web_search_indexer` | **Write Cluster**. Indexing & Optional Enrichment. | `api/routes/indexer.py`, `services/indexer.py`, `worker.py` |
-| `apps/crawler/` | `web_search_crawler` | **Worker Node**. Fetching & URL Management. | `workers/pipeline.py`, `db/url_store.py`, `db/url_admin_state.py`, `db/url_domain_state.py`, `frontier_planner.py` |
+| `apps/crawler/` | `web_search_crawler` | **Worker Node**. Fetching & URL Management. | `workers/pipeline.py`, `db/url_store.py`, `db/url_domain_state.py`, `frontier_planner.py` |
 | `packages/contracts/` | `web_search_contracts` | **Contracts**. Typed APIs shared across services. | `indexer_api.py`, `enums.py` |
 | `packages/core/` | `web_search_core` | **Core Runtime**. Shared config, logging, retry, and utility helpers. | `logging_config.py`, `retry.py`, `utils.py` |
 | `packages/postgres/` | `web_search_postgres` | **Database Layer**. PostgreSQL connections, migrations, and repositories. | `search.py`, `migrate.py`, `repositories/document_repo.py` |
