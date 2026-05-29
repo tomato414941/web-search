@@ -8,7 +8,6 @@
         <h1>Pale Blue Search Admin</h1>
         <div class="nav">
             <a href="/admin/" class="active">Dashboard</a>
-            <a href="/admin/crawlers">Crawlers</a>
             <a href="/admin/logout">Logout</a>
         </div>
     </div>
@@ -34,17 +33,6 @@
                 </div>
                 <div class="label">Indexed Documents</div>
             </div>
-        </div>
-    </div>
-
-    <div class="grid-2col">
-        <div class="card">
-            <h2>Crawler Overview</h2>
-            <div class="status-row">
-                <span class="status-indicator {{ data.worker_status }}"></span>
-                <span>{{ data.worker_status | title }}</span>
-            </div>
-            <a href="/admin/crawlers" class="link">Manage Instances &rarr;</a>
         </div>
     </div>
 

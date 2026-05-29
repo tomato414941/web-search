@@ -31,9 +31,6 @@ from web_search_frontend.api.middleware.rate_limiter import (
 from web_search_frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from web_search_frontend.api.metrics import router as metrics_router, MetricsMiddleware
 from web_search_frontend.services.admin_dashboard import maintain_dashboard_cache
-from web_search_frontend.services.crawler_instances import (
-    maintain_crawler_instances_cache,
-)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -66,14 +63,6 @@ async def lifespan(app: FastAPI):
             asyncio.create_task(
                 maintain_dashboard_cache(
                     refresh_interval_seconds=settings.ADMIN_DASHBOARD_REFRESH_SEC
-                )
-            )
-        )
-        prewarm_tasks.append(
-            asyncio.create_task(
-                maintain_crawler_instances_cache(
-                    settings.CRAWLER_INSTANCES,
-                    refresh_interval_seconds=settings.ADMIN_DASHBOARD_REFRESH_SEC,
                 )
             )
         )

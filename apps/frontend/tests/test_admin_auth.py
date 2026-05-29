@@ -1,12 +1,11 @@
 """Test Admin Authentication and Security."""
 
-import os
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from web_search_frontend.api.main import app
-from web_search_frontend.core.config import settings, Settings
+from web_search_frontend.core.config import settings
 from web_search_frontend.services.admin_auth import CSRF_COOKIE_NAME, create_session
 from web_search_core.infrastructure_config import Environment
 
@@ -114,13 +113,6 @@ class TestAdminAuthentication:
             or client.cookies.get("admin_session") == ""
         )
 
-    def test_crawlers_page_requires_auth(self, client):
-        """Crawlers page should require authentication."""
-        client.cookies.clear()
-        response = client.get("/admin/crawlers", follow_redirects=False)
-        assert response.status_code == 303
-        assert response.headers["location"] == "/admin/login"
-
     def test_frontier_page_is_removed(self, client):
         client.cookies.clear()
         login_as_admin(client)
@@ -139,38 +131,11 @@ class TestAdminAuthentication:
         response = client.get("/admin/indexer")
         assert response.status_code == 404
 
-    def test_crawlers_page_with_valid_session(self, client):
-        """Crawlers page should be accessible with valid session."""
+    def test_crawlers_page_is_removed(self, client):
         client.cookies.clear()
         login_as_admin(client)
-        crawler_read_model = {
-            "instances": [
-                {
-                    "name": "default",
-                    "url": "http://crawler:8000",
-                    "state": "running",
-                    "concurrency": 1,
-                    "uptime": 123,
-                }
-            ],
-            "snapshot_generated_at": "2026-03-26 00:00:00 UTC",
-            "snapshot_loaded_from": "live",
-        }
-        with patch(
-            "web_search_frontend.api.routers.admin_crawlers.get_crawler_instances_read_model",
-            new=AsyncMock(return_value=crawler_read_model),
-        ):
-            response = client.get("/admin/crawlers")
-        assert response.status_code == 200
-        assert "Crawler Instances" in response.text
-        assert "Snapshot refreshed" not in response.text
-        assert "Concurrency" in response.text
-        assert "Crawled" not in response.text
-        assert "Attempts/h" not in response.text
-        assert "Submitted to indexer per hour" not in response.text
-        assert "Submit rate" not in response.text
-        assert "Errors/h" not in response.text
-        assert "Uptime" not in response.text
+        response = client.get("/admin/crawlers")
+        assert response.status_code == 404
 
 
 class TestSessionSecurity:
@@ -249,51 +214,3 @@ class TestSessionSecurity:
         response = client.get("/admin/", follow_redirects=False)
         assert response.status_code == 303
         assert response.headers["location"] == "/admin/login"
-
-
-class TestCrawlerInstancesConfig:
-    """Test CRAWLER_INSTANCES configuration property."""
-
-    def test_crawler_instances_default(self):
-        """Should return default instance when env var not set."""
-        with patch.dict(os.environ, {}, clear=False):
-            if "CRAWLER_INSTANCES" in os.environ:
-                del os.environ["CRAWLER_INSTANCES"]
-            s = Settings()
-            instances = s.CRAWLER_INSTANCES
-            assert len(instances) == 1
-            assert instances[0]["name"] == "default"
-            assert instances[0]["url"] == s.CRAWLER_SERVICE_URL
-
-    def test_crawler_instances_single(self):
-        """Should parse single instance correctly."""
-        with patch.dict(os.environ, {"CRAWLER_INSTANCES": "test|http://test:8000"}):
-            s = Settings()
-            instances = s.CRAWLER_INSTANCES
-            assert len(instances) == 1
-            assert instances[0]["name"] == "test"
-            assert instances[0]["url"] == "http://test:8000"
-
-    def test_crawler_instances_multiple(self):
-        """Should parse multiple instances correctly."""
-        env_val = "crawler1|http://host1:8000,crawler2|http://host2:8000"
-        with patch.dict(os.environ, {"CRAWLER_INSTANCES": env_val}):
-            s = Settings()
-            instances = s.CRAWLER_INSTANCES
-            assert len(instances) == 2
-            assert instances[0]["name"] == "crawler1"
-            assert instances[0]["url"] == "http://host1:8000"
-            assert instances[1]["name"] == "crawler2"
-            assert instances[1]["url"] == "http://host2:8000"
-
-    def test_crawler_instances_with_spaces(self):
-        """Should handle spaces in the env var."""
-        env_val = " crawler1 | http://host1:8000 , crawler2|http://host2:8000 "
-        with patch.dict(os.environ, {"CRAWLER_INSTANCES": env_val}):
-            s = Settings()
-            instances = s.CRAWLER_INSTANCES
-            assert len(instances) == 2
-            assert instances[0]["name"] == "crawler1"
-            assert instances[0]["url"] == "http://host1:8000"
-            assert instances[1]["name"] == "crawler2"
-            assert instances[1]["url"] == "http://host2:8000"

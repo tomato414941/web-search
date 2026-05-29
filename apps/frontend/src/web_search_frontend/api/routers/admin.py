@@ -7,7 +7,6 @@ from fastapi.responses import RedirectResponse
 
 from web_search_frontend.api.deps_admin import require_admin_session
 from web_search_frontend.api.middleware.rate_limiter import limiter
-from web_search_frontend.api.routers.admin_crawlers import router as crawlers_router
 from web_search_frontend.api.templates import templates
 from web_search_frontend.core.config import settings
 from web_search_frontend.services.admin_auth import (
@@ -105,6 +104,3 @@ async def dashboard(
             "csrf_token": csrf_token,
         },
     )
-
-
-router.include_router(crawlers_router)

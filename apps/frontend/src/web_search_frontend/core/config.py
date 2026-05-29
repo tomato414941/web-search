@@ -5,8 +5,6 @@ Service-specific configuration for the Frontend service.
 Inherits infrastructure settings from the shared core package.
 """
 
-import os
-
 from pydantic import AliasChoices, Field
 
 from web_search_core.infrastructure_config import Environment, InfrastructureSettings
@@ -32,24 +30,6 @@ class Settings(InfrastructureSettings):
     ADMIN_DASHBOARD_CACHE_TTL_SEC: int = 120
     ADMIN_DASHBOARD_REFRESH_SEC: int = 60
     ADMIN_SEEDS_PER_PAGE: int = 50
-
-    @property
-    def CRAWLER_INSTANCES(self) -> list[dict[str, str]]:
-        """Parse CRAWLER_INSTANCES env var: 'name1|url1,name2|url2'"""
-        raw = os.getenv("CRAWLER_INSTANCES", "")
-        if not raw:
-            return [{"name": "default", "url": self.CRAWLER_SERVICE_URL}]
-        instances = []
-        for item in raw.split(","):
-            item = item.strip()
-            if "|" in item:
-                name, url = item.split("|", 1)
-                instances.append({"name": name.strip(), "url": url.strip()})
-        return (
-            instances
-            if instances
-            else [{"name": "default", "url": self.CRAWLER_SERVICE_URL}]
-        )
 
     # Search Settings
     MAX_QUERY_LEN: int = 200
