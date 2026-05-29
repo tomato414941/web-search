@@ -41,6 +41,20 @@ Current behavior:
 Use [search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md) for ranking and signal semantics.
 
+### `GET /api/v1/search-index`
+
+Returns the public search index representation.
+
+Current response:
+
+```json
+{
+  "documents": {
+    "total": 123456
+  }
+}
+```
+
 ### `GET /health`
 
 Simple liveness check. Returns `{"status":"ok"}`.

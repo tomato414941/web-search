@@ -18,6 +18,7 @@ from web_search_postgres.migrate import migrate
 from web_search_frontend.api.routers import (
     search,
     search_api,
+    search_index,
     content_api,
     crawler,
     admin,
@@ -184,6 +185,7 @@ app.include_router(telemetry.router, include_in_schema=False)
 
 # API routes with /api/v1 prefix
 app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
+app.include_router(search_index.router, prefix="/api/v1", tags=["search"])
 app.include_router(content_api.router, prefix="/api/v1", tags=["content"])
 app.include_router(
     crawler.router, prefix="/api/v1", tags=["crawler"], include_in_schema=False

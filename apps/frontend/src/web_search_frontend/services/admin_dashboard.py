@@ -16,6 +16,7 @@ from web_search_frontend.services.admin_cache import (
     snapshot_timestamp,
 )
 from web_search_frontend.services.crawler_admin_client import fetch_dashboard_status
+from web_search_frontend.services.search_index import get_indexed_document_count
 from web_search_frontend.services.shared_json_cache import SharedJsonTtlCache
 from web_search_core.background import maintain_refresh_loop
 
@@ -118,11 +119,7 @@ def _dashboard_build_singleflight():
 
 def _get_search_index_dashboard_data() -> dict[str, Any]:
     try:
-        from web_search_opensearch.client import INDEX_NAME, get_client
-
-        client = get_client(settings.OPENSEARCH_URL)
-        count = client.count(index=INDEX_NAME)["count"]
-        return {"indexed_documents": int(count)}
+        return {"indexed_documents": get_indexed_document_count()}
     except Exception as exc:
         logger.warning("Failed to get OpenSearch document count: %s", exc)
         return {"indexed_documents": None}

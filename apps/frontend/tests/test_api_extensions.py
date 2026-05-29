@@ -93,3 +93,14 @@ def test_api_crawl_now_proxies_to_crawler_service(client):
         "job_id": "job-123",
         "outlinks_discovered": 4,
     }
+
+
+def test_search_index_returns_indexed_document_total(client):
+    with patch(
+        "web_search_frontend.api.routers.search_index.get_indexed_document_count",
+        return_value=123,
+    ):
+        response = client.get("/api/v1/search-index")
+
+    assert response.status_code == 200
+    assert response.json() == {"documents": {"total": 123}}
