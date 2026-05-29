@@ -31,32 +31,6 @@ def get_frontier_maintenance_state() -> dict[str, object | None]:
     return dict(_frontier_maintenance_state)
 
 
-async def _refresh_admin_caches() -> None:
-    from web_search_crawler.api.deps import get_seed_service
-    from web_search_crawler.api.routes.seeds import prewarm_seeds_page_cache
-
-    await prewarm_seeds_page_cache(get_seed_service())
-
-
-async def maintain_admin_caches(*, refresh_interval_seconds: float) -> None:
-    async def refresh_once() -> None:
-        try:
-            await _refresh_admin_caches()
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.warning("Failed to prewarm crawler admin caches", exc_info=True)
-        else:
-            logger.info("Prewarmed crawler admin caches")
-
-    await maintain_refresh_loop(
-        initial_call=refresh_once,
-        periodic_call=refresh_once,
-        refresh_interval_seconds=refresh_interval_seconds,
-        initial_delay_seconds=2.0,
-    )
-
-
 async def _reconcile_frontier_leases() -> int:
     from web_search_crawler.api.deps import _get_url_store
 
@@ -124,7 +98,6 @@ async def lifespan(app: FastAPI):
 
     # Initialize worker manager
     await worker_manager.initialize()
-    prewarm_task: asyncio.Task[None] | None = None
     frontier_task: asyncio.Task[None] | None = None
 
     if settings.CRAWL_AUTO_START:
@@ -137,11 +110,6 @@ async def lifespan(app: FastAPI):
         logger.info("Use POST /worker/start to begin crawling")
 
     if settings.ENVIRONMENT != Environment.TEST:
-        prewarm_task = asyncio.create_task(
-            maintain_admin_caches(
-                refresh_interval_seconds=settings.ADMIN_CACHE_REFRESH_SEC
-            )
-        )
         frontier_task = asyncio.create_task(
             maintain_frontier_health(
                 refresh_interval_seconds=settings.FRONTIER_MAINTENANCE_REFRESH_SEC
@@ -151,10 +119,6 @@ async def lifespan(app: FastAPI):
     try:
         yield  # Application runs here
     finally:
-        if prewarm_task is not None:
-            prewarm_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await prewarm_task
         if frontier_task is not None:
             frontier_task.cancel()
             with suppress(asyncio.CancelledError):

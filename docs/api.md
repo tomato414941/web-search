@@ -112,10 +112,6 @@ Returns crawler worker lifecycle state and volatile in-memory task status.
 
 Returns raw crawl-attempt history from `crawl_logs`.
 
-### `GET /api/v1/history/admin`
-
-Returns the operator-facing history read model.
-
 ### `GET /health`
 
 Simple liveness check.

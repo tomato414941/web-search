@@ -88,14 +88,3 @@ async def delete_seeds(
         return SeedResponse(status="ok", count=count)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete seeds: {str(e)}")
-
-
-async def prewarm_seeds_page_cache(
-    seed_service: SeedService, *, limit: int = 50, offset: int = 0
-) -> None:
-    await list_seeds(
-        seed_service=seed_service,
-        limit=limit,
-        offset=offset,
-        include_total=True,
-    )

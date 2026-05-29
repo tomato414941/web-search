@@ -27,7 +27,6 @@ class CrawlerSettings(InfrastructureSettings):
 
     # Auto-start crawl workers on service startup
     CRAWL_AUTO_START: bool = False
-    ADMIN_CACHE_REFRESH_SEC: int = 60
     FRONTIER_MAINTENANCE_REFRESH_SEC: int = 60
 
     # Recrawl settings
