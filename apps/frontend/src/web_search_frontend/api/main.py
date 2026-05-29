@@ -1,17 +1,15 @@
 import os
-import asyncio
 import uvicorn
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from slowapi.errors import RateLimitExceeded
 
-from web_search_frontend.api.deps_admin import AdminRedirectException
 from web_search_frontend.core.config import settings
 from web_search_core.infrastructure_config import Environment
 from web_search_postgres.migrate import migrate
@@ -21,7 +19,6 @@ from web_search_frontend.api.routers import (
     search_index,
     content_api,
     crawler,
-    admin,
     telemetry,
 )
 from web_search_frontend.api.routers.system import root_router as health_root_router
@@ -31,7 +28,6 @@ from web_search_frontend.api.middleware.rate_limiter import (
 )
 from web_search_frontend.api.middleware.request_logging import RequestLoggingMiddleware
 from web_search_frontend.api.metrics import router as metrics_router, MetricsMiddleware
-from web_search_frontend.services.admin_dashboard import maintain_dashboard_cache
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -58,23 +54,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI):
     if settings.RUN_MIGRATIONS:
         migrate()
-    prewarm_tasks: list[asyncio.Task[None]] = []
-    if settings.ENVIRONMENT != Environment.TEST:
-        prewarm_tasks.append(
-            asyncio.create_task(
-                maintain_dashboard_cache(
-                    refresh_interval_seconds=settings.ADMIN_DASHBOARD_REFRESH_SEC
-                )
-            )
-        )
-    try:
-        yield
-    finally:
-        for task in prewarm_tasks:
-            task.cancel()
-        for task in prewarm_tasks:
-            with suppress(asyncio.CancelledError):
-                await task
+    yield
 
 
 # --- OpenAPI Metadata ---
@@ -149,12 +129,6 @@ async def not_found_handler(request: Request, exc: StarletteHTTPException):
     return HTMLResponse(content="<h1>404 - Not Found</h1>", status_code=404)
 
 
-@app.exception_handler(AdminRedirectException)
-async def admin_redirect_handler(request: Request, exc: AdminRedirectException):
-    """Redirect unauthenticated admin requests to login."""
-    return RedirectResponse(url=exc.url, status_code=303)
-
-
 @app.exception_handler(500)
 async def server_error_handler(request: Request, exc: Exception):
     """Custom 500 page."""
@@ -180,7 +154,6 @@ app.include_router(health_root_router, tags=["health"], include_in_schema=False)
 
 # UI routes (no /api/v1 prefix)
 app.include_router(search.router, tags=["ui"], include_in_schema=False)
-app.include_router(admin.router, include_in_schema=False)
 app.include_router(telemetry.router, include_in_schema=False)
 
 # API routes with /api/v1 prefix

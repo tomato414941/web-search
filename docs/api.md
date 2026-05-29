@@ -5,7 +5,7 @@
 Current minimal runtime reference.
 
 This document intentionally covers only the API surface that is stable enough
-to be useful as documentation. Fast-changing internal and admin endpoints
+to be useful as documentation. Fast-changing internal endpoints
 should be read from the implementation when needed.
 
 ## Related Docs
@@ -114,7 +114,7 @@ Returns raw crawl-attempt history from `crawl_logs`.
 
 ### `GET /api/v1/history/admin`
 
-Returns the operator-facing history read model used by admin pages.
+Returns the operator-facing history read model.
 
 ### `GET /health`
 

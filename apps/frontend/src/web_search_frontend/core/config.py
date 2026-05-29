@@ -5,31 +5,14 @@ Service-specific configuration for the Frontend service.
 Inherits infrastructure settings from the shared core package.
 """
 
-from pydantic import AliasChoices, Field
-
 from web_search_core.infrastructure_config import Environment, InfrastructureSettings
 
 
 class Settings(InfrastructureSettings):
     """Frontend service configuration"""
 
-    # Admin Authentication (required - no defaults for security)
-    ADMIN_USERNAME: str | None = None
-    ADMIN_PASSWORD: str | None = None
-    SECRET_KEY: str | None = Field(
-        default=None,
-        validation_alias=AliasChoices("ADMIN_SESSION_SECRET", "SECRET_KEY"),
-    )
-
     # Crawler Service Integration
     CRAWLER_SERVICE_URL: str = "http://localhost:8000"
-
-    # Indexer Service Integration (Admin stats UI, internal-only in docker)
-    INDEXER_SERVICE_URL: str = "http://localhost:8081"
-    INDEXER_ADMIN_TIMEOUT_SEC: float = 10.0
-    ADMIN_DASHBOARD_CACHE_TTL_SEC: int = 120
-    ADMIN_DASHBOARD_REFRESH_SEC: int = 60
-    ADMIN_SEEDS_PER_PAGE: int = 50
 
     # Search Settings
     MAX_QUERY_LEN: int = 200
@@ -75,9 +58,6 @@ def _validate_required(settings: Settings) -> None:
         return
 
     required_fields = [
-        "ADMIN_USERNAME",
-        "ADMIN_PASSWORD",
-        "SECRET_KEY",
         "INDEXER_API_KEY",
     ]
     missing = [name for name in required_fields if not getattr(settings, name)]

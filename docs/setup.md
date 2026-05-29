@@ -91,7 +91,6 @@ set +a
 
 Required variables for local runs:
 - `ENVIRONMENT=development`
-- `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`
 - `INDEXER_API_KEY`
 - `CRAWLER_SERVICE_URL` and `INDEXER_API_URL` when running multiple services locally
 

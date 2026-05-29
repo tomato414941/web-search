@@ -14,10 +14,8 @@ dependencies = [
     "fastapi>=0.128",
     "gunicorn>=23.0",
     "httpx>=0.28",
-    "itsdangerous>=2.2",
     "jinja2>=3.1",
     "prometheus-client>=0.24",
-    "python-multipart>=0.0.26",
     "slowapi>=0.1.9",
     "uvicorn[standard]>=0.40",
 ]
@@ -36,7 +34,6 @@ where = ["src"]
 [tool.setuptools.package-data]
 web_search_frontend = [
     "templates/*.html",
-    "templates/admin/*.html",
     "templates/error/*.html",
     "static/*",
     "static/css/*",

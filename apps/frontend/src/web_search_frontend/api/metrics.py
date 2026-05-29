@@ -8,34 +8,22 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from web_search_frontend.metrics import (
     ACTIVE_REQUESTS,
-    ADMIN_DASHBOARD_CACHE_ACCESS,
-    ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS,
-    ADMIN_DASHBOARD_PREWARM_TOTAL,
     REQUEST_COUNT,
     REQUEST_LATENCY,
     SEARCH_QUERY_TOTAL,
     SEARCH_RESULT_COUNT,
     SEARCH_SCORING_DURATION,
-    record_admin_dashboard_cache_access,
-    record_admin_dashboard_prewarm_result,
-    set_admin_dashboard_last_prewarm_success,
 )
 
 __all__ = [
     "ACTIVE_REQUESTS",
-    "ADMIN_DASHBOARD_CACHE_ACCESS",
-    "ADMIN_DASHBOARD_PREWARM_LAST_SUCCESS",
-    "ADMIN_DASHBOARD_PREWARM_TOTAL",
     "MetricsMiddleware",
     "REQUEST_COUNT",
     "REQUEST_LATENCY",
     "SEARCH_QUERY_TOTAL",
     "SEARCH_RESULT_COUNT",
     "SEARCH_SCORING_DURATION",
-    "record_admin_dashboard_cache_access",
-    "record_admin_dashboard_prewarm_result",
     "router",
-    "set_admin_dashboard_last_prewarm_success",
 ]
 
 router = APIRouter()

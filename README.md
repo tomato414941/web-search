@@ -1,6 +1,6 @@
 # PaleBlueSearch
 
-**Source-aware web search system under active development** — crawler, indexer, search API, and admin runtime in one repo.
+**Source-aware web search system under active development** — crawler, indexer, and search API in one repo.
 
 A full-stack search system with its own crawler, BM25 ranking,
 clean content extraction, and Japanese NLP support.
@@ -16,7 +16,7 @@ engine that already works reliably as search.
 
 The source-of-truth monorepo layout is:
 
-- `apps/frontend/`: public UI, search API, admin pages
+- `apps/frontend/`: public UI and search API
 - `apps/indexer/`: ingestion API and write-side workers
 - `apps/crawler/`: crawler API and worker runtime
 - `apps/mcp/`: MCP adapter for agent integrations
@@ -162,7 +162,7 @@ COMPOSE_PROFILES=monitoring docker compose up --build -d
 
 - **Web Node (Frontend)**: FastAPI (serves UI and Search API, runs BM25 retrieval and source-aware reranking policy).
 - **Write Node (Indexer)**: FastAPI (handles ingestion, metadata/signal scoring, and OpenSearch sync). Embeddings are not part of the indexer baseline.
-- **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `trafilatura` with metadata extraction, durable frontier scheduling, and operator-facing admin snapshots.
+- **Worker Node (Crawler)**: Custom Python worker using `aiohttp` and `trafilatura` with metadata extraction and durable frontier scheduling.
 - **Database**: PostgreSQL for local and production environments.
 
 ## License

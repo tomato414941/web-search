@@ -13,7 +13,6 @@ services:
       - "8083:8000"
     environment:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ANALYTICS_SALT=${ANALYTICS_SALT:-}
 
   indexer:

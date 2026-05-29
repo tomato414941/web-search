@@ -49,7 +49,6 @@ After production deployment, verify:
 - public health endpoint returns healthy status
 - readiness endpoint reports expected dependency status
 - compose services converge to running or healthy state
-- admin pages load within the expected cold-request budget
 
 Operator commands and host-specific values are intentionally kept out of this
 public document.

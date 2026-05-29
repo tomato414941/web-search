@@ -77,7 +77,6 @@ async def _get_readiness_response():
 ROBOTS_TXT = """\
 User-agent: *
 Allow: /
-Disallow: /admin/
 Disallow: /api/
 Sitemap: https://palebluesearch.com/sitemap.xml
 """

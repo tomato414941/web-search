@@ -23,6 +23,11 @@ def test_search_page_loads_default(client):
     assert "Search" in response.text
 
 
+def test_admin_ui_is_not_exposed(client):
+    response = client.get("/admin/", follow_redirects=False)
+    assert response.status_code == 404
+
+
 def test_search_page_lang_en(client):
     response = client.get("/?lang=en")
     assert response.status_code == 200

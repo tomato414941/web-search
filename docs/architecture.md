@@ -107,7 +107,7 @@ The runtime queue of record is `frontier_entries`.
 ### 3. Shared Packages
 The old `shared` monolith has been split into smaller packages with clearer ownership:
 
-*   **`packages/contracts/` (`web_search_contracts`)**: typed API payloads, enums, and admin read models shared across service boundaries.
+*   **`packages/contracts/` (`web_search_contracts`)**: typed API payloads, enums, and read models shared across service boundaries.
 *   **`packages/core/` (`web_search_core`)**: runtime utilities such as config loading, logging, retries, background helpers, and general-purpose utils.
 *   **`packages/postgres/` (`web_search_postgres`)**: PostgreSQL connections, migrations, and repositories.
 *   **`packages/kernel/` (`web_search_kernel`)**: analyzer, query parsing, snippets, and reusable search scoring helpers.

@@ -1,9 +1,6 @@
 import os
 
 os.environ.setdefault("ENVIRONMENT", "test")
-os.environ.setdefault("ADMIN_USERNAME", "test_admin")
-os.environ.setdefault("ADMIN_PASSWORD", "test_password")
-os.environ.setdefault("ADMIN_SESSION_SECRET", "test-secret-key-for-testing")
 
 from web_search_core.testing import ensure_test_pg
 

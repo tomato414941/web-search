@@ -22,10 +22,8 @@ def test_metrics_scrape_does_not_increment_request_counter(client):
     assert after == before
 
 
-def test_metrics_scrape_includes_admin_dashboard_metrics(client):
+def test_metrics_scrape_includes_request_metrics(client):
     response = client.get("/api/v1/metrics")
 
     assert response.status_code == 200
-    assert "admin_dashboard_cache_access_total" in response.text
-    assert "admin_dashboard_prewarm_total" in response.text
-    assert "admin_dashboard_prewarm_last_success_timestamp_seconds" in response.text
+    assert "http_requests_total" in response.text

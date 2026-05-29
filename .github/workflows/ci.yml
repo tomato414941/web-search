@@ -152,9 +152,6 @@ jobs:
       - name: Run frontend tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          ADMIN_USERNAME: test
-          ADMIN_PASSWORD: test
-          ADMIN_SESSION_SECRET: test
           INDEXER_API_KEY: test
         run: make ci-frontend
 
