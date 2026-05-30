@@ -1,12 +1,11 @@
 """
 Worker Control API Router
 
-Handles worker start/stop/status endpoints.
+Handles worker start/stop endpoints.
 """
 
 from fastapi import APIRouter, HTTPException
 from web_search_crawler.models.worker import (
-    WorkerStatus,
     WorkerStopRequest,
     WorkerStartRequest,
     WorkerStartResponse,
@@ -53,9 +52,3 @@ async def stop_worker(request: WorkerStopRequest):
         return WorkerStopResponse(status="stopped", message=message)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to stop worker: {str(e)}")
-
-
-@router.get("/status", response_model=WorkerStatus)
-async def get_worker_status():
-    """Get current worker status"""
-    return await worker_manager.get_status()

@@ -148,34 +148,6 @@ def test_worker_stop_not_running(test_client, reset_worker_manager):
     assert "not running" in response.json()["detail"]
 
 
-def test_worker_status_stopped(test_client, reset_worker_manager):
-    """Test GET /api/v1/worker/status when stopped"""
-    response = test_client.get("/api/v1/worker/status")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "stopped"
-    assert data["active_tasks"] == 0
-    assert data["started_at"] is None
-    assert data["concurrency"] is None
-
-
-def test_worker_status_running(test_client, reset_worker_manager):
-    """Test GET /api/v1/worker/status when running"""
-    with patch(
-        "web_search_crawler.workers.tasks.worker_loop", side_effect=_parked_worker_loop
-    ):
-        # Start worker
-        test_client.post("/api/v1/worker/start", json={"concurrency": 1})
-
-        # Check status
-        response = test_client.get("/api/v1/worker/status")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "running"
-        assert data["started_at"] is not None
-        assert data["concurrency"] == 1
-
-
 def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
     from web_search_crawler.api.routes.seeds import _clear_seeds_cache
 
