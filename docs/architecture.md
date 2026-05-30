@@ -19,12 +19,11 @@ The `web-search` project follows a **Service-Based Architecture** designed for c
 The system consists of three independent services managed in a monorepo:
 
 1.  **Frontend Service (Search Cluster)**:
-    -   **Role**: UI, Search API (Read-Only), Admin Dashboard (Crawler Control, Analytics, API Keys).
+    -   **Role**: UI and Search API (Read-Only).
     -   **Stack**: FastAPI + Jinja2 + PostgreSQL.
     -   **Port**: `8083`.
     -   **Scaling**: Can scale horizontally; shared DB in production.
     -   **Dependencies**: Depends on `web_search_contracts`, `web_search_core`, `web_search_search_config`, `web_search_postgres`, `web_search_kernel`, and `web_search_opensearch` for runtime policy, contracts, storage, and search access.
-    -   **Admin Dashboard Design**: The dashboard request path is intentionally lightweight. Cold loads should read shared cache or cheap summary queries only; heavyweight analytics belong on dedicated pages or background refresh paths.
 2.  **Indexer Service (Write Cluster)**:
     -   **Role**: Ingestion, Tokenization (Japanese via SudachiPy), document signal computation, and dual-write to OpenSearch.
     -   **Stack**: FastAPI + PostgreSQL + SudachiPy + OpenSearch (optional).

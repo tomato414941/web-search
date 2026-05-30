@@ -6,7 +6,6 @@ RUFF := $(if $(wildcard $(VENV_BIN)/ruff),$(VENV_BIN)/ruff,ruff)
 UV := $(if $(wildcard $(VENV_BIN)/uv),$(VENV_BIN)/uv,uv)
 WATCH_REF ?= HEAD
 PRD_REF ?= main
-SMOKE_TEST_URL ?= https://example.com
 SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 
 .PHONY: ci ci-lint ci-legacy-paths ci-frontend ci-packages ci-crawler ci-indexer ci-mcp

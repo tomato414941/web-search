@@ -38,16 +38,6 @@ def test_api_urls_proxies_to_crawler_frontier(client):
     }
 
 
-def test_removed_public_aliases_return_404(client):
-    crawl_response = client.post("/api/v1/crawl", json={"url": "https://example.com"})
-    removed_submit_alias = client.post(
-        "/api/v1/enqueue", json={"url": "https://example.com"}
-    )
-
-    assert crawl_response.status_code == 404
-    assert removed_submit_alias.status_code == 404
-
-
 def test_api_crawl_now_requires_internal_api_key(client):
     response = client.post("/api/v1/crawl-now", json={"url": "https://example.com"})
     assert response.status_code == 401

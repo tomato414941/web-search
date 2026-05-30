@@ -241,14 +241,6 @@ class IndexerService:
         except Exception:
             return 0.5, "river"
 
-    def get_index_stats(self):
-        """Get indexing statistics."""
-        try:
-            return {"total": DocumentRepository.count_documents_estimate()}
-        except Exception as e:
-            logger.error(f"Error getting stats: {e}")
-            return {"total": 0}
-
 
 # Global instance
 indexer_service = IndexerService()

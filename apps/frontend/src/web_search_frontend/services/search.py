@@ -124,24 +124,6 @@ class SearchService:
     ) -> dict[str, Any]:
         return format_result(q, result, include_content=include_content)
 
-    def get_index_stats(self) -> dict[str, int]:
-        """Return index stats: approximate total pages via pg_class."""
-        try:
-            from web_search_postgres.search import get_connection
-
-            con = get_connection()
-            cur = con.cursor()
-            cur.execute(
-                "SELECT reltuples::bigint FROM pg_class WHERE relname = 'documents'"
-            )
-            row = cur.fetchone()
-            count = row[0] if row and row[0] >= 0 else 0
-            cur.close()
-            con.close()
-            return {"indexed": count}
-        except Exception:
-            return {"indexed": 0}
-
     def _empty_result(
         self,
         k: int,

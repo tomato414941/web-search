@@ -238,13 +238,6 @@ class TestIndexerAPIValidation:
         )
         assert response.status_code == 404
 
-    def test_failed_jobs_endpoint_is_removed(self, test_client):
-        response = test_client.get(
-            "/api/v1/indexer/jobs/failed",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-        )
-        assert response.status_code == 404
-
 
 class TestHealthEndpoint:
     """Test health check endpoint."""
@@ -261,34 +254,6 @@ class TestHealthEndpoint:
         data = response.json()
         assert data["status"] == "ok"
         assert "checks" in data
-
-    def test_index_summary_endpoint_is_removed(self, test_client):
-        response = test_client.get(
-            "/api/v1/indexer/index-summary",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-        )
-        assert response.status_code == 404
-
-    def test_job_failure_summary_endpoint_is_removed(self, test_client):
-        response = test_client.get(
-            "/api/v1/indexer/job-failure-summary",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-        )
-        assert response.status_code == 404
-
-    def test_job_summary_endpoint_is_removed(self, test_client):
-        response = test_client.get(
-            "/api/v1/indexer/job-summary",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-        )
-        assert response.status_code == 404
-
-    def test_indexer_stats_endpoint_is_removed(self, test_client):
-        response = test_client.get(
-            "/api/v1/indexer/stats",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-        )
-        assert response.status_code == 404
 
     def test_metrics_endpoint_returns_prometheus_payload(self, test_client):
         response = test_client.get("/metrics")
