@@ -44,17 +44,6 @@ require_value() {
   fi
 }
 
-is_local_server() {
-  case "$SERVER" in
-    local|localhost|127.0.0.1)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
 trim_slash() {
   local value="$1"
   echo "${value%/}"
@@ -104,55 +93,23 @@ set_environment_config() {
       ;;
   esac
 
-  if is_local_server; then
-    REPO_PATH="$REPO_ROOT"
-  fi
-
   FRONTEND_URL="$(trim_slash "$FRONTEND_URL")"
 }
 
 read_state_value() {
   local key="$1"
 
-  if is_local_server; then
-    if [ ! -f "$STATE_FILE" ]; then
-      return 0
-    fi
-    sed -n "s/^${key}=//p" "$STATE_FILE" | head -n1
-  else
-    ssh "$SERVER" "if [ -f '$STATE_FILE' ]; then sed -n 's/^${key}=//p' '$STATE_FILE' | head -n1; fi"
-  fi
-}
-
-get_fallback_remote_head() {
-  if is_local_server; then
-    if [ ! -d "$REPO_PATH/.git" ]; then
-      exit 0
-    fi
-    git config --global --add safe.directory "$REPO_PATH" >/dev/null 2>&1 || true
-    (cd "$REPO_PATH" && git rev-parse HEAD)
-  else
-    ssh "$SERVER" "if [ -d '$REPO_PATH/.git' ]; then cd '$REPO_PATH' && git rev-parse HEAD; fi"
-  fi
+  ssh "$SERVER" "if [ -f '$STATE_FILE' ]; then sed -n 's/^${key}=//p' '$STATE_FILE' | head -n1; fi"
 }
 
 get_deployed_commit() {
-  local deployed_commit
-
-  deployed_commit="$(read_state_value "DEPLOY_COMMIT")"
-  if [ -n "$deployed_commit" ]; then
-    echo "$deployed_commit"
-    return 0
-  fi
-
-  get_fallback_remote_head
+  read_state_value "DEPLOY_COMMIT"
 }
 
 get_service_state() {
   local service="$1"
 
-  if is_local_server; then
-    bash -s -- "$PROJECT_NAME" "$service" <<'REMOTE'
+  ssh "$SERVER" bash -s -- "$PROJECT_NAME" "$service" <<'REMOTE'
 set -euo pipefail
 
 project_name="$1"
@@ -171,27 +128,6 @@ status="$(docker inspect --format '{{.State.Status}}' "$container_id")"
 health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
 echo "$name|$image|$status|$health"
 REMOTE
-  else
-    ssh "$SERVER" bash -s -- "$PROJECT_NAME" "$service" <<'REMOTE'
-set -euo pipefail
-
-project_name="$1"
-service="$2"
-
-container_id="$(docker ps -aq \
-  --filter "label=com.docker.compose.project=${project_name}" \
-  --filter "label=com.docker.compose.service=${service}" | head -n1)"
-if [ -z "$container_id" ]; then
-  exit 0
-fi
-
-name="$(docker inspect --format '{{.Name}}' "$container_id" | sed 's#^/##')"
-image="$(docker inspect --format '{{.Config.Image}}' "$container_id")"
-status="$(docker inspect --format '{{.State.Status}}' "$container_id")"
-health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
-echo "$name|$image|$status|$health"
-REMOTE
-  fi
 }
 
 check_service() {
@@ -332,9 +268,7 @@ EXPECTED_COMMIT_SHORT="${EXPECTED_COMMIT:0:7}"
 
 set_environment_config
 
-if ! is_local_server; then
-  require_cmd ssh
-fi
+require_cmd ssh
 
 echo "Target environment : ${ENVIRONMENT}"
 echo "Expected git ref   : ${EXPECTED_REF_INPUT}"
