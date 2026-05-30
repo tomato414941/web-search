@@ -76,23 +76,6 @@ def test_crawl_now_endpoint(test_client):
     }
 
 
-def test_history_endpoint(test_client):
-    """Test GET /api/v1/history endpoint"""
-    from web_search_crawler.utils import history
-
-    # Initialize test database
-    history.init_db()
-    history.log_crawl_attempt("http://test.com", "queued_for_index", 200)
-
-    response = test_client.get("/api/v1/history?limit=10")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert data[0]["url"] == "http://test.com"
-    assert data[0]["status"] == "queued_for_index"
-
-
 def test_worker_start_endpoint(test_client, reset_worker_manager):
     """Test POST /api/v1/worker/start endpoint"""
     with patch(

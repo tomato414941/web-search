@@ -104,10 +104,6 @@ Admits URLs into the frontier.
 
 Immediately fetches a single URL and submits it to the indexer.
 
-### `GET /api/v1/history`
-
-Returns raw crawl-attempt history from `crawl_logs`.
-
 ### `GET /health`
 
 Simple liveness check.
