@@ -202,42 +202,6 @@ class TestIndexerAPIValidation:
         assert response2.status_code == 202
         assert response1.json()["job_id"] != response2.json()["job_id"]
 
-    def test_get_job_status(self, test_client):
-        enqueue_resp = test_client.post(
-            "/api/v1/indexer/page",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-            json={
-                "url": "https://status.example.com",
-                "title": "Status",
-                "content": "status test",
-            },
-        )
-        assert enqueue_resp.status_code == 202
-        job_id = enqueue_resp.json()["job_id"]
-
-        status_resp = test_client.get(
-            f"/api/v1/indexer/jobs/{job_id}",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-        )
-        assert status_resp.status_code == 200
-        body = status_resp.json()
-        assert body["ok"] is True
-        assert body["job_id"] == job_id
-        assert body["status"] in {
-            "pending",
-            "processing",
-            "done",
-            "failed_retry",
-            "failed_permanent",
-        }
-
-    def test_get_job_status_not_found(self, test_client):
-        response = test_client.get(
-            "/api/v1/indexer/jobs/not-found",
-            headers={"X-API-Key": settings.INDEXER_API_KEY},
-        )
-        assert response.status_code == 404
-
 
 class TestHealthEndpoint:
     """Test health check endpoint."""

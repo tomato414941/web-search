@@ -80,10 +80,6 @@ Queues a crawled page for asynchronous indexing.
 
 This is the main crawler-to-indexer handoff boundary.
 
-### `GET /api/v1/indexer/jobs/{job_id}`
-
-Returns asynchronous indexing job status.
-
 ### `GET /health`
 
 Simple liveness check.

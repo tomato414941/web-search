@@ -58,20 +58,6 @@ async def submit_page(
         raise HTTPException(status_code=500, detail="Queueing failed")
 
 
-@router.get("/jobs/{job_id}")
-async def get_job_status(
-    job_id: str, x_api_key: str = Header(..., alias="X-API-Key")
-) -> dict:
-    """Get asynchronous indexing job status."""
-    verify_api_key(x_api_key)
-
-    job = index_job_service.get_job_status(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    return {"ok": True, **job}
-
-
 @router.post("/pagerank")
 async def trigger_pagerank(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
     """Manually trigger PageRank recalculation (both page and domain)."""
