@@ -55,14 +55,6 @@ class SearchHit(BaseModel):
         default=None,
         description="Factual density score (0.0-1.0)",
     )
-    origin_score: float | None = Field(
-        default=None,
-        description="Information origin score (0.0-1.0)",
-    )
-    origin_type: str | None = Field(
-        default=None,
-        description="Information origin: spring/river/delta/swamp",
-    )
     page_rank: float | None = Field(
         default=None,
         description="Page-level link-based rank signal",

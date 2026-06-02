@@ -73,8 +73,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         temporal_anchor=0.9,
         authorship_clarity=0.8,
         factual_density=0.7,
-        origin_score=0.6,
-        origin_type="spring",
         page_rank=0.5,
         domain_rank=0.4,
         author="Alice",
@@ -88,7 +86,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
     assert payload["score"] == 1.0
     assert "rank" not in payload
     assert payload["content"] == "Python content"
-    assert payload["origin_type"] == "spring"
     assert payload["page_rank"] == 0.5
     assert payload["domain_rank"] == 0.4
     assert payload["word_count"] == 120

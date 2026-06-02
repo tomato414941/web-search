@@ -135,24 +135,6 @@ class DocumentRepository:
             conn.close()
 
     @staticmethod
-    def fetch_origin_score(url: str) -> tuple[float, str]:
-        ph = sql_placeholder()
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                f"SELECT score, origin_type FROM information_origins WHERE url = {ph}",
-                (url,),
-            )
-            row = cur.fetchone()
-            cur.close()
-            if row:
-                return float(row[0]), str(row[1])
-            return 0.5, "river"
-        finally:
-            conn.close()
-
-    @staticmethod
     def count_documents() -> int:
         conn = get_connection()
         try:

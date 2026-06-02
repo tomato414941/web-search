@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, Header
 from web_search_indexer.core.config import settings
 from web_search_indexer.services.index_job_container import index_job_service
 from web_search_contracts.indexer_api import IndexPageRequest
-from web_search_indexer.services.information_origin import calculate_information_origin
 
 logger = logging.getLogger(__name__)
 
@@ -52,17 +51,3 @@ async def submit_page(
     except Exception as e:
         logger.error(f"Queueing failed for {page.url}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Queueing failed")
-
-
-@router.post("/origin-scores")
-async def trigger_origin_scores(
-    x_api_key: str = Header(..., alias="X-API-Key"),
-) -> dict:
-    """Recalculate information origin scores from the link graph."""
-    verify_api_key(x_api_key)
-    try:
-        count = calculate_information_origin()
-        return {"ok": True, "pages_scored": count}
-    except Exception as e:
-        logger.error("Origin score calculation failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail="Origin score calculation failed")

@@ -33,7 +33,7 @@ Layer 3: Search Ranking
          → source-aware reranking for narrow query classes
          ↑
 Layer 2: Signal Scoring (indexer)
-         factual_density + temporal_anchor + authorship_clarity + information_origin
+         factual_density + temporal_anchor + authorship_clarity
          + shallow document signals
          ↑
 Layer 1: Main Content Extraction (crawler)
@@ -87,7 +87,6 @@ into one large aggregate.
 | `factual_density` | extracted content | fact-heavy content prior |
 | `temporal_anchor` | extracted content + metadata | temporal transparency signal |
 | `authorship_clarity` | extracted metadata | authorship transparency signal |
-| `origin_score` / `origin_type` | link graph + content stats | information-origin prior |
 | `page_rank` | link graph | page-level link prior |
 | `domain_rank` | link graph | domain-level link prior |
 | `word_count` | extracted content | shallow size signal |
@@ -135,7 +134,6 @@ request-time reranking.
 | `score` | Relevance score for this hit |
 | `authorship_clarity` | Author/org presence score (0.0-1.0) |
 | `author` / `organization` | Extracted from HTML metadata (JSON-LD, meta tags) |
-| `origin_type` | spring / river / delta / swamp |
 | `page_rank` / `domain_rank` | link-based prior signals |
 | `word_count` / `link_density` | shallow document-shape signals |
 
@@ -155,9 +153,8 @@ request-time reranking.
   document signals used for storage and ranking policy integration.
 - `packages/kernel/src/web_search_kernel/analyzer.py` holds the shared Sudachi-based
   tokenization logic for both indexing and query processing.
-- `packages/kernel/src/web_search_kernel/factual_density.py` and
-  `apps/indexer/src/web_search_indexer/services/information_origin.py` hold the
-  current reusable search-kernel scoring logic.
+- `packages/kernel/src/web_search_kernel/factual_density.py` holds reusable
+  search-kernel scoring logic.
 - Raw HTML storage is not part of the current runtime. If it becomes important
   again, treat it as a deferred project-plan item rather than current runtime
   behavior.

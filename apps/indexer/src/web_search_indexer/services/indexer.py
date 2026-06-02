@@ -217,14 +217,11 @@ class IndexerService:
             raise
 
     def _build_opensearch_document(self, page: IndexedPage) -> dict[str, object] | None:
-        origin_score, origin_type = self._get_origin_score(page.url)
         page_rank, domain_rank = self._get_link_ranks(page.url)
         return build_opensearch_document(
             page,
             page_rank=page_rank,
             domain_rank=domain_rank,
-            origin_score=origin_score,
-            origin_type=origin_type,
         )
 
     def _get_link_ranks(self, url: str) -> tuple[float, float]:
@@ -233,13 +230,6 @@ class IndexerService:
             return DocumentRepository.fetch_link_ranks(url)
         except Exception:
             return 0.0, 0.0
-
-    def _get_origin_score(self, url: str) -> tuple[float, str]:
-        """Fetch information origin score and type for a URL."""
-        try:
-            return DocumentRepository.fetch_origin_score(url)
-        except Exception:
-            return 0.5, "river"
 
 
 # Global instance

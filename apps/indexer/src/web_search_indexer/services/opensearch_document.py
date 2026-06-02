@@ -50,8 +50,6 @@ def build_opensearch_document(
     *,
     page_rank: float,
     domain_rank: float,
-    origin_score: float,
-    origin_type: str,
     indexed_at: str | None = None,
 ) -> dict[str, object] | None:
     title_tokens = analyzer.tokenize(page.title) if page.title else ""
@@ -87,8 +85,6 @@ def build_opensearch_document(
         "temporal_anchor": temporal_anchor,
         "authorship_clarity": authorship_clarity,
         "factual_density": factual_density,
-        "origin_score": origin_score,
-        "origin_type": origin_type,
         "author": page.author,
         "organization": page.organization,
         "host": host,

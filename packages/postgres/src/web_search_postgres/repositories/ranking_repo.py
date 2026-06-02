@@ -99,32 +99,6 @@ class RankingRepository:
             con.close()
 
     @staticmethod
-    def replace_information_origins(
-        results: list[tuple[str, str, float, int, int]],
-    ) -> None:
-        if not results:
-            return
-        ph = sql_placeholder()
-        con = open_db()
-        try:
-            cur = con.cursor()
-            cur.execute("DELETE FROM information_origins")
-            for index in range(0, len(results), _SAVE_BATCH_SIZE):
-                batch = results[index : index + _SAVE_BATCH_SIZE]
-                cur.executemany(
-                    f"""
-                    INSERT INTO information_origins
-                        (url, origin_type, score, inlink_count, outlink_count)
-                    VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
-                    """,
-                    batch,
-                )
-            con.commit()
-            cur.close()
-        finally:
-            con.close()
-
-    @staticmethod
     def _replace_scores(
         *, table: str, key_column: str, scores: dict[str, float]
     ) -> None:

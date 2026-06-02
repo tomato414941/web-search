@@ -53,12 +53,9 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
         if snip:
             lines.append(snip)
         temporal_anchor = hit.get("temporal_anchor")
-        origin_type = hit.get("origin_type")
         author = hit.get("author")
         organization = hit.get("organization")
         meta_parts = []
-        if origin_type:
-            meta_parts.append(f"Origin: {origin_type}")
         if author:
             meta_parts.append(f"Author: {author}")
         if organization:

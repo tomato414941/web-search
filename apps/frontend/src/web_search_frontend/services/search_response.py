@@ -22,8 +22,6 @@ def build_search_hits(raw_hits: list[dict[str, Any]]) -> list[SearchHit]:
             temporal_anchor=hit.get("temporal_anchor"),
             authorship_clarity=hit.get("authorship_clarity"),
             factual_density=hit.get("factual_density"),
-            origin_score=hit.get("origin_score"),
-            origin_type=hit.get("origin_type"),
             page_rank=hit.get("page_rank"),
             domain_rank=hit.get("domain_rank"),
             author=hit.get("author"),
@@ -52,10 +50,6 @@ def append_hit_metadata(hit_dict: dict[str, Any], hit: SearchHit) -> None:
         hit_dict["authorship_clarity"] = hit.authorship_clarity
     if hit.factual_density is not None:
         hit_dict["factual_density"] = hit.factual_density
-    if hit.origin_score is not None:
-        hit_dict["origin_score"] = hit.origin_score
-    if hit.origin_type:
-        hit_dict["origin_type"] = hit.origin_type
     if hit.page_rank is not None:
         hit_dict["page_rank"] = hit.page_rank
     if hit.domain_rank is not None:

@@ -26,8 +26,6 @@ class SearchHit:
     temporal_anchor: float | None = None
     authorship_clarity: float | None = None
     factual_density: float | None = None
-    origin_score: float | None = None
-    origin_type: str | None = None
     page_rank: float | None = None
     domain_rank: float | None = None
     author: str | None = None

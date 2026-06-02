@@ -7,7 +7,8 @@ ranking signals:
 
 - `POST /api/v1/indexer/pagerank` (removed; PageRank uses maintenance worker
   and CLI entrances)
-- `POST /api/v1/indexer/origin-scores`
+- `POST /api/v1/indexer/origin-scores` (removed; the signal was too weakly
+  supported to expose or use as a ranking/document signal)
 
 These endpoints may be useful as operator controls, but it is not yet clear
 whether synchronous HTTP is the right execution boundary for potentially heavy
@@ -22,15 +23,15 @@ can be rerun deliberately when needed.
 `pagerank` is available through the `web-search-calc-pagerank` CLI and through
 indexer worker maintenance loops.
 
-`origin-scores` currently has an HTTP trigger and participates in search signal
-calculation, but there is no clear operator workflow in the admin UI or runbook
-that explains when it should be manually triggered through the API.
+`origin-scores` used an inlink/outlink/word-count heuristic with a stronger
+name than the implementation justified. It has been removed from the indexer
+HTTP API, OpenSearch documents, public search responses, and MCP formatting.
 
 The project already runs an `indexer-maintenance-worker` service. It handles
 periodic PageRank, domain-rank, and job-cleanup work.
 
-Origin-score recalculation is not currently aligned with that maintenance-worker
-execution model.
+The historic `information_origins` table still exists in the baseline migration,
+but it is no longer part of the runtime ranking or response surface.
 
 ## Impact
 
@@ -44,6 +45,9 @@ harder to reason about than CLI or scheduled worker execution.
 The deeper risk is that ranking maintenance becomes split across multiple
 entrances without a single operational source of truth for execution state,
 failure, and rerun behavior.
+
+Weakly grounded signals also create trust risk when they are named or displayed
+as stronger judgments than the implementation can support.
 
 ## Direction
 
@@ -68,7 +72,8 @@ The likely near-term direction is:
 
 ## Open Questions
 
-- Should origin-score recalculation move into the maintenance worker?
 - Is CLI-only manual execution sufficient for current operations?
 - If an operation/job system is introduced, where should its state live?
 - What metrics or logs are required to make ranking maintenance failures visible?
+- Should the unused `information_origins` table be removed from the schema
+  baseline when database cleanup is reviewed?

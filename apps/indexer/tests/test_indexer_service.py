@@ -21,7 +21,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
         "compute_authorship_clarity",
         lambda *args, **kwargs: 0.3,
     )
-    monkeypatch.setattr(service, "_get_origin_score", lambda url: (0.4, "river"))
     monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     def fake_index_document(*args, **kwargs):
@@ -85,8 +84,6 @@ def test_build_opensearch_document_uses_search_field_names(monkeypatch):
         page,
         page_rank=0.5,
         domain_rank=0.25,
-        origin_score=0.4,
-        origin_type="river",
         indexed_at="2026-05-20T00:00:00+00:00",
     )
 
@@ -112,7 +109,6 @@ def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
         "compute_authorship_clarity",
         lambda *args, **kwargs: 0.3,
     )
-    monkeypatch.setattr(service, "_get_origin_score", lambda url: (0.4, "river"))
     monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     called = {"indexed": False, "deleted": False}
@@ -159,7 +155,6 @@ def test_index_to_opensearch_skips_excluded_paths(monkeypatch):
         "compute_authorship_clarity",
         lambda *args, **kwargs: 0.3,
     )
-    monkeypatch.setattr(service, "_get_origin_score", lambda url: (0.4, "river"))
     monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     called = {"indexed": False, "deleted": False}
