@@ -2,10 +2,11 @@
 
 ## Problem
 
-The indexer exposes synchronous HTTP endpoints for manually recalculating
+The indexer has exposed synchronous HTTP endpoints for manually recalculating
 ranking signals:
 
-- `POST /api/v1/indexer/pagerank`
+- `POST /api/v1/indexer/pagerank` (removed; PageRank uses maintenance worker
+  and CLI entrances)
 - `POST /api/v1/indexer/origin-scores`
 
 These endpoints may be useful as operator controls, but it is not yet clear
@@ -18,16 +19,15 @@ can be rerun deliberately when needed.
 
 ## Evidence
 
-`pagerank` is not only an HTTP endpoint. The same work is also available through
-the `web-search-calc-pagerank` CLI and through indexer worker maintenance loops.
+`pagerank` is available through the `web-search-calc-pagerank` CLI and through
+indexer worker maintenance loops.
 
 `origin-scores` currently has an HTTP trigger and participates in search signal
 calculation, but there is no clear operator workflow in the admin UI or runbook
 that explains when it should be manually triggered through the API.
 
 The project already runs an `indexer-maintenance-worker` service. It handles
-periodic PageRank, domain-rank, and job-cleanup work. This means PageRank has at
-least two execution entrances today: scheduled maintenance and synchronous HTTP.
+periodic PageRank, domain-rank, and job-cleanup work.
 
 Origin-score recalculation is not currently aligned with that maintenance-worker
 execution model.

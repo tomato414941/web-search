@@ -7,10 +7,6 @@ from web_search_indexer.core.config import settings
 from web_search_indexer.services.index_job_container import index_job_service
 from web_search_contracts.indexer_api import IndexPageRequest
 from web_search_indexer.services.information_origin import calculate_information_origin
-from web_search_indexer.services.pagerank import (
-    calculate_domain_pagerank,
-    calculate_pagerank,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -56,23 +52,6 @@ async def submit_page(
     except Exception as e:
         logger.error(f"Queueing failed for {page.url}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Queueing failed")
-
-
-@router.post("/pagerank")
-async def trigger_pagerank(x_api_key: str = Header(..., alias="X-API-Key")) -> dict:
-    """Manually trigger PageRank recalculation (both page and domain)."""
-    verify_api_key(x_api_key)
-    try:
-        page_count = calculate_pagerank()
-        domain_count = calculate_domain_pagerank()
-        return {
-            "ok": True,
-            "page_ranks": page_count,
-            "domain_ranks": domain_count,
-        }
-    except Exception as e:
-        logger.error(f"PageRank calculation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="PageRank calculation failed")
 
 
 @router.post("/origin-scores")
