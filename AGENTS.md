@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## What This Project Is
-PaleBlueSearch is a Web Search API for AI agents. The core value proposition is transparency metadata on every search hit — freshness (`temporal_anchor`), source reliability (`origin_score`), factual richness (`factual_density`), and authorship clarity — so AI consumers can make informed decisions. The baseline retrieval path is BM25 plus a thin source-aware policy. Optional embedding enrichment exists for future experiments behind explicit opt-in, but it is not part of the baseline search contract today.
+PaleBlueSearch is a Web Search API for AI agents. The core value proposition is reliable search with useful transparency metadata such as freshness (`temporal_anchor`), factual richness (`factual_density`), and authorship clarity, so AI consumers can make informed decisions. The baseline retrieval path is BM25 plus a thin source-aware policy. Optional embedding enrichment exists for future experiments behind explicit opt-in, but it is not part of the baseline search contract today.
 
 ## Project Structure & Module Organization
 This repo is a Python microservices stack (CQRS-lite: read and write paths are split by service). The repo is managed as a root `uv` workspace for local development, CI, and container dependency resolution.

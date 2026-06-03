@@ -31,8 +31,7 @@ The source-of-truth monorepo layout is:
 
 ## Features
 
-- **Source-Aware Ranking**: Navigational and reference queries use a small source-aware retrieval and reranking policy, while every hit still carries transparency metadata (`temporal_anchor`, `authorship_clarity`, `factual_density`, `origin_score`).
-- **Information Origin**: Documents classified as spring/river/delta/swamp based on link direction — primary sources rank higher than aggregation.
+- **Source-Aware Ranking**: Navigational and reference queries use a small source-aware retrieval and reranking policy, while every hit can carry transparency metadata such as `temporal_anchor`, `authorship_clarity`, and `factual_density`.
 - **Factual Density**: Scores verifiable facts per unit of text (numbers, dates, citations, code, named entities) — replaces shallow word-count quality.
 - **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
 - **Crawler and Indexing Pipeline**: Own crawler with robots.txt compliance and authorship metadata extraction.
@@ -63,13 +62,10 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
       "title": "FastAPI - Modern Python Web Framework",
       "snip": "A modern, fast web framework for building APIs with <mark>Python</mark>...",
       "snip_plain": "A modern, fast web framework for building APIs with Python...",
-      "rank": 12.5,
       "indexed_at": "2026-03-01T12:00:00.000000+00:00",
       "published_at": "2026-02-28T09:30:00+00:00",
       "temporal_anchor": 1.0,
-      "factual_density": 0.72,
-      "origin_score": 0.85,
-      "origin_type": "spring"
+      "factual_density": 0.72
     }
   ],
   "mode": "bm25",
