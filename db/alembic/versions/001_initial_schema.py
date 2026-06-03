@@ -55,20 +55,6 @@ def upgrade() -> None:
     """)
 
     op.execute("""
-        CREATE TABLE IF NOT EXISTS information_origins (
-            url TEXT PRIMARY KEY REFERENCES documents(url) ON DELETE CASCADE,
-            origin_type TEXT NOT NULL DEFAULT 'river',
-            score REAL NOT NULL DEFAULT 0.5,
-            inlink_count INTEGER DEFAULT 0,
-            outlink_count INTEGER DEFAULT 0
-        )
-    """)
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_info_origins_type "
-        "ON information_origins(origin_type)"
-    )
-
-    op.execute("""
         CREATE TABLE IF NOT EXISTS search_requests (
             id TEXT PRIMARY KEY,
             query TEXT NOT NULL,
@@ -313,7 +299,6 @@ def downgrade() -> None:
         "search_result_clicks",
         "search_result_impressions",
         "search_requests",
-        "information_origins",
         "page_ranks",
         "documents",
         "domain_ranks",
