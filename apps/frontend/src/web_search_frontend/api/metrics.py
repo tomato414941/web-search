@@ -31,7 +31,7 @@ router = APIRouter()
 
 class MetricsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in {"/metrics", "/api/v1/metrics"}:
+        if request.url.path == "/metrics":
             return await call_next(request)
 
         ACTIVE_REQUESTS.inc()
@@ -52,8 +52,6 @@ class MetricsMiddleware(BaseHTTPMiddleware):
             ACTIVE_REQUESTS.dec()
 
     def _normalize_path(self, path: str) -> str:
-        if path.startswith("/api/"):
-            return path
         if path.startswith("/static/"):
             return "/static/*"
         return path

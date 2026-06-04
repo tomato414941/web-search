@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 def test_api_urls_empty_url(client):
     payload = {"url": "   "}
-    response = client.post("/api/v1/urls", json=payload)
+    response = client.post("/crawler/urls", json=payload)
     assert response.status_code == 400
     assert response.json() == {"error": "URL is required"}
 
@@ -11,7 +11,7 @@ def test_api_urls_empty_url(client):
 def test_api_urls_missing_field(client):
     # Pydantic validation error (422)
     payload = {"other": "value"}
-    response = client.post("/api/v1/urls", json=payload)
+    response = client.post("/crawler/urls", json=payload)
     assert response.status_code == 422
 
 
@@ -27,7 +27,7 @@ def test_api_urls_proxies_to_crawler_frontier(client):
         mock_instance.post.return_value = crawler_response
         mock_client.return_value.__aenter__.return_value = mock_instance
 
-        response = client.post("/api/v1/urls", json={"url": "https://example.com"})
+        response = client.post("/crawler/urls", json={"url": "https://example.com"})
 
     assert response.status_code == 200
     assert response.json() == {
@@ -39,7 +39,9 @@ def test_api_urls_proxies_to_crawler_frontier(client):
 
 
 def test_api_crawl_now_requires_internal_api_key(client):
-    response = client.post("/api/v1/crawl-now", json={"url": "https://example.com"})
+    response = client.post(
+        "/crawler/crawl-requests", json={"url": "https://example.com"}
+    )
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid API key"}
 
@@ -69,7 +71,7 @@ def test_api_crawl_now_proxies_to_crawler_service(client):
         mock_client.return_value.__aenter__.return_value = mock_instance
 
         response = client.post(
-            "/api/v1/crawl-now",
+            "/crawler/crawl-requests",
             json={"url": "https://example.com"},
             headers={"X-API-Key": "internal-test-key"},
         )
@@ -90,7 +92,7 @@ def test_search_index_returns_indexed_document_total(client):
         "web_search_frontend.api.routers.search_index.get_indexed_document_count",
         return_value=123,
     ):
-        response = client.get("/api/v1/search-index")
+        response = client.get("/indexed-documents")
 
     assert response.status_code == 200
     assert response.json() == {"documents": {"total": 123}}

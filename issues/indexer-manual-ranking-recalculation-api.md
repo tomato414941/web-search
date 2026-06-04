@@ -3,10 +3,10 @@
 ## Problem
 
 The indexer has exposed synchronous HTTP endpoints for manually recalculating
-ranking signals:
+ranking signals.
 
-- `POST /api/v1/indexer/pagerank` (removed; PageRank uses maintenance worker
-  and CLI entrances)
+The PageRank HTTP endpoint has been removed; PageRank now uses maintenance
+worker and CLI entrances.
 
 These endpoints may be useful as operator controls, but it is not yet clear
 whether synchronous HTTP is the right execution boundary for potentially heavy

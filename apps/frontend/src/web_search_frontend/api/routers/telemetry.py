@@ -18,7 +18,7 @@ class SearchResultClickRequest(BaseModel):
     impression_id: str = Field(min_length=8, max_length=128)
 
 
-@router.post("/telemetry/search-result-click", status_code=204)
+@router.post("/events/search-result-clicked", status_code=204)
 @limiter.limit("300/minute")
 async def search_result_click(request: Request, payload: SearchResultClickRequest):
     """Record that a user clicked a previously displayed search result."""

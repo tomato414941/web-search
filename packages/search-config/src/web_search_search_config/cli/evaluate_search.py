@@ -27,7 +27,7 @@ def _load_config(
 
 def _fetch_results(base_url: str, query: str, limit: int) -> dict:
     encoded_query = urllib.parse.urlencode({"q": query, "limit": str(limit)})
-    url = f"{base_url.rstrip('/')}/api/v1/search?{encoded_query}"
+    url = f"{base_url.rstrip('/')}/search-results?{encoded_query}"
     req = urllib.request.Request(
         url,
         headers={

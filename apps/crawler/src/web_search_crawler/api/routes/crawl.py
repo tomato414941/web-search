@@ -38,7 +38,7 @@ async def admit_urls_to_frontier(
         raise HTTPException(status_code=500, detail=f"Failed to admit URLs: {str(e)}")
 
 
-@router.post("/crawl-now", response_model=CrawlNowResponse)
+@router.post("/crawl-requests", response_model=CrawlNowResponse)
 async def crawl_now(request: CrawlNowRequest):
     """Immediately crawl a single URL and submit it to the indexer."""
     try:

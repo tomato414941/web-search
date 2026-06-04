@@ -41,12 +41,12 @@ The source-of-truth monorepo layout is:
 
 ## Search API
 
-Base URL: `https://palebluesearch.com/api/v1`
+Base URL: `https://palebluesearch.com`
 
 ### Quick Example
 
 ```bash
-curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
+curl "https://palebluesearch.com/search-results?q=python+web+framework"
 ```
 
 ```json
@@ -80,13 +80,13 @@ curl "https://palebluesearch.com/api/v1/search?q=python+web+framework"
 | `bm25` | Classic keyword matching with BM25 scoring (default) |
 
 ```bash
-curl "https://palebluesearch.com/api/v1/search?q=machine+learning&mode=bm25"
+curl "https://palebluesearch.com/search-results?q=machine+learning&mode=bm25"
 ```
 
 ### Pagination
 
 ```bash
-curl "https://palebluesearch.com/api/v1/search?q=python&limit=20&page=2"
+curl "https://palebluesearch.com/search-results?q=python&limit=20&page=2"
 ```
 
 ### Error Codes

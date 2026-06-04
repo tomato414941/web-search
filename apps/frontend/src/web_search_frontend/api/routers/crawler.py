@@ -39,7 +39,7 @@ async def _admit_url_to_frontier(url: str) -> dict | JSONResponse:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/urls",
+                f"{settings.CRAWLER_SERVICE_URL}/urls",
                 json={"urls": [url]},
                 headers=_internal_headers(),
             )
@@ -69,7 +69,7 @@ async def _crawl_url_now(url: str) -> dict | JSONResponse:
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"{settings.CRAWLER_SERVICE_URL}/api/v1/crawl-now",
+                f"{settings.CRAWLER_SERVICE_URL}/crawl-requests",
                 json={"url": url},
                 headers=_internal_headers(),
             )
@@ -86,14 +86,14 @@ async def _crawl_url_now(url: str) -> dict | JSONResponse:
         )
 
 
-@router.post("/urls")
+@router.post("/crawler/urls")
 @limiter.limit("10/minute")
 async def api_urls(request: Request, req: CrawlRequest):
     """Admit a URL into the frontier for asynchronous crawling."""
     return await _admit_url_to_frontier(_normalized_url(req.url))
 
 
-@router.post("/crawl-now")
+@router.post("/crawler/crawl-requests")
 @limiter.limit("2/minute")
 async def api_crawl_now(request: Request, req: CrawlRequest):
     """Immediately crawl a URL and submit it to the indexer."""

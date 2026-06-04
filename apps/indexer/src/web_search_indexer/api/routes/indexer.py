@@ -9,7 +9,7 @@ from web_search_contracts.indexer_api import IndexPageRequest
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/indexer")
+router = APIRouter()
 
 
 def verify_api_key(x_api_key: str) -> None:
@@ -18,7 +18,7 @@ def verify_api_key(x_api_key: str) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
-@router.post("/page", status_code=202)
+@router.post("/indexing-jobs", status_code=202)
 async def submit_page(
     page: IndexPageRequest, x_api_key: str = Header(..., alias="X-API-Key")
 ) -> dict:

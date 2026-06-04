@@ -24,7 +24,7 @@ class ContentResponse(BaseModel):
 
 
 @router.get(
-    "/content",
+    "/indexed-documents/by-url",
     response_model=ContentResponse,
     response_model_exclude_none=True,
     summary="Fetch stored page content by URL",

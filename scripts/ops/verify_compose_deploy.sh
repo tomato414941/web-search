@@ -226,7 +226,7 @@ run_checks_once() {
     opensearch_status="$(echo "$readyz_body" | jq -r '.checks.opensearch.status // .checks.opensearch // "unknown"')"
     if [ "$opensearch_status" = "ok" ]; then
       echo "Checking public search API"
-      if ! check_http_json "${FRONTEND_URL}/api/v1/search?q=test&limit=3" '.total >= 0 and (.mode | type == "string") and (.degraded != true) and (.error_type == null)' >/dev/null; then
+      if ! check_http_json "${FRONTEND_URL}/search-results?q=test&limit=3" '.total >= 0 and (.mode | type == "string") and (.degraded != true) and (.error_type == null)' >/dev/null; then
         failures=1
       fi
     else

@@ -152,20 +152,16 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 # Root-level health endpoints (Kubernetes probes)
 app.include_router(health_root_router, tags=["health"], include_in_schema=False)
 
-# UI routes (no /api/v1 prefix)
+# UI routes
 app.include_router(search.router, tags=["ui"], include_in_schema=False)
 app.include_router(telemetry.router, include_in_schema=False)
 
-# API routes with /api/v1 prefix
-app.include_router(search_api.router, prefix="/api/v1", tags=["search"])
-app.include_router(search_index.router, prefix="/api/v1", tags=["search"])
-app.include_router(content_api.router, prefix="/api/v1", tags=["content"])
-app.include_router(
-    crawler.router, prefix="/api/v1", tags=["crawler"], include_in_schema=False
-)
-app.include_router(
-    metrics_router, prefix="/api/v1", tags=["metrics"], include_in_schema=False
-)
+# API routes
+app.include_router(search_api.router, tags=["search"])
+app.include_router(search_index.router, tags=["search"])
+app.include_router(content_api.router, tags=["content"])
+app.include_router(crawler.router, tags=["crawler"], include_in_schema=False)
+app.include_router(metrics_router, tags=["metrics"], include_in_schema=False)
 
 
 if __name__ == "__main__":

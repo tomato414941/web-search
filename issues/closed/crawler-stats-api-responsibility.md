@@ -2,7 +2,7 @@
 
 ## Problem
 
-`GET /api/v1/stats` on the crawler service is doing too many jobs.
+The crawler stats endpoint was doing too many jobs.
 
 It currently acts as a shared statistics endpoint for public frontend stats,
 admin dashboard data, and crawler instance monitoring. Those callers need
@@ -45,4 +45,4 @@ Resolved.
 - admin dashboard uses a lightweight dashboard status fetch
 - crawler instance monitoring uses separate frontier, crawl-attempt, and worker
   APIs
-- crawler `GET /api/v1/stats` was removed
+- the crawler stats endpoint was removed

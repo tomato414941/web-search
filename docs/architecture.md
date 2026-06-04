@@ -47,7 +47,7 @@ graph TD
 
     subgraph Crawler Node
         Crawler[Crawler Service :8082]
-        Crawler -- POST /api/v1/indexer/page --> Indexer
+        Crawler -- POST /indexing-jobs --> Indexer
     end
 
     subgraph Write Cluster

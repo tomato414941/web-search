@@ -32,17 +32,13 @@ def create_app() -> FastAPI:
     # Root-level health endpoints (Kubernetes probes) — no auth
     app.include_router(health_root_router, tags=["health"])
 
-    # Register routers with /api/v1 prefix — require API key
+    # Service API routes require API key.
     api_deps = [Depends(verify_api_key)]
+    app.include_router(crawl.router, tags=["crawl"], dependencies=api_deps)
     app.include_router(
-        crawl.router, prefix="/api/v1", tags=["crawl"], dependencies=api_deps
+        worker.router, prefix="/worker", tags=["worker"], dependencies=api_deps
     )
-    app.include_router(
-        worker.router, prefix="/api/v1/worker", tags=["worker"], dependencies=api_deps
-    )
-    app.include_router(
-        seeds.router, prefix="/api/v1", tags=["seeds"], dependencies=api_deps
-    )
+    app.include_router(seeds.router, tags=["seeds"], dependencies=api_deps)
     return app
 
 

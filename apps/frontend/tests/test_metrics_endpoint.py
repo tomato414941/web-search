@@ -13,7 +13,7 @@ def _request_count_total() -> float:
 def test_metrics_scrape_does_not_increment_request_counter(client):
     before = _request_count_total()
 
-    response = client.get("/api/v1/metrics")
+    response = client.get("/metrics")
 
     after = _request_count_total()
 
@@ -23,7 +23,7 @@ def test_metrics_scrape_does_not_increment_request_counter(client):
 
 
 def test_metrics_scrape_includes_request_metrics(client):
-    response = client.get("/api/v1/metrics")
+    response = client.get("/metrics")
 
     assert response.status_code == 200
     assert "http_requests_total" in response.text

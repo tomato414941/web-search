@@ -26,7 +26,7 @@ class PaleBlueClient:
             params["include_content"] = "true"
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
-                f"{self.base_url}/api/v1/search",
+                f"{self.base_url}/search-results",
                 params=params,
                 headers=self._headers(),
             )
@@ -36,7 +36,7 @@ class PaleBlueClient:
     async def get_content(self, url: str) -> dict:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.get(
-                f"{self.base_url}/api/v1/content",
+                f"{self.base_url}/indexed-documents/by-url",
                 params={"url": url},
                 headers=self._headers(),
             )

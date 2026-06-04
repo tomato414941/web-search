@@ -21,11 +21,11 @@ should be read from the implementation when needed.
 - Indexer: `http://localhost:8081`
 - Crawler: `http://localhost:8082`
 
-The shared JSON API prefix is `/api/v1`.
+API routes are not version-prefixed.
 
 ## Frontend
 
-### `GET /api/v1/search`
+### `GET /search-results`
 
 Primary search endpoint.
 
@@ -40,7 +40,7 @@ Current behavior:
 Use [search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md) for ranking and signal semantics.
 
-### `GET /api/v1/search-index`
+### `GET /indexed-documents`
 
 Returns the public search index representation.
 
@@ -73,7 +73,7 @@ operator visibility.
 
 ## Indexer
 
-### `POST /api/v1/indexer/page`
+### `POST /indexing-jobs`
 
 Queues a crawled page for asynchronous indexing.
 
@@ -91,11 +91,11 @@ Current readiness is database-based.
 
 ## Crawler
 
-### `POST /api/v1/urls`
+### `POST /urls`
 
 Admits URLs into the frontier.
 
-### `POST /api/v1/crawl-now`
+### `POST /crawl-requests`
 
 Immediately fetches a single URL and submits it to the indexer.
 

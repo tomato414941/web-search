@@ -65,7 +65,7 @@ def submit_seeds(api_url: str, domains: list[str]) -> int:
 
         payload = json.dumps({"urls": urls}).encode()
         req = Request(
-            f"{api_url}/api/v1/seeds",
+            f"{api_url}/seeds",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",

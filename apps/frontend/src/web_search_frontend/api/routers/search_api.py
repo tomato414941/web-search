@@ -120,7 +120,7 @@ def _parse_pos_int(value: str | None, default: int, *, min_v: int = 1) -> int:
 
 
 @router.get(
-    "/search",
+    "/search-results",
     response_model=SearchResponse,
     response_model_exclude_none=True,
     summary="Search the web",

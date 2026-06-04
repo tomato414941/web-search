@@ -144,11 +144,11 @@
 
                 if (navigator.sendBeacon) {
                     const blob = new Blob([payload], { type: "application/json" });
-                    navigator.sendBeacon("/telemetry/search-result-click", blob);
+                    navigator.sendBeacon("/events/search-result-clicked", blob);
                     return;
                 }
 
-                fetch("/telemetry/search-result-click", {
+                fetch("/events/search-result-clicked", {
                     method: "POST",
                     keepalive: true,
                     headers: { "Content-Type": "application/json" },

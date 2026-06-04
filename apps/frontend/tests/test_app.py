@@ -37,7 +37,7 @@ def test_search_page_lang_ja(client):
 
 
 def test_search_api_empty_query(client):
-    response = client.get("/api/v1/search")
+    response = client.get("/search-results")
     assert response.status_code == 200
     data = response.json()
     assert data["hits"] == []
@@ -45,7 +45,7 @@ def test_search_api_empty_query(client):
 
 
 def test_search_api_with_query(client):
-    response = client.get("/api/v1/search?q=test")
+    response = client.get("/search-results?q=test")
     assert response.status_code == 200
     data = response.json()
     assert "hits" in data

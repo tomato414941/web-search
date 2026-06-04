@@ -34,12 +34,12 @@ def test_root_readiness_endpoint(test_client):
 
 
 def test_crawl_urls_endpoint(test_client, test_url_store):
-    """Test POST /api/v1/urls endpoint"""
+    """Test POST /urls endpoint"""
     with patch(
         "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
     ):
         response = test_client.post(
-            "/api/v1/urls",
+            "/urls",
             json={
                 "urls": ["http://example.com", "http://test.com"],
             },
@@ -62,7 +62,7 @@ def test_crawl_now_endpoint(test_client):
         ),
     ):
         response = test_client.post(
-            "/api/v1/crawl-now",
+            "/crawl-requests",
             json={"url": "https://example.com"},
         )
 
@@ -77,11 +77,11 @@ def test_crawl_now_endpoint(test_client):
 
 
 def test_worker_start_endpoint(test_client, reset_worker_manager):
-    """Test POST /api/v1/worker/start endpoint"""
+    """Test POST /worker/start endpoint"""
     with patch(
         "web_search_crawler.workers.tasks.worker_loop", side_effect=_parked_worker_loop
     ):
-        response = test_client.post("/api/v1/worker/start", json={"concurrency": 2})
+        response = test_client.post("/worker/start", json={"concurrency": 2})
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "started"
@@ -89,44 +89,44 @@ def test_worker_start_endpoint(test_client, reset_worker_manager):
 
 
 def test_worker_start_exceeds_max_concurrency(test_client, reset_worker_manager):
-    """Test POST /api/v1/worker/start with excessive concurrency"""
-    response = test_client.post("/api/v1/worker/start", json={"concurrency": 100})
+    """Test POST /worker/start with excessive concurrency"""
+    response = test_client.post("/worker/start", json={"concurrency": 100})
     assert response.status_code == 400
     assert "exceeds maximum" in response.json()["detail"]
 
 
 def test_worker_start_already_running(test_client, reset_worker_manager):
-    """Test POST /api/v1/worker/start when already running"""
+    """Test POST /worker/start when already running"""
     with patch(
         "web_search_crawler.workers.tasks.worker_loop", side_effect=_parked_worker_loop
     ):
         # Start worker
-        test_client.post("/api/v1/worker/start", json={"concurrency": 1})
+        test_client.post("/worker/start", json={"concurrency": 1})
 
         # Try to start again
-        response = test_client.post("/api/v1/worker/start", json={"concurrency": 1})
+        response = test_client.post("/worker/start", json={"concurrency": 1})
         assert response.status_code == 400
         assert "already running" in response.json()["detail"]
 
 
 def test_worker_stop_endpoint(test_client, reset_worker_manager):
-    """Test POST /api/v1/worker/stop endpoint"""
+    """Test POST /worker/stop endpoint"""
     with patch(
         "web_search_crawler.workers.tasks.worker_loop", side_effect=_parked_worker_loop
     ):
         # Start worker first
-        test_client.post("/api/v1/worker/start", json={"concurrency": 1})
+        test_client.post("/worker/start", json={"concurrency": 1})
 
         # Stop worker
-        response = test_client.post("/api/v1/worker/stop", json={"graceful": True})
+        response = test_client.post("/worker/stop", json={"graceful": True})
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "stopped"
 
 
 def test_worker_stop_not_running(test_client, reset_worker_manager):
-    """Test POST /api/v1/worker/stop when not running"""
-    response = test_client.post("/api/v1/worker/stop", json={"graceful": True})
+    """Test POST /worker/stop when not running"""
+    response = test_client.post("/worker/stop", json={"graceful": True})
     assert response.status_code == 400
     assert "not running" in response.json()["detail"]
 
@@ -153,7 +153,7 @@ def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
     with patch(
         "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
     ):
-        response = test_client.get("/api/v1/seeds?limit=2&offset=0&include_total=true")
+        response = test_client.get("/seeds?limit=2&offset=0&include_total=true")
 
     _clear_seeds_cache()
 

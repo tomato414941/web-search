@@ -11,7 +11,7 @@ class TestAPISearchPublicContent:
         from web_search_frontend.api.main import app
 
         client = TestClient(app)
-        resp = client.get("/api/v1/search", params={"q": "test"})
+        resp = client.get("/search-results", params={"q": "test"})
         assert resp.status_code == 200
         data = resp.json()
         assert "usage" not in data
@@ -52,7 +52,7 @@ class TestAPISearchPublicContent:
 
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/search",
+            "/search-results",
             params={"q": "test", "include_content": "true"},
         )
         assert resp.status_code == 200
@@ -83,7 +83,7 @@ class TestAPIContent:
 
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/content",
+            "/indexed-documents/by-url",
             params={"url": "https://example.com"},
         )
         assert resp.status_code == 200
@@ -97,7 +97,7 @@ class TestAPIContent:
 
         client = TestClient(app)
         resp = client.get(
-            "/api/v1/content",
+            "/indexed-documents/by-url",
             params={"url": "https://missing.example.com"},
         )
         assert resp.status_code == 404

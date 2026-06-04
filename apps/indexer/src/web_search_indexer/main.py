@@ -60,7 +60,7 @@ app.include_router(health_root_router, tags=["health"])
 app.include_router(metrics_router, tags=["metrics"], include_in_schema=False)
 
 # Indexer API (requires API key)
-app.include_router(indexer.router, prefix="/api/v1", tags=["indexer"])
+app.include_router(indexer.router, tags=["indexer"])
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 
 class IndexPageRequest(BaseModel):
-    """Request payload for POST /api/v1/indexer/page."""
+    """Request payload for POST /indexing-jobs."""
 
     url: HttpUrl
     title: str = Field(max_length=1000)
@@ -17,7 +17,7 @@ class IndexPageRequest(BaseModel):
 
 
 class IndexPageResponse(BaseModel):
-    """Response from POST /api/v1/indexer/page (202 Accepted)."""
+    """Response from POST /indexing-jobs (202 Accepted)."""
 
     ok: bool
     queued: bool

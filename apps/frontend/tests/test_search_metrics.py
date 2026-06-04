@@ -2,7 +2,7 @@ from web_search_postgres.search import get_connection
 
 
 def test_search_api_records_request_and_impressions(client):
-    response = client.get("/api/v1/search?q=metrics-impression")
+    response = client.get("/search-results?q=metrics-impression")
     assert response.status_code == 200
     data = response.json()
     assert "request_id" in data
@@ -65,7 +65,7 @@ def test_search_click_endpoint_logs_click_event(client):
     conn.close()
 
     click_response = client.post(
-        "/telemetry/search-result-click",
+        "/events/search-result-clicked",
         json={"impression_id": "imp-click"},
     )
     assert click_response.status_code == 204
@@ -92,7 +92,7 @@ def test_search_click_endpoint_logs_click_event(client):
 
 def test_search_click_endpoint_rejects_unknown_impression(client):
     response = client.post(
-        "/telemetry/search-result-click",
+        "/events/search-result-clicked",
         json={"impression_id": "missing-impression"},
     )
     assert response.status_code == 404

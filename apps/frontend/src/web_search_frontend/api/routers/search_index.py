@@ -14,7 +14,7 @@ class SearchIndexResponse(BaseModel):
     documents: SearchIndexDocumentSummary
 
 
-@router.get("/search-index", response_model=SearchIndexResponse)
+@router.get("/indexed-documents", response_model=SearchIndexResponse)
 async def search_index() -> SearchIndexResponse:
     return SearchIndexResponse(
         documents=SearchIndexDocumentSummary(total=get_indexed_document_count())

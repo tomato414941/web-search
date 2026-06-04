@@ -23,7 +23,7 @@ apps/indexer/
 ├── pyproject.toml     # Workspace package metadata
 ├── src/
 │   └── web_search_indexer/
-│       ├── api/       # API Routes (/api/v1/indexer/*)
+│       ├── api/       # API Routes
 │       ├── core/      # Config
 │       ├── services/  # Business Logic (IndexerService)
 │       └── main.py    # Entry Point
@@ -47,5 +47,5 @@ uv run --package web-search-indexer web-search-backfill-temporal-anchor
 
 ## API Endpoints
 
-*   `POST /api/v1/indexer/page`: Queue a page for asynchronous indexing (`202 Accepted` + `job_id`).
+*   `POST /indexing-jobs`: Queue a page for asynchronous indexing (`202 Accepted` + `job_id`).
 *   `GET /health`: Health check.

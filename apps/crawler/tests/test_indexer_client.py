@@ -22,7 +22,7 @@ async def test_submit_page_success():
 
     result = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8000/api/indexer/page",
+        "http://indexer:8000/indexing-jobs",
         "test-api-key",
         "http://example.com/test",
         "Test Page",
@@ -54,7 +54,7 @@ async def test_submit_page_indexer_error():
 
     result = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8000/api/indexer/page",
+        "http://indexer:8000/indexing-jobs",
         "test-api-key",
         "http://example.com/test",
         "Test",
@@ -75,7 +75,7 @@ async def test_submit_page_network_error():
 
     result = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8000/api/indexer/page",
+        "http://indexer:8000/indexing-jobs",
         "test-api-key",
         "http://example.com/test",
         "Test",
@@ -101,7 +101,7 @@ async def test_submit_page_network_error_without_message():
 
     result = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8000/api/indexer/page",
+        "http://indexer:8000/indexing-jobs",
         "test-api-key",
         "http://example.com/test",
         "Test",
@@ -121,7 +121,7 @@ async def test_submit_page_timeout_fails_fast():
 
     result = await submit_page_to_indexer(
         mock_session,
-        "http://indexer:8000/api/indexer/page",
+        "http://indexer:8000/indexing-jobs",
         "test-api-key",
         "http://example.com/test",
         "Test",
