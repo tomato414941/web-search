@@ -18,7 +18,6 @@ from web_search_frontend.api.routers import (
     search_api,
     search_index,
     content_api,
-    crawler,
     telemetry,
 )
 from web_search_frontend.api.routers.system import root_router as health_root_router
@@ -160,7 +159,6 @@ app.include_router(telemetry.router, include_in_schema=False)
 app.include_router(search_api.router, tags=["search"])
 app.include_router(search_index.router, tags=["search"])
 app.include_router(content_api.router, tags=["content"])
-app.include_router(crawler.router, tags=["crawler"], include_in_schema=False)
 app.include_router(metrics_router, tags=["metrics"], include_in_schema=False)
 
 
