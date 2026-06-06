@@ -95,10 +95,6 @@ Current readiness is database-based.
 
 Admits URLs into the frontier.
 
-### `POST /crawl-requests`
-
-Immediately fetches a single URL and submits it to the indexer.
-
 ### `GET /health`
 
 Simple liveness check.

@@ -10,7 +10,6 @@ from unittest.mock import patch
 import pytest
 
 from web_search_core import background as background_module
-from web_search_crawler.services.direct_crawl import ImmediateCrawlResult
 
 
 async def _parked_worker_loop(*args, **kwargs):
@@ -48,32 +47,6 @@ def test_crawl_urls_endpoint(test_client, test_url_store):
         data = response.json()
         assert data["status"] == "admitted"
         assert data["added_count"] == 2
-
-
-def test_crawl_now_endpoint(test_client):
-    with patch(
-        "web_search_crawler.api.routes.crawl.execute_crawl_now",
-        return_value=ImmediateCrawlResult(
-            status="submitted",
-            url="https://example.com",
-            message="Page submitted to indexer",
-            job_id="job-123",
-            outlinks_discovered=3,
-        ),
-    ):
-        response = test_client.post(
-            "/crawl-requests",
-            json={"url": "https://example.com"},
-        )
-
-    assert response.status_code == 200
-    assert response.json() == {
-        "status": "submitted",
-        "url": "https://example.com/",
-        "message": "Page submitted to indexer",
-        "job_id": "job-123",
-        "outlinks_discovered": 3,
-    }
 
 
 def test_worker_start_endpoint(test_client, reset_worker_manager):

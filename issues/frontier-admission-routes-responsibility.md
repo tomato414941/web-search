@@ -23,7 +23,6 @@ Observed frontier admission routes:
 - feed autodiscovery URLs via `discovered_via="feed_autodiscovery"`
 - seed registration via `SeedService.add_seeds()`
 - manual operator admission via `FrontierService.admit_urls()`
-- manual crawl leasing via `lease_manual_url()`
 - robots-blocked recovery CLI when a URL has no existing frontier entry
 
 Observed non-admission route:

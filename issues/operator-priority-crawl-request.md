@@ -6,8 +6,8 @@ Operators sometimes need to tell the system that a specific URL should be
 crawled soon, but the intended product requirement is not "run the full crawler
 pipeline synchronously inside an HTTP request."
 
-The current `POST /crawl-requests` path satisfies the request by immediately
-fetching the URL and submitting it to the indexer. That mixes operator intent,
+A previous `POST /crawl-requests` path satisfied the request by immediately
+fetching the URL and submitting it to the indexer. That mixed operator intent,
 URL registration, frontier leasing, fetching, parsing, and indexer submission in
 one synchronous API path.
 
@@ -43,5 +43,5 @@ Likely target shape:
 - if a one-off diagnostic fetch is still needed later, implement it as a
   separate CLI/debug tool rather than as the primary crawl request API
 
-This issue does not require keeping the current `POST /crawl-requests`
+This issue does not require restoring the previous `POST /crawl-requests`
 implementation.

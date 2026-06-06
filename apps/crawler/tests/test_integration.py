@@ -15,12 +15,10 @@ from web_search_crawler.db.connection import db_transaction
 from web_search_crawler.db.url_types import url_hash
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
 from web_search_crawler.services.crawl_policy import compute_failure_retry_delay
-from web_search_crawler.services.direct_crawl import crawl_url_now
 from web_search_crawler.services.frontier import FrontierService
 from web_search_crawler.services.seeds import SeedService
 from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
-from web_search_crawler.workers.types import PipelineProcessResult
 from web_search_crawler.workers.tasks import process_url
 
 
@@ -826,91 +824,6 @@ def test_pop_frontier_batch_ignores_stale_domain_inflight_counts(test_url_store)
     assert [item.url for item in leased] == ["https://example.com/stale"]
     assert domain_state is not None
     assert domain_state.inflight_leases == 3
-
-
-def test_lease_manual_url_promotes_frontier_entry(test_url_store):
-    leased = test_url_store.lease_manual_url("https://example.com/manual-now")
-    entry = test_url_store.get_frontier_entry("https://example.com/manual-now")
-    domain_state = test_url_store.get_domain_state("example.com")
-
-    assert leased is True
-    assert entry is not None
-    assert entry.discovered_via == "manual"
-    assert entry.crawl_profile == "manual_now"
-    assert entry.status == "leased"
-    assert domain_state is not None
-    assert domain_state.inflight_leases == 1
-
-
-@pytest.mark.asyncio
-async def test_crawl_url_now_returns_busy_for_already_leased_url(test_url_store):
-    assert test_url_store.lease_manual_url("https://example.com/already-leased") is True
-
-    result = await crawl_url_now(
-        "https://example.com/already-leased",
-        url_store=test_url_store,
-    )
-
-    assert result.status == "busy"
-    assert result.message == "URL is already leased by another crawl"
-
-
-@pytest.mark.asyncio
-async def test_crawl_url_now_maps_internal_success_to_submitted(test_url_store):
-    with (
-        patch(
-            "web_search_crawler.services.direct_crawl.execute_crawl",
-            new=AsyncMock(
-                return_value=PipelineProcessResult(
-                    status="queued_for_index",
-                    message="Page queued for indexing",
-                    job_id="job-123",
-                    outlinks_discovered=2,
-                )
-            ),
-        ),
-        patch(
-            "web_search_crawler.services.direct_crawl.load_static_crawl_config",
-            return_value=(frozenset(), None),
-        ),
-    ):
-        result = await crawl_url_now(
-            "https://example.com/direct-success",
-            url_store=test_url_store,
-        )
-
-    assert result.status == "submitted"
-    assert result.message == "Page submitted to indexer"
-    assert result.job_id == "job-123"
-    assert result.outlinks_discovered == 2
-
-
-@pytest.mark.asyncio
-async def test_crawl_url_now_maps_internal_retry_to_failed(test_url_store):
-    with (
-        patch(
-            "web_search_crawler.services.direct_crawl.execute_crawl",
-            new=AsyncMock(
-                return_value=PipelineProcessResult(
-                    status="retry",
-                    message="HTTP 429",
-                    outlinks_discovered=0,
-                )
-            ),
-        ),
-        patch(
-            "web_search_crawler.services.direct_crawl.load_static_crawl_config",
-            return_value=(frozenset(), None),
-        ),
-    ):
-        result = await crawl_url_now(
-            "https://example.com/direct-retry",
-            url_store=test_url_store,
-        )
-
-    assert result.status == "failed"
-    assert result.message == "HTTP 429"
-    assert result.job_id is None
 
 
 @pytest.mark.asyncio

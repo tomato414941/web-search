@@ -234,66 +234,6 @@ class UrlFrontierMixin:
             )
         return selected
 
-    def _promote_manual_frontier_lease(
-        self,
-        cur,
-        *,
-        url_hash_value: str,
-        lease_token: str,
-        lease_expires_at: int,
-        now: int,
-    ) -> str | None:
-        """Promote a frontier row into a manual lease and return its domain."""
-        ph = sql_placeholder()
-        cur.execute(
-            f"""
-            SELECT domain, status, lease_expires_at
-            FROM frontier_entries
-            WHERE url_hash = {ph}
-            FOR UPDATE
-            """,
-            (url_hash_value,),
-        )
-        row = cur.fetchone()
-        if row is None:
-            return None
-
-        domain, status, existing_lease_expires_at = row
-        if status == "leased" and (
-            existing_lease_expires_at is None or existing_lease_expires_at > now
-        ):
-            return None
-
-        cur.execute(
-            f"""
-            UPDATE frontier_entries
-            SET
-                discovered_via = 'manual',
-                crawl_profile = 'manual_now',
-                priority_bucket = 0,
-                priority_score = GREATEST(priority_score, {ph}),
-                status = 'leased',
-                next_fetch_at = LEAST(next_fetch_at, {ph}),
-                lease_token = {ph},
-                lease_expires_at = {ph},
-                updated_at = {ph}
-            WHERE url_hash = {ph}
-            """,
-            (
-                POLICIES["manual_now"].priority_score_boost,
-                now,
-                lease_token,
-                lease_expires_at,
-                now,
-                url_hash_value,
-            ),
-        )
-        if hasattr(self, "domain_scheduling_state"):
-            self.domain_scheduling_state.adjust_inflight_leases(
-                cur, [domain], delta=1, now=now
-            )
-        return domain
-
     def _update_frontier_entry_after_result(
         self,
         cur,
@@ -404,27 +344,6 @@ class UrlFrontierMixin:
         return [
             UrlItem(url=row[1], domain=row[2], created_at=row[3]) for row in selected
         ]
-
-    def lease_manual_url(self, url: str, *, lease_seconds: int = 300) -> bool:
-        """Lease a single URL for immediate operator-triggered crawl."""
-        self.discover_and_admit_urls([url], discovered_via="manual")
-
-        now = int(time.time())
-        lease_token = uuid.uuid4().hex
-        lease_expires_at = now + max(1, lease_seconds)
-        h = url_hash(url)
-        with db_transaction(self.db_path) as cur:
-            self._reconcile_expired_frontier_leases(cur, now=now)
-            domain = self._promote_manual_frontier_lease(
-                cur,
-                url_hash_value=h,
-                lease_token=lease_token,
-                lease_expires_at=lease_expires_at,
-                now=now,
-            )
-            if domain is None:
-                return False
-            return True
 
     def release_frontier_urls(
         self,

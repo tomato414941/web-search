@@ -6,13 +6,10 @@ Handles crawl request endpoints.
 
 from fastapi import APIRouter, Depends, HTTPException
 from web_search_crawler.models.crawl import (
-    CrawlNowRequest,
-    CrawlNowResponse,
     CrawlRequest,
     CrawlResponse,
 )
 from web_search_crawler.api.deps import get_frontier_service
-from web_search_crawler.services.direct_crawl import crawl_url_now as execute_crawl_now
 from web_search_crawler.services.frontier import FrontierService
 
 router = APIRouter()
@@ -36,21 +33,3 @@ async def admit_urls_to_frontier(
         return CrawlResponse(status="admitted", added_count=count)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to admit URLs: {str(e)}")
-
-
-@router.post("/crawl-requests", response_model=CrawlNowResponse)
-async def crawl_now(request: CrawlNowRequest):
-    """Immediately crawl a single URL and submit it to the indexer."""
-    try:
-        result = await execute_crawl_now(str(request.url))
-        return CrawlNowResponse(
-            status=result.status,
-            url=result.url,
-            message=result.message,
-            job_id=result.job_id,
-            outlinks_discovered=result.outlinks_discovered,
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to crawl URL now: {str(e)}"
-        )
