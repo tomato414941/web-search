@@ -112,3 +112,24 @@ def test_maintain_frontier_health_reconciles_periodically():
 
     assert reconcile_calls == ["reconcile", "reconcile"]
     assert sleep_calls == [2, 30]
+
+
+def test_frontier_maintenance_uses_runtime_url_store_factory(monkeypatch):
+    from web_search_crawler.core import events
+    from web_search_crawler.services import crawl_runtime
+
+    class FakeStore:
+        def reconcile_expired_frontier_leases(self):
+            return 2
+
+        def reconcile_domain_state_inflight_leases(self):
+            return 3
+
+    async def fake_run_in_db_executor(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(crawl_runtime, "build_url_store", lambda: FakeStore())
+    monkeypatch.setattr(events, "run_in_db_executor", fake_run_in_db_executor)
+
+    assert asyncio.run(events._reconcile_frontier_leases()) == 2
+    assert asyncio.run(events._reconcile_domain_state_inflight_leases()) == 3

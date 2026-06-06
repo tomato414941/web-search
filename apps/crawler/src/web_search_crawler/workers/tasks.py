@@ -14,11 +14,12 @@ import aiohttp
 from cachetools import TTLCache
 
 from web_search_crawler.db.executor import run_in_db_executor
-from web_search_crawler.db.url_store import UrlStore
 from web_search_crawler.core.config import settings
+from web_search_crawler.db.url_store import UrlStore
 from web_search_crawler.frontier_planner import FrontierPlanner
 from web_search_crawler.services.crawl_runtime import (
     build_frontier_planner,
+    build_url_store,
     load_static_crawl_config,
 )
 from web_search_crawler.utils.robots import AsyncRobotsCache
@@ -191,12 +192,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     # Initialize history log database
     await run_in_db_executor(history_log.init_db)
 
-    # Initialize UrlStore
-    url_store = UrlStore(
-        settings.CRAWLER_DB_PATH,
-        recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
-    )
-
+    url_store = build_url_store()
     planner = build_frontier_planner(
         url_store, batch_size=settings.FRONTIER_PLANNER_BATCH_SIZE
     )

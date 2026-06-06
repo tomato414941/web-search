@@ -7,6 +7,13 @@ from web_search_crawler.db.url_store import UrlStore
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
 
 
+def build_url_store() -> UrlStore:
+    return UrlStore(
+        settings.CRAWLER_DB_PATH,
+        recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
+    )
+
+
 def build_frontier_planner(url_store: UrlStore, *, batch_size: int) -> FrontierPlanner:
     return FrontierPlanner(
         url_store,
