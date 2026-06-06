@@ -16,8 +16,6 @@ production shape rather than broad backward compatibility.
 Examples of stale or potentially misleading migration history:
 
 - legacy `urls.status` and pending-URL indexes
-- `urls.last_crawled_at` indexes created for stats and recrawl reads that are
-  being removed
 - crawl queue migration steps that predate `frontier_entries`
 - intermediate admin read-model migrations that may no longer match the reduced
   admin surface
@@ -33,8 +31,8 @@ target shape.
   supported.
 - Future schema cleanup is harder because it must reason through historical
   states that are no longer operationally important.
-- Removing `last_crawled_at` and `crawl_count` from `urls` is harder to reason
-  about while migration history still presents them as active design elements.
+- Future schema cleanup is harder to reason about while migration history still
+  presents obsolete intermediate states as active design elements.
 
 ## Direction
 

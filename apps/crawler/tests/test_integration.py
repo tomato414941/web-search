@@ -403,6 +403,22 @@ def test_record_updates_frontier_after_success(test_url_store):
     assert domain_state.next_request_at >= before
 
 
+def test_recent_fetch_suppression_uses_frontier_state(test_url_store):
+    url = "https://example.com/recent"
+    test_url_store.discover_and_admit_urls([url])
+    test_url_store.pop_frontier_batch(1, lease_seconds=120)
+    test_url_store.record_crawl_result(url, "done")
+    before_entry = test_url_store.get_frontier_entry(url)
+
+    added = test_url_store.discover_and_admit_urls([url])
+    after_entry = test_url_store.get_frontier_entry(url)
+
+    assert added == 0
+    assert before_entry is not None
+    assert after_entry is not None
+    assert after_entry.next_fetch_at == before_entry.next_fetch_at
+
+
 def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     url = "https://example.com/failure"
     test_url_store.discover_and_admit_urls([url])

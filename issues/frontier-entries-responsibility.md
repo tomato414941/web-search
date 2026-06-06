@@ -30,8 +30,8 @@ the runtime model harder to reason about.
 
 - RSS/feed URLs feel awkward in `frontier_entries` if the table is understood as
   a page crawl queue.
-- `urls.last_crawled_at` and `urls.crawl_count` duplicate or overlap with crawl
-  execution state already stored in `frontier_entries`.
+- `urls.last_crawled_at` and `urls.crawl_count` previously duplicated or
+  overlapped with crawl execution state already stored in `frontier_entries`.
 - Future changes may keep adding queue, schedule, lease, and admin-read concerns
   to the same table because the boundary is unclear.
 

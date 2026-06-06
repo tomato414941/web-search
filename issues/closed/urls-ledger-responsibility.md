@@ -1,5 +1,7 @@
 # URLs Ledger Responsibility
 
+Closed. The URL ledger no longer stores crawl execution state.
+
 ## Problem
 
 `urls` is intended to be the large discovery ledger, but it still stores crawl
@@ -42,11 +44,11 @@ Most of these concerns overlap with execution state already present in
 - Admin/stat reads may keep using the largest table when frontier/runtime state
   would be a more natural source.
 
-## Direction
+## Resolution
 
 Keep `urls` focused on URL discovery identity.
 
-Candidate target shape:
+Implemented shape:
 
 - `url_hash`
 - `url`
@@ -54,11 +56,11 @@ Candidate target shape:
 - `created_at`
 - `discovered_via`
 
-Before removing columns, replace active reads with more appropriate sources:
+Implemented changes:
 
-- use frontier/runtime state for crawl scheduling and recent-crawl suppression
-- avoid using `urls` as an admin statistics source
-- keep removing remaining `last_crawled_at` and `crawl_count` reads that do not
-  belong in the discovery ledger
+- recent-crawl suppression uses `frontier_entries.last_fetched_at`
+- crawl result recording no longer updates `urls`
+- `urls.crawl_count` and `urls.last_crawled_at` are removed from the schema
+- fresh migrations create `urls` as discovery identity only
 
 Do not move more execution state into `urls` just to reduce table count.

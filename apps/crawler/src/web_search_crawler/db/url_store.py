@@ -32,7 +32,7 @@ class UrlStore(
     """
     URL storage backed by a discovery ledger and durable frontier.
 
-    urls: all discovered URLs. last_crawled_at IS NULL means never crawled.
+    urls: all discovered URLs.
     frontier_entries: active pending/leased crawl candidates.
     """
 

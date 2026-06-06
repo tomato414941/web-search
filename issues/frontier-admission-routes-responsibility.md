@@ -12,8 +12,7 @@ admission intents such as crawler-discovered outlinks, feed autodiscovery, seed
 registration, manual operator admission, and CLI requeue recovery.
 
 This makes it harder to reason about what should happen when admission rules
-change, especially when removing `urls.last_crawled_at` from recent-crawl
-suppression.
+change.
 
 ## Evidence
 
@@ -32,8 +31,8 @@ Observed non-admission route:
 
 - It is not obvious which routes should respect recent-crawl suppression and
   which should force admission.
-- Removing `urls.last_crawled_at` from admission logic could increase frontier
-  updates if the remaining frontier-based checks are not route-aware enough.
+- Recent-crawl suppression now uses frontier runtime state, but admission intent
+  is still not clearly represented at the product level.
 - Manual/operator intent and crawler-discovered intent currently share much of
   the same path, so policy differences are implicit.
 - Future feed-specific changes may accidentally admit feed entry URLs if the

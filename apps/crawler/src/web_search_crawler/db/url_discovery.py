@@ -72,6 +72,30 @@ class UrlDiscoveryMixin:
             )
         return sorted(records.values(), key=lambda row: row["h"])
 
+    def _normalize_known_urls(
+        self,
+        urls: list[str],
+        *,
+        discovered_via: str,
+    ) -> list[dict[str, Any]]:
+        records: dict[str, dict[str, Any]] = {}
+        for url in urls:
+            if not url:
+                continue
+            decision = self.url_admission_policy.evaluate(url)
+            known_url = decision.normalized_url or url
+            h = url_hash(known_url)
+            records.setdefault(
+                h,
+                {
+                    "h": h,
+                    "url": known_url,
+                    "domain": get_domain(known_url),
+                    "discovered_via": discovered_via,
+                },
+            )
+        return sorted(records.values(), key=lambda row: row["h"])
+
     def _insert_urls_batch(self, cur: Any, rows: list[dict[str, Any]], now: int) -> int:
         if not rows:
             return 0
@@ -102,7 +126,7 @@ class UrlDiscoveryMixin:
         )
         return len(result)
 
-    def _get_recently_crawled_hashes(
+    def _get_recently_fetched_frontier_hashes(
         self, cur: Any, hashes: list[str], cutoff: int
     ) -> set[str]:
         if not hashes:
@@ -111,10 +135,10 @@ class UrlDiscoveryMixin:
         cur.execute(
             f"""
             SELECT url_hash
-            FROM urls
+            FROM frontier_entries
             WHERE url_hash = ANY({ph})
-              AND last_crawled_at IS NOT NULL
-              AND last_crawled_at >= {ph}
+              AND last_fetched_at IS NOT NULL
+              AND last_fetched_at >= {ph}
             """,
             (hashes, cutoff),
         )
@@ -233,7 +257,7 @@ class UrlDiscoveryMixin:
         now: int,
         cutoff: int,
     ) -> int:
-        recent_hashes = self._get_recently_crawled_hashes(
+        recent_hashes = self._get_recently_fetched_frontier_hashes(
             cur, [row["h"] for row in rows], cutoff
         )
         admit_rows: list[dict[str, Any]] = []
@@ -287,7 +311,7 @@ class UrlDiscoveryMixin:
         """Record discovered URLs in the urls ledger without frontier admission."""
         if not urls:
             return 0
-        rows = self._normalize_batch_urls(
+        rows = self._normalize_known_urls(
             urls,
             discovered_via=discovered_via,
         )
@@ -453,19 +477,4 @@ class UrlDiscoveryMixin:
 
     def record_crawl_result(self, url: str, status: str) -> None:
         """Record a crawl result and update frontier state."""
-        h = url_hash(url)
-        domain = get_domain(url)
-        now = int(time.time())
-        ph = sql_placeholder()
-        with db_transaction(self.db_path) as cur:
-            cur.execute(
-                f"""
-                INSERT INTO urls (url_hash, url, domain, crawl_count, created_at, last_crawled_at)
-                VALUES ({ph}, {ph}, {ph}, 1, {ph}, {ph})
-                ON CONFLICT (url_hash) DO UPDATE SET
-                    last_crawled_at = EXCLUDED.last_crawled_at,
-                    crawl_count = urls.crawl_count + 1
-                """,
-                (h, url, domain, now, now),
-            )
         self.record_frontier_result(url, status)
