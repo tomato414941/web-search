@@ -21,7 +21,6 @@ Observed frontier admission routes:
 
 - HTML outlinks via `admit_discovered_urls(..., discovered_via="outlink")`
 - feed autodiscovery URLs via `discovered_via="feed_autodiscovery"`
-- seed registration via `SeedService.add_seeds()`
 - robots-blocked recovery CLI when a URL has no existing frontier entry
 
 Observed non-admission route:

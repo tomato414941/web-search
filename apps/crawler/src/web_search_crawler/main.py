@@ -8,7 +8,6 @@ from fastapi import Depends, FastAPI
 from web_search_crawler.api.deps import verify_api_key
 from web_search_crawler.api.routes import (
     worker,
-    seeds,
 )
 from web_search_crawler.api.routes.health import root_router as health_root_router
 from web_search_crawler.core.events import lifespan
@@ -36,7 +35,6 @@ def create_app() -> FastAPI:
     app.include_router(
         worker.router, prefix="/worker", tags=["worker"], dependencies=api_deps
     )
-    app.include_router(seeds.router, tags=["seeds"], dependencies=api_deps)
     return app
 
 

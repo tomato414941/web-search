@@ -14,7 +14,7 @@ from web_search_crawler.db.url_domain_state import DomainSchedulingStateStore
 from web_search_crawler.db.url_frontier import UrlFrontierMixin
 from web_search_crawler.db.url_queries import UrlQueriesMixin
 from web_search_crawler.db.url_retry import UrlRetryMixin
-from web_search_crawler.db.url_seeds import UrlSeedsMixin
+from web_search_crawler.db.url_maintenance import UrlMaintenanceMixin
 from web_search_crawler.services.url_admission import (
     URLAdmissionPolicy,
     load_url_admission_policy,
@@ -27,7 +27,7 @@ class UrlStore(
     UrlFrontierMixin,
     UrlRetryMixin,
     UrlQueriesMixin,
-    UrlSeedsMixin,
+    UrlMaintenanceMixin,
 ):
     """
     URL storage backed by a discovery ledger and durable frontier.

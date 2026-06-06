@@ -1,42 +1,15 @@
-"""URL seed management: mark, unmark, get, purge."""
+"""URL maintenance operations."""
 
 import time
 
 from web_search_crawler.db.connection import db_connection, db_transaction
-from web_search_crawler.db.url_types import url_hash
 from web_search_postgres.search import sql_placeholder
 
 
-class UrlSeedsMixin:
-    """Mixin for seed URL operations."""
+class UrlMaintenanceMixin:
+    """Mixin for URL maintenance operations."""
 
     db_path: str
-
-    def mark_seeds(self, urls: list[str]) -> int:
-        """Set is_seed = TRUE for the given URLs."""
-        if not urls:
-            return 0
-        ph = sql_placeholder()
-        hashes = [url_hash(u) for u in urls]
-        with db_transaction(self.db_path) as cur:
-            cur.execute(
-                f"UPDATE urls SET is_seed = TRUE WHERE url_hash = ANY({ph})",
-                (hashes,),
-            )
-            return cur.rowcount
-
-    def unmark_seeds(self, urls: list[str]) -> int:
-        """Set is_seed = FALSE for the given URLs."""
-        if not urls:
-            return 0
-        ph = sql_placeholder()
-        hashes = [url_hash(u) for u in urls]
-        with db_transaction(self.db_path) as cur:
-            cur.execute(
-                f"UPDATE urls SET is_seed = FALSE WHERE url_hash = ANY({ph})",
-                (hashes,),
-            )
-            return cur.rowcount
 
     def purge_denied_domains(self, denylist: frozenset[str]) -> int:
         """Delete frontier URLs whose domain matches the denylist.
@@ -235,33 +208,3 @@ class UrlSeedsMixin:
                 )
 
         return summary
-
-    def count_seeds(self) -> int:
-        """Count URLs marked as seeds."""
-        with db_connection(self.db_path) as cur:
-            cur.execute("SELECT COUNT(*) FROM urls WHERE is_seed = TRUE")
-            return cur.fetchone()[0]
-
-    def get_seeds(self, limit: int | None = None, offset: int = 0) -> list[dict]:
-        """Get URLs marked as seeds."""
-        with db_connection(self.db_path) as cur:
-            if limit is None:
-                cur.execute(
-                    "SELECT url, created_at"
-                    " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
-                )
-            else:
-                ph = sql_placeholder()
-                cur.execute(
-                    "SELECT url, created_at"
-                    " FROM urls WHERE is_seed = TRUE ORDER BY created_at DESC"
-                    f" LIMIT {ph} OFFSET {ph}",
-                    (limit, max(0, offset)),
-                )
-            return [
-                {
-                    "url": row[0],
-                    "created_at": row[1],
-                }
-                for row in cur.fetchall()
-            ]

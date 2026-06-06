@@ -15,7 +15,6 @@ from web_search_crawler.db.connection import db_transaction
 from web_search_crawler.db.url_types import url_hash
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
 from web_search_crawler.services.crawl_policy import compute_failure_retry_delay
-from web_search_crawler.services.seeds import SeedService
 from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
 from web_search_crawler.workers.tasks import process_url
@@ -427,21 +426,6 @@ def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     assert domain_state.backoff_until >= before
 
 
-def test_seed_success_uses_shorter_recrawl_interval(test_url_store):
-    service = SeedService(test_url_store)
-    service.add_seeds(["https://docs.docker.com/"])
-    test_url_store.pop_frontier_batch(1, lease_seconds=120)
-
-    before = int(time.time())
-    test_url_store.record_crawl_result("https://docs.docker.com/", "done")
-    after = int(time.time())
-    entry = test_url_store.get_frontier_entry("https://docs.docker.com/")
-
-    assert entry is not None
-    assert entry.next_fetch_at >= before + 3 * 24 * 3600
-    assert entry.next_fetch_at <= after + 3 * 24 * 3600 + 1
-
-
 def test_manual_success_reclassifies_to_normal_crawl_policy(test_url_store):
     url = "https://docs.docker.com/reference/cli/docker/"
     test_url_store.discover_and_admit_urls([url], discovered_via="manual")
@@ -475,21 +459,6 @@ def test_release_notes_failure_retries_quickly(test_url_store):
     assert entry.status == "pending"
     assert entry.next_fetch_at >= before + 30 * 60
     assert entry.next_fetch_at <= after + 30 * 60 + 1
-
-
-def test_seed_service_populates_frontier_entry_as_seed(test_url_store):
-    service = SeedService(test_url_store)
-
-    added = service.add_seeds(["https://docs.docker.com/"])
-
-    entry = test_url_store.get_frontier_entry("https://docs.docker.com/")
-
-    assert added == 1
-    assert entry is not None
-    assert entry.is_seed is True
-    assert entry.discovered_via == "seed"
-    assert entry.priority_bucket <= 1
-    assert entry.canonical_source == "docker_docs"
 
 
 def test_requeue_releases_frontier_for_retry(test_url_store):

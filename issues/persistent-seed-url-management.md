@@ -11,7 +11,7 @@ recrawl policy, seed-specific priority behavior, or a seed management HTTP API.
 
 ## Evidence
 
-Current seed handling bundles several concerns:
+Prior seed handling bundled several concerns:
 
 - seed URL registration
 - `urls.is_seed`

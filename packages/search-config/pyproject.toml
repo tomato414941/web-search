@@ -8,7 +8,6 @@ dependencies = []
 [project.scripts]
 web-search-collect-query-candidates = "web_search_search_config.cli.collect_query_candidates:main"
 web-search-evaluate-search = "web_search_search_config.cli.evaluate_search:main"
-web-search-seed-from-ai-list = "web_search_search_config.cli.seed_from_ai_list:main"
 web-search-validate-search-eval-config = "web_search_search_config.cli.validate_search_eval_config:main"
 
 [build-system]

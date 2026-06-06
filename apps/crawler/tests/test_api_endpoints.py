@@ -87,42 +87,6 @@ def test_worker_stop_not_running(test_client, reset_worker_manager):
     assert "not running" in response.json()["detail"]
 
 
-def test_seeds_endpoint_supports_pagination(test_client, test_url_store):
-    from web_search_crawler.api.routes.seeds import _clear_seeds_cache
-
-    _clear_seeds_cache()
-    test_url_store.discover_and_admit_urls(
-        [
-            "https://example.com/1",
-            "https://example.com/2",
-            "https://example.com/3",
-        ]
-    )
-    test_url_store.mark_seeds(
-        [
-            "https://example.com/1",
-            "https://example.com/2",
-            "https://example.com/3",
-        ]
-    )
-
-    with patch(
-        "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
-    ):
-        response = test_client.get("/seeds?limit=2&offset=0&include_total=true")
-
-    _clear_seeds_cache()
-
-    assert response.status_code == 200
-    data = response.json()
-    assert data["total"] == 3
-    assert data["limit"] == 2
-    assert data["offset"] == 0
-    assert len(data["items"]) == 2
-    assert "status" not in data["items"][0]
-    assert "last_crawled_at" not in data["items"][0]
-
-
 def test_maintain_frontier_health_reconciles_periodically():
     from web_search_crawler.core import events
 
