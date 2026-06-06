@@ -1,7 +1,7 @@
 """
 URL Store - Discovery Ledger + Frontier
 
-urls table: ledger of all discovered URLs and their discovery route.
+urls table: ledger of known URLs.
 frontier_entries table: durable crawl frontier.
 """
 
@@ -32,7 +32,7 @@ class UrlStore(
     """
     URL storage backed by a discovery ledger and durable frontier.
 
-    urls: all discovered URLs.
+    urls: known URLs.
     frontier_entries: active pending/leased crawl candidates.
     """
 
