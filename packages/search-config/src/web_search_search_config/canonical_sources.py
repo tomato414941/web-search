@@ -32,14 +32,6 @@ def _resolve_manifest_path() -> Path:
 
 
 @dataclass(frozen=True)
-class CanonicalSeedRow:
-    category: str
-    target: str
-    priority_boost: int
-    note: str
-
-
-@dataclass(frozen=True)
 class EvalJudgment:
     relevance: int
     url: str | None = None
@@ -89,7 +81,6 @@ class CanonicalSourceConfig:
     retrieval_query: str | None = None
     restrict_to_source: bool = False
     cases: tuple[CanonicalEvalCase, ...] = ()
-    seed_rows: tuple[CanonicalSeedRow, ...] = ()
 
 
 def _load_manifest(path: Path) -> dict:
@@ -406,15 +397,6 @@ def load_canonical_source_configs() -> tuple[CanonicalSourceConfig, ...]:
         domains = _tuple_of_strings(item.get("domains"))
         preferred_paths = _tuple_of_strings(item.get("preferred_paths"))
         news_paths = _tuple_of_strings(item.get("news_paths"))
-        seed_rows = tuple(
-            CanonicalSeedRow(
-                category=row["category"],
-                target=row["target"],
-                priority_boost=int(row["priority_boost"]),
-                note=row["note"],
-            )
-            for row in item.get("seed_rows", [])
-        )
         cases = tuple(
             _load_case(
                 case,
@@ -436,7 +418,6 @@ def load_canonical_source_configs() -> tuple[CanonicalSourceConfig, ...]:
                 retrieval_query=item.get("retrieval_query"),
                 restrict_to_source=bool(item.get("restrict_to_source")),
                 cases=cases,
-                seed_rows=seed_rows,
             )
         )
     return tuple(configs)
@@ -481,21 +462,6 @@ def canonical_known_domains() -> list[str]:
             domains.update(case.required_domains)
             domains.update(case.excluded_domains)
     return sorted(domains, key=len, reverse=True)
-
-
-def canonical_seed_rows(category: str | None = None) -> list[CanonicalSeedRow]:
-    rows: list[CanonicalSeedRow] = []
-    seen: set[tuple[str, str]] = set()
-    for source in load_canonical_source_configs():
-        for row in source.seed_rows:
-            if category and row.category != category:
-                continue
-            key = (row.category, row.target)
-            if key in seen:
-                continue
-            seen.add(key)
-            rows.append(row)
-    return rows
 
 
 def canonical_query_cases() -> list[CanonicalEvalCase]:

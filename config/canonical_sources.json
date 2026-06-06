@@ -430,14 +430,6 @@
           "pass_reason": "top 3 include an official OpenAI news or blog result",
           "fail_reason": "top 3 do not include an official OpenAI news or blog result"
         }
-      ],
-      "seed_rows": [
-        {
-          "category": "tech-blog",
-          "target": "https://openai.com/news/rss.xml",
-          "priority_boost": 15,
-          "note": "OpenAI news feed"
-        }
       ]
     },
     {
@@ -461,14 +453,6 @@
           "excluded_domains": ["community.openai.com", "developers.openai.com"],
           "pass_reason": "top 3 include an official OpenAI announcements page",
           "fail_reason": "top 3 do not include an official OpenAI announcements page"
-        }
-      ],
-      "seed_rows": [
-        {
-          "category": "tech-blog",
-          "target": "https://openai.com/news/rss.xml",
-          "priority_boost": 15,
-          "note": "OpenAI announcements feed"
         }
       ]
     },
@@ -598,14 +582,6 @@
           "pass_reason": "top 3 include Python release notes",
           "fail_reason": "top 3 do not include Python release notes"
         }
-      ],
-      "seed_rows": [
-        {
-          "category": "docs",
-          "target": "https://docs.python.org/3/whatsnew/",
-          "priority_boost": 25,
-          "note": "Python release notes"
-        }
       ]
     },
     {
@@ -628,14 +604,6 @@
           "required_path_terms": ["/releases/"],
           "pass_reason": "top 3 include Django release notes",
           "fail_reason": "top 3 do not include Django release notes"
-        }
-      ],
-      "seed_rows": [
-        {
-          "category": "docs",
-          "target": "https://docs.djangoproject.com/en/dev/releases/",
-          "priority_boost": 20,
-          "note": "Django release notes"
         }
       ]
     },
@@ -716,26 +684,6 @@
           "pass_reason": "top 3 include official Kubernetes docs",
           "fail_reason": "top 3 do not include official Kubernetes docs"
         }
-      ],
-      "seed_rows": [
-        {
-          "category": "docs",
-          "target": "https://kubernetes.io/docs/",
-          "priority_boost": 25,
-          "note": "Kubernetes docs home"
-        },
-        {
-          "category": "docs",
-          "target": "https://kubernetes.io/docs/home/",
-          "priority_boost": 20,
-          "note": "Kubernetes docs landing page"
-        },
-        {
-          "category": "docs",
-          "target": "https://kubernetes.io/docs/concepts/overview/",
-          "priority_boost": 20,
-          "note": "Kubernetes concepts overview"
-        }
       ]
     },
     {
@@ -757,20 +705,6 @@
           "minimum_domain_matches": 1,
           "pass_reason": "top 3 include official TypeScript docs",
           "fail_reason": "top 3 do not include official TypeScript docs"
-        }
-      ],
-      "seed_rows": [
-        {
-          "category": "docs",
-          "target": "https://www.typescriptlang.org/docs/",
-          "priority_boost": 25,
-          "note": "TypeScript docs home"
-        },
-        {
-          "category": "docs",
-          "target": "https://www.typescriptlang.org/docs/handbook/intro.html",
-          "priority_boost": 20,
-          "note": "TypeScript handbook intro"
         }
       ]
     }

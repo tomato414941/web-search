@@ -6,7 +6,6 @@ from web_search_search_config.canonical_sources import (
     canonical_eval_keyword_rules,
     canonical_known_domains,
     canonical_query_cases,
-    canonical_seed_rows,
     load_canonical_source_configs,
 )
 from web_search_search_config.search_eval import (
@@ -34,14 +33,6 @@ def test_canonical_eval_keyword_rules_include_react_docs():
 
     assert "react docs" in rules
     assert rules["react docs"]["required_domains"] == ["react.dev"]
-
-
-def test_canonical_seed_rows_include_openai_news():
-    rows = canonical_seed_rows()
-    targets = {row.target for row in rows}
-
-    assert "https://openai.com/news/rss.xml" in targets
-    assert "https://kubernetes.io/docs/" in targets
 
 
 def test_canonical_known_domains_include_openai_and_python_docs():
