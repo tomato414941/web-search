@@ -165,17 +165,10 @@ def upgrade() -> None:
             crawl_count INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             last_crawled_at INTEGER,
-            is_seed BOOLEAN NOT NULL DEFAULT FALSE,
             discovered_via TEXT NOT NULL DEFAULT 'unknown'
         )
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain)")
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_urls_seed_created_at "
-        "ON urls(created_at DESC) "
-        "INCLUDE (url, domain, crawl_count, last_crawled_at) "
-        "WHERE is_seed = TRUE"
-    )
 
     op.execute("""
         CREATE TABLE IF NOT EXISTS frontier_entries (
@@ -186,7 +179,6 @@ def upgrade() -> None:
             discovered_at INTEGER NOT NULL,
             discovered_via TEXT NOT NULL,
             discovery_depth INTEGER NOT NULL DEFAULT 0,
-            is_seed BOOLEAN NOT NULL DEFAULT FALSE,
             canonical_source TEXT,
             crawl_profile TEXT NOT NULL,
             priority_bucket SMALLINT NOT NULL,

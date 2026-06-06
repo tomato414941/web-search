@@ -6,8 +6,8 @@
 execution-derived fields.
 
 The table currently contains discovery identity fields such as `url_hash`, `url`,
-`domain`, `created_at`, `discovered_via`, and `is_seed`. It also contains
-`crawl_count` and `last_crawled_at`, which are updated from crawl execution.
+`domain`, `created_at`, and `discovered_via`. It also contains `crawl_count` and
+`last_crawled_at`, which are updated from crawl execution.
 
 That makes `urls` less simple than a discovery ledger should be.
 
@@ -53,7 +53,6 @@ Candidate target shape:
 - `domain`
 - `created_at`
 - `discovered_via`
-- `is_seed`
 
 Before removing columns, replace active reads with more appropriate sources:
 

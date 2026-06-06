@@ -36,15 +36,13 @@ intent, and crawl priority questions already tracked separately.
 
 ## Direction
 
-Treat seed URLs as an unresolved design question, not as an active management
-surface.
+Do not treat seed URLs as an active management surface or durable URL category.
 
-Likely target shape:
+Current target shape:
 
 - initial URL input can be handled by an operator import or URL registration
   workflow
-- persistent `is_seed` should be removed unless a concrete operational need is
-  observed
-- seed-specific priority and recrawl policy should be reviewed before being kept
+- persistent `is_seed` is removed
+- seed-specific priority and recrawl policy are removed
 - `/seeds` HTTP management should not be restored without a clear operator use
   case

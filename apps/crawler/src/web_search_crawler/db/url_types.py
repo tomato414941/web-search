@@ -32,7 +32,6 @@ class FrontierEntry:
     url: str
     domain: str
     discovered_via: str
-    is_seed: bool
     canonical_source: str | None
     crawl_profile: str
     priority_bucket: int

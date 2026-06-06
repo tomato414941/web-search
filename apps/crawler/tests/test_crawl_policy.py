@@ -65,22 +65,9 @@ def test_assign_crawl_policy_marks_news_articles_as_article():
     assert assignment.crawl_profile == "article"
 
 
-def test_assign_crawl_policy_boosts_seed_priority():
-    assignment = assign_crawl_policy(
-        "https://example.com/",
-        discovered_via="seed",
-        is_seed=True,
-    )
-
-    assert assignment.crawl_profile == "generic"
-    assert assignment.priority_bucket == 1
-    assert assignment.priority_score > 0
-
-
 def test_compute_success_recrawl_delay_prefers_canonical_sources():
     delay = compute_success_recrawl_delay(
         "release_notes",
-        is_seed=False,
         canonical_source="python_docs",
     )
 
@@ -90,7 +77,6 @@ def test_compute_success_recrawl_delay_prefers_canonical_sources():
 def test_compute_success_recrawl_delay_uses_news_root_canonical_interval():
     delay = compute_success_recrawl_delay(
         "news_root",
-        is_seed=False,
         canonical_source="openai_news",
     )
 
@@ -100,21 +86,10 @@ def test_compute_success_recrawl_delay_uses_news_root_canonical_interval():
 def test_compute_success_recrawl_delay_uses_blog_root_canonical_interval():
     delay = compute_success_recrawl_delay(
         "blog_root",
-        is_seed=False,
         canonical_source="example_blog",
     )
 
     assert delay == 4 * 3600
-
-
-def test_compute_success_recrawl_delay_prefers_seed_over_default():
-    delay = compute_success_recrawl_delay(
-        "canonical_docs",
-        is_seed=True,
-        canonical_source=None,
-    )
-
-    assert delay == 3 * 24 * 3600
 
 
 def test_compute_failure_retry_delay_scales_with_fail_streak():

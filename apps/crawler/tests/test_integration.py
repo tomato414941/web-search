@@ -537,8 +537,8 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
     with db_transaction(test_url_store.db_path) as cur:
         cur.execute(
             """
-            INSERT INTO urls (url_hash, url, domain, created_at, is_seed)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO urls (url_hash, url, domain, created_at)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (url_hash) DO NOTHING
             """,
             (
@@ -546,17 +546,16 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
                 frontier_url,
                 "blog.hatena.ne.jp",
                 now,
-                False,
             ),
         )
         cur.execute(
             """
             INSERT INTO frontier_entries (
                 url_hash, url, domain, normalized_url, discovered_at, discovered_via,
-                discovery_depth, is_seed, canonical_source, crawl_profile,
+                discovery_depth, canonical_source, crawl_profile,
                 priority_bucket, priority_score, status, next_fetch_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, 'outlink', 1, FALSE, NULL, 'generic', 3, 0, 'pending', %s, %s)
+            VALUES (%s, %s, %s, %s, %s, 'outlink', 1, NULL, 'generic', 3, 0, 'pending', %s, %s)
             """,
             (
                 url_hash(frontier_url),

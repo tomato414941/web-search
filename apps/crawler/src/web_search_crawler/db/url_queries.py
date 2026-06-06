@@ -37,9 +37,8 @@ class UrlQueriesMixin:
         with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
-                SELECT url, domain, discovered_via, is_seed, canonical_source,
-                       crawl_profile, priority_bucket, priority_score, status,
-                       next_fetch_at
+                SELECT url, domain, discovered_via, canonical_source, crawl_profile,
+                       priority_bucket, priority_score, status, next_fetch_at
                 FROM frontier_entries
                 WHERE url_hash = {ph}
                 """,
@@ -52,11 +51,10 @@ class UrlQueriesMixin:
                 url=row[0],
                 domain=row[1],
                 discovered_via=row[2],
-                is_seed=row[3],
-                canonical_source=row[4],
-                crawl_profile=row[5],
-                priority_bucket=row[6],
-                priority_score=float(row[7]),
-                status=row[8],
-                next_fetch_at=row[9],
+                canonical_source=row[3],
+                crawl_profile=row[4],
+                priority_bucket=row[5],
+                priority_score=float(row[6]),
+                status=row[7],
+                next_fetch_at=row[8],
             )

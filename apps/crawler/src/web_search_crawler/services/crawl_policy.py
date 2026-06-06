@@ -39,7 +39,6 @@ class CrawlPolicy:
     priority_bucket: int
     priority_score_boost: float
     base_recrawl_interval_sec: int
-    seed_recrawl_interval_sec: int | None
     canonical_recrawl_interval_sec: int | None
     failure_retry_delay_sec: int
     max_outlinks: int
@@ -66,7 +65,6 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_bucket=0,
         priority_score_boost=200.0,
         base_recrawl_interval_sec=0,
-        seed_recrawl_interval_sec=0,
         canonical_recrawl_interval_sec=0,
         failure_retry_delay_sec=15 * 60,
         max_outlinks=50,
@@ -82,7 +80,6 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_bucket=1,
         priority_score_boost=120.0,
         base_recrawl_interval_sec=4 * 3600,
-        seed_recrawl_interval_sec=2 * 3600,
         canonical_recrawl_interval_sec=1 * 3600,
         failure_retry_delay_sec=30 * 60,
         max_outlinks=40,
@@ -98,7 +95,6 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_bucket=1,
         priority_score_boost=110.0,
         base_recrawl_interval_sec=4 * 3600,
-        seed_recrawl_interval_sec=3 * 3600,
         canonical_recrawl_interval_sec=2 * 3600,
         failure_retry_delay_sec=30 * 60,
         max_outlinks=40,
@@ -114,7 +110,6 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_bucket=1,
         priority_score_boost=90.0,
         base_recrawl_interval_sec=8 * 3600,
-        seed_recrawl_interval_sec=6 * 3600,
         canonical_recrawl_interval_sec=4 * 3600,
         failure_retry_delay_sec=60 * 60,
         max_outlinks=40,
@@ -130,7 +125,6 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_bucket=1,
         priority_score_boost=100.0,
         base_recrawl_interval_sec=7 * 24 * 3600,
-        seed_recrawl_interval_sec=3 * 24 * 3600,
         canonical_recrawl_interval_sec=5 * 24 * 3600,
         failure_retry_delay_sec=6 * 3600,
         max_outlinks=50,
@@ -146,7 +140,6 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_bucket=2,
         priority_score_boost=40.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
-        seed_recrawl_interval_sec=14 * 24 * 3600,
         canonical_recrawl_interval_sec=14 * 24 * 3600,
         failure_retry_delay_sec=24 * 3600,
         max_outlinks=20,
@@ -162,7 +155,6 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_bucket=3,
         priority_score_boost=0.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
-        seed_recrawl_interval_sec=14 * 24 * 3600,
         canonical_recrawl_interval_sec=None,
         failure_retry_delay_sec=3 * 24 * 3600,
         max_outlinks=20,
@@ -247,7 +239,6 @@ def assign_crawl_policy(
     url: str,
     *,
     discovered_via: str = "outlink",
-    is_seed: bool = False,
 ) -> CrawlPolicyAssignment:
     if discovered_via == "manual":
         policy = POLICIES["manual_now"]
@@ -264,10 +255,6 @@ def assign_crawl_policy(
     priority_bucket = policy.priority_bucket
     priority_score = policy.priority_score_boost
 
-    if is_seed or discovered_via == "seed":
-        priority_bucket = min(priority_bucket, 1)
-        priority_score += 50.0
-
     return CrawlPolicyAssignment(
         crawl_profile=policy.name,
         canonical_source=canonical_source,
@@ -280,13 +267,10 @@ def assign_crawl_policy(
 def compute_success_recrawl_delay(
     crawl_profile: str,
     *,
-    is_seed: bool = False,
     canonical_source: str | None = None,
 ) -> int:
     policy = POLICIES.get(crawl_profile, POLICIES["generic"])
     candidates = [policy.base_recrawl_interval_sec]
-    if is_seed and policy.seed_recrawl_interval_sec is not None:
-        candidates.append(policy.seed_recrawl_interval_sec)
     if canonical_source and policy.canonical_recrawl_interval_sec is not None:
         candidates.append(policy.canonical_recrawl_interval_sec)
     return min(candidates)

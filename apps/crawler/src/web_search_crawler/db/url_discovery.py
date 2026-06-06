@@ -41,7 +41,6 @@ class UrlDiscoveryMixin:
         urls: list[str],
         *,
         discovered_via: str,
-        is_seed: bool,
     ) -> list[dict[str, Any]]:
         records: dict[str, dict[str, Any]] = {}
         for url in urls:
@@ -53,7 +52,6 @@ class UrlDiscoveryMixin:
             policy = assign_crawl_policy(
                 normalized_url,
                 discovered_via=discovered_via,
-                is_seed=is_seed,
             )
             records.setdefault(
                 h,
@@ -64,7 +62,6 @@ class UrlDiscoveryMixin:
                     "normalized_url": normalized_url,
                     "discovered_via": discovered_via,
                     "discovery_depth": 0 if discovered_via != "outlink" else 1,
-                    "is_seed": is_seed,
                     "canonical_source": policy.canonical_source,
                     "crawl_profile": policy.crawl_profile,
                     "priority_bucket": policy.priority_bucket,
@@ -81,15 +78,14 @@ class UrlDiscoveryMixin:
         result = execute_values(
             cur,
             """
-            INSERT INTO urls (url_hash, url, domain, created_at, discovered_via, is_seed)
+            INSERT INTO urls (url_hash, url, domain, created_at, discovered_via)
             VALUES %s
             ON CONFLICT (url_hash) DO UPDATE SET
                 discovered_via = CASE
-                    WHEN EXCLUDED.discovered_via IN ('seed', 'manual')
+                    WHEN EXCLUDED.discovered_via = 'manual'
                         THEN EXCLUDED.discovered_via
                     ELSE urls.discovered_via
-                END,
-                is_seed = urls.is_seed OR EXCLUDED.is_seed
+                END
             RETURNING url_hash
             """,
             [
@@ -99,7 +95,6 @@ class UrlDiscoveryMixin:
                     row["domain"],
                     now,
                     row["discovered_via"],
-                    row["is_seed"],
                 )
                 for row in rows
             ],
@@ -159,7 +154,6 @@ class UrlDiscoveryMixin:
                 discovered_at,
                 discovered_via,
                 discovery_depth,
-                is_seed,
                 canonical_source,
                 crawl_profile,
                 priority_bucket,
@@ -174,7 +168,7 @@ class UrlDiscoveryMixin:
                 domain = EXCLUDED.domain,
                 normalized_url = EXCLUDED.normalized_url,
                 discovered_via = CASE
-                    WHEN EXCLUDED.discovered_via IN ('seed', 'manual')
+                    WHEN EXCLUDED.discovered_via = 'manual'
                         THEN EXCLUDED.discovered_via
                     ELSE frontier_entries.discovered_via
                 END,
@@ -182,7 +176,6 @@ class UrlDiscoveryMixin:
                     frontier_entries.discovery_depth,
                     EXCLUDED.discovery_depth
                 ),
-                is_seed = frontier_entries.is_seed OR EXCLUDED.is_seed,
                 canonical_source = COALESCE(
                     frontier_entries.canonical_source,
                     EXCLUDED.canonical_source
@@ -211,7 +204,6 @@ class UrlDiscoveryMixin:
                     now,
                     row["discovered_via"],
                     row["discovery_depth"],
-                    row["is_seed"],
                     row["canonical_source"],
                     row["crawl_profile"],
                     row["priority_bucket"],
@@ -276,14 +268,12 @@ class UrlDiscoveryMixin:
         url: str,
         *,
         discovered_via: str = "outlink",
-        is_seed: bool = False,
     ) -> bool:
         """Record a discovered URL in the urls ledger only."""
         return (
             self.record_discovered_urls(
                 [url],
                 discovered_via=discovered_via,
-                is_seed=is_seed,
             )
             > 0
         )
@@ -293,7 +283,6 @@ class UrlDiscoveryMixin:
         urls: list[str],
         *,
         discovered_via: str = "outlink",
-        is_seed: bool = False,
     ) -> int:
         """Record discovered URLs in the urls ledger without frontier admission."""
         if not urls:
@@ -301,7 +290,6 @@ class UrlDiscoveryMixin:
         rows = self._normalize_batch_urls(
             urls,
             discovered_via=discovered_via,
-            is_seed=is_seed,
         )
         if not rows:
             return 0
@@ -341,14 +329,12 @@ class UrlDiscoveryMixin:
         url: str,
         *,
         discovered_via: str = "outlink",
-        is_seed: bool = False,
     ) -> bool:
         """Admit a URL into the frontier without writing the urls ledger."""
         return (
             self.admit_urls_to_frontier(
                 [url],
                 discovered_via=discovered_via,
-                is_seed=is_seed,
             )
             > 0
         )
@@ -358,7 +344,6 @@ class UrlDiscoveryMixin:
         urls: list[str],
         *,
         discovered_via: str = "outlink",
-        is_seed: bool = False,
     ) -> int:
         """Admit URLs into the crawl frontier if eligible."""
         if not urls:
@@ -366,7 +351,6 @@ class UrlDiscoveryMixin:
         rows = self._normalize_batch_urls(
             urls,
             discovered_via=discovered_via,
-            is_seed=is_seed,
         )
         if not rows:
             return 0
@@ -408,14 +392,12 @@ class UrlDiscoveryMixin:
         url: str,
         *,
         discovered_via: str = "outlink",
-        is_seed: bool = False,
     ) -> bool:
         """Record a URL in the ledger and admit it into the frontier."""
         return (
             self.discover_and_admit_urls(
                 [url],
                 discovered_via=discovered_via,
-                is_seed=is_seed,
             )
             > 0
         )
@@ -425,7 +407,6 @@ class UrlDiscoveryMixin:
         urls: list[str],
         *,
         discovered_via: str = "outlink",
-        is_seed: bool = False,
     ) -> int:
         """Record discovered URLs and admit them into the frontier if eligible."""
         if not urls:
@@ -433,7 +414,6 @@ class UrlDiscoveryMixin:
         rows = self._normalize_batch_urls(
             urls,
             discovered_via=discovered_via,
-            is_seed=is_seed,
         )
         if not rows:
             return 0

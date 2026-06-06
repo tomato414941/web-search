@@ -414,7 +414,6 @@ class UrlFrontierMixin:
                     crawl_profile,
                     fail_streak,
                     status,
-                    is_seed,
                     canonical_source
                 FROM frontier_entries
                 WHERE url_hash = {sql_placeholder()}
@@ -430,16 +429,14 @@ class UrlFrontierMixin:
             crawl_profile = row[2] or "generic"
             fail_streak = int(row[3] or 0)
             was_leased = row[4] == "leased"
-            is_seed = bool(row[5])
-            canonical_source = row[6]
+            canonical_source = row[5]
             priority_bucket: int | None = None
             priority_score: float | None = None
 
             if is_success and crawl_profile == "manual_now":
                 reassigned = assign_crawl_policy(
                     url,
-                    discovered_via="seed" if is_seed else "outlink",
-                    is_seed=is_seed,
+                    discovered_via="outlink",
                 )
                 crawl_profile = reassigned.crawl_profile
                 canonical_source = reassigned.canonical_source
@@ -451,7 +448,6 @@ class UrlFrontierMixin:
             if is_success:
                 next_delay = compute_success_recrawl_delay(
                     crawl_profile,
-                    is_seed=is_seed,
                     canonical_source=canonical_source,
                 )
                 next_fail_streak = 0

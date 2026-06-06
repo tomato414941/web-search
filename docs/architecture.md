@@ -80,7 +80,7 @@ The project uses a **Folder-Separated Monorepo** pattern:
 | `packages/search-config/` | `web_search_search_config` | **Search Policy Config**. Canonical-source and search-eval definitions. | `canonical_sources.py`, `search_eval.py`, `evaluator.py` |
 | `db/alembic/` | - | **Database Migrations**. | `versions/001_initial_schema.py` |
 | `docs/` | - | **Documentation**. | `architecture.md`, `setup.md`, `api.md` |
-| `scripts/ops/` | - | **Operations**. | PageRank calculation, seed import, OpenSearch verify |
+| `scripts/ops/` | - | **Operations**. | PageRank calculation, OpenSearch verify |
 
 ## Key Design Patterns
 
