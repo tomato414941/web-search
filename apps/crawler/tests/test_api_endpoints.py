@@ -32,23 +32,6 @@ def test_root_readiness_endpoint(test_client):
     assert "checks" in data
 
 
-def test_crawl_urls_endpoint(test_client, test_url_store):
-    """Test POST /urls endpoint"""
-    with patch(
-        "web_search_crawler.api.deps._get_url_store", return_value=test_url_store
-    ):
-        response = test_client.post(
-            "/urls",
-            json={
-                "urls": ["http://example.com", "http://test.com"],
-            },
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "admitted"
-        assert data["added_count"] == 2
-
-
 def test_worker_start_endpoint(test_client, reset_worker_manager):
     """Test POST /worker/start endpoint"""
     with patch(

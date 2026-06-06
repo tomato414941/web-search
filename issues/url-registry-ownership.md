@@ -38,8 +38,8 @@ This issue covers the higher-level ownership question.
 
 - `urls` can be mistaken for crawler worker state rather than project-wide URL
   registry state.
-- API routes such as `POST /urls` appear to belong to the crawler service even
-  though they may represent URL registry admission.
+- Previous API routes such as `POST /urls` appeared to belong to the crawler
+  service even though they represented URL registry or admission concepts.
 - URL registration and frontier admission stay too tightly coupled.
 - Future URL sources may be added through crawler-specific paths because there is
   no explicit URL registry boundary.

@@ -91,10 +91,6 @@ Current readiness is database-based.
 
 ## Crawler
 
-### `POST /urls`
-
-Admits URLs into the frontier.
-
 ### `GET /health`
 
 Simple liveness check.

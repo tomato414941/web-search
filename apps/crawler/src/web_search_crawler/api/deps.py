@@ -10,7 +10,6 @@ from fastapi import Header, HTTPException
 
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.url_store import UrlStore
-from web_search_crawler.services.frontier import FrontierService
 from web_search_crawler.services.seeds import SeedService
 
 # Lazy-initialized instance
@@ -26,11 +25,6 @@ def _get_url_store() -> UrlStore:
             recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
         )
     return _url_store
-
-
-def get_frontier_service() -> FrontierService:
-    """Get frontier service instance."""
-    return FrontierService(_get_url_store())
 
 
 def get_seed_service() -> SeedService:

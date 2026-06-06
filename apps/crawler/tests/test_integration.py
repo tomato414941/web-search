@@ -15,7 +15,6 @@ from web_search_crawler.db.connection import db_transaction
 from web_search_crawler.db.url_types import url_hash
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
 from web_search_crawler.services.crawl_policy import compute_failure_retry_delay
-from web_search_crawler.services.frontier import FrontierService
 from web_search_crawler.services.seeds import SeedService
 from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
@@ -491,21 +490,6 @@ def test_seed_service_populates_frontier_entry_as_seed(test_url_store):
     assert entry.discovered_via == "seed"
     assert entry.priority_bucket <= 1
     assert entry.canonical_source == "docker_docs"
-
-
-@pytest.mark.asyncio
-async def test_frontier_service_populates_frontier_entry_as_manual(test_url_store):
-    service = FrontierService(test_url_store)
-
-    added = await service.admit_urls(["https://example.com/manual"])
-
-    entry = test_url_store.get_frontier_entry("https://example.com/manual")
-
-    assert added == 1
-    assert entry is not None
-    assert entry.discovered_via == "manual"
-    assert entry.crawl_profile == "manual_now"
-    assert entry.priority_bucket == 0
 
 
 def test_requeue_releases_frontier_for_retry(test_url_store):

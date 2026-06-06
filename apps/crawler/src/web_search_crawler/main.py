@@ -7,7 +7,6 @@ FastAPI application factory and router registration.
 from fastapi import Depends, FastAPI
 from web_search_crawler.api.deps import verify_api_key
 from web_search_crawler.api.routes import (
-    crawl,
     worker,
     seeds,
 )
@@ -34,7 +33,6 @@ def create_app() -> FastAPI:
 
     # Service API routes require API key.
     api_deps = [Depends(verify_api_key)]
-    app.include_router(crawl.router, tags=["crawl"], dependencies=api_deps)
     app.include_router(
         worker.router, prefix="/worker", tags=["worker"], dependencies=api_deps
     )
