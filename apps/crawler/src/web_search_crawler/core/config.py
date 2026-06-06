@@ -6,9 +6,8 @@ and indexer API configuration.
 """
 
 from pathlib import Path
-from typing import Any
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field
 
 from web_search_core.infrastructure_config import Environment, InfrastructureSettings
 
@@ -22,7 +21,7 @@ class CrawlerSettings(InfrastructureSettings):
     APP_NAME: str = "Crawler Service"
     APP_VERSION: str = "3.0.0"
 
-    # Database Path (for UrlStore, Seeds)
+    # Database Path (for UrlStore)
     CRAWLER_DB_PATH: str = "/data/crawler.db"
 
     # Auto-start crawl workers on service startup
@@ -39,7 +38,6 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_TIMEOUT_SEC: int = 5
     CRAWL_OUTLINKS_PER_PAGE: int = 50
     CRAWL_CONCURRENCY: int = 10
-    CRAWL_SEEDS: list[str] = []
 
     # Frontier planner
     FRONTIER_PLANNER_BATCH_SIZE: int = Field(
@@ -85,13 +83,6 @@ class CrawlerSettings(InfrastructureSettings):
     # Indexer API (for submitting crawled pages)
     INDEXER_API_URL: str = "http://localhost:8000/indexing-jobs"
     INDEXER_API_KEY: str | None = None  # Required outside tests
-
-    @field_validator("CRAWL_SEEDS", mode="before")
-    @classmethod
-    def _parse_space_list(cls, v: Any) -> Any:
-        if isinstance(v, str):
-            return [s.strip() for s in v.split() if s.strip()]
-        return v
 
 
 settings = CrawlerSettings()
