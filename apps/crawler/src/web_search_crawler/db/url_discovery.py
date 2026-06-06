@@ -458,7 +458,3 @@ class UrlDiscoveryMixin:
                     time.sleep(delay)
 
         return added
-
-    def record_crawl_result(self, url: str, status: str) -> None:
-        """Record a crawl result and update frontier state."""
-        self.record_frontier_result(url, status)

@@ -387,7 +387,7 @@ def test_record_updates_frontier_after_success(test_url_store):
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
-    test_url_store.record_crawl_result(
+    test_url_store.record_frontier_result(
         "https://docs.docker.com/reference/cli/docker/",
         "done",
     )
@@ -411,7 +411,7 @@ def test_recent_fetch_suppression_uses_frontier_state(test_url_store):
     url = "https://example.com/recent"
     test_url_store.discover_and_admit_urls([url])
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
-    test_url_store.record_crawl_result(url, "done")
+    test_url_store.record_frontier_result(url, "done")
     before_entry = test_url_store.get_frontier_entry(url)
 
     added = test_url_store.discover_and_admit_urls([url])
@@ -429,7 +429,7 @@ def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
-    test_url_store.record_crawl_result(url, "failed")
+    test_url_store.record_frontier_result(url, "failed")
     after = int(time.time())
     entry = test_url_store.get_frontier_entry(url)
     domain_state = test_url_store.get_domain_state("example.com")
@@ -452,7 +452,7 @@ def test_operator_priority_success_reclassifies_to_normal_crawl_policy(test_url_
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
-    test_url_store.record_crawl_result(url, "done")
+    test_url_store.record_frontier_result(url, "done")
     after = int(time.time())
     entry = test_url_store.get_frontier_entry(url)
 
@@ -471,7 +471,7 @@ def test_release_notes_failure_retries_quickly(test_url_store):
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
-    test_url_store.record_crawl_result(url, "failed")
+    test_url_store.record_frontier_result(url, "failed")
     after = int(time.time())
     entry = test_url_store.get_frontier_entry(url)
 
@@ -681,7 +681,7 @@ def test_domain_state_survives_planner_restart(test_url_store):
 
     assert len(leased) == 1
 
-    test_url_store.record_crawl_result("https://example.com/persist", "done")
+    test_url_store.record_frontier_result("https://example.com/persist", "done")
 
     restarted = FrontierPlanner(
         test_url_store,

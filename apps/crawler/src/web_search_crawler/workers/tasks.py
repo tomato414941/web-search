@@ -123,7 +123,7 @@ async def process_url(
             error_message=str(e),
         )
         await run_in_db_executor(
-            url_store.record_crawl_result, url, CrawlUrlStatus.FAILED
+            url_store.record_frontier_result, url, CrawlUrlStatus.FAILED
         )
 
 
@@ -160,7 +160,7 @@ async def _handle_retry(
             **timing_kwargs,
         )
         await run_in_db_executor(
-            url_store.record_crawl_result, url, CrawlUrlStatus.FAILED
+            url_store.record_frontier_result, url, CrawlUrlStatus.FAILED
         )
         runtime_state.retry_counts.pop(url, None)
     else:

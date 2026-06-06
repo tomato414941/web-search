@@ -61,7 +61,7 @@ class TestPrecheck:
     @pytest.mark.asyncio
     async def test_blocked_domain_returns_reason(self):
         ctx = _make_ctx(blocked_domains=frozenset({"example.com"}))
-        ctx.url_store.record_crawl_result = MagicMock()
+        ctx.url_store.record_frontier_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -72,7 +72,7 @@ class TestPrecheck:
     @pytest.mark.asyncio
     async def test_url_too_long_returns_reason(self):
         ctx = _make_ctx(url="http://example.com/" + "x" * 10000)
-        ctx.url_store.record_crawl_result = MagicMock()
+        ctx.url_store.record_frontier_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -84,7 +84,7 @@ class TestPrecheck:
     async def test_robots_blocked(self):
         ctx = _make_ctx()
         ctx.robots.can_fetch = AsyncMock(return_value=False)
-        ctx.url_store.record_crawl_result = MagicMock()
+        ctx.url_store.record_frontier_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -97,7 +97,7 @@ class TestPrecheck:
         ctx = _make_ctx()
         ctx.robots.can_fetch = AsyncMock(return_value=True)
         ctx.robots.get_crawl_delay = MagicMock(return_value=None)
-        ctx.url_store.record_crawl_result = MagicMock()
+        ctx.url_store.record_frontier_result = MagicMock()
         with (
             patch(
                 "web_search_crawler.workers.pipeline.run_in_db_executor",

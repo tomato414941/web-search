@@ -93,7 +93,7 @@ async def process_html_result(
                 **timing_kwargs(timings),
             )
             await run_in_db_executor(
-                ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.DONE
+                ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.DONE
             )
             return PipelineProcessResult(
                 status="queued_for_index",
@@ -113,7 +113,7 @@ async def process_html_result(
             **timing_kwargs(timings),
         )
         await run_in_db_executor(
-            ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.FAILED
+            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
         )
         return PipelineProcessResult(
             status="failed",
@@ -134,7 +134,7 @@ async def process_html_result(
         **timing_kwargs(timings),
     )
     await run_in_db_executor(
-        ctx.url_store.record_crawl_result, ctx.url, CrawlUrlStatus.DONE
+        ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.DONE
     )
     return PipelineProcessResult(
         status="skipped",
