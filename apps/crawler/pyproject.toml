@@ -8,7 +8,7 @@ dependencies = [
     "web-search-core",
     "web-search-postgres",
     "web-search-search-config",
-    "aiohttp>=3.13.4",
+    "aiohttp>=3.14.0",
     "beautifulsoup4>=4.14",
     "cachetools>=6.2",
     "fastapi>=0.128",
