@@ -74,7 +74,7 @@ async def process_html_result(
         await admit_discovered_urls(
             ctx,
             parsed.feed_links,
-            discovered_via="feed_autodiscovery",
+            discovery_depth=0,
         )
     if parsed.content:
         submit_started_at = time.perf_counter()

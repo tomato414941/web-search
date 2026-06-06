@@ -14,13 +14,14 @@ The previous crawler `POST /urls` path used `discovered_via="manual"`, which
 mapped to the `manual_now` crawl profile and priority bucket. That bundled the
 operator request and the priority policy into one implicit behavior.
 
+Current code no longer stores `discovered_via`; operator priority is an
+admission-time scheduling intent.
+
 ## Impact
 
 - Priority behavior is hard to change without changing URL provenance behavior.
-- Operator requests may receive priority because of a naming convention rather
-  than an explicit scheduling decision.
-- Future priority sources, such as seeds or feed autodiscovery, may conflict with
-  manual priority behavior.
+- Operator requests may receive priority because of an implicit convention
+  rather than an explicit scheduling decision.
 
 ## Direction
 

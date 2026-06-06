@@ -255,7 +255,6 @@ def test_discover_and_admit_populates_frontier_entry_for_outlinks(test_url_store
 
     assert added == 1
     assert entry is not None
-    assert entry.discovered_via == "outlink"
     assert entry.crawl_profile == "generic"
     assert entry.status == "pending"
     assert domain_state is not None
@@ -263,8 +262,7 @@ def test_discover_and_admit_populates_frontier_entry_for_outlinks(test_url_store
 
 def test_record_discovered_urls_writes_ledger_without_frontier(test_url_store):
     recorded = test_url_store.record_discovered_urls(
-        ["https://example.com/article-entry"],
-        discovered_via="feed_entry",
+        ["https://example.com/article-entry"]
     )
 
     assert recorded == 1
@@ -442,9 +440,9 @@ def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     assert domain_state.backoff_until >= before
 
 
-def test_manual_success_reclassifies_to_normal_crawl_policy(test_url_store):
+def test_operator_priority_success_reclassifies_to_normal_crawl_policy(test_url_store):
     url = "https://docs.docker.com/reference/cli/docker/"
-    test_url_store.discover_and_admit_urls([url], discovered_via="manual")
+    test_url_store.discover_and_admit_urls([url], admission_intent="operator_priority")
     test_url_store.pop_frontier_batch(1, lease_seconds=120)
 
     before = int(time.time())
@@ -567,11 +565,11 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
         cur.execute(
             """
             INSERT INTO frontier_entries (
-                url_hash, url, domain, normalized_url, discovered_at, discovered_via,
+                url_hash, url, domain, normalized_url, discovered_at,
                 discovery_depth, canonical_source, crawl_profile,
                 priority_bucket, priority_score, status, next_fetch_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, 'outlink', 1, NULL, 'generic', 3, 0, 'pending', %s, %s)
+            VALUES (%s, %s, %s, %s, %s, 1, NULL, 'generic', 3, 0, 'pending', %s, %s)
             """,
             (
                 url_hash(frontier_url),

@@ -15,9 +15,13 @@ The previous crawler `POST /urls` path encoded operator intent by passing
 
 That made operator provenance and scheduling policy hard to separate.
 
+Current frontier admission no longer stores `discovered_via`. Operator priority
+is represented as scheduling intent at admission time, not as URL provenance.
+
 ## Impact
 
-- Manual/operator provenance can accidentally imply priority behavior.
+- Operator provenance can accidentally imply priority behavior if it is stored
+  as a URL category.
 - The system cannot clearly distinguish "an operator supplied this URL" from
   "this URL must be crawled before ordinary crawler-discovered URLs."
 - Future operator controls may reuse crawler-specific internals instead of a

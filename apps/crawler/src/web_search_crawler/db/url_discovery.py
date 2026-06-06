@@ -40,7 +40,8 @@ class UrlDiscoveryMixin:
         self,
         urls: list[str],
         *,
-        discovered_via: str,
+        admission_intent: str,
+        discovery_depth: int,
     ) -> list[dict[str, Any]]:
         records: dict[str, dict[str, Any]] = {}
         for url in urls:
@@ -51,7 +52,7 @@ class UrlDiscoveryMixin:
             h = url_hash(normalized_url)
             policy = assign_crawl_policy(
                 normalized_url,
-                discovered_via=discovered_via,
+                admission_intent=admission_intent,
             )
             records.setdefault(
                 h,
@@ -60,8 +61,7 @@ class UrlDiscoveryMixin:
                     "url": normalized_url,
                     "domain": get_domain(normalized_url),
                     "normalized_url": normalized_url,
-                    "discovered_via": discovered_via,
-                    "discovery_depth": 0 if discovered_via != "outlink" else 1,
+                    "discovery_depth": discovery_depth,
                     "canonical_source": policy.canonical_source,
                     "crawl_profile": policy.crawl_profile,
                     "priority_bucket": policy.priority_bucket,
@@ -75,8 +75,6 @@ class UrlDiscoveryMixin:
     def _normalize_known_urls(
         self,
         urls: list[str],
-        *,
-        discovered_via: str,
     ) -> list[dict[str, Any]]:
         records: dict[str, dict[str, Any]] = {}
         for url in urls:
@@ -91,7 +89,6 @@ class UrlDiscoveryMixin:
                     "h": h,
                     "url": known_url,
                     "domain": get_domain(known_url),
-                    "discovered_via": discovered_via,
                 },
             )
         return sorted(records.values(), key=lambda row: row["h"])
@@ -102,14 +99,9 @@ class UrlDiscoveryMixin:
         result = execute_values(
             cur,
             """
-            INSERT INTO urls (url_hash, url, domain, created_at, discovered_via)
+            INSERT INTO urls (url_hash, url, domain, created_at)
             VALUES %s
-            ON CONFLICT (url_hash) DO UPDATE SET
-                discovered_via = CASE
-                    WHEN EXCLUDED.discovered_via = 'manual'
-                        THEN EXCLUDED.discovered_via
-                    ELSE urls.discovered_via
-                END
+            ON CONFLICT (url_hash) DO NOTHING
             RETURNING url_hash
             """,
             [
@@ -118,7 +110,6 @@ class UrlDiscoveryMixin:
                     row["url"],
                     row["domain"],
                     now,
-                    row["discovered_via"],
                 )
                 for row in rows
             ],
@@ -176,7 +167,6 @@ class UrlDiscoveryMixin:
                 domain,
                 normalized_url,
                 discovered_at,
-                discovered_via,
                 discovery_depth,
                 canonical_source,
                 crawl_profile,
@@ -191,11 +181,6 @@ class UrlDiscoveryMixin:
                 url = EXCLUDED.url,
                 domain = EXCLUDED.domain,
                 normalized_url = EXCLUDED.normalized_url,
-                discovered_via = CASE
-                    WHEN EXCLUDED.discovered_via = 'manual'
-                        THEN EXCLUDED.discovered_via
-                    ELSE frontier_entries.discovered_via
-                END,
                 discovery_depth = LEAST(
                     frontier_entries.discovery_depth,
                     EXCLUDED.discovery_depth
@@ -226,7 +211,6 @@ class UrlDiscoveryMixin:
                     row["domain"],
                     row["normalized_url"],
                     now,
-                    row["discovered_via"],
                     row["discovery_depth"],
                     row["canonical_source"],
                     row["crawl_profile"],
@@ -290,14 +274,11 @@ class UrlDiscoveryMixin:
     def record_discovered_url(
         self,
         url: str,
-        *,
-        discovered_via: str = "outlink",
     ) -> bool:
         """Record a discovered URL in the urls ledger only."""
         return (
             self.record_discovered_urls(
                 [url],
-                discovered_via=discovered_via,
             )
             > 0
         )
@@ -305,16 +286,11 @@ class UrlDiscoveryMixin:
     def record_discovered_urls(
         self,
         urls: list[str],
-        *,
-        discovered_via: str = "outlink",
     ) -> int:
         """Record discovered URLs in the urls ledger without frontier admission."""
         if not urls:
             return 0
-        rows = self._normalize_known_urls(
-            urls,
-            discovered_via=discovered_via,
-        )
+        rows = self._normalize_known_urls(urls)
         if not rows:
             return 0
 
@@ -352,13 +328,15 @@ class UrlDiscoveryMixin:
         self,
         url: str,
         *,
-        discovered_via: str = "outlink",
+        admission_intent: str = "normal",
+        discovery_depth: int = 1,
     ) -> bool:
         """Admit a URL into the frontier without writing the urls ledger."""
         return (
             self.admit_urls_to_frontier(
                 [url],
-                discovered_via=discovered_via,
+                admission_intent=admission_intent,
+                discovery_depth=discovery_depth,
             )
             > 0
         )
@@ -367,14 +345,16 @@ class UrlDiscoveryMixin:
         self,
         urls: list[str],
         *,
-        discovered_via: str = "outlink",
+        admission_intent: str = "normal",
+        discovery_depth: int = 1,
     ) -> int:
         """Admit URLs into the crawl frontier if eligible."""
         if not urls:
             return 0
         rows = self._normalize_batch_urls(
             urls,
-            discovered_via=discovered_via,
+            admission_intent=admission_intent,
+            discovery_depth=discovery_depth,
         )
         if not rows:
             return 0
@@ -415,13 +395,15 @@ class UrlDiscoveryMixin:
         self,
         url: str,
         *,
-        discovered_via: str = "outlink",
+        admission_intent: str = "normal",
+        discovery_depth: int = 1,
     ) -> bool:
         """Record a URL in the ledger and admit it into the frontier."""
         return (
             self.discover_and_admit_urls(
                 [url],
-                discovered_via=discovered_via,
+                admission_intent=admission_intent,
+                discovery_depth=discovery_depth,
             )
             > 0
         )
@@ -430,14 +412,16 @@ class UrlDiscoveryMixin:
         self,
         urls: list[str],
         *,
-        discovered_via: str = "outlink",
+        admission_intent: str = "normal",
+        discovery_depth: int = 1,
     ) -> int:
         """Record discovered URLs and admit them into the frontier if eligible."""
         if not urls:
             return 0
         rows = self._normalize_batch_urls(
             urls,
-            discovered_via=discovered_via,
+            admission_intent=admission_intent,
+            discovery_depth=discovery_depth,
         )
         if not rows:
             return 0

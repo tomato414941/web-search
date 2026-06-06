@@ -12,9 +12,8 @@ feed autodiscovery signal.
 
 ## Evidence
 
-URL admission already tracks `discovered_via` for routes such as outlink, seed,
-and manual admission. RSS/Atom autodiscovery is conceptually another discovery
-route, not a separate storage model.
+RSS/Atom autodiscovery is conceptually another URL admission route, not a
+separate storage model.
 
 ## Impact
 
@@ -27,8 +26,7 @@ Without clear provenance, feed discovery may become hard to debug:
 ## Direction
 
 Use the existing URL ledger and frontier admission flow for discovered feed
-URLs, while preserving a distinct discovery route such as `feed_autodiscovery`
-if implementation work adds RSS/Atom alternate-link extraction.
+URLs, without introducing a separate feed-only storage model.
 
 Do not introduce a separate manual or RSS-only ingestion path for this unless
 the existing URL discovery model proves insufficient.

@@ -88,7 +88,6 @@ async def process_url(
         await run_in_db_executor(
             url_store.record_discovered_url,
             url,
-            discovered_via="crawl_target",
         )
         outcome = await execute_crawl(
             ctx,

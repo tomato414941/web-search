@@ -7,20 +7,19 @@ from web_search_crawler.services.crawl_policy import (
 from web_search_crawler.services.frontier_budget import allocate_frontier_tier_budgets
 
 
-def test_assign_crawl_policy_marks_manual_urls_as_manual_now():
+def test_assign_crawl_policy_marks_operator_priority_urls():
     assignment = assign_crawl_policy(
         "https://example.com/path",
-        discovered_via="manual",
+        admission_intent="operator_priority",
     )
 
-    assert assignment.crawl_profile == "manual_now"
+    assert assignment.crawl_profile == "operator_priority"
     assert assignment.priority_bucket == 0
 
 
 def test_assign_crawl_policy_marks_release_notes_paths():
     assignment = assign_crawl_policy(
         "https://docs.python.org/3/whatsnew/3.13.html",
-        discovered_via="outlink",
     )
 
     assert assignment.crawl_profile == "release_notes"
@@ -31,7 +30,6 @@ def test_assign_crawl_policy_marks_release_notes_paths():
 def test_assign_crawl_policy_marks_canonical_docs_paths():
     assignment = assign_crawl_policy(
         "https://docs.docker.com/reference/cli/docker/",
-        discovered_via="outlink",
     )
 
     assert assignment.crawl_profile == "canonical_docs"
@@ -41,7 +39,6 @@ def test_assign_crawl_policy_marks_canonical_docs_paths():
 def test_assign_crawl_policy_marks_news_root_paths():
     assignment = assign_crawl_policy(
         "https://openai.com/news/",
-        discovered_via="outlink",
     )
 
     assert assignment.crawl_profile == "news_root"
@@ -50,7 +47,6 @@ def test_assign_crawl_policy_marks_news_root_paths():
 def test_assign_crawl_policy_marks_blog_root_paths():
     assignment = assign_crawl_policy(
         "https://example.com/blog/",
-        discovered_via="outlink",
     )
 
     assert assignment.crawl_profile == "blog_root"
@@ -59,7 +55,6 @@ def test_assign_crawl_policy_marks_blog_root_paths():
 def test_assign_crawl_policy_marks_news_articles_as_article():
     assignment = assign_crawl_policy(
         "https://openai.com/news/some-update/",
-        discovered_via="outlink",
     )
 
     assert assignment.crawl_profile == "article"

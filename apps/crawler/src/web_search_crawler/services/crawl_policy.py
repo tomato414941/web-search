@@ -58,8 +58,8 @@ class CrawlPolicyAssignment:
 
 
 POLICIES: dict[str, CrawlPolicy] = {
-    "manual_now": CrawlPolicy(
-        name="manual_now",
+    "operator_priority": CrawlPolicy(
+        name="operator_priority",
         budget_tier="operator",
         budget_weight=0,
         priority_bucket=0,
@@ -238,10 +238,10 @@ def _is_news_root_path(path: str, segments: tuple[str, ...]) -> bool:
 def assign_crawl_policy(
     url: str,
     *,
-    discovered_via: str = "outlink",
+    admission_intent: str = "normal",
 ) -> CrawlPolicyAssignment:
-    if discovered_via == "manual":
-        policy = POLICIES["manual_now"]
+    if admission_intent == "operator_priority":
+        policy = POLICIES["operator_priority"]
         return CrawlPolicyAssignment(
             crawl_profile=policy.name,
             canonical_source=None,

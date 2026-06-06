@@ -43,8 +43,8 @@ ledger unless feed-specific state becomes necessary.
 `parse_page()` now returns RSS/Atom alternate links separately from normal
 outlinks.
 
-The crawler admits those feed URLs with
-`discovered_via="feed_autodiscovery"`.
+The crawler admits those feed URLs through the normal frontier admission path
+with feed-specific depth metadata.
 
 The URL admission rules no longer reject `.rss`, `.atom`, `/rss`, or `/feed`
 URLs globally.

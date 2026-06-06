@@ -7,9 +7,9 @@ Closed. The URL ledger no longer stores crawl execution state.
 `urls` is intended to be the large discovery ledger, but it still stores crawl
 execution-derived fields.
 
-The table currently contains discovery identity fields such as `url_hash`, `url`,
-`domain`, `created_at`, and `discovered_via`. It also contains `crawl_count` and
-`last_crawled_at`, which are updated from crawl execution.
+The table previously contained discovery identity fields such as `url_hash`,
+`url`, `domain`, `created_at`, and `discovered_via`. It also contained
+`crawl_count` and `last_crawled_at`, which were updated from crawl execution.
 
 That makes `urls` less simple than a discovery ledger should be.
 
@@ -54,13 +54,13 @@ Implemented shape:
 - `url`
 - `domain`
 - `created_at`
-- `discovered_via`
 
 Implemented changes:
 
 - recent-crawl suppression uses `frontier_entries.last_fetched_at`
 - crawl result recording no longer updates `urls`
 - `urls.crawl_count` and `urls.last_crawled_at` are removed from the schema
+- `urls.discovered_via` is removed from the schema
 - fresh migrations create `urls` as discovery identity only
 
 Do not move more execution state into `urls` just to reduce table count.

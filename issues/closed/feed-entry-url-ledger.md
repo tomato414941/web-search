@@ -44,5 +44,5 @@ ledger model as other discovered URLs.
 
 URL discovery and frontier admission are now separate store operations.
 
-Feed entry URLs use `record_discovered_urls(..., discovered_via="feed_entry")`,
-which records them in `urls` without scheduling them in `frontier_entries`.
+Feed entry URLs use `record_discovered_urls(...)`, which records them in `urls`
+without scheduling them in `frontier_entries`.

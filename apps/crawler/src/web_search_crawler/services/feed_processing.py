@@ -84,7 +84,6 @@ async def process_feed_result(
         await run_in_db_executor(
             ctx.url_store.record_discovered_urls,
             entry_urls,
-            discovered_via="feed_entry",
         )
 
     submit_started_at = time.perf_counter()

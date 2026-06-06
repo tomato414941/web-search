@@ -237,7 +237,7 @@ class TestProcessFetchResult:
         mock_admit.assert_any_await(
             ctx,
             ["https://example.com/news/rss.xml"],
-            discovered_via="feed_autodiscovery",
+            discovery_depth=0,
         )
         mock_admit.assert_any_await(
             ctx,
@@ -245,7 +245,7 @@ class TestProcessFetchResult:
         )
 
     @pytest.mark.asyncio
-    async def test_feed_autodiscovery_uses_dedicated_discovery_route(self):
+    async def test_feed_autodiscovery_uses_depth_zero(self):
         ctx = _make_ctx()
         with patch(
             "web_search_crawler.services.url_discovery.run_in_db_executor",
@@ -256,13 +256,14 @@ class TestProcessFetchResult:
             await admit_discovered_urls(
                 ctx,
                 ["https://example.com/news/rss.xml"],
-                discovered_via="feed_autodiscovery",
+                discovery_depth=0,
             )
 
         mock_db.assert_awaited_once_with(
             ctx.url_store.discover_and_admit_urls,
             ["https://example.com/news/rss.xml"],
-            discovered_via="feed_autodiscovery",
+            admission_intent="normal",
+            discovery_depth=0,
         )
 
     @pytest.mark.asyncio
@@ -321,7 +322,6 @@ class TestProcessFetchResult:
                 "https://openai.com/index/our-approach-to-the-model-spec",
                 "https://openai.com/index/safety-bug-bounty",
             ],
-            discovered_via="feed_entry",
         )
 
 

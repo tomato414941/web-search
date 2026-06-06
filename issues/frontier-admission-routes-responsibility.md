@@ -8,8 +8,8 @@ paths, but the product-level reasons for admission are not clearly separated.
 Most new frontier rows flow through `discover_and_admit_urls()` or
 `discover_and_admit_url()`, which ultimately call `_upsert_frontier_batch()`.
 That shared path is good mechanically, but it currently mixes distinct
-admission intents such as crawler-discovered outlinks, feed autodiscovery, seed
-registration, manual operator admission, and CLI requeue recovery.
+admission intents such as ordinary crawler discovery, operator priority
+admission, and CLI requeue recovery.
 
 This makes it harder to reason about what should happen when admission rules
 change.
@@ -18,14 +18,14 @@ change.
 
 Observed frontier admission routes:
 
-- HTML outlinks via `admit_discovered_urls(..., discovered_via="outlink")`
-- feed autodiscovery URLs via `discovered_via="feed_autodiscovery"`
+- HTML outlinks via `admit_discovered_urls(...)`
+- feed autodiscovery URLs via `admit_discovered_urls(..., discovery_depth=0)`
 - robots-blocked recovery CLI when a URL has no existing frontier entry
 
 Observed non-admission route:
 
-- feed entry URLs are recorded with `record_discovered_urls(...,
-  discovered_via="feed_entry")` and are not admitted to the frontier
+- feed entry URLs are recorded with `record_discovered_urls(...)` and are not
+  admitted to the frontier
 
 ## Impact
 
@@ -46,8 +46,7 @@ Define admission intent explicitly before changing suppression rules.
 Likely target shape:
 
 - keep one low-level frontier upsert implementation
-- make higher-level admission intents explicit, for example crawler discovery,
-  feed autodiscovery, seed registration, manual operator admission, and recovery
-  requeue
+- make higher-level admission intents explicit, for example normal admission,
+  operator priority admission, and recovery requeue
 - document which intents can bypass recent-crawl suppression
 - keep ledger-only URL recording separate from frontier admission

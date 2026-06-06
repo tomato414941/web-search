@@ -162,8 +162,7 @@ def upgrade() -> None:
             url_hash TEXT PRIMARY KEY,
             url TEXT NOT NULL,
             domain TEXT NOT NULL,
-            created_at INTEGER NOT NULL,
-            discovered_via TEXT NOT NULL DEFAULT 'unknown'
+            created_at INTEGER NOT NULL
         )
     """)
     op.execute("CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain)")
@@ -175,7 +174,6 @@ def upgrade() -> None:
             domain TEXT NOT NULL,
             normalized_url TEXT NOT NULL,
             discovered_at INTEGER NOT NULL,
-            discovered_via TEXT NOT NULL,
             discovery_depth INTEGER NOT NULL DEFAULT 0,
             canonical_source TEXT,
             crawl_profile TEXT NOT NULL,

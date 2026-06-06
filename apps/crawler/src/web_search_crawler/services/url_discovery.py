@@ -15,7 +15,8 @@ async def admit_discovered_urls(
     ctx: PipelineContext,
     discovered: list[str],
     *,
-    discovered_via: str = "outlink",
+    admission_intent: str = "normal",
+    discovery_depth: int = 1,
 ) -> None:
     """Filter and admit discovered URLs into the crawl frontier."""
     if not discovered:
@@ -33,11 +34,12 @@ async def admit_discovered_urls(
         await run_in_db_executor(
             ctx.url_store.discover_and_admit_urls,
             valid_urls,
-            discovered_via=discovered_via,
+            admission_intent=admission_intent,
+            discovery_depth=discovery_depth,
         )
     logger.debug(
-        "Admitted discovered URLs from %s via %s (%d discovered)",
+        "Admitted discovered URLs from %s with %s intent (%d discovered)",
         ctx.url,
-        discovered_via,
+        admission_intent,
         len(discovered),
     )

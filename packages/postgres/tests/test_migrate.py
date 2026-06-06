@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "005"
+            assert rows[0][0] == "006"
             cur.close()
         finally:
             conn.close()
@@ -63,8 +63,24 @@ class TestMigrate:
                 "url",
                 "domain",
                 "created_at",
-                "discovered_via",
             ]
+            cur.close()
+        finally:
+            conn.close()
+
+    def test_frontier_schema_does_not_store_discovery_route(self):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'frontier_entries'
+                """
+            )
+            columns = {row[0] for row in cur.fetchall()}
+            assert "discovered_via" not in columns
             cur.close()
         finally:
             conn.close()

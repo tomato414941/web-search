@@ -31,7 +31,6 @@ class UrlItem:
 class FrontierEntry:
     url: str
     domain: str
-    discovered_via: str
     canonical_source: str | None
     crawl_profile: str
     priority_bucket: int

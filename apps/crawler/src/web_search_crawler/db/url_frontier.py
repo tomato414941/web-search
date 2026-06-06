@@ -433,10 +433,10 @@ class UrlFrontierMixin:
             priority_bucket: int | None = None
             priority_score: float | None = None
 
-            if is_success and crawl_profile == "manual_now":
+            if is_success and crawl_profile == "operator_priority":
                 reassigned = assign_crawl_policy(
                     url,
-                    discovered_via="outlink",
+                    admission_intent="normal",
                 )
                 crawl_profile = reassigned.crawl_profile
                 canonical_source = reassigned.canonical_source
