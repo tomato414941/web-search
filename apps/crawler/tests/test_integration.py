@@ -29,6 +29,12 @@ def test_components(tmp_path):
     return url_store, planner
 
 
+def _url_ledger_contains(url_store: UrlStore, url: str) -> bool:
+    with db_transaction(url_store.db_path) as cur:
+        cur.execute("SELECT 1 FROM urls WHERE url_hash = %s", (url_hash(url),))
+        return cur.fetchone() is not None
+
+
 @pytest.mark.asyncio
 async def test_process_url_success_flow(test_components):
     """Test complete process_url flow with successful indexing"""
@@ -95,7 +101,7 @@ async def test_process_url_success_flow(test_components):
                 mock_indexer.assert_called_once()
 
                 # Verify URL was recorded
-                assert url_store.contains("http://example.com/test")
+                assert _url_ledger_contains(url_store, "http://example.com/test")
 
 
 @pytest.mark.asyncio
@@ -121,7 +127,7 @@ async def test_process_url_robots_blocked(test_components):
         mock_session.get.assert_not_called()
 
         # URL should be recorded as failed
-        assert url_store.contains("http://example.com/blocked")
+        assert _url_ledger_contains(url_store, "http://example.com/blocked")
 
 
 @pytest.mark.asyncio
@@ -150,7 +156,7 @@ async def test_process_url_http_error(test_components):
         )
 
         # URL should be recorded as failed
-        assert url_store.contains("http://example.com/notfound")
+        assert _url_ledger_contains(url_store, "http://example.com/notfound")
 
 
 @pytest.mark.asyncio
@@ -243,8 +249,8 @@ async def test_process_url_discovers_links(test_components):
                 )
 
                 # Discovered links should be in url_store
-                assert url_store.contains("http://example.com/link1")
-                assert url_store.contains("http://example.com/link2")
+                assert _url_ledger_contains(url_store, "http://example.com/link1")
+                assert _url_ledger_contains(url_store, "http://example.com/link2")
 
 
 def test_discover_and_admit_populates_frontier_entry_for_outlinks(test_url_store):
@@ -266,7 +272,7 @@ def test_record_discovered_urls_writes_ledger_without_frontier(test_url_store):
     )
 
     assert recorded == 1
-    assert test_url_store.contains("https://example.com/article-entry")
+    assert _url_ledger_contains(test_url_store, "https://example.com/article-entry")
     assert (
         test_url_store.get_frontier_entry("https://example.com/article-entry") is None
     )
@@ -842,7 +848,7 @@ async def test_process_url_non_html_200_logged_as_skipped(test_components):
     assert kwargs["parse_ms"] is None
     assert kwargs["submit_ms"] is None
     assert kwargs["total_ms"] is not None
-    assert url_store.contains("http://example.com/archive.gz")
+    assert _url_ledger_contains(url_store, "http://example.com/archive.gz")
 
 
 @pytest.mark.asyncio
@@ -912,7 +918,7 @@ async def test_process_url_logs_indexer_error_detail(test_components):
         and call.kwargs["total_ms"] is not None
         for call in mock_log.call_args_list
     )
-    assert url_store.contains("http://example.com/fail")
+    assert _url_ledger_contains(url_store, "http://example.com/fail")
 
 
 @pytest.mark.asyncio
@@ -1038,8 +1044,8 @@ def test_discover_and_admit_deduplicates_urls(tmp_path):
 
     assert url_store.discover_and_admit_urls(urls) == 2
 
-    assert url_store.contains("http://example.com/1")
-    assert url_store.contains("http://example.com/2")
+    assert _url_ledger_contains(url_store, "http://example.com/1")
+    assert _url_ledger_contains(url_store, "http://example.com/2")
     entry_1 = url_store.get_frontier_entry("http://example.com/1")
     entry_2 = url_store.get_frontier_entry("http://example.com/2")
     assert entry_1 is not None
@@ -1122,4 +1128,4 @@ async def test_process_url_too_long_is_skipped_before_fetch(test_components):
     assert mock_log.call_args.args[0] == over_limit_url
     assert mock_log.call_args.args[1] == "skipped"
     assert "URL too long:" in mock_log.call_args.kwargs["error_message"]
-    assert url_store.contains(over_limit_url)
+    assert _url_ledger_contains(url_store, over_limit_url)

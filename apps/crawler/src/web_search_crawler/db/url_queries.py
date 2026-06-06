@@ -22,14 +22,6 @@ class UrlQueriesMixin:
     db_path: str
     recrawl_threshold: int
 
-    def contains(self, url: str) -> bool:
-        """Check if URL exists in the discovery ledger."""
-        h = url_hash(url)
-        ph = sql_placeholder()
-        with db_connection(self.db_path) as cur:
-            cur.execute(f"SELECT 1 FROM urls WHERE url_hash = {ph}", (h,))
-            return cur.fetchone() is not None
-
     def get_frontier_entry(self, url: str) -> FrontierEntry | None:
         """Return frontier metadata for a URL, if present."""
         h = url_hash(url)
