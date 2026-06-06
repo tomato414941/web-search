@@ -22,17 +22,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "ALTER TABLE urls "
-        "ADD COLUMN IF NOT EXISTS is_seed BOOLEAN NOT NULL DEFAULT FALSE"
-    )
-    op.execute(
-        "ALTER TABLE frontier_entries "
-        "ADD COLUMN IF NOT EXISTS is_seed BOOLEAN NOT NULL DEFAULT FALSE"
-    )
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_urls_seed_created_at "
-        "ON urls(created_at DESC) "
-        "INCLUDE (url, domain, crawl_count, last_crawled_at) "
-        "WHERE is_seed = TRUE"
-    )
+    pass
