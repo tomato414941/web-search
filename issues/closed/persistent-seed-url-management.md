@@ -1,5 +1,7 @@
 # Persistent Seed URL Management
 
+Closed. Persistent seed URL management has been removed.
+
 ## Problem
 
 The project may not need to persistently manage "seed URLs" as a special URL
@@ -34,15 +36,16 @@ intent, and crawl priority questions already tracked separately.
 - An API for listing and deleting seeds may create management surface without a
   clear operator decision.
 
-## Direction
+## Resolution
 
 Do not treat seed URLs as an active management surface or durable URL category.
 
-Current target shape:
+Implemented shape:
 
 - initial URL input can be handled by an operator import or URL registration
   workflow
 - persistent `is_seed` is removed
 - seed-specific priority and recrawl policy are removed
-- `/seeds` HTTP management should not be restored without a clear operator use
-  case
+- `/seeds` HTTP management is removed
+- canonical source `seed_rows` are removed
+- migration downgrade no longer restores seed URL state
