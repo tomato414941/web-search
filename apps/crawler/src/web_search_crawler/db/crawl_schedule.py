@@ -11,10 +11,10 @@ from web_search_crawler.db.connection import db_transaction
 from web_search_crawler.db.url_types import CrawlTask
 from web_search_core.urls import url_hash
 from web_search_crawler.services.crawl_policy import (
-    POLICIES,
     assign_crawl_policy,
-    compute_failure_retry_delay,
-    compute_success_recrawl_delay,
+    compute_failure_retry_delay_for_url,
+    compute_success_recrawl_delay_for_url,
+    get_crawl_policy_for_url,
 )
 from web_search_postgres.search import sql_placeholder
 
@@ -385,7 +385,6 @@ class CrawlScheduleMixin:
                 SELECT
                     url,
                     domain,
-                    crawl_profile,
                     fail_streak,
                     status
                 FROM crawl_schedule
@@ -399,31 +398,28 @@ class CrawlScheduleMixin:
 
             url = row[0]
             domain = row[1]
-            crawl_profile = row[2] or "generic"
-            fail_streak = int(row[3] or 0)
-            was_leased = row[4] == "leased"
+            fail_streak = int(row[2] or 0)
+            was_leased = row[3] == "leased"
+            policy = get_crawl_policy_for_url(url)
             if is_success:
                 reassigned = assign_crawl_policy(
                     url,
                     admission_intent="normal",
                 )
-                crawl_profile = reassigned.crawl_profile
                 priority_bucket = reassigned.priority_bucket
                 priority_score = reassigned.priority_score
             else:
                 priority_bucket = None
                 priority_score = None
 
-            policy = POLICIES.get(crawl_profile, POLICIES["generic"])
-
             if is_success:
-                next_delay = compute_success_recrawl_delay(crawl_profile)
+                next_delay = compute_success_recrawl_delay_for_url(url)
                 next_fail_streak = 0
                 last_success_at = now
             else:
                 next_delay = max(
-                    compute_failure_retry_delay(
-                        crawl_profile,
+                    compute_failure_retry_delay_for_url(
+                        url,
                         fail_streak=fail_streak,
                     ),
                     int(max(policy.host_min_interval_sec, 1.0)),
@@ -446,14 +442,12 @@ class CrawlScheduleMixin:
                     f"""
                     UPDATE crawl_schedule
                     SET
-                        crawl_profile = {sql_placeholder()},
                         priority_bucket = {sql_placeholder()},
                         priority_score = {sql_placeholder()},
                         updated_at = {sql_placeholder()}
                     WHERE url_hash = {sql_placeholder()}
                     """,
                     (
-                        crawl_profile,
                         priority_bucket,
                         priority_score,
                         now,

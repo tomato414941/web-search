@@ -175,7 +175,6 @@ def upgrade() -> None:
             normalized_url TEXT NOT NULL,
             discovered_at INTEGER NOT NULL,
             discovery_depth INTEGER NOT NULL DEFAULT 0,
-            crawl_profile TEXT NOT NULL,
             priority_bucket SMALLINT NOT NULL,
             priority_score DOUBLE PRECISION NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'pending',

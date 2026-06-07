@@ -1,4 +1,4 @@
-"""Crawl profile classification and priority assignment."""
+"""Crawl policy classification and priority assignment."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ class CrawlPolicy:
 
 @dataclass(frozen=True)
 class CrawlPolicyAssignment:
-    crawl_profile: str
+    policy_name: str
     priority_bucket: int
     priority_score: float
     initial_next_fetch_delay_sec: int
@@ -129,7 +129,7 @@ def _match_configured_source_kind(url: str) -> str | None:
     return None
 
 
-def _classify_url_profile(url: str) -> str:
+def _classify_url_policy_name(url: str) -> str:
     parsed = urlparse(url)
     path = (parsed.path or "/").lower()
     configured_source_kind = _match_configured_source_kind(url)
@@ -177,12 +177,12 @@ def assign_crawl_policy(
     *,
     admission_intent: str = "normal",
 ) -> CrawlPolicyAssignment:
-    profile_name = _classify_url_profile(url)
-    policy = POLICIES[profile_name]
+    policy_name = _classify_url_policy_name(url)
+    policy = POLICIES[policy_name]
 
     if admission_intent == "operator_priority":
         return CrawlPolicyAssignment(
-            crawl_profile=policy.name,
+            policy_name=policy.name,
             priority_bucket=_OPERATOR_PRIORITY_BUCKET,
             priority_score=_OPERATOR_PRIORITY_SCORE,
             initial_next_fetch_delay_sec=0,
@@ -192,23 +192,28 @@ def assign_crawl_policy(
     priority_score = policy.priority_score_boost
 
     return CrawlPolicyAssignment(
-        crawl_profile=policy.name,
+        policy_name=policy.name,
         priority_bucket=priority_bucket,
         priority_score=priority_score,
         initial_next_fetch_delay_sec=0,
     )
 
 
-def compute_success_recrawl_delay(crawl_profile: str) -> int:
-    policy = POLICIES.get(crawl_profile, POLICIES["generic"])
+def get_crawl_policy_for_url(url: str) -> CrawlPolicy:
+    policy_name = _classify_url_policy_name(url)
+    return POLICIES[policy_name]
+
+
+def compute_success_recrawl_delay_for_url(url: str) -> int:
+    policy = get_crawl_policy_for_url(url)
     return policy.base_recrawl_interval_sec
 
 
-def compute_failure_retry_delay(
-    crawl_profile: str,
+def compute_failure_retry_delay_for_url(
+    url: str,
     *,
     fail_streak: int = 0,
 ) -> int:
-    policy = POLICIES.get(crawl_profile, POLICIES["generic"])
+    policy = get_crawl_policy_for_url(url)
     multiplier = 2 ** min(max(fail_streak, 0), 3)
     return policy.failure_retry_delay_sec * multiplier

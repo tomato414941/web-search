@@ -16,7 +16,7 @@ from web_search_crawler.crawl_task_planner import (
     CrawlTaskPlanner,
     CrawlTaskPlannerConfig,
 )
-from web_search_crawler.services.crawl_policy import compute_failure_retry_delay
+from web_search_crawler.services.crawl_policy import compute_failure_retry_delay_for_url
 from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
 from web_search_crawler.workers.tasks import process_url
@@ -305,7 +305,6 @@ def test_record_and_admit_populates_frontier_entry_for_outlinks(test_url_store):
 
     assert added == 1
     assert entry is not None
-    assert entry.crawl_profile == "generic"
     assert entry.status == "pending"
     assert domain_state is not None
 
@@ -481,7 +480,7 @@ def test_record_failure_updates_frontier_and_domain_state(test_url_store):
 
     assert entry is not None
     assert entry.status == "pending"
-    retry_delay = compute_failure_retry_delay("generic", fail_streak=0)
+    retry_delay = compute_failure_retry_delay_for_url(url, fail_streak=0)
     assert entry.next_fetch_at >= before + retry_delay
     assert entry.next_fetch_at <= after + retry_delay + 1
     assert domain_state is not None
@@ -497,7 +496,6 @@ def test_operator_priority_admission_applies_one_time_priority_override(test_url
     entry = test_url_store.get_crawl_schedule_entry(url)
 
     assert entry is not None
-    assert entry.crawl_profile == "canonical_docs"
     assert entry.priority_bucket == 0
     assert entry.priority_score == 200.0
 
@@ -510,7 +508,6 @@ def test_operator_priority_admission_applies_one_time_priority_override(test_url
 
     assert entry is not None
     assert entry.status == "pending"
-    assert entry.crawl_profile == "canonical_docs"
     assert entry.priority_bucket == 1
     assert entry.priority_score == 100.0
     assert entry.next_fetch_at >= before + 7 * 24 * 3600
@@ -624,10 +621,10 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
             """
             INSERT INTO crawl_schedule (
                 url_hash, url, domain, normalized_url, discovered_at,
-                discovery_depth, crawl_profile,
-                priority_bucket, priority_score, status, next_fetch_at, updated_at
+                discovery_depth, priority_bucket, priority_score,
+                status, next_fetch_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, 1, 'generic', 3, 0, 'pending', %s, %s)
+            VALUES (%s, %s, %s, %s, %s, 1, 3, 0, 'pending', %s, %s)
             """,
             (
                 url_hash(frontier_url),

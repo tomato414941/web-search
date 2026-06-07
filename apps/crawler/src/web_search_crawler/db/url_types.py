@@ -14,7 +14,6 @@ class CrawlTask:
 class CrawlScheduleEntry:
     url: str
     domain: str
-    crawl_profile: str
     priority_bucket: int
     priority_score: float
     status: str
