@@ -24,8 +24,6 @@ class CrawlerSettings(InfrastructureSettings):
     # Database Path (for CrawlerRuntimeStore)
     CRAWLER_DB_PATH: str = "/data/crawler.db"
 
-    # Auto-start crawl workers on service startup
-    CRAWL_AUTO_START: bool = False
     CRAWL_SCHEDULE_MAINTENANCE_REFRESH_SEC: int = 60
 
     # Recrawl settings

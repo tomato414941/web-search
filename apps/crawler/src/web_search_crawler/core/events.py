@@ -91,7 +91,7 @@ async def lifespan(app: FastAPI):
     Application lifespan manager
 
     Handles startup and shutdown events:
-    - Startup: Initialize worker manager (but don't auto-start)
+    - Startup: Initialize worker manager and start crawl workers
     - Shutdown: Stop running workers gracefully
     """
     logger.info("🚀 Starting Crawler Service...")
@@ -105,14 +105,8 @@ async def lifespan(app: FastAPI):
     await worker_manager.initialize()
     crawl_schedule_task: asyncio.Task[None] | None = None
 
-    if settings.CRAWL_AUTO_START:
-        await worker_manager.start(concurrency=settings.CRAWL_CONCURRENCY)
-        logger.info(
-            "Worker auto-started with concurrency=%d", settings.CRAWL_CONCURRENCY
-        )
-    else:
-        logger.info("Worker manager initialized (workers not started)")
-        logger.info("Use POST /worker/start to begin crawling")
+    await worker_manager.start(concurrency=settings.CRAWL_CONCURRENCY)
+    logger.info("Worker started with concurrency=%d", settings.CRAWL_CONCURRENCY)
 
     if settings.ENVIRONMENT != Environment.TEST:
         crawl_schedule_task = asyncio.create_task(
