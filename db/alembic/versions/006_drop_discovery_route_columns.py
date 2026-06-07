@@ -17,12 +17,34 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.execute(
-        "UPDATE crawl_schedule "
-        "SET crawl_profile = 'operator_priority' "
-        "WHERE crawl_profile = 'manual_now'"
+        """
+        DO $$
+        BEGIN
+            IF to_regclass('public.crawl_schedule') IS NOT NULL THEN
+                UPDATE crawl_schedule
+                SET crawl_profile = 'operator_priority'
+                WHERE crawl_profile = 'manual_now';
+            ELSIF to_regclass('public.frontier_entries') IS NOT NULL THEN
+                UPDATE frontier_entries
+                SET crawl_profile = 'operator_priority'
+                WHERE crawl_profile = 'manual_now';
+            END IF;
+        END $$;
+        """
     )
     op.execute("ALTER TABLE urls DROP COLUMN IF EXISTS discovered_via")
-    op.execute("ALTER TABLE crawl_schedule DROP COLUMN IF EXISTS discovered_via")
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF to_regclass('public.crawl_schedule') IS NOT NULL THEN
+                ALTER TABLE crawl_schedule DROP COLUMN IF EXISTS discovered_via;
+            ELSIF to_regclass('public.frontier_entries') IS NOT NULL THEN
+                ALTER TABLE frontier_entries DROP COLUMN IF EXISTS discovered_via;
+            END IF;
+        END $$;
+        """
+    )
 
 
 def downgrade() -> None:
