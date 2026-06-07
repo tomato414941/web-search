@@ -2,7 +2,8 @@
 
 from web_search_crawler.services.crawl_policy import POLICIES
 from web_search_crawler.db.connection import db_connection
-from web_search_crawler.db.url_types import FrontierEntry, url_hash
+from web_search_crawler.db.url_types import FrontierEntry
+from web_search_core.urls import url_hash
 from web_search_postgres.search import sql_placeholder
 
 _BUDGET_TIER_ORDER = ("hot", "reference", "bulk", "operator")

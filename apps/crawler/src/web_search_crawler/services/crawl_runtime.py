@@ -4,9 +4,9 @@ from web_search_crawler.core.config import settings
 from web_search_crawler.core.crawl_denylist import load_crawl_denylist
 from web_search_crawler.core.url_filters import UrlFilter, load_url_filters
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
-from web_search_crawler.db.url_ledger import UrlLedgerStore
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
-from web_search_crawler.services.url_admission import load_url_admission_policy
+from web_search_core.url_admission import load_url_admission_policy
+from web_search_postgres.repositories import UrlLedgerRepository
 
 
 def build_crawler_runtime_store() -> CrawlerRuntimeStore:
@@ -16,9 +16,8 @@ def build_crawler_runtime_store() -> CrawlerRuntimeStore:
     )
 
 
-def build_url_ledger_store() -> UrlLedgerStore:
-    return UrlLedgerStore(
-        settings.CRAWLER_DB_PATH,
+def build_url_ledger_repository() -> UrlLedgerRepository:
+    return UrlLedgerRepository(
         load_url_admission_policy(settings.URL_ADMISSION_RULES_PATH),
     )
 

@@ -3021,12 +3021,14 @@ source = { editable = "packages/core" }
 dependencies = [
     { name = "cachetools" },
     { name = "pydantic-settings" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "cachetools", specifier = ">=5.3" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]
@@ -3196,12 +3198,14 @@ source = { editable = "packages/postgres" }
 dependencies = [
     { name = "alembic" },
     { name = "psycopg2-binary" },
+    { name = "web-search-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
     { name = "psycopg2-binary", specifier = ">=2.9.0" },
+    { name = "web-search-core", editable = "packages/core" },
 ]
 
 [[package]]

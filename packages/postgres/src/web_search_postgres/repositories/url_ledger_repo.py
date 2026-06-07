@@ -1,17 +1,18 @@
 """URL ledger persistence."""
 
+from contextlib import contextmanager
 import logging
 import os
 import time
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Generator
 
 from psycopg2.errors import DeadlockDetected, SerializationFailure
 from psycopg2.extras import execute_values
 
-from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.url_types import get_domain, url_hash
-from web_search_crawler.services.url_admission import URLAdmissionPolicy
+from web_search_core.url_admission import URLAdmissionPolicy
+from web_search_core.urls import get_domain, url_hash
+from web_search_postgres.search import get_connection
 
 logger = logging.getLogger(__name__)
 
@@ -20,11 +21,27 @@ _URL_LEDGER_RETRY_LIMIT = int(os.getenv("CRAWL_ENQUEUE_RETRY_LIMIT", "2"))
 _URL_LEDGER_RETRY_BASE_SEC = float(os.getenv("CRAWL_ENQUEUE_RETRY_BASE_SEC", "0.05"))
 
 
-class UrlLedgerStore:
+@contextmanager
+def _db_transaction() -> Generator[Any, None, None]:
+    con = get_connection()
+    try:
+        cur = con.cursor()
+        try:
+            yield cur
+            con.commit()
+        except BaseException:
+            con.rollback()
+            raise
+        finally:
+            cur.close()
+    finally:
+        con.close()
+
+
+class UrlLedgerRepository:
     """Persistent ledger of URLs known to the project."""
 
-    def __init__(self, db_path: str, url_admission_policy: URLAdmissionPolicy):
-        self.db_path = db_path
+    def __init__(self, url_admission_policy: URLAdmissionPolicy):
         self.url_admission_policy = url_admission_policy
 
     @staticmethod
@@ -109,7 +126,7 @@ class UrlLedgerStore:
         for chunk in self._chunked(rows, chunk_size):
             for attempt in range(_URL_LEDGER_RETRY_LIMIT + 1):
                 try:
-                    with db_transaction(self.db_path) as cur:
+                    with _db_transaction() as cur:
                         recorded += self._insert_urls_batch(cur, chunk, now=now)
                     break
                 except (DeadlockDetected, SerializationFailure):

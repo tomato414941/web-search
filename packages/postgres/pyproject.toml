@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "PostgreSQL access layer for PaleBlueSearch"
 requires-python = ">=3.11"
 dependencies = [
+    "web-search-core",
     "alembic>=1.13",
     "psycopg2-binary>=2.9.0",
 ]

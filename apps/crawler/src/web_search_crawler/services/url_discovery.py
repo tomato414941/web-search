@@ -4,7 +4,7 @@ import logging
 
 from web_search_crawler.core.crawl_denylist import is_domain_denied
 from web_search_crawler.db.executor import run_in_db_executor
-from web_search_crawler.db.url_types import get_domain
+from web_search_core.urls import get_domain
 from web_search_crawler.workers.types import PipelineContext
 from web_search_core.utils import MAX_URL_LENGTH
 

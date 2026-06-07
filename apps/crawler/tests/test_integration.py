@@ -10,14 +10,15 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from psycopg2.errors import DeadlockDetected
 
-from web_search_crawler.db import CrawlerRuntimeStore, UrlLedgerStore
 from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.url_types import url_hash
+from web_search_crawler.db import CrawlerRuntimeStore
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
 from web_search_crawler.services.crawl_policy import compute_failure_retry_delay
 from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
 from web_search_crawler.workers.tasks import process_url
+from web_search_core.urls import url_hash
+from web_search_postgres.repositories import UrlLedgerRepository
 
 
 @pytest.fixture
@@ -25,7 +26,7 @@ def test_components(tmp_path):
     """Create test CrawlerRuntimeStore and frontier planner."""
     db_path = str(tmp_path / "test.db")
     url_store = CrawlerRuntimeStore(db_path, recrawl_after_days=30)
-    url_ledger = UrlLedgerStore(db_path, url_store.url_admission_policy)
+    url_ledger = UrlLedgerRepository(url_store.url_admission_policy)
     planner = FrontierPlanner(url_store, FrontierPlannerConfig())
     return url_store, url_ledger, planner
 
@@ -36,8 +37,8 @@ def _url_ledger_contains(url_store: CrawlerRuntimeStore, url: str) -> bool:
         return cur.fetchone() is not None
 
 
-def _url_ledger_store(url_store: CrawlerRuntimeStore) -> UrlLedgerStore:
-    return UrlLedgerStore(url_store.db_path, url_store.url_admission_policy)
+def _url_ledger_repository(url_store: CrawlerRuntimeStore) -> UrlLedgerRepository:
+    return UrlLedgerRepository(url_store.url_admission_policy)
 
 
 def _record_and_admit_url(
@@ -47,7 +48,7 @@ def _record_and_admit_url(
     admission_intent: str = "normal",
     discovery_depth: int = 1,
 ) -> bool:
-    _url_ledger_store(url_store).record_discovered_url(url)
+    _url_ledger_repository(url_store).record_discovered_url(url)
     return url_store.admit_url_to_frontier(
         url,
         admission_intent=admission_intent,
@@ -62,7 +63,7 @@ def _record_and_admit_urls(
     admission_intent: str = "normal",
     discovery_depth: int = 1,
 ) -> int:
-    _url_ledger_store(url_store).record_discovered_urls(urls)
+    _url_ledger_repository(url_store).record_discovered_urls(urls)
     return url_store.admit_urls_to_frontier(
         urls,
         admission_intent=admission_intent,
@@ -307,7 +308,7 @@ def test_record_and_admit_populates_frontier_entry_for_outlinks(test_url_store):
 
 
 def test_record_discovered_urls_writes_ledger_without_frontier(test_url_store):
-    recorded = _url_ledger_store(test_url_store).record_discovered_urls(
+    recorded = _url_ledger_repository(test_url_store).record_discovered_urls(
         ["https://example.com/article-entry"]
     )
 

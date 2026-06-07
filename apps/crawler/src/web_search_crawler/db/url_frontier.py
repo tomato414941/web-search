@@ -8,7 +8,8 @@ import uuid
 from psycopg2.errors import DeadlockDetected, SerializationFailure
 
 from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.url_types import UrlItem, url_hash
+from web_search_crawler.db.url_types import UrlItem
+from web_search_core.urls import url_hash
 from web_search_crawler.services.crawl_policy import (
     POLICIES,
     assign_crawl_policy,

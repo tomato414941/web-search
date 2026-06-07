@@ -1,6 +1,6 @@
 """Frontier retry operations used by worker flows."""
 
-from web_search_crawler.db.url_types import get_domain
+from web_search_core.urls import get_domain
 
 
 class UrlRetryMixin:

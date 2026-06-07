@@ -10,7 +10,7 @@ from web_search_crawler.db.url_frontier import UrlFrontierMixin
 from web_search_crawler.db.url_queries import UrlQueriesMixin
 from web_search_crawler.db.url_retry import UrlRetryMixin
 from web_search_crawler.db.url_maintenance import UrlMaintenanceMixin
-from web_search_crawler.services.url_admission import (
+from web_search_core.url_admission import (
     URLAdmissionPolicy,
     load_url_admission_policy,
 )

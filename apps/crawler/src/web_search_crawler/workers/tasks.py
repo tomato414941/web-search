@@ -16,12 +16,11 @@ from cachetools import TTLCache
 from web_search_crawler.db.executor import run_in_db_executor
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
-from web_search_crawler.db.url_ledger import UrlLedgerStore
 from web_search_crawler.frontier_planner import FrontierPlanner
 from web_search_crawler.services.crawl_runtime import (
     build_frontier_planner,
     build_crawler_runtime_store,
-    build_url_ledger_store,
+    build_url_ledger_repository,
     load_static_crawl_config,
 )
 from web_search_crawler.utils.robots import AsyncRobotsCache
@@ -34,6 +33,7 @@ from web_search_crawler.workers.types import (
     PipelineContext,
 )
 from web_search_contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
+from web_search_postgres.repositories import UrlLedgerRepository
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ async def process_url(
     session: aiohttp.ClientSession,
     robots: AsyncRobotsCache,
     url_store: CrawlerRuntimeStore,
-    url_ledger: UrlLedgerStore,
+    url_ledger: UrlLedgerRepository,
     planner: FrontierPlanner,
     url: str,
     runtime_state: WorkerRuntimeState | None = None,
@@ -201,7 +201,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     await run_in_db_executor(history_log.init_db)
 
     url_store = build_crawler_runtime_store()
-    url_ledger = build_url_ledger_store()
+    url_ledger = build_url_ledger_repository()
     planner = build_frontier_planner(
         url_store, batch_size=settings.FRONTIER_PLANNER_BATCH_SIZE
     )

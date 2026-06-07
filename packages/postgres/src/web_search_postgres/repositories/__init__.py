@@ -9,3 +9,6 @@ from web_search_postgres.repositories.index_job_repo import (
 from web_search_postgres.repositories.ranking_repo import (
     RankingRepository as RankingRepository,
 )
+from web_search_postgres.repositories.url_ledger_repo import (
+    UrlLedgerRepository as UrlLedgerRepository,
+)

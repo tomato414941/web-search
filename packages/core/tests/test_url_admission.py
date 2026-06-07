@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from web_search_crawler.services.url_admission import (
+from web_search_core.url_admission import (
     URLAdmissionPolicy,
     load_url_admission_policy,
 )

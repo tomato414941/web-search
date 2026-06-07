@@ -10,7 +10,7 @@ from psycopg2.errors import DeadlockDetected, SerializationFailure
 from psycopg2.extras import execute_values
 
 from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.url_types import get_domain, url_hash
+from web_search_core.urls import get_domain, url_hash
 from web_search_crawler.services.crawl_policy import assign_crawl_policy
 from web_search_postgres.search import sql_placeholder
 
