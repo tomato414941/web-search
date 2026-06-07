@@ -29,6 +29,8 @@ _RELEASE_NOTES_PATH_TERMS = (
 _BLOG_PATH_TERMS = ("/blog", "/blogs")
 _NEWS_ROOT_PATH_TERMS = ("/news", "/announcements")
 _ROOTISH_PATHS = frozenset(("", "/"))
+_OPERATOR_PRIORITY_BUCKET = 0
+_OPERATOR_PRIORITY_SCORE = 200.0
 
 
 @dataclass(frozen=True)
@@ -56,20 +58,6 @@ class CrawlPolicyAssignment:
 
 
 POLICIES: dict[str, CrawlPolicy] = {
-    "operator_priority": CrawlPolicy(
-        name="operator_priority",
-        budget_tier="operator",
-        budget_weight=0,
-        priority_bucket=0,
-        priority_score_boost=200.0,
-        base_recrawl_interval_sec=0,
-        failure_retry_delay_sec=15 * 60,
-        max_outlinks=50,
-        host_concurrency_limit=2,
-        host_min_interval_sec=1.0,
-        retry_budget=3,
-        discovery_depth_limit=1,
-    ),
     "release_notes": CrawlPolicy(
         name="release_notes",
         budget_tier="hot",
@@ -231,17 +219,17 @@ def assign_crawl_policy(
     *,
     admission_intent: str = "normal",
 ) -> CrawlPolicyAssignment:
+    profile_name = _classify_url_profile(url)
+    policy = POLICIES[profile_name]
+
     if admission_intent == "operator_priority":
-        policy = POLICIES["operator_priority"]
         return CrawlPolicyAssignment(
             crawl_profile=policy.name,
-            priority_bucket=policy.priority_bucket,
-            priority_score=policy.priority_score_boost,
+            priority_bucket=_OPERATOR_PRIORITY_BUCKET,
+            priority_score=_OPERATOR_PRIORITY_SCORE,
             initial_next_fetch_delay_sec=0,
         )
 
-    profile_name = _classify_url_profile(url)
-    policy = POLICIES[profile_name]
     priority_bucket = policy.priority_bucket
     priority_score = policy.priority_score_boost
 

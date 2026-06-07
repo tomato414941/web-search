@@ -431,10 +431,7 @@ class CrawlScheduleMixin:
             crawl_profile = row[2] or "generic"
             fail_streak = int(row[3] or 0)
             was_leased = row[4] == "leased"
-            priority_bucket: int | None = None
-            priority_score: float | None = None
-
-            if is_success and crawl_profile == "operator_priority":
+            if is_success:
                 reassigned = assign_crawl_policy(
                     url,
                     admission_intent="normal",
@@ -442,6 +439,9 @@ class CrawlScheduleMixin:
                 crawl_profile = reassigned.crawl_profile
                 priority_bucket = reassigned.priority_bucket
                 priority_score = reassigned.priority_score
+            else:
+                priority_bucket = None
+                priority_score = None
 
             policy = POLICIES.get(crawl_profile, POLICIES["generic"])
 

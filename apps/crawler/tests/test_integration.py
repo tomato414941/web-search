@@ -493,9 +493,16 @@ def test_record_failure_updates_frontier_and_domain_state(test_url_store):
     assert domain_state.backoff_until >= before
 
 
-def test_operator_priority_success_reclassifies_to_normal_crawl_policy(test_url_store):
+def test_operator_priority_admission_applies_one_time_priority_override(test_url_store):
     url = "https://docs.docker.com/reference/cli/docker/"
     _record_and_admit_urls(test_url_store, [url], admission_intent="operator_priority")
+    entry = test_url_store.get_crawl_schedule_entry(url)
+
+    assert entry is not None
+    assert entry.crawl_profile == "canonical_docs"
+    assert entry.priority_bucket == 0
+    assert entry.priority_score == 200.0
+
     test_url_store.lease_ready_crawl_tasks(1, lease_seconds=120)
 
     before = int(time.time())
@@ -507,6 +514,7 @@ def test_operator_priority_success_reclassifies_to_normal_crawl_policy(test_url_
     assert entry.status == "pending"
     assert entry.crawl_profile == "canonical_docs"
     assert entry.priority_bucket == 1
+    assert entry.priority_score == 100.0
     assert entry.next_fetch_at >= before + 7 * 24 * 3600
     assert entry.next_fetch_at <= after + 7 * 24 * 3600 + 1
 

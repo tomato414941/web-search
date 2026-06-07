@@ -9,14 +9,15 @@ from web_search_crawler.services.crawl_task_budget import (
 )
 
 
-def test_assign_crawl_policy_marks_operator_priority_urls():
+def test_assign_crawl_policy_applies_operator_priority_without_changing_profile():
     assignment = assign_crawl_policy(
-        "https://example.com/path",
+        "https://docs.docker.com/reference/cli/docker/",
         admission_intent="operator_priority",
     )
 
-    assert assignment.crawl_profile == "operator_priority"
+    assert assignment.crawl_profile == "canonical_docs"
     assert assignment.priority_bucket == 0
+    assert assignment.priority_score == 200.0
 
 
 def test_assign_crawl_policy_marks_release_notes_paths():

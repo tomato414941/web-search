@@ -1,20 +1,9 @@
 """Crawler runtime read-only queries."""
 
-from web_search_crawler.services.crawl_policy import POLICIES
 from web_search_crawler.db.connection import db_connection
 from web_search_crawler.db.url_types import CrawlScheduleEntry
 from web_search_core.urls import url_hash
 from web_search_postgres.search import sql_placeholder
-
-_BUDGET_TIER_ORDER = ("hot", "reference", "bulk", "operator")
-_PROFILES_BY_BUDGET_TIER = {
-    tier: tuple(
-        sorted(
-            policy.name for policy in POLICIES.values() if policy.budget_tier == tier
-        )
-    )
-    for tier in _BUDGET_TIER_ORDER
-}
 
 
 class UrlQueriesMixin:
