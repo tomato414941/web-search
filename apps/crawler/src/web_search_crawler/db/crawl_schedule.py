@@ -14,7 +14,6 @@ from web_search_crawler.services.crawl_policy import (
     assign_crawl_policy,
     compute_failure_retry_delay_for_url,
     compute_success_recrawl_delay_for_url,
-    get_crawl_policy_for_url,
 )
 from web_search_postgres.search import sql_placeholder
 
@@ -400,7 +399,6 @@ class CrawlScheduleMixin:
             domain = row[1]
             fail_streak = int(row[2] or 0)
             was_leased = row[3] == "leased"
-            policy = get_crawl_policy_for_url(url)
             if is_success:
                 reassigned = assign_crawl_policy(
                     url,
@@ -417,12 +415,9 @@ class CrawlScheduleMixin:
                 next_fail_streak = 0
                 last_success_at = now
             else:
-                next_delay = max(
-                    compute_failure_retry_delay_for_url(
-                        url,
-                        fail_streak=fail_streak,
-                    ),
-                    int(max(policy.host_min_interval_sec, 1.0)),
+                next_delay = compute_failure_retry_delay_for_url(
+                    url,
+                    fail_streak=fail_streak,
                 )
                 next_fail_streak = fail_streak + 1
                 last_success_at = None
@@ -465,7 +460,6 @@ class CrawlScheduleMixin:
                 self.domain_scheduling_state.record_crawl_result(
                     cur,
                     domain=domain,
-                    policy=policy,
                     is_success=is_success,
                     now=now,
                 )

@@ -290,7 +290,6 @@ class DomainSchedulingStateStore:
         cur,
         *,
         domain: str,
-        policy,
         is_success: bool,
         now: int,
     ) -> None:
@@ -316,7 +315,6 @@ class DomainSchedulingStateStore:
                     cur,
                     [domain],
                     now=now,
-                    default_crawl_delay_sec=policy.host_min_interval_sec,
                 )
                 cur.execute(
                     f"""
@@ -352,7 +350,6 @@ class DomainSchedulingStateStore:
                 cur,
                 [domain],
                 now=now,
-                default_crawl_delay_sec=policy.host_min_interval_sec,
             )
             cur.execute(
                 f"""

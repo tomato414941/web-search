@@ -5,56 +5,79 @@ from web_search_crawler.services.crawl_policy import (
 )
 
 
-def test_assign_crawl_policy_applies_operator_priority_without_changing_policy():
+def test_assign_crawl_policy_applies_operator_priority():
     assignment = assign_crawl_policy(
         "https://docs.docker.com/reference/cli/docker/",
         admission_intent="operator_priority",
     )
 
-    assert assignment.policy_name == "reference_docs"
     assert assignment.priority_bucket == 0
     assert assignment.priority_score == 200.0
 
 
-def test_assign_crawl_policy_marks_release_notes_paths():
+def test_assign_crawl_policy_prioritizes_release_notes_paths():
     assignment = assign_crawl_policy(
         "https://docs.python.org/3/whatsnew/3.13.html",
     )
 
-    assert assignment.policy_name == "release_notes"
     assert assignment.priority_bucket == 1
+    assert assignment.priority_score == 120.0
+    assert (
+        compute_success_recrawl_delay_for_url(
+            "https://docs.python.org/3/whatsnew/3.13.html"
+        )
+        == 4 * 3600
+    )
 
 
-def test_assign_crawl_policy_marks_reference_docs_paths():
+def test_assign_crawl_policy_prioritizes_reference_docs_paths():
     assignment = assign_crawl_policy(
         "https://docs.docker.com/reference/cli/docker/",
     )
 
-    assert assignment.policy_name == "reference_docs"
+    assert assignment.priority_bucket == 1
+    assert assignment.priority_score == 100.0
+    assert (
+        compute_success_recrawl_delay_for_url(
+            "https://docs.docker.com/reference/cli/docker/"
+        )
+        == 7 * 24 * 3600
+    )
 
 
-def test_assign_crawl_policy_marks_news_root_paths():
+def test_assign_crawl_policy_prioritizes_news_root_paths():
     assignment = assign_crawl_policy(
         "https://openai.com/news/",
     )
 
-    assert assignment.policy_name == "news_root"
+    assert assignment.priority_bucket == 1
+    assert assignment.priority_score == 110.0
+    assert compute_success_recrawl_delay_for_url("https://openai.com/news/") == 4 * 3600
 
 
-def test_assign_crawl_policy_marks_blog_root_paths():
+def test_assign_crawl_policy_prioritizes_blog_root_paths():
     assignment = assign_crawl_policy(
         "https://example.com/blog/",
     )
 
-    assert assignment.policy_name == "blog_root"
+    assert assignment.priority_bucket == 1
+    assert assignment.priority_score == 90.0
+    assert (
+        compute_success_recrawl_delay_for_url("https://example.com/blog/") == 8 * 3600
+    )
 
 
-def test_assign_crawl_policy_marks_news_articles_as_article():
+def test_assign_crawl_policy_prioritizes_news_article_paths_below_roots():
     assignment = assign_crawl_policy(
         "https://openai.com/news/some-update/",
     )
 
-    assert assignment.policy_name == "article"
+    assert assignment.priority_bucket == 2
+    assert assignment.priority_score == 40.0
+    assert (
+        compute_success_recrawl_delay_for_url("https://openai.com/news/some-update/")
+        == 30 * 24 * 3600
+    )
 
 
 def test_compute_success_recrawl_delay_uses_policy_base_interval():
