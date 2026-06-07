@@ -1,7 +1,7 @@
 """
-Frontier planner.
+Crawl task planner.
 
-Leases frontier batches and keeps a small in-memory buffer for denied or
+Leases ready crawl tasks and keeps a small in-memory buffer for denied or
 temporarily blocked domains. Durable host throttling lives in `domain_state`.
 """
 
@@ -9,53 +9,53 @@ from dataclasses import dataclass
 
 from web_search_crawler.core.crawl_denylist import is_domain_denied
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
-from web_search_crawler.db.url_types import UrlItem
+from web_search_crawler.db.url_types import CrawlTask
 
 
 @dataclass
-class FrontierPlannerConfig:
+class CrawlTaskPlannerConfig:
     # Maximum concurrent requests per domain
     domain_max_concurrent: int = 2
     # How many URLs to fetch from url_store at once
     batch_size: int = 100
-    # Lease duration for durable frontier entries
+    # Lease duration for durable crawl tasks
     lease_seconds: int = 300
 
 
-class FrontierPlanner:
+class CrawlTaskPlanner:
     """
-    Frontier batch selector used by worker execution paths.
+    Crawl task selector used by worker execution paths.
 
-    Leases frontier entries from CrawlerRuntimeStore and filters them against the current
+    Leases crawl tasks from CrawlerRuntimeStore and filters them against the current
     denied-domain and temporarily blocked-domain sets.
     """
 
     def __init__(
         self,
         url_store: CrawlerRuntimeStore,
-        config: FrontierPlannerConfig | None = None,
+        config: CrawlTaskPlannerConfig | None = None,
     ):
         self.url_store = url_store
-        self.config = config or FrontierPlannerConfig()
-        self._buffer: list[UrlItem] = []
+        self.config = config or CrawlTaskPlannerConfig()
+        self._buffer: list[CrawlTask] = []
         self._denied_domains: frozenset[str] = frozenset()
         self._denied_version: int = 0
         self._blocked_domains: frozenset[str] = frozenset()
         self._blocked_version: int = 0
         self._purged_version: int = 0
 
-    def _pop_plannable_batch(self, count: int) -> list[UrlItem]:
+    def _pop_plannable_batch(self, count: int) -> list[CrawlTask]:
         fetch_count = max(count, self.config.batch_size)
-        return self.url_store.pop_frontier_batch(
+        return self.url_store.lease_ready_crawl_tasks(
             fetch_count,
             max_per_domain=self.config.domain_max_concurrent,
             lease_seconds=self.config.lease_seconds,
         )
 
-    def _return_blocked_items(self, items: list[UrlItem]) -> None:
+    def _return_blocked_items(self, items: list[CrawlTask]) -> None:
         if not items:
             return
-        self.url_store.release_frontier_urls([item.url for item in items])
+        self.url_store.release_crawl_tasks([item.url for item in items])
 
     def set_denied_domains(self, domains: frozenset[str]) -> None:
         """Update the static crawler denylist."""
@@ -84,15 +84,15 @@ class FrontierPlanner:
             item for item in self._buffer if not self._is_denied(item.domain)
         ]
 
-    def lease_ready_urls(self, count: int) -> list[UrlItem]:
+    def lease_ready_urls(self, count: int) -> list[CrawlTask]:
         """
         Lease multiple URLs that are ready to crawl.
 
         Args:
-            count: Maximum number of frontier entries to lease
+            count: Maximum number of crawl tasks to lease
 
         Returns:
-            List of leased UrlItems ready for crawling
+            List of leased CrawlTasks ready for crawling
         """
         if count <= 0:
             return []

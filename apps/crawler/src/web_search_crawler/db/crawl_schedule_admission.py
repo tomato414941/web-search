@@ -1,4 +1,4 @@
-"""Frontier admission for discovered URLs."""
+"""Crawl schedule admission for discovered URLs."""
 
 import logging
 import os
@@ -16,15 +16,15 @@ from web_search_postgres.search import sql_placeholder
 
 logger = logging.getLogger(__name__)
 
-_FRONTIER_ADMISSION_CHUNK_SIZE = int(os.getenv("CRAWL_ENQUEUE_CHUNK_SIZE", "100"))
-_FRONTIER_ADMISSION_RETRY_LIMIT = int(os.getenv("CRAWL_ENQUEUE_RETRY_LIMIT", "2"))
-_FRONTIER_ADMISSION_RETRY_BASE_SEC = float(
+_CRAWL_SCHEDULE_ADMISSION_CHUNK_SIZE = int(os.getenv("CRAWL_ENQUEUE_CHUNK_SIZE", "100"))
+_CRAWL_SCHEDULE_ADMISSION_RETRY_LIMIT = int(os.getenv("CRAWL_ENQUEUE_RETRY_LIMIT", "2"))
+_CRAWL_SCHEDULE_ADMISSION_RETRY_BASE_SEC = float(
     os.getenv("CRAWL_ENQUEUE_RETRY_BASE_SEC", "0.05")
 )
 
 
-class UrlDiscoveryMixin:
-    """Mixin for admitting discovered URLs to the crawl frontier."""
+class CrawlScheduleAdmissionMixin:
+    """Mixin for scheduling discovered URLs for crawling."""
 
     db_path: str
     recrawl_threshold: int
@@ -72,7 +72,7 @@ class UrlDiscoveryMixin:
             )
         return sorted(records.values(), key=lambda row: row["h"])
 
-    def _get_recently_fetched_frontier_hashes(
+    def _get_recently_fetched_schedule_hashes(
         self, cur: Any, hashes: list[str], cutoff: int
     ) -> set[str]:
         if not hashes:
@@ -90,7 +90,7 @@ class UrlDiscoveryMixin:
         )
         return {row[0] for row in cur.fetchall()}
 
-    def _get_existing_frontier_hashes(
+    def _get_existing_schedule_hashes(
         self,
         cur: Any,
         hashes: list[str],
@@ -108,7 +108,7 @@ class UrlDiscoveryMixin:
         )
         return {row[0] for row in cur.fetchall()}
 
-    def _upsert_frontier_batch(
+    def _upsert_crawl_schedule_batch(
         self, cur: Any, rows: list[dict[str, Any]], now: int
     ) -> None:
         if not rows:
@@ -179,7 +179,7 @@ class UrlDiscoveryMixin:
             ],
         )
 
-    def _admit_urls_to_frontier_chunk(
+    def _schedule_urls_for_crawl_chunk(
         self,
         cur: Any,
         rows: list[dict[str, Any]],
@@ -187,7 +187,7 @@ class UrlDiscoveryMixin:
         now: int,
         cutoff: int,
     ) -> int:
-        recent_hashes = self._get_recently_fetched_frontier_hashes(
+        recent_hashes = self._get_recently_fetched_schedule_hashes(
             cur, [row["h"] for row in rows], cutoff
         )
         admit_rows: list[dict[str, Any]] = []
@@ -196,11 +196,11 @@ class UrlDiscoveryMixin:
                 continue
             admit_rows.append(row)
 
-        existing_frontier_hashes = self._get_existing_frontier_hashes(
+        existing_schedule_hashes = self._get_existing_schedule_hashes(
             cur,
             [row["h"] for row in admit_rows],
         )
-        self._upsert_frontier_batch(cur, admit_rows, now)
+        self._upsert_crawl_schedule_batch(cur, admit_rows, now)
         if admit_rows and hasattr(self, "domain_scheduling_state"):
             self.domain_scheduling_state.ensure_domain_state_rows(
                 cur,
@@ -212,21 +212,21 @@ class UrlDiscoveryMixin:
 
         added = 0
         for row in admit_rows:
-            if row["h"] in existing_frontier_hashes:
+            if row["h"] in existing_schedule_hashes:
                 continue
             added += 1
         return added
 
-    def admit_url_to_frontier(
+    def schedule_url_for_crawl(
         self,
         url: str,
         *,
         admission_intent: str = "normal",
         discovery_depth: int = 1,
     ) -> bool:
-        """Admit a URL into the frontier without writing the urls ledger."""
+        """Schedule a URL for crawling without writing the urls ledger."""
         return (
-            self.admit_urls_to_frontier(
+            self.schedule_urls_for_crawl(
                 [url],
                 admission_intent=admission_intent,
                 discovery_depth=discovery_depth,
@@ -234,14 +234,14 @@ class UrlDiscoveryMixin:
             > 0
         )
 
-    def admit_urls_to_frontier(
+    def schedule_urls_for_crawl(
         self,
         urls: list[str],
         *,
         admission_intent: str = "normal",
         discovery_depth: int = 1,
     ) -> int:
-        """Admit URLs into the crawl frontier if eligible."""
+        """Schedule URLs for crawling if eligible."""
         if not urls:
             return 0
         rows = self._normalize_batch_urls(
@@ -254,14 +254,14 @@ class UrlDiscoveryMixin:
 
         now = int(time.time())
         cutoff = now - self.recrawl_threshold
-        chunk_size = max(1, _FRONTIER_ADMISSION_CHUNK_SIZE)
+        chunk_size = max(1, _CRAWL_SCHEDULE_ADMISSION_CHUNK_SIZE)
 
         added = 0
         for chunk in self._chunked(rows, chunk_size):
-            for attempt in range(_FRONTIER_ADMISSION_RETRY_LIMIT + 1):
+            for attempt in range(_CRAWL_SCHEDULE_ADMISSION_RETRY_LIMIT + 1):
                 try:
                     with db_transaction(self.db_path) as cur:
-                        added += self._admit_urls_to_frontier_chunk(
+                        added += self._schedule_urls_for_crawl_chunk(
                             cur,
                             chunk,
                             now=now,
@@ -269,14 +269,14 @@ class UrlDiscoveryMixin:
                         )
                     break
                 except (DeadlockDetected, SerializationFailure):
-                    if attempt >= _FRONTIER_ADMISSION_RETRY_LIMIT:
+                    if attempt >= _CRAWL_SCHEDULE_ADMISSION_RETRY_LIMIT:
                         raise
-                    delay = _FRONTIER_ADMISSION_RETRY_BASE_SEC * (attempt + 1)
+                    delay = _CRAWL_SCHEDULE_ADMISSION_RETRY_BASE_SEC * (attempt + 1)
                     logger.warning(
-                        "Retrying frontier admission chunk after DB concurrency error "
+                        "Retrying crawl schedule admission chunk after DB concurrency error "
                         "(attempt %d/%d, chunk=%d, delay=%.2fs)",
                         attempt + 1,
-                        _FRONTIER_ADMISSION_RETRY_LIMIT,
+                        _CRAWL_SCHEDULE_ADMISSION_RETRY_LIMIT,
                         len(chunk),
                         delay,
                     )

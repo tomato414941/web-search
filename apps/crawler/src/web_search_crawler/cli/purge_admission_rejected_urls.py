@@ -80,7 +80,7 @@ for row in summary["candidates"]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Purge existing frontier URLs rejected by URL admission policy."
+        description="Purge scheduled crawl URLs rejected by URL admission policy."
     )
     parser.add_argument("environment", choices=ENVIRONMENTS)
     parser.add_argument(

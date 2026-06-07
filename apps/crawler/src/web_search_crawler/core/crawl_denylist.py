@@ -2,7 +2,7 @@
 Crawler domain denylist.
 
 Static crawler denylist loaded from a YAML file.
-Domains in this list are never crawled or admitted to the frontier.
+Domains in this list are never crawled or scheduled for crawling.
 """
 
 import logging

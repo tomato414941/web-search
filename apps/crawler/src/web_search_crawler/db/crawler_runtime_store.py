@@ -1,12 +1,12 @@
-"""Crawler runtime store for frontier and scheduling state."""
+"""Crawler runtime store for crawl scheduling state."""
 
 import time
 
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.url_discovery import UrlDiscoveryMixin
+from web_search_crawler.db.crawl_schedule_admission import CrawlScheduleAdmissionMixin
 from web_search_crawler.db.url_domain_state import DomainSchedulingStateStore
-from web_search_crawler.db.url_frontier import UrlFrontierMixin
+from web_search_crawler.db.crawl_schedule import CrawlScheduleMixin
 from web_search_crawler.db.url_queries import UrlQueriesMixin
 from web_search_crawler.db.url_retry import UrlRetryMixin
 from web_search_crawler.db.url_maintenance import UrlMaintenanceMixin
@@ -18,16 +18,16 @@ from web_search_postgres.search import get_connection
 
 
 class CrawlerRuntimeStore(
-    UrlDiscoveryMixin,
-    UrlFrontierMixin,
+    CrawlScheduleAdmissionMixin,
+    CrawlScheduleMixin,
     UrlRetryMixin,
     UrlQueriesMixin,
     UrlMaintenanceMixin,
 ):
     """
-    Crawler runtime storage backed by a durable frontier.
+    Crawler runtime storage backed by a durable crawl schedule.
 
-    frontier_entries: active pending/leased crawl candidates.
+    frontier_entries: database table for scheduled crawl tasks.
     """
 
     def __init__(

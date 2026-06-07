@@ -1,4 +1,4 @@
-"""Planner budget allocation for durable frontier selection."""
+"""Planner budget allocation for durable crawl task selection."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ _TIER_ORDER = ("hot", "reference", "bulk")
 
 
 @dataclass(frozen=True)
-class FrontierTierBudget:
+class CrawlTaskTierBudget:
     tier: str
     profiles: tuple[str, ...]
     leases: int
@@ -45,7 +45,7 @@ _TIER_WEIGHTS = {
 }
 
 
-def allocate_frontier_tier_budgets(total_leases: int) -> list[FrontierTierBudget]:
+def allocate_crawl_task_tier_budgets(total_leases: int) -> list[CrawlTaskTierBudget]:
     """Allocate a crawl batch across planner tiers using simple weighted rounds."""
     if total_leases <= 0:
         return []
@@ -73,7 +73,7 @@ def allocate_frontier_tier_budgets(total_leases: int) -> list[FrontierTierBudget
             lease_counts[tier] += 1
 
     return [
-        FrontierTierBudget(
+        CrawlTaskTierBudget(
             tier=tier,
             profiles=_PROFILES_BY_TIER[tier],
             leases=lease_counts[tier],

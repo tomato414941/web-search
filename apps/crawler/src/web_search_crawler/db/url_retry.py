@@ -1,19 +1,19 @@
-"""Frontier retry operations used by worker flows."""
+"""Crawl task retry operations used by worker flows."""
 
 from web_search_core.urls import get_domain
 
 
 class UrlRetryMixin:
-    """Frontier retry operations."""
+    """Crawl task retry operations."""
 
     db_path: str
 
     def requeue(self, url: str) -> bool:
-        """Release a leased frontier URL back to pending for retry."""
-        entry = self.get_frontier_entry(url)
+        """Release a leased crawl task back to pending for retry."""
+        entry = self.get_crawl_schedule_entry(url)
         if entry is None or entry.status != "leased":
             return False
-        released = self.release_frontier_urls([url], prefer_earlier=True)
+        released = self.release_crawl_tasks([url], prefer_earlier=True)
         domain = get_domain(url)
         if released > 0 and hasattr(self, "domain_scheduling_state"):
             self.domain_scheduling_state.record_domain_retry(

@@ -1,4 +1,4 @@
-"""Discovered URL filtering and frontier admission."""
+"""Discovered URL filtering and crawl schedule admission."""
 
 import logging
 
@@ -18,7 +18,7 @@ async def admit_discovered_urls(
     admission_intent: str = "normal",
     discovery_depth: int = 1,
 ) -> None:
-    """Filter and admit discovered URLs into the crawl frontier."""
+    """Filter discovered URLs and schedule them for crawling."""
     if not discovered:
         return
 
@@ -36,7 +36,7 @@ async def admit_discovered_urls(
             valid_urls,
         )
         await run_in_db_executor(
-            ctx.url_store.admit_urls_to_frontier,
+            ctx.url_store.schedule_urls_for_crawl,
             valid_urls,
             admission_intent=admission_intent,
             discovery_depth=discovery_depth,

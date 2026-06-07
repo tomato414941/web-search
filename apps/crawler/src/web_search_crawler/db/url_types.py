@@ -4,14 +4,14 @@ from dataclasses import dataclass
 
 
 @dataclass
-class UrlItem:
+class CrawlTask:
     url: str
     domain: str
     created_at: int
 
 
 @dataclass
-class FrontierEntry:
+class CrawlScheduleEntry:
     url: str
     domain: str
     canonical_source: str | None

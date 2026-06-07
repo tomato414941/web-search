@@ -12,12 +12,12 @@ class UrlMaintenanceMixin:
     db_path: str
 
     def purge_denied_domains(self, denylist: frozenset[str]) -> int:
-        """Delete frontier URLs whose domain matches the denylist.
+        """Delete scheduled crawl tasks whose domain matches the denylist.
 
         Uses subdomain matching: denying 'facebook.com' also removes
         'www.facebook.com', 'm.facebook.com', etc.
 
-        Returns the number of deleted frontier rows.
+        Returns the number of deleted crawl schedule rows.
         """
         if not denylist:
             return 0
@@ -92,7 +92,7 @@ class UrlMaintenanceMixin:
         limit: int = 100,
         domains: tuple[str, ...] = (),
     ) -> list[dict]:
-        """Collect frontier URLs rejected by the current admission policy."""
+        """Collect scheduled crawl URLs rejected by the current admission policy."""
         if limit <= 0:
             return []
 

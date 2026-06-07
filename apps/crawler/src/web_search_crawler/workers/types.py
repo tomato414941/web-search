@@ -7,7 +7,7 @@ import aiohttp
 
 from web_search_crawler.core.url_filters import UrlFilter
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
-from web_search_crawler.frontier_planner import FrontierPlanner
+from web_search_crawler.crawl_task_planner import CrawlTaskPlanner
 from web_search_crawler.services.fetchers import AiohttpFetcher, Fetcher
 from web_search_crawler.utils.robots import AsyncRobotsCache
 from web_search_core.urls import get_domain
@@ -22,7 +22,7 @@ class PipelineContext:
     robots: AsyncRobotsCache
     url_store: CrawlerRuntimeStore
     url_ledger: UrlLedgerRepository
-    planner: FrontierPlanner
+    planner: CrawlTaskPlanner
     url: str
     domain: str = field(init=False)
     blocked_domains: frozenset[str] = field(default_factory=frozenset)

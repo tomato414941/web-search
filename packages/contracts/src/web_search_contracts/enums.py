@@ -21,7 +21,7 @@ CLAIMABLE_JOB_STATUSES = (IndexJobStatus.PENDING, IndexJobStatus.FAILED_RETRY)
 
 
 class CrawlUrlStatus(StrEnum):
-    """Crawler URL frontier lifecycle statuses."""
+    """Crawler URL lifecycle statuses."""
 
     PENDING = "pending"
     CRAWLING = "crawling"

@@ -1,4 +1,4 @@
-"""Durable frontier operations for crawl planning."""
+"""Durable crawl schedule operations."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import uuid
 from psycopg2.errors import DeadlockDetected, SerializationFailure
 
 from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.url_types import UrlItem
+from web_search_crawler.db.url_types import CrawlTask
 from web_search_core.urls import url_hash
 from web_search_crawler.services.crawl_policy import (
     POLICIES,
@@ -16,20 +16,22 @@ from web_search_crawler.services.crawl_policy import (
     compute_failure_retry_delay,
     compute_success_recrawl_delay,
 )
-from web_search_crawler.services.frontier_budget import allocate_frontier_tier_budgets
+from web_search_crawler.services.crawl_task_budget import (
+    allocate_crawl_task_tier_budgets,
+)
 from web_search_postgres.search import sql_placeholder
 
-_FRONTIER_RETRY_LIMIT = 2
-_FRONTIER_RETRY_BASE_SEC = 0.05
+_CRAWL_SCHEDULE_RETRY_LIMIT = 2
+_CRAWL_SCHEDULE_RETRY_BASE_SEC = 0.05
 
 
-class UrlFrontierMixin:
-    """Mixin for durable frontier leasing and completion updates."""
+class CrawlScheduleMixin:
+    """Mixin for durable crawl task leasing and completion updates."""
 
     db_path: str
     recrawl_threshold: int
 
-    def _reconcile_expired_frontier_leases(self, cur, *, now: int) -> int:
+    def _reconcile_expired_crawl_task_leases(self, cur, *, now: int) -> int:
         """Return expired leases to pending and fix inflight counts."""
         ph = sql_placeholder()
         cur.execute(
@@ -69,7 +71,7 @@ class UrlFrontierMixin:
             )
         return len(expired_domains)
 
-    def _select_ready_frontier_candidates(
+    def _select_ready_crawl_candidates(
         self,
         cur,
         *,
@@ -78,21 +80,21 @@ class UrlFrontierMixin:
         max_per_domain: int,
         crawl_profiles: tuple[str, ...] | None = None,
     ) -> list[tuple]:
-        """Select ready frontier candidates from the durable frontier."""
+        """Select ready crawl task candidates from the durable schedule."""
         ph = sql_placeholder()
         where_clauses = [
-            "frontier.status = 'pending'",
-            f"frontier.next_fetch_at <= {ph}",
+            "task.status = 'pending'",
+            f"task.next_fetch_at <= {ph}",
             (
                 "(\n"
-                "                  frontier.lease_expires_at IS NULL\n"
-                f"                  OR frontier.lease_expires_at <= {ph}\n"
+                "                  task.lease_expires_at IS NULL\n"
+                f"                  OR task.lease_expires_at <= {ph}\n"
                 "              )"
             ),
         ]
         params: list[object] = [now, now]
         if crawl_profiles:
-            where_clauses.append(f"frontier.crawl_profile = ANY({ph})")
+            where_clauses.append(f"task.crawl_profile = ANY({ph})")
             params.append(list(crawl_profiles))
         params.extend([now, now, max(0, max_per_domain), overscan])
         cur.execute(
@@ -104,39 +106,39 @@ class UrlFrontierMixin:
                 GROUP BY domain
             )
             SELECT
-                frontier.url_hash,
-                frontier.url,
-                frontier.domain,
-                frontier.discovered_at,
-                frontier.priority_bucket,
-                frontier.priority_score,
-                frontier.next_fetch_at,
+                task.url_hash,
+                task.url,
+                task.domain,
+                task.discovered_at,
+                task.priority_bucket,
+                task.priority_score,
+                task.next_fetch_at,
                 COALESCE(active_leases.leased, 0),
                 COALESCE(domain_state.next_request_at, 0),
                 COALESCE(domain_state.backoff_until, 0)
-            FROM frontier_entries AS frontier
-            LEFT JOIN domain_state ON domain_state.domain = frontier.domain
-            LEFT JOIN active_leases ON active_leases.domain = frontier.domain
+            FROM frontier_entries AS task
+            LEFT JOIN domain_state ON domain_state.domain = task.domain
+            LEFT JOIN active_leases ON active_leases.domain = task.domain
             WHERE {" AND ".join(where_clauses)}
               AND COALESCE(domain_state.next_request_at, 0) <= {ph}
               AND COALESCE(domain_state.backoff_until, 0) <= {ph}
               AND COALESCE(active_leases.leased, 0) < {ph}
             ORDER BY
-                frontier.priority_bucket ASC,
-                frontier.priority_score DESC,
-                frontier.next_fetch_at ASC,
-                frontier.last_success_at ASC NULLS FIRST,
-                frontier.discovered_at ASC,
-                frontier.url_hash ASC
+                task.priority_bucket ASC,
+                task.priority_score DESC,
+                task.next_fetch_at ASC,
+                task.last_success_at ASC NULLS FIRST,
+                task.discovered_at ASC,
+                task.url_hash ASC
             LIMIT {ph}
-            FOR UPDATE OF frontier SKIP LOCKED
+            FOR UPDATE OF task SKIP LOCKED
             """,
             params,
         )
         return cur.fetchall()
 
     @staticmethod
-    def _choose_frontier_candidates(
+    def _choose_crawl_candidates(
         candidates: list[tuple],
         *,
         now: int,
@@ -162,7 +164,7 @@ class UrlFrontierMixin:
                 break
         return selected
 
-    def _mark_frontier_entries_leased(
+    def _mark_crawl_tasks_leased(
         self,
         cur,
         *,
@@ -171,7 +173,7 @@ class UrlFrontierMixin:
         lease_expires_at: int,
         now: int,
     ) -> None:
-        """Move selected frontier rows into leased state."""
+        """Move selected crawl task rows into leased state."""
         if not selected:
             return
         ph = sql_placeholder()
@@ -196,7 +198,7 @@ class UrlFrontierMixin:
                 now=now,
             )
 
-    def _lease_frontier_candidates(
+    def _lease_crawl_candidates(
         self,
         cur,
         *,
@@ -212,21 +214,21 @@ class UrlFrontierMixin:
             return []
 
         overscan = max(count * max_per_domain * 6, count * 2)
-        candidates = self._select_ready_frontier_candidates(
+        candidates = self._select_ready_crawl_candidates(
             cur,
             now=now,
             overscan=overscan,
             max_per_domain=max_per_domain,
             crawl_profiles=crawl_profiles,
         )
-        selected = self._choose_frontier_candidates(
+        selected = self._choose_crawl_candidates(
             candidates,
             now=now,
             count=count,
             max_per_domain=max_per_domain,
         )
         if selected:
-            self._mark_frontier_entries_leased(
+            self._mark_crawl_tasks_leased(
                 cur,
                 selected=selected,
                 lease_token=lease_token,
@@ -235,7 +237,7 @@ class UrlFrontierMixin:
             )
         return selected
 
-    def _update_frontier_entry_after_result(
+    def _update_crawl_task_after_result(
         self,
         cur,
         *,
@@ -247,7 +249,7 @@ class UrlFrontierMixin:
         next_fail_streak: int,
         now: int,
     ) -> int:
-        """Persist the frontier row transition after a crawl attempt."""
+        """Persist the crawl task transition after a crawl attempt."""
         ph = sql_placeholder()
         cur.execute(
             f"""
@@ -280,37 +282,37 @@ class UrlFrontierMixin:
         )
         return cur.rowcount
 
-    def reconcile_expired_frontier_leases(self) -> int:
-        """Return expired leased frontier entries back to pending."""
+    def reconcile_expired_crawl_task_leases(self) -> int:
+        """Return expired leased crawl tasks back to pending."""
         now = int(time.time())
         with db_transaction(self.db_path) as cur:
-            return self._reconcile_expired_frontier_leases(cur, now=now)
+            return self._reconcile_expired_crawl_task_leases(cur, now=now)
 
-    def pop_frontier_batch(
+    def lease_ready_crawl_tasks(
         self,
         count: int,
         *,
         max_per_domain: int = 3,
         lease_seconds: int = 300,
-    ) -> list[UrlItem]:
-        """Lease ready frontier entries with basic domain diversity."""
+    ) -> list[CrawlTask]:
+        """Lease ready crawl tasks with basic domain diversity."""
         if count <= 0:
             return []
         now = int(time.time())
         lease_token = uuid.uuid4().hex
         lease_expires_at = now + max(1, lease_seconds)
         selected: list[tuple] = []
-        for attempt in range(_FRONTIER_RETRY_LIMIT + 1):
+        for attempt in range(_CRAWL_SCHEDULE_RETRY_LIMIT + 1):
             try:
                 selected = []
                 with db_transaction(self.db_path) as cur:
-                    self._reconcile_expired_frontier_leases(cur, now=now)
-                    for tier_budget in allocate_frontier_tier_budgets(count):
+                    self._reconcile_expired_crawl_task_leases(cur, now=now)
+                    for tier_budget in allocate_crawl_task_tier_budgets(count):
                         remaining = count - len(selected)
                         if remaining <= 0:
                             break
                         selected.extend(
-                            self._lease_frontier_candidates(
+                            self._lease_crawl_candidates(
                                 cur,
                                 now=now,
                                 count=min(tier_budget.leases, remaining),
@@ -324,7 +326,7 @@ class UrlFrontierMixin:
                     remaining = count - len(selected)
                     if remaining > 0:
                         selected.extend(
-                            self._lease_frontier_candidates(
+                            self._lease_crawl_candidates(
                                 cur,
                                 now=now,
                                 count=remaining,
@@ -335,25 +337,25 @@ class UrlFrontierMixin:
                         )
                 break
             except (DeadlockDetected, SerializationFailure):
-                if attempt >= _FRONTIER_RETRY_LIMIT:
+                if attempt >= _CRAWL_SCHEDULE_RETRY_LIMIT:
                     raise
-                time.sleep(_FRONTIER_RETRY_BASE_SEC * (attempt + 1))
+                time.sleep(_CRAWL_SCHEDULE_RETRY_BASE_SEC * (attempt + 1))
 
         if not selected:
             return []
 
         return [
-            UrlItem(url=row[1], domain=row[2], created_at=row[3]) for row in selected
+            CrawlTask(url=row[1], domain=row[2], created_at=row[3]) for row in selected
         ]
 
-    def release_frontier_urls(
+    def release_crawl_tasks(
         self,
         urls: list[str],
         *,
         delay_seconds: int = 0,
         prefer_earlier: bool = False,
     ) -> int:
-        """Release leased frontier entries back to pending."""
+        """Release leased crawl tasks back to pending."""
         if not urls:
             return 0
         now = int(time.time())
@@ -400,8 +402,8 @@ class UrlFrontierMixin:
                 )
             return updated
 
-    def record_frontier_result(self, url: str, status: str) -> None:
-        """Persist frontier completion state and next eligible fetch time."""
+    def record_crawl_task_result(self, url: str, status: str) -> None:
+        """Persist crawl task completion state and next eligible fetch time."""
         now = int(time.time())
         h = url_hash(url)
         is_success = status == "done"
@@ -464,7 +466,7 @@ class UrlFrontierMixin:
                 next_fail_streak = fail_streak + 1
                 last_success_at = None
 
-            self._update_frontier_entry_after_result(
+            self._update_crawl_task_after_result(
                 cur,
                 url_hash_value=h,
                 status=status,

@@ -57,7 +57,7 @@ async def precheck(
             **timing_kwargs(CrawlStageTimings(precheck_ms=elapsed, total_ms=elapsed)),
         )
         await run_in_db_executor(
-            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
+            ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.FAILED
         )
         return "blocked"
 
@@ -71,7 +71,7 @@ async def precheck(
             **timing_kwargs(CrawlStageTimings(precheck_ms=elapsed, total_ms=elapsed)),
         )
         await run_in_db_executor(
-            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
+            ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.FAILED
         )
         return "url_too_long"
 
@@ -94,7 +94,7 @@ async def precheck(
             ),
         )
         await run_in_db_executor(
-            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
+            ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.FAILED
         )
         return "robots_blocked"
     timings.robots_ms = elapsed_ms(robots_started_at)
@@ -119,7 +119,7 @@ async def precheck(
             ),
         )
         await run_in_db_executor(
-            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
+            ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.FAILED
         )
         return "ssrf_blocked"
     timings.ssrf_ms = elapsed_ms(ssrf_started_at)
@@ -168,7 +168,7 @@ async def process_fetch_result(
             **timing_kwargs(timings),
         )
         await run_in_db_executor(
-            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
+            ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.FAILED
         )
         return PipelineProcessResult(
             status="failed", message=result.error, timings=timings
@@ -205,7 +205,7 @@ async def process_fetch_result(
             **timing_kwargs(timings),
         )
         await run_in_db_executor(
-            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.DONE
+            ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.DONE
         )
         return PipelineProcessResult(status="skipped", message=message, timings=timings)
 
@@ -228,7 +228,7 @@ async def process_fetch_result(
         **timing_kwargs(timings),
     )
     await run_in_db_executor(
-        ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
+        ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.FAILED
     )
     return PipelineProcessResult(
         status="failed",

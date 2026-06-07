@@ -26,7 +26,7 @@ class CrawlerSettings(InfrastructureSettings):
 
     # Auto-start crawl workers on service startup
     CRAWL_AUTO_START: bool = False
-    FRONTIER_MAINTENANCE_REFRESH_SEC: int = 60
+    CRAWL_SCHEDULE_MAINTENANCE_REFRESH_SEC: int = 60
 
     # Recrawl settings
     CRAWL_RECRAWL_AFTER_DAYS: int = 30
@@ -39,28 +39,10 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_OUTLINKS_PER_PAGE: int = 50
     CRAWL_CONCURRENCY: int = 10
 
-    # Frontier planner
-    FRONTIER_PLANNER_BATCH_SIZE: int = Field(
-        default=500,
-        validation_alias=AliasChoices(
-            "FRONTIER_PLANNER_BATCH_SIZE",
-            "SCHEDULER_BATCH_SIZE",
-        ),
-    )
-    FRONTIER_PLANNER_DOMAIN_MAX_CONCURRENT: int = Field(
-        default=2,
-        validation_alias=AliasChoices(
-            "FRONTIER_PLANNER_DOMAIN_MAX_CONCURRENT",
-            "SCHEDULER_DOMAIN_MAX_CONCURRENT",
-        ),
-    )
-    FRONTIER_PLANNER_LEASE_SECONDS: int = Field(
-        default=300,
-        validation_alias=AliasChoices(
-            "FRONTIER_PLANNER_LEASE_SECONDS",
-            "SCHEDULER_LEASE_SECONDS",
-        ),
-    )
+    # Crawl task planner
+    CRAWL_TASK_PLANNER_BATCH_SIZE: int = 500
+    CRAWL_TASK_PLANNER_DOMAIN_MAX_CONCURRENT: int = 2
+    CRAWL_TASK_PLANNER_LEASE_SECONDS: int = 300
 
     # TCP / networking
     CRAWL_TCP_LIMIT: int = 50
@@ -76,7 +58,7 @@ class CrawlerSettings(InfrastructureSettings):
     URL_FILTERS_PATH: str = str(_DATA_DIR / "url_filters.yml")
     URL_ADMISSION_RULES_PATH: str = str(_DATA_DIR / "url_admission_rules.yml")
 
-    # Robots block filter (skip frontier admission for frequently blocked domains)
+    # Robots block filter (skip crawl scheduling for frequently blocked domains)
     CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = 24
     CRAWL_ROBOTS_BLOCK_MIN_COUNT: int = 3
 

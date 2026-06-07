@@ -9,7 +9,7 @@ from web_search_crawler.services.indexer import (
     IndexerSubmitResult,
     submit_page_to_indexer,
 )
-from web_search_crawler.services.url_discovery import admit_discovered_urls
+from web_search_crawler.services.crawl_schedule_admission import admit_discovered_urls
 from web_search_crawler.utils import history as history_log
 from web_search_crawler.utils.parser import parse_page
 from web_search_crawler.workers.timing import elapsed_ms, timing_kwargs
@@ -93,7 +93,7 @@ async def process_html_result(
                 **timing_kwargs(timings),
             )
             await run_in_db_executor(
-                ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.DONE
+                ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.DONE
             )
             return PipelineProcessResult(
                 status="queued_for_index",
@@ -113,7 +113,7 @@ async def process_html_result(
             **timing_kwargs(timings),
         )
         await run_in_db_executor(
-            ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.FAILED
+            ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.FAILED
         )
         return PipelineProcessResult(
             status="failed",
@@ -134,7 +134,7 @@ async def process_html_result(
         **timing_kwargs(timings),
     )
     await run_in_db_executor(
-        ctx.url_store.record_frontier_result, ctx.url, CrawlUrlStatus.DONE
+        ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.DONE
     )
     return PipelineProcessResult(
         status="skipped",

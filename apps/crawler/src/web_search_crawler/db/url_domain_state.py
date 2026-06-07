@@ -61,7 +61,7 @@ class DomainSchedulingStateStore:
         )
 
     def reconcile_inflight_leases(self, cur, *, now: int) -> int:
-        """Repair drift between domain_state.inflight_leases and frontier leases."""
+        """Repair drift between domain_state.inflight_leases and crawl task leases."""
         ph = sql_placeholder()
         cur.execute(
             f"""

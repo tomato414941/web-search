@@ -1,8 +1,8 @@
-"""URL read-only queries: frontier entry inspection."""
+"""Crawler runtime read-only queries."""
 
 from web_search_crawler.services.crawl_policy import POLICIES
 from web_search_crawler.db.connection import db_connection
-from web_search_crawler.db.url_types import FrontierEntry
+from web_search_crawler.db.url_types import CrawlScheduleEntry
 from web_search_core.urls import url_hash
 from web_search_postgres.search import sql_placeholder
 
@@ -23,8 +23,8 @@ class UrlQueriesMixin:
     db_path: str
     recrawl_threshold: int
 
-    def get_frontier_entry(self, url: str) -> FrontierEntry | None:
-        """Return frontier metadata for a URL, if present."""
+    def get_crawl_schedule_entry(self, url: str) -> CrawlScheduleEntry | None:
+        """Return crawl schedule metadata for a URL, if present."""
         h = url_hash(url)
         ph = sql_placeholder()
         with db_connection(self.db_path) as cur:
@@ -40,7 +40,7 @@ class UrlQueriesMixin:
             row = cur.fetchone()
             if row is None:
                 return None
-            return FrontierEntry(
+            return CrawlScheduleEntry(
                 url=row[0],
                 domain=row[1],
                 canonical_source=row[2],

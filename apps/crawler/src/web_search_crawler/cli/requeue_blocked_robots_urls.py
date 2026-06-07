@@ -154,7 +154,7 @@ else:
     for url in ordered_urls:
         if url in force_urls and url not in existing_force_urls:
             url_ledger.record_discovered_url(url)
-            inserted = store.admit_url_to_frontier(url)
+            inserted = store.schedule_url_for_crawl(url)
         else:
             inserted = store.requeue(url)
         if inserted:

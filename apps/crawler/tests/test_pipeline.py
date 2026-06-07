@@ -62,7 +62,7 @@ class TestPrecheck:
     @pytest.mark.asyncio
     async def test_blocked_domain_returns_reason(self):
         ctx = _make_ctx(blocked_domains=frozenset({"example.com"}))
-        ctx.url_store.record_frontier_result = MagicMock()
+        ctx.url_store.record_crawl_task_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -73,7 +73,7 @@ class TestPrecheck:
     @pytest.mark.asyncio
     async def test_url_too_long_returns_reason(self):
         ctx = _make_ctx(url="http://example.com/" + "x" * 10000)
-        ctx.url_store.record_frontier_result = MagicMock()
+        ctx.url_store.record_crawl_task_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -85,7 +85,7 @@ class TestPrecheck:
     async def test_robots_blocked(self):
         ctx = _make_ctx()
         ctx.robots.can_fetch = AsyncMock(return_value=False)
-        ctx.url_store.record_frontier_result = MagicMock()
+        ctx.url_store.record_crawl_task_result = MagicMock()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
@@ -98,7 +98,7 @@ class TestPrecheck:
         ctx = _make_ctx()
         ctx.robots.can_fetch = AsyncMock(return_value=True)
         ctx.robots.get_crawl_delay = MagicMock(return_value=None)
-        ctx.url_store.record_frontier_result = MagicMock()
+        ctx.url_store.record_crawl_task_result = MagicMock()
         with (
             patch(
                 "web_search_crawler.workers.pipeline.run_in_db_executor",
@@ -249,10 +249,12 @@ class TestProcessFetchResult:
     async def test_feed_autodiscovery_uses_depth_zero(self):
         ctx = _make_ctx()
         with patch(
-            "web_search_crawler.services.url_discovery.run_in_db_executor",
+            "web_search_crawler.services.crawl_schedule_admission.run_in_db_executor",
             new_callable=AsyncMock,
         ) as mock_db:
-            from web_search_crawler.services.url_discovery import admit_discovered_urls
+            from web_search_crawler.services.crawl_schedule_admission import (
+                admit_discovered_urls,
+            )
 
             await admit_discovered_urls(
                 ctx,
@@ -265,7 +267,7 @@ class TestProcessFetchResult:
             ["https://example.com/news/rss.xml"],
         )
         assert mock_db.await_args_list[1].args == (
-            ctx.url_store.admit_urls_to_frontier,
+            ctx.url_store.schedule_urls_for_crawl,
             ["https://example.com/news/rss.xml"],
         )
         assert mock_db.await_args_list[1].kwargs == {

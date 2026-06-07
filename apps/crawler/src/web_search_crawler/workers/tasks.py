@@ -16,9 +16,9 @@ from cachetools import TTLCache
 from web_search_crawler.db.executor import run_in_db_executor
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
-from web_search_crawler.frontier_planner import FrontierPlanner
+from web_search_crawler.crawl_task_planner import CrawlTaskPlanner
 from web_search_crawler.services.crawl_runtime import (
-    build_frontier_planner,
+    build_crawl_task_planner,
     build_crawler_runtime_store,
     build_url_ledger_repository,
     load_static_crawl_config,
@@ -65,7 +65,7 @@ async def process_url(
     robots: AsyncRobotsCache,
     url_store: CrawlerRuntimeStore,
     url_ledger: UrlLedgerRepository,
-    planner: FrontierPlanner,
+    planner: CrawlTaskPlanner,
     url: str,
     runtime_state: WorkerRuntimeState | None = None,
     indexer_session: aiohttp.ClientSession | None = None,
@@ -127,7 +127,7 @@ async def process_url(
             error_message=str(e),
         )
         await run_in_db_executor(
-            url_store.record_frontier_result, url, CrawlUrlStatus.FAILED
+            url_store.record_crawl_task_result, url, CrawlUrlStatus.FAILED
         )
 
 
@@ -164,11 +164,11 @@ async def _handle_retry(
             **timing_kwargs,
         )
         await run_in_db_executor(
-            url_store.record_frontier_result, url, CrawlUrlStatus.FAILED
+            url_store.record_crawl_task_result, url, CrawlUrlStatus.FAILED
         )
         runtime_state.retry_counts.pop(url, None)
     else:
-        # Re-release the leased frontier entry for retry
+        # Re-release the leased crawl task for retry
         await run_in_db_executor(url_store.requeue, url)
         await run_in_db_executor(
             history_log.log_crawl_attempt,
@@ -187,7 +187,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
         concurrency: Number of concurrent crawl tasks
         active_counter: Optional ActiveTaskCounter shared with WorkerService
 
-    Fetches batches of URLs from different domains via the frontier planner and
+    Fetches batches of URLs from different domains via the crawl task planner and
     dispatches them concurrently, maximising throughput across domains.
     """
     from web_search_crawler.services.worker import ActiveTaskCounter
@@ -202,8 +202,8 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
 
     url_store = build_crawler_runtime_store()
     url_ledger = build_url_ledger_repository()
-    planner = build_frontier_planner(
-        url_store, batch_size=settings.FRONTIER_PLANNER_BATCH_SIZE
+    planner = build_crawl_task_planner(
+        url_store, batch_size=settings.CRAWL_TASK_PLANNER_BATCH_SIZE
     )
     static_denylist, url_filter = load_static_crawl_config(planner)
     logger.info("Static crawler denylist: %d domains", len(static_denylist))
