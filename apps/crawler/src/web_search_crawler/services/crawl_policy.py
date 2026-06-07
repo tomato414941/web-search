@@ -5,9 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from web_search_search_config.canonical_sources import load_canonical_source_configs
-
-_CANONICAL_SOURCES = load_canonical_source_configs()
 _NEWS_PATH_TERMS = (
     "/news",
     "/blog",
@@ -28,6 +25,7 @@ _RELEASE_NOTES_PATH_TERMS = (
 )
 _BLOG_PATH_TERMS = ("/blog", "/blogs")
 _NEWS_ROOT_PATH_TERMS = ("/news", "/announcements")
+_REFERENCE_PATH_TERMS = ("/docs", "/doc", "/documentation", "/reference", "/api")
 _ROOTISH_PATHS = frozenset(("", "/"))
 _OPERATOR_PRIORITY_BUCKET = 0
 _OPERATOR_PRIORITY_SCORE = 200.0
@@ -76,8 +74,8 @@ POLICIES: dict[str, CrawlPolicy] = {
         failure_retry_delay_sec=60 * 60,
         host_min_interval_sec=1.0,
     ),
-    "canonical_docs": CrawlPolicy(
-        name="canonical_docs",
+    "reference_docs": CrawlPolicy(
+        name="reference_docs",
         priority_bucket=1,
         priority_score_boost=100.0,
         base_recrawl_interval_sec=7 * 24 * 3600,
@@ -103,54 +101,21 @@ POLICIES: dict[str, CrawlPolicy] = {
 }
 
 
-def _match_configured_source_kind(url: str) -> str | None:
-    parsed = urlparse(url)
-    host = (parsed.hostname or "").lower()
-    path = parsed.path or "/"
-    for source in _CANONICAL_SOURCES:
-        if not any(
-            host == domain or host == f"www.{domain}" or host.endswith(f".{domain}")
-            for domain in source.domains
-        ):
-            continue
-        if source.news_paths and any(
-            path == prefix or path.startswith(prefix.rstrip("/") + "/")
-            for prefix in source.news_paths
-        ):
-            return "news"
-        if source.preferred_paths and any(
-            path == prefix or path.startswith(prefix.rstrip("/") + "/")
-            for prefix in source.preferred_paths
-        ):
-            return "docs"
-        if source.default_class == "news":
-            return "news"
-        return "docs"
-    return None
-
-
 def _classify_url_policy_name(url: str) -> str:
     parsed = urlparse(url)
     path = (parsed.path or "/").lower()
-    configured_source_kind = _match_configured_source_kind(url)
     segments = tuple(segment for segment in path.strip("/").split("/") if segment)
 
     if any(term in path for term in _RELEASE_NOTES_PATH_TERMS):
         return "release_notes"
-    if configured_source_kind == "news":
-        if _is_blog_root_path(path, segments):
-            return "blog_root"
-        if _is_news_root_path(path, segments):
-            return "news_root"
-        return "article"
-    if configured_source_kind == "docs":
-        return "canonical_docs"
     if any(term in path for term in _NEWS_PATH_TERMS):
         if _is_blog_root_path(path, segments):
             return "blog_root"
         if _is_news_root_path(path, segments):
             return "news_root"
         return "article"
+    if any(_is_exact_or_child_path(path, prefix) for prefix in _REFERENCE_PATH_TERMS):
+        return "reference_docs"
     return "generic"
 
 

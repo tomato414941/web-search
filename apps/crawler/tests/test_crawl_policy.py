@@ -11,7 +11,7 @@ def test_assign_crawl_policy_applies_operator_priority_without_changing_policy()
         admission_intent="operator_priority",
     )
 
-    assert assignment.policy_name == "canonical_docs"
+    assert assignment.policy_name == "reference_docs"
     assert assignment.priority_bucket == 0
     assert assignment.priority_score == 200.0
 
@@ -25,12 +25,12 @@ def test_assign_crawl_policy_marks_release_notes_paths():
     assert assignment.priority_bucket == 1
 
 
-def test_assign_crawl_policy_marks_canonical_docs_paths():
+def test_assign_crawl_policy_marks_reference_docs_paths():
     assignment = assign_crawl_policy(
         "https://docs.docker.com/reference/cli/docker/",
     )
 
-    assert assignment.policy_name == "canonical_docs"
+    assert assignment.policy_name == "reference_docs"
 
 
 def test_assign_crawl_policy_marks_news_root_paths():

@@ -3049,7 +3049,6 @@ dependencies = [
     { name = "web-search-contracts" },
     { name = "web-search-core" },
     { name = "web-search-postgres" },
-    { name = "web-search-search-config" },
 ]
 
 [package.metadata]
@@ -3067,7 +3066,6 @@ requires-dist = [
     { name = "web-search-contracts", editable = "packages/contracts" },
     { name = "web-search-core", editable = "packages/core" },
     { name = "web-search-postgres", editable = "packages/postgres" },
-    { name = "web-search-search-config", editable = "packages/search-config" },
 ]
 
 [[package]]
