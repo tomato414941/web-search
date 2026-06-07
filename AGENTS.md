@@ -9,7 +9,7 @@ This repo is a Python microservices stack (CQRS-lite: read and write paths are s
 The source-of-truth layout is:
 - `apps/frontend/` FastAPI UI + read-only search API
 - `apps/indexer/` write-node for ingestion, tokenization, signal computation, and OpenSearch sync
-- `apps/crawler/` distributed crawler workers and API
+- `apps/crawler/` distributed crawler workers and health probes
 - `packages/contracts/` typed service contracts and shared enums
 - `packages/core/` runtime helpers, config, logging, retries, and test helpers
 - `packages/postgres/` PostgreSQL access, migrations, and repositories
