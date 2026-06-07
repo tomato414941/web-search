@@ -259,12 +259,18 @@ class TestProcessFetchResult:
                 discovery_depth=0,
             )
 
-        mock_db.assert_awaited_once_with(
-            ctx.url_store.discover_and_admit_urls,
+        assert mock_db.await_args_list[0].args == (
+            ctx.url_store.record_discovered_urls,
             ["https://example.com/news/rss.xml"],
-            admission_intent="normal",
-            discovery_depth=0,
         )
+        assert mock_db.await_args_list[1].args == (
+            ctx.url_store.admit_urls_to_frontier,
+            ["https://example.com/news/rss.xml"],
+        )
+        assert mock_db.await_args_list[1].kwargs == {
+            "admission_intent": "normal",
+            "discovery_depth": 0,
+        }
 
     @pytest.mark.asyncio
     async def test_feed_xml_queues_synthetic_entries(self):

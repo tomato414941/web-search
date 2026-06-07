@@ -32,7 +32,11 @@ async def admit_discovered_urls(
 
     if valid_urls:
         await run_in_db_executor(
-            ctx.url_store.discover_and_admit_urls,
+            ctx.url_store.record_discovered_urls,
+            valid_urls,
+        )
+        await run_in_db_executor(
+            ctx.url_store.admit_urls_to_frontier,
             valid_urls,
             admission_intent=admission_intent,
             discovery_depth=discovery_depth,
