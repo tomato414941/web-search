@@ -42,11 +42,7 @@ class CrawlPolicy:
     priority_score_boost: float
     base_recrawl_interval_sec: int
     failure_retry_delay_sec: int
-    max_outlinks: int
-    host_concurrency_limit: int
     host_min_interval_sec: float
-    retry_budget: int
-    discovery_depth_limit: int
 
 
 @dataclass(frozen=True)
@@ -66,11 +62,7 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_score_boost=120.0,
         base_recrawl_interval_sec=4 * 3600,
         failure_retry_delay_sec=30 * 60,
-        max_outlinks=40,
-        host_concurrency_limit=2,
         host_min_interval_sec=1.0,
-        retry_budget=3,
-        discovery_depth_limit=2,
     ),
     "news_root": CrawlPolicy(
         name="news_root",
@@ -80,11 +72,7 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_score_boost=110.0,
         base_recrawl_interval_sec=4 * 3600,
         failure_retry_delay_sec=30 * 60,
-        max_outlinks=40,
-        host_concurrency_limit=2,
         host_min_interval_sec=1.0,
-        retry_budget=3,
-        discovery_depth_limit=2,
     ),
     "blog_root": CrawlPolicy(
         name="blog_root",
@@ -94,11 +82,7 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_score_boost=90.0,
         base_recrawl_interval_sec=8 * 3600,
         failure_retry_delay_sec=60 * 60,
-        max_outlinks=40,
-        host_concurrency_limit=2,
         host_min_interval_sec=1.0,
-        retry_budget=3,
-        discovery_depth_limit=2,
     ),
     "canonical_docs": CrawlPolicy(
         name="canonical_docs",
@@ -108,11 +92,7 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_score_boost=100.0,
         base_recrawl_interval_sec=7 * 24 * 3600,
         failure_retry_delay_sec=6 * 3600,
-        max_outlinks=50,
-        host_concurrency_limit=2,
         host_min_interval_sec=1.0,
-        retry_budget=3,
-        discovery_depth_limit=3,
     ),
     "article": CrawlPolicy(
         name="article",
@@ -122,11 +102,7 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_score_boost=40.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
         failure_retry_delay_sec=24 * 3600,
-        max_outlinks=20,
-        host_concurrency_limit=2,
         host_min_interval_sec=1.0,
-        retry_budget=3,
-        discovery_depth_limit=2,
     ),
     "generic": CrawlPolicy(
         name="generic",
@@ -136,11 +112,7 @@ POLICIES: dict[str, CrawlPolicy] = {
         priority_score_boost=0.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
         failure_retry_delay_sec=3 * 24 * 3600,
-        max_outlinks=20,
-        host_concurrency_limit=2,
         host_min_interval_sec=1.0,
-        retry_budget=3,
-        discovery_depth_limit=2,
     ),
 }
 
