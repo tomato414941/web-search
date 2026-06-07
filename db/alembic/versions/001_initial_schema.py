@@ -185,9 +185,6 @@ def upgrade() -> None:
             fail_streak INTEGER NOT NULL DEFAULT 0,
             lease_token TEXT,
             lease_expires_at INTEGER,
-            etag TEXT,
-            last_modified TEXT,
-            content_hash TEXT,
             updated_at INTEGER NOT NULL
         )
     """)
