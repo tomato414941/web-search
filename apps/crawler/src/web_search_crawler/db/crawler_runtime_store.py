@@ -1,9 +1,4 @@
-"""
-Crawler Runtime Store - Discovery Ledger + Frontier
-
-urls table: ledger of known URLs.
-frontier_entries table: durable crawl frontier.
-"""
+"""Crawler runtime store for frontier and scheduling state."""
 
 import time
 
@@ -30,9 +25,8 @@ class CrawlerRuntimeStore(
     UrlMaintenanceMixin,
 ):
     """
-    Crawler runtime storage backed by a URL ledger and durable frontier.
+    Crawler runtime storage backed by a durable frontier.
 
-    urls: known URLs.
     frontier_entries: active pending/leased crawl candidates.
     """
 

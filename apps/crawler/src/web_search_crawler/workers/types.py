@@ -7,6 +7,7 @@ import aiohttp
 
 from web_search_crawler.core.url_filters import UrlFilter
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
+from web_search_crawler.db.url_ledger import UrlLedgerStore
 from web_search_crawler.db.url_types import get_domain
 from web_search_crawler.frontier_planner import FrontierPlanner
 from web_search_crawler.services.fetchers import AiohttpFetcher, Fetcher
@@ -20,6 +21,7 @@ class PipelineContext:
     session: aiohttp.ClientSession
     robots: AsyncRobotsCache
     url_store: CrawlerRuntimeStore
+    url_ledger: UrlLedgerStore
     planner: FrontierPlanner
     url: str
     domain: str = field(init=False)

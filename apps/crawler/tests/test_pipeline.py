@@ -48,6 +48,7 @@ def _make_ctx(**overrides) -> PipelineContext:
         session=MagicMock(),
         robots=MagicMock(),
         url_store=MagicMock(),
+        url_ledger=MagicMock(),
         planner=MagicMock(),
         url="http://example.com/page",
         blocked_domains=frozenset(),
@@ -260,7 +261,7 @@ class TestProcessFetchResult:
             )
 
         assert mock_db.await_args_list[0].args == (
-            ctx.url_store.record_discovered_urls,
+            ctx.url_ledger.record_discovered_urls,
             ["https://example.com/news/rss.xml"],
         )
         assert mock_db.await_args_list[1].args == (
@@ -323,7 +324,7 @@ class TestProcessFetchResult:
         assert outcome.outlinks_discovered == 2
         assert mock_submit.await_count == 2
         mock_db.assert_any_await(
-            ctx.url_store.record_discovered_urls,
+            ctx.url_ledger.record_discovered_urls,
             [
                 "https://openai.com/index/our-approach-to-the-model-spec",
                 "https://openai.com/index/safety-bug-bounty",

@@ -82,7 +82,7 @@ async def process_feed_result(
     entry_urls = [entry.url for entry in entries]
     if entry_urls:
         await run_in_db_executor(
-            ctx.url_store.record_discovered_urls,
+            ctx.url_ledger.record_discovered_urls,
             entry_urls,
         )
 

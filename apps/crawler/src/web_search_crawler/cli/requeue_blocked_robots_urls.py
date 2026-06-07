@@ -51,6 +51,8 @@ import json
 
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
+from web_search_crawler.db.url_ledger import UrlLedgerStore
+from web_search_crawler.services.url_admission import load_url_admission_policy
 from web_search_postgres.search import get_connection, sql_placeholder
 
 payload = json.loads({payload_literal!r})
@@ -64,6 +66,10 @@ scan_candidates = bool(payload["scan_candidates"])
 store = CrawlerRuntimeStore(
     settings.CRAWLER_DB_PATH,
     recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
+)
+url_ledger = UrlLedgerStore(
+    settings.CRAWLER_DB_PATH,
+    load_url_admission_policy(settings.URL_ADMISSION_RULES_PATH),
 )
 
 ph = sql_placeholder()
@@ -148,7 +154,7 @@ else:
 
     for url in ordered_urls:
         if url in force_urls and url not in existing_force_urls:
-            store.record_discovered_url(url)
+            url_ledger.record_discovered_url(url)
             inserted = store.admit_url_to_frontier(url)
         else:
             inserted = store.requeue(url)

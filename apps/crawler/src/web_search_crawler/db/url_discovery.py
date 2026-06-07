@@ -1,4 +1,4 @@
-"""URL discovery ledger operations and frontier admission."""
+"""Frontier admission for discovered URLs."""
 
 import logging
 import os
@@ -24,7 +24,7 @@ _FRONTIER_ADMISSION_RETRY_BASE_SEC = float(
 
 
 class UrlDiscoveryMixin:
-    """Mixin for discovered-URL upserts and crawl ledger updates."""
+    """Mixin for admitting discovered URLs to the crawl frontier."""
 
     db_path: str
     recrawl_threshold: int
@@ -71,51 +71,6 @@ class UrlDiscoveryMixin:
                 },
             )
         return sorted(records.values(), key=lambda row: row["h"])
-
-    def _normalize_known_urls(
-        self,
-        urls: list[str],
-    ) -> list[dict[str, Any]]:
-        records: dict[str, dict[str, Any]] = {}
-        for url in urls:
-            if not url:
-                continue
-            decision = self.url_admission_policy.evaluate(url)
-            known_url = decision.normalized_url or url
-            h = url_hash(known_url)
-            records.setdefault(
-                h,
-                {
-                    "h": h,
-                    "url": known_url,
-                    "domain": get_domain(known_url),
-                },
-            )
-        return sorted(records.values(), key=lambda row: row["h"])
-
-    def _insert_urls_batch(self, cur: Any, rows: list[dict[str, Any]], now: int) -> int:
-        if not rows:
-            return 0
-        result = execute_values(
-            cur,
-            """
-            INSERT INTO urls (url_hash, url, domain, created_at)
-            VALUES %s
-            ON CONFLICT (url_hash) DO NOTHING
-            RETURNING url_hash
-            """,
-            [
-                (
-                    row["h"],
-                    row["url"],
-                    row["domain"],
-                    now,
-                )
-                for row in rows
-            ],
-            fetch=True,
-        )
-        return len(result)
 
     def _get_recently_fetched_frontier_hashes(
         self, cur: Any, hashes: list[str], cutoff: int
@@ -224,15 +179,6 @@ class UrlDiscoveryMixin:
             ],
         )
 
-    def _record_discovered_urls_chunk(
-        self,
-        cur: Any,
-        rows: list[dict[str, Any]],
-        *,
-        now: int,
-    ) -> int:
-        return self._insert_urls_batch(cur, rows, now)
-
     def _admit_urls_to_frontier_chunk(
         self,
         cur: Any,
@@ -270,59 +216,6 @@ class UrlDiscoveryMixin:
                 continue
             added += 1
         return added
-
-    def record_discovered_url(
-        self,
-        url: str,
-    ) -> bool:
-        """Record a discovered URL in the urls ledger only."""
-        return (
-            self.record_discovered_urls(
-                [url],
-            )
-            > 0
-        )
-
-    def record_discovered_urls(
-        self,
-        urls: list[str],
-    ) -> int:
-        """Record discovered URLs in the urls ledger without frontier admission."""
-        if not urls:
-            return 0
-        rows = self._normalize_known_urls(urls)
-        if not rows:
-            return 0
-
-        now = int(time.time())
-        chunk_size = max(1, _FRONTIER_ADMISSION_CHUNK_SIZE)
-
-        recorded = 0
-        for chunk in self._chunked(rows, chunk_size):
-            for attempt in range(_FRONTIER_ADMISSION_RETRY_LIMIT + 1):
-                try:
-                    with db_transaction(self.db_path) as cur:
-                        recorded += self._record_discovered_urls_chunk(
-                            cur,
-                            chunk,
-                            now=now,
-                        )
-                    break
-                except (DeadlockDetected, SerializationFailure):
-                    if attempt >= _FRONTIER_ADMISSION_RETRY_LIMIT:
-                        raise
-                    delay = _FRONTIER_ADMISSION_RETRY_BASE_SEC * (attempt + 1)
-                    logger.warning(
-                        "Retrying URL discovery chunk after DB concurrency error "
-                        "(attempt %d/%d, chunk=%d, delay=%.2fs)",
-                        attempt + 1,
-                        _FRONTIER_ADMISSION_RETRY_LIMIT,
-                        len(chunk),
-                        delay,
-                    )
-                    time.sleep(delay)
-
-        return recorded
 
     def admit_url_to_frontier(
         self,

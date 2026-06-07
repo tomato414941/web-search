@@ -16,10 +16,12 @@ from cachetools import TTLCache
 from web_search_crawler.db.executor import run_in_db_executor
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
+from web_search_crawler.db.url_ledger import UrlLedgerStore
 from web_search_crawler.frontier_planner import FrontierPlanner
 from web_search_crawler.services.crawl_runtime import (
     build_frontier_planner,
     build_crawler_runtime_store,
+    build_url_ledger_store,
     load_static_crawl_config,
 )
 from web_search_crawler.utils.robots import AsyncRobotsCache
@@ -62,6 +64,7 @@ async def process_url(
     session: aiohttp.ClientSession,
     robots: AsyncRobotsCache,
     url_store: CrawlerRuntimeStore,
+    url_ledger: UrlLedgerStore,
     planner: FrontierPlanner,
     url: str,
     runtime_state: WorkerRuntimeState | None = None,
@@ -77,6 +80,7 @@ async def process_url(
         indexer_session=indexer_session,
         robots=robots,
         url_store=url_store,
+        url_ledger=url_ledger,
         planner=planner,
         url=url,
         blocked_domains=state.blocked_domains,
@@ -86,7 +90,7 @@ async def process_url(
 
     try:
         await run_in_db_executor(
-            url_store.record_discovered_url,
+            url_ledger.record_discovered_url,
             url,
         )
         outcome = await execute_crawl(
@@ -197,6 +201,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     await run_in_db_executor(history_log.init_db)
 
     url_store = build_crawler_runtime_store()
+    url_ledger = build_url_ledger_store()
     planner = build_frontier_planner(
         url_store, batch_size=settings.FRONTIER_PLANNER_BATCH_SIZE
     )
@@ -256,6 +261,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     session,
                     robots,
                     url_store,
+                    url_ledger,
                     planner,
                     url,
                     runtime_state=state,
