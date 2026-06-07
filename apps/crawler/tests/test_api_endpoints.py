@@ -12,10 +12,6 @@ import pytest
 from web_search_core import background as background_module
 
 
-async def _parked_worker_loop(*args, **kwargs):
-    await asyncio.Event().wait()
-
-
 def test_root_health_endpoint(test_client):
     """Test GET /health endpoint (recommended)"""
     response = test_client.get("/health")
@@ -32,59 +28,9 @@ def test_root_readiness_endpoint(test_client):
     assert "checks" in data
 
 
-def test_worker_start_endpoint(test_client, reset_worker_manager):
-    """Test POST /worker/start endpoint"""
-    with patch(
-        "web_search_crawler.workers.tasks.worker_loop", side_effect=_parked_worker_loop
-    ):
-        response = test_client.post("/worker/start", json={"concurrency": 2})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "started"
-        assert "concurrency=2" in data["message"]
-
-
-def test_worker_start_exceeds_max_concurrency(test_client, reset_worker_manager):
-    """Test POST /worker/start with excessive concurrency"""
-    response = test_client.post("/worker/start", json={"concurrency": 100})
-    assert response.status_code == 400
-    assert "exceeds maximum" in response.json()["detail"]
-
-
-def test_worker_start_already_running(test_client, reset_worker_manager):
-    """Test POST /worker/start when already running"""
-    with patch(
-        "web_search_crawler.workers.tasks.worker_loop", side_effect=_parked_worker_loop
-    ):
-        # Start worker
-        test_client.post("/worker/start", json={"concurrency": 1})
-
-        # Try to start again
-        response = test_client.post("/worker/start", json={"concurrency": 1})
-        assert response.status_code == 400
-        assert "already running" in response.json()["detail"]
-
-
-def test_worker_stop_endpoint(test_client, reset_worker_manager):
-    """Test POST /worker/stop endpoint"""
-    with patch(
-        "web_search_crawler.workers.tasks.worker_loop", side_effect=_parked_worker_loop
-    ):
-        # Start worker first
-        test_client.post("/worker/start", json={"concurrency": 1})
-
-        # Stop worker
-        response = test_client.post("/worker/stop", json={"graceful": True})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "stopped"
-
-
-def test_worker_stop_not_running(test_client, reset_worker_manager):
-    """Test POST /worker/stop when not running"""
-    response = test_client.post("/worker/stop", json={"graceful": True})
-    assert response.status_code == 400
-    assert "not running" in response.json()["detail"]
+def test_worker_control_endpoints_are_not_exposed(test_client):
+    assert test_client.post("/worker/start", json={"concurrency": 1}).status_code == 404
+    assert test_client.post("/worker/stop", json={"graceful": True}).status_code == 404
 
 
 def test_maintain_crawl_schedule_health_reconciles_periodically():
