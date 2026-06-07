@@ -16,7 +16,9 @@ from web_search_crawler.crawl_task_planner import (
     CrawlTaskPlanner,
     CrawlTaskPlannerConfig,
 )
-from web_search_crawler.services.crawl_policy import compute_failure_retry_delay_for_url
+from web_search_crawler.services.crawl_scheduling import (
+    compute_failure_retry_delay_for_url,
+)
 from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
 from web_search_crawler.workers.tasks import process_url

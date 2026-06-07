@@ -11,7 +11,7 @@ from psycopg2.extras import execute_values
 
 from web_search_crawler.db.connection import db_transaction
 from web_search_core.urls import get_domain, url_hash
-from web_search_crawler.services.crawl_policy import assign_crawl_policy
+from web_search_crawler.services.crawl_scheduling import compute_admission_schedule
 from web_search_postgres.search import sql_placeholder
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class CrawlScheduleAdmissionMixin:
                 continue
             normalized_url = decision.normalized_url
             h = url_hash(normalized_url)
-            policy = assign_crawl_policy(
+            schedule = compute_admission_schedule(
                 normalized_url,
                 admission_intent=admission_intent,
             )
@@ -62,10 +62,10 @@ class CrawlScheduleAdmissionMixin:
                     "domain": get_domain(normalized_url),
                     "normalized_url": normalized_url,
                     "discovery_depth": discovery_depth,
-                    "priority_bucket": policy.priority_bucket,
-                    "priority_score": policy.priority_score,
+                    "priority_bucket": schedule.priority_bucket,
+                    "priority_score": schedule.priority_score,
                     "next_fetch_at": int(time.time())
-                    + policy.initial_next_fetch_delay_sec,
+                    + schedule.initial_next_fetch_delay_sec,
                 },
             )
         return sorted(records.values(), key=lambda row: row["h"])

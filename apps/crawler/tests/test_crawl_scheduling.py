@@ -1,12 +1,12 @@
-from web_search_crawler.services.crawl_policy import (
-    assign_crawl_policy,
+from web_search_crawler.services.crawl_scheduling import (
+    compute_admission_schedule,
     compute_failure_retry_delay_for_url,
     compute_success_recrawl_delay_for_url,
 )
 
 
-def test_assign_crawl_policy_applies_operator_priority():
-    assignment = assign_crawl_policy(
+def test_compute_admission_schedule_applies_operator_priority():
+    assignment = compute_admission_schedule(
         "https://docs.docker.com/reference/cli/docker/",
         admission_intent="operator_priority",
     )
@@ -15,8 +15,8 @@ def test_assign_crawl_policy_applies_operator_priority():
     assert assignment.priority_score == 200.0
 
 
-def test_assign_crawl_policy_prioritizes_release_notes_paths():
-    assignment = assign_crawl_policy(
+def test_compute_admission_schedule_prioritizes_release_notes_paths():
+    assignment = compute_admission_schedule(
         "https://docs.python.org/3/whatsnew/3.13.html",
     )
 
@@ -30,8 +30,8 @@ def test_assign_crawl_policy_prioritizes_release_notes_paths():
     )
 
 
-def test_assign_crawl_policy_prioritizes_reference_docs_paths():
-    assignment = assign_crawl_policy(
+def test_compute_admission_schedule_prioritizes_reference_docs_paths():
+    assignment = compute_admission_schedule(
         "https://docs.docker.com/reference/cli/docker/",
     )
 
@@ -45,8 +45,8 @@ def test_assign_crawl_policy_prioritizes_reference_docs_paths():
     )
 
 
-def test_assign_crawl_policy_prioritizes_news_root_paths():
-    assignment = assign_crawl_policy(
+def test_compute_admission_schedule_prioritizes_news_root_paths():
+    assignment = compute_admission_schedule(
         "https://openai.com/news/",
     )
 
@@ -55,8 +55,8 @@ def test_assign_crawl_policy_prioritizes_news_root_paths():
     assert compute_success_recrawl_delay_for_url("https://openai.com/news/") == 4 * 3600
 
 
-def test_assign_crawl_policy_prioritizes_blog_root_paths():
-    assignment = assign_crawl_policy(
+def test_compute_admission_schedule_prioritizes_blog_root_paths():
+    assignment = compute_admission_schedule(
         "https://example.com/blog/",
     )
 
@@ -67,8 +67,8 @@ def test_assign_crawl_policy_prioritizes_blog_root_paths():
     )
 
 
-def test_assign_crawl_policy_prioritizes_news_article_paths_below_roots():
-    assignment = assign_crawl_policy(
+def test_compute_admission_schedule_prioritizes_news_article_paths_below_roots():
+    assignment = compute_admission_schedule(
         "https://openai.com/news/some-update/",
     )
 

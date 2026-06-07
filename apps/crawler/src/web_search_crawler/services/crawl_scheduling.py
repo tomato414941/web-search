@@ -1,4 +1,4 @@
-"""Crawl policy classification and priority assignment."""
+"""URL-derived crawl scheduling parameters."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ _OPERATOR_PRIORITY_SCORE = 200.0
 
 
 @dataclass(frozen=True)
-class CrawlPolicy:
+class CrawlSchedulingParameters:
     priority_bucket: int
     priority_score_boost: float
     base_recrawl_interval_sec: int
@@ -40,44 +40,44 @@ class CrawlPolicy:
 
 
 @dataclass(frozen=True)
-class CrawlPolicyAssignment:
+class CrawlAdmissionSchedule:
     priority_bucket: int
     priority_score: float
     initial_next_fetch_delay_sec: int
 
 
-POLICIES: dict[str, CrawlPolicy] = {
-    "release_notes": CrawlPolicy(
+SCHEDULING_PARAMETERS: dict[str, CrawlSchedulingParameters] = {
+    "release_notes": CrawlSchedulingParameters(
         priority_bucket=1,
         priority_score_boost=120.0,
         base_recrawl_interval_sec=4 * 3600,
         failure_retry_delay_sec=30 * 60,
     ),
-    "news_root": CrawlPolicy(
+    "news_root": CrawlSchedulingParameters(
         priority_bucket=1,
         priority_score_boost=110.0,
         base_recrawl_interval_sec=4 * 3600,
         failure_retry_delay_sec=30 * 60,
     ),
-    "blog_root": CrawlPolicy(
+    "blog_root": CrawlSchedulingParameters(
         priority_bucket=1,
         priority_score_boost=90.0,
         base_recrawl_interval_sec=8 * 3600,
         failure_retry_delay_sec=60 * 60,
     ),
-    "reference_docs": CrawlPolicy(
+    "reference_docs": CrawlSchedulingParameters(
         priority_bucket=1,
         priority_score_boost=100.0,
         base_recrawl_interval_sec=7 * 24 * 3600,
         failure_retry_delay_sec=6 * 3600,
     ),
-    "article": CrawlPolicy(
+    "article": CrawlSchedulingParameters(
         priority_bucket=2,
         priority_score_boost=40.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
         failure_retry_delay_sec=24 * 3600,
     ),
-    "generic": CrawlPolicy(
+    "generic": CrawlSchedulingParameters(
         priority_bucket=3,
         priority_score_boost=0.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
@@ -86,7 +86,7 @@ POLICIES: dict[str, CrawlPolicy] = {
 }
 
 
-def _classify_url_policy_name(url: str) -> str:
+def _classify_url_schedule_key(url: str) -> str:
     parsed = urlparse(url)
     path = (parsed.path or "/").lower()
     segments = tuple(segment for segment in path.strip("/").split("/") if segment)
@@ -122,39 +122,39 @@ def _is_news_root_path(path: str, segments: tuple[str, ...]) -> bool:
     )
 
 
-def assign_crawl_policy(
+def compute_admission_schedule(
     url: str,
     *,
     admission_intent: str = "normal",
-) -> CrawlPolicyAssignment:
-    policy_name = _classify_url_policy_name(url)
-    policy = POLICIES[policy_name]
+) -> CrawlAdmissionSchedule:
+    schedule_key = _classify_url_schedule_key(url)
+    parameters = SCHEDULING_PARAMETERS[schedule_key]
 
     if admission_intent == "operator_priority":
-        return CrawlPolicyAssignment(
+        return CrawlAdmissionSchedule(
             priority_bucket=_OPERATOR_PRIORITY_BUCKET,
             priority_score=_OPERATOR_PRIORITY_SCORE,
             initial_next_fetch_delay_sec=0,
         )
 
-    priority_bucket = policy.priority_bucket
-    priority_score = policy.priority_score_boost
+    priority_bucket = parameters.priority_bucket
+    priority_score = parameters.priority_score_boost
 
-    return CrawlPolicyAssignment(
+    return CrawlAdmissionSchedule(
         priority_bucket=priority_bucket,
         priority_score=priority_score,
         initial_next_fetch_delay_sec=0,
     )
 
 
-def get_crawl_policy_for_url(url: str) -> CrawlPolicy:
-    policy_name = _classify_url_policy_name(url)
-    return POLICIES[policy_name]
+def get_scheduling_parameters_for_url(url: str) -> CrawlSchedulingParameters:
+    schedule_key = _classify_url_schedule_key(url)
+    return SCHEDULING_PARAMETERS[schedule_key]
 
 
 def compute_success_recrawl_delay_for_url(url: str) -> int:
-    policy = get_crawl_policy_for_url(url)
-    return policy.base_recrawl_interval_sec
+    parameters = get_scheduling_parameters_for_url(url)
+    return parameters.base_recrawl_interval_sec
 
 
 def compute_failure_retry_delay_for_url(
@@ -162,6 +162,6 @@ def compute_failure_retry_delay_for_url(
     *,
     fail_streak: int = 0,
 ) -> int:
-    policy = get_crawl_policy_for_url(url)
+    parameters = get_scheduling_parameters_for_url(url)
     multiplier = 2 ** min(max(fail_streak, 0), 3)
-    return policy.failure_retry_delay_sec * multiplier
+    return parameters.failure_retry_delay_sec * multiplier

@@ -10,8 +10,8 @@ from psycopg2.errors import DeadlockDetected, SerializationFailure
 from web_search_crawler.db.connection import db_transaction
 from web_search_crawler.db.url_types import CrawlTask
 from web_search_core.urls import url_hash
-from web_search_crawler.services.crawl_policy import (
-    assign_crawl_policy,
+from web_search_crawler.services.crawl_scheduling import (
+    compute_admission_schedule,
     compute_failure_retry_delay_for_url,
     compute_success_recrawl_delay_for_url,
 )
@@ -400,7 +400,7 @@ class CrawlScheduleMixin:
             fail_streak = int(row[2] or 0)
             was_leased = row[3] == "leased"
             if is_success:
-                reassigned = assign_crawl_policy(
+                reassigned = compute_admission_schedule(
                     url,
                     admission_intent="normal",
                 )
