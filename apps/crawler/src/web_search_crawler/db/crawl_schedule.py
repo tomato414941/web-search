@@ -416,8 +416,7 @@ class CrawlScheduleMixin:
                     domain,
                     crawl_profile,
                     fail_streak,
-                    status,
-                    canonical_source
+                    status
                 FROM crawl_schedule
                 WHERE url_hash = {sql_placeholder()}
                 """,
@@ -432,7 +431,6 @@ class CrawlScheduleMixin:
             crawl_profile = row[2] or "generic"
             fail_streak = int(row[3] or 0)
             was_leased = row[4] == "leased"
-            canonical_source = row[5]
             priority_bucket: int | None = None
             priority_score: float | None = None
 
@@ -442,17 +440,13 @@ class CrawlScheduleMixin:
                     admission_intent="normal",
                 )
                 crawl_profile = reassigned.crawl_profile
-                canonical_source = reassigned.canonical_source
                 priority_bucket = reassigned.priority_bucket
                 priority_score = reassigned.priority_score
 
             policy = POLICIES.get(crawl_profile, POLICIES["generic"])
 
             if is_success:
-                next_delay = compute_success_recrawl_delay(
-                    crawl_profile,
-                    canonical_source=canonical_source,
-                )
+                next_delay = compute_success_recrawl_delay(crawl_profile)
                 next_fail_streak = 0
                 last_success_at = now
             else:
@@ -482,7 +476,6 @@ class CrawlScheduleMixin:
                     UPDATE crawl_schedule
                     SET
                         crawl_profile = {sql_placeholder()},
-                        canonical_source = {sql_placeholder()},
                         priority_bucket = {sql_placeholder()},
                         priority_score = {sql_placeholder()},
                         updated_at = {sql_placeholder()}
@@ -490,7 +483,6 @@ class CrawlScheduleMixin:
                     """,
                     (
                         crawl_profile,
-                        canonical_source,
                         priority_bucket,
                         priority_score,
                         now,

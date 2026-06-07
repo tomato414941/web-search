@@ -35,7 +35,6 @@ def test_assign_crawl_policy_marks_canonical_docs_paths():
     )
 
     assert assignment.crawl_profile == "canonical_docs"
-    assert assignment.canonical_source == "docker_docs"
 
 
 def test_assign_crawl_policy_marks_news_root_paths():
@@ -62,31 +61,10 @@ def test_assign_crawl_policy_marks_news_articles_as_article():
     assert assignment.crawl_profile == "article"
 
 
-def test_compute_success_recrawl_delay_prefers_canonical_sources():
-    delay = compute_success_recrawl_delay(
-        "release_notes",
-        canonical_source="python_docs",
-    )
-
-    assert delay == 1 * 3600
-
-
-def test_compute_success_recrawl_delay_uses_news_root_canonical_interval():
-    delay = compute_success_recrawl_delay(
-        "news_root",
-        canonical_source="openai_news",
-    )
-
-    assert delay == 2 * 3600
-
-
-def test_compute_success_recrawl_delay_uses_blog_root_canonical_interval():
-    delay = compute_success_recrawl_delay(
-        "blog_root",
-        canonical_source="example_blog",
-    )
-
-    assert delay == 4 * 3600
+def test_compute_success_recrawl_delay_uses_profile_base_interval():
+    assert compute_success_recrawl_delay("release_notes") == 4 * 3600
+    assert compute_success_recrawl_delay("news_root") == 4 * 3600
+    assert compute_success_recrawl_delay("blog_root") == 8 * 3600
 
 
 def test_compute_failure_retry_delay_scales_with_fail_streak():

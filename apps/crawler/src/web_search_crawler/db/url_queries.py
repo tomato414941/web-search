@@ -30,8 +30,8 @@ class UrlQueriesMixin:
         with db_connection(self.db_path) as cur:
             cur.execute(
                 f"""
-                SELECT url, domain, canonical_source, crawl_profile,
-                       priority_bucket, priority_score, status, next_fetch_at
+                SELECT url, domain, crawl_profile, priority_bucket,
+                       priority_score, status, next_fetch_at
                 FROM crawl_schedule
                 WHERE url_hash = {ph}
                 """,
@@ -43,10 +43,9 @@ class UrlQueriesMixin:
             return CrawlScheduleEntry(
                 url=row[0],
                 domain=row[1],
-                canonical_source=row[2],
-                crawl_profile=row[3],
-                priority_bucket=row[4],
-                priority_score=float(row[5]),
-                status=row[6],
-                next_fetch_at=row[7],
+                crawl_profile=row[2],
+                priority_bucket=row[3],
+                priority_score=float(row[4]),
+                status=row[5],
+                next_fetch_at=row[6],
             )

@@ -62,7 +62,6 @@ class CrawlScheduleAdmissionMixin:
                     "domain": get_domain(normalized_url),
                     "normalized_url": normalized_url,
                     "discovery_depth": discovery_depth,
-                    "canonical_source": policy.canonical_source,
                     "crawl_profile": policy.crawl_profile,
                     "priority_bucket": policy.priority_bucket,
                     "priority_score": policy.priority_score,
@@ -123,7 +122,6 @@ class CrawlScheduleAdmissionMixin:
                 normalized_url,
                 discovered_at,
                 discovery_depth,
-                canonical_source,
                 crawl_profile,
                 priority_bucket,
                 priority_score,
@@ -139,10 +137,6 @@ class CrawlScheduleAdmissionMixin:
                 discovery_depth = LEAST(
                     crawl_schedule.discovery_depth,
                     EXCLUDED.discovery_depth
-                ),
-                canonical_source = COALESCE(
-                    crawl_schedule.canonical_source,
-                    EXCLUDED.canonical_source
                 ),
                 crawl_profile = EXCLUDED.crawl_profile,
                 priority_bucket = LEAST(
@@ -167,7 +161,6 @@ class CrawlScheduleAdmissionMixin:
                     row["normalized_url"],
                     now,
                     row["discovery_depth"],
-                    row["canonical_source"],
                     row["crawl_profile"],
                     row["priority_bucket"],
                     row["priority_score"],

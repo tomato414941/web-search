@@ -446,8 +446,8 @@ def test_record_updates_frontier_after_success(test_url_store):
 
     assert entry is not None
     assert entry.status == "pending"
-    assert entry.next_fetch_at >= before + 5 * 24 * 3600
-    assert entry.next_fetch_at <= after + 5 * 24 * 3600 + 1
+    assert entry.next_fetch_at >= before + 7 * 24 * 3600
+    assert entry.next_fetch_at <= after + 7 * 24 * 3600 + 1
     assert domain_state is not None
     assert domain_state.inflight_leases == 0
     assert domain_state.fail_streak == 0
@@ -506,10 +506,9 @@ def test_operator_priority_success_reclassifies_to_normal_crawl_policy(test_url_
     assert entry is not None
     assert entry.status == "pending"
     assert entry.crawl_profile == "canonical_docs"
-    assert entry.canonical_source == "docker_docs"
     assert entry.priority_bucket == 1
-    assert entry.next_fetch_at >= before + 5 * 24 * 3600
-    assert entry.next_fetch_at <= after + 5 * 24 * 3600 + 1
+    assert entry.next_fetch_at >= before + 7 * 24 * 3600
+    assert entry.next_fetch_at <= after + 7 * 24 * 3600 + 1
 
 
 def test_release_notes_failure_retries_quickly(test_url_store):
@@ -619,10 +618,10 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
             """
             INSERT INTO crawl_schedule (
                 url_hash, url, domain, normalized_url, discovered_at,
-                discovery_depth, canonical_source, crawl_profile,
+                discovery_depth, crawl_profile,
                 priority_bucket, priority_score, status, next_fetch_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, 1, NULL, 'generic', 3, 0, 'pending', %s, %s)
+            VALUES (%s, %s, %s, %s, %s, 1, 'generic', 3, 0, 'pending', %s, %s)
             """,
             (
                 url_hash(frontier_url),

@@ -14,7 +14,6 @@ class CrawlTask:
 class CrawlScheduleEntry:
     url: str
     domain: str
-    canonical_source: str | None
     crawl_profile: str
     priority_bucket: int
     priority_score: float
