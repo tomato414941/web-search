@@ -190,7 +190,6 @@ def upgrade() -> None:
             etag TEXT,
             last_modified TEXT,
             content_hash TEXT,
-            outlinks_last_discovered INTEGER NOT NULL DEFAULT 0,
             updated_at INTEGER NOT NULL
         )
     """)
