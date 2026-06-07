@@ -1,5 +1,5 @@
 """
-URL Store - Discovery Ledger + Frontier
+Crawler Runtime Store - Discovery Ledger + Frontier
 
 urls table: ledger of known URLs.
 frontier_entries table: durable crawl frontier.
@@ -22,7 +22,7 @@ from web_search_crawler.services.url_admission import (
 from web_search_postgres.search import get_connection
 
 
-class UrlStore(
+class CrawlerRuntimeStore(
     UrlDiscoveryMixin,
     UrlFrontierMixin,
     UrlRetryMixin,
@@ -30,7 +30,7 @@ class UrlStore(
     UrlMaintenanceMixin,
 ):
     """
-    URL storage backed by a discovery ledger and durable frontier.
+    Crawler runtime storage backed by a URL ledger and durable frontier.
 
     urls: known URLs.
     frontier_entries: active pending/leased crawl candidates.

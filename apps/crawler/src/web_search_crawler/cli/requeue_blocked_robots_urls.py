@@ -50,7 +50,7 @@ def _build_remote_script(payload: dict[str, object]) -> str:
 import json
 
 from web_search_crawler.core.config import settings
-from web_search_crawler.db.url_store import UrlStore
+from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_postgres.search import get_connection, sql_placeholder
 
 payload = json.loads({payload_literal!r})
@@ -61,7 +61,7 @@ domains = payload["domains"]
 force_urls = payload["force_urls"]
 scan_candidates = bool(payload["scan_candidates"])
 
-store = UrlStore(
+store = CrawlerRuntimeStore(
     settings.CRAWLER_DB_PATH,
     recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
 )

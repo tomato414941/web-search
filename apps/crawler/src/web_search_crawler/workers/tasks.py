@@ -1,7 +1,7 @@
 """
 Background Crawler Tasks
 
-Main worker loop that fetches URLs from UrlStore and crawls them.
+Main worker loop that fetches URLs from CrawlerRuntimeStore and crawls them.
 """
 
 import asyncio
@@ -15,11 +15,11 @@ from cachetools import TTLCache
 
 from web_search_crawler.db.executor import run_in_db_executor
 from web_search_crawler.core.config import settings
-from web_search_crawler.db.url_store import UrlStore
+from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_crawler.frontier_planner import FrontierPlanner
 from web_search_crawler.services.crawl_runtime import (
     build_frontier_planner,
-    build_url_store,
+    build_crawler_runtime_store,
     load_static_crawl_config,
 )
 from web_search_crawler.utils.robots import AsyncRobotsCache
@@ -61,7 +61,7 @@ class WorkerRuntimeState:
 async def process_url(
     session: aiohttp.ClientSession,
     robots: AsyncRobotsCache,
-    url_store: UrlStore,
+    url_store: CrawlerRuntimeStore,
     planner: FrontierPlanner,
     url: str,
     runtime_state: WorkerRuntimeState | None = None,
@@ -129,7 +129,7 @@ async def process_url(
 
 async def _handle_retry(
     url: str,
-    url_store: UrlStore,
+    url_store: CrawlerRuntimeStore,
     error: str,
     runtime_state: WorkerRuntimeState,
     timings: CrawlStageTimings | None = None,
@@ -196,7 +196,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     # Initialize history log database
     await run_in_db_executor(history_log.init_db)
 
-    url_store = build_url_store()
+    url_store = build_crawler_runtime_store()
     planner = build_frontier_planner(
         url_store, batch_size=settings.FRONTIER_PLANNER_BATCH_SIZE
     )

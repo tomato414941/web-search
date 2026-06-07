@@ -8,7 +8,7 @@ temporarily blocked domains. Durable host throttling lives in `domain_state`.
 from dataclasses import dataclass
 
 from web_search_crawler.core.crawl_denylist import is_domain_denied
-from web_search_crawler.db.url_store import UrlStore
+from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_crawler.db.url_types import UrlItem
 
 
@@ -26,13 +26,13 @@ class FrontierPlanner:
     """
     Frontier batch selector used by worker execution paths.
 
-    Leases frontier entries from UrlStore and filters them against the current
+    Leases frontier entries from CrawlerRuntimeStore and filters them against the current
     denied-domain and temporarily blocked-domain sets.
     """
 
     def __init__(
         self,
-        url_store: UrlStore,
+        url_store: CrawlerRuntimeStore,
         config: FrontierPlannerConfig | None = None,
     ):
         self.url_store = url_store

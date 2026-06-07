@@ -1,10 +1,10 @@
 """
 Crawler Database Layer
 
-Provides UrlStore for unified URL lifecycle management.
+Provides CrawlerRuntimeStore for crawler runtime persistence.
 """
 
-from web_search_crawler.db.url_store import UrlStore
+from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_crawler.db.url_types import (
     DomainState,
     FrontierEntry,
@@ -17,7 +17,7 @@ __all__ = [
     "DomainState",
     "FrontierEntry",
     "UrlItem",
-    "UrlStore",
+    "CrawlerRuntimeStore",
     "get_domain",
     "url_hash",
 ]

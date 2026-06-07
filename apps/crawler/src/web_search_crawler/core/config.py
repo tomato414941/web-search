@@ -21,7 +21,7 @@ class CrawlerSettings(InfrastructureSettings):
     APP_NAME: str = "Crawler Service"
     APP_VERSION: str = "3.0.0"
 
-    # Database Path (for UrlStore)
+    # Database Path (for CrawlerRuntimeStore)
     CRAWLER_DB_PATH: str = "/data/crawler.db"
 
     # Auto-start crawl workers on service startup

@@ -3,18 +3,20 @@
 from web_search_crawler.core.config import settings
 from web_search_crawler.core.crawl_denylist import load_crawl_denylist
 from web_search_crawler.core.url_filters import UrlFilter, load_url_filters
-from web_search_crawler.db.url_store import UrlStore
+from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
 
 
-def build_url_store() -> UrlStore:
-    return UrlStore(
+def build_crawler_runtime_store() -> CrawlerRuntimeStore:
+    return CrawlerRuntimeStore(
         settings.CRAWLER_DB_PATH,
         recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
     )
 
 
-def build_frontier_planner(url_store: UrlStore, *, batch_size: int) -> FrontierPlanner:
+def build_frontier_planner(
+    url_store: CrawlerRuntimeStore, *, batch_size: int
+) -> FrontierPlanner:
     return FrontierPlanner(
         url_store,
         FrontierPlannerConfig(

@@ -10,7 +10,7 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from psycopg2.errors import DeadlockDetected
 
-from web_search_crawler.db import UrlStore
+from web_search_crawler.db import CrawlerRuntimeStore
 from web_search_crawler.db.connection import db_transaction
 from web_search_crawler.db.url_types import url_hash
 from web_search_crawler.frontier_planner import FrontierPlanner, FrontierPlannerConfig
@@ -22,21 +22,21 @@ from web_search_crawler.workers.tasks import process_url
 
 @pytest.fixture
 def test_components(tmp_path):
-    """Create test UrlStore and frontier planner."""
+    """Create test CrawlerRuntimeStore and frontier planner."""
     db_path = str(tmp_path / "test.db")
-    url_store = UrlStore(db_path, recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(db_path, recrawl_after_days=30)
     planner = FrontierPlanner(url_store, FrontierPlannerConfig())
     return url_store, planner
 
 
-def _url_ledger_contains(url_store: UrlStore, url: str) -> bool:
+def _url_ledger_contains(url_store: CrawlerRuntimeStore, url: str) -> bool:
     with db_transaction(url_store.db_path) as cur:
         cur.execute("SELECT 1 FROM urls WHERE url_hash = %s", (url_hash(url),))
         return cur.fetchone() is not None
 
 
 def _record_and_admit_url(
-    url_store: UrlStore,
+    url_store: CrawlerRuntimeStore,
     url: str,
     *,
     admission_intent: str = "normal",
@@ -51,7 +51,7 @@ def _record_and_admit_url(
 
 
 def _record_and_admit_urls(
-    url_store: UrlStore,
+    url_store: CrawlerRuntimeStore,
     urls: list[str],
     *,
     admission_intent: str = "normal",
@@ -993,7 +993,7 @@ async def test_process_url_retry_returns_url_to_frontier(test_components):
 
 def test_requeue_releases_leased_url_back_to_pending(tmp_path):
     """requeue should release a leased frontier URL back to pending."""
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     _record_and_admit_url(url_store, "http://example.com/r")
     url_store.pop_frontier_batch(1)
 
@@ -1006,7 +1006,7 @@ def test_requeue_releases_leased_url_back_to_pending(tmp_path):
 
 
 def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp_path):
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     _record_and_admit_urls(url_store, ["https://example.com/bootstrap"])
 
     from web_search_crawler.db.connection import db_transaction
@@ -1014,7 +1014,7 @@ def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp
     with db_transaction(url_store.db_path) as cur:
         cur.execute("TRUNCATE domain_state")
 
-    restarted = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    restarted = CrawlerRuntimeStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
     domain_state = restarted.get_domain_state("example.com")
     assert domain_state is None
@@ -1022,7 +1022,7 @@ def test_store_bootstrap_keeps_runtime_rows_without_frontier_domain_backfill(tmp
 
 def test_requeue_noop_if_already_queued(tmp_path):
     """requeue should be a no-op if URL is already pending in frontier."""
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(str(tmp_path / "test.db"), recrawl_after_days=30)
     _record_and_admit_url(url_store, "http://example.com/noop")
 
     # Already pending in frontier, requeue should conflict
@@ -1032,7 +1032,7 @@ def test_requeue_noop_if_already_queued(tmp_path):
 
 def test_pop_frontier_batch_respects_max_per_domain(tmp_path):
     """Frontier leasing should cap leases per domain."""
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
     urls = [
         "http://a.example.com/1",
@@ -1064,7 +1064,7 @@ def test_pop_frontier_batch_respects_max_per_domain(tmp_path):
 
 def test_record_and_admit_deduplicates_urls(tmp_path):
     """record_and_admit_urls should deduplicate URLs within the same batch."""
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
     urls = [
         "http://example.com/1",
@@ -1087,7 +1087,7 @@ def test_record_and_admit_deduplicates_urls(tmp_path):
 
 def test_record_and_admit_retries_db_concurrency_error(tmp_path):
     """record_and_admit_urls should retry once on DB concurrency errors."""
-    url_store = UrlStore(str(tmp_path / "test.db"), recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(str(tmp_path / "test.db"), recrawl_after_days=30)
 
     original = url_store._admit_urls_to_frontier_chunk
     calls = 0

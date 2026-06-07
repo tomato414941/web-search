@@ -32,16 +32,18 @@ def get_frontier_maintenance_state() -> dict[str, object | None]:
 
 
 async def _reconcile_frontier_leases() -> int:
-    from web_search_crawler.services.crawl_runtime import build_url_store
+    from web_search_crawler.services.crawl_runtime import build_crawler_runtime_store
 
-    return await run_in_db_executor(build_url_store().reconcile_expired_frontier_leases)
+    return await run_in_db_executor(
+        build_crawler_runtime_store().reconcile_expired_frontier_leases
+    )
 
 
 async def _reconcile_domain_state_inflight_leases() -> int:
-    from web_search_crawler.services.crawl_runtime import build_url_store
+    from web_search_crawler.services.crawl_runtime import build_crawler_runtime_store
 
     return await run_in_db_executor(
-        build_url_store().reconcile_domain_state_inflight_leases
+        build_crawler_runtime_store().reconcile_domain_state_inflight_leases
     )
 
 

@@ -50,10 +50,10 @@ def _build_remote_script(payload: dict[str, object]) -> str:
 import json
 
 from web_search_crawler.core.config import settings
-from web_search_crawler.db.url_store import UrlStore
+from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 
 payload = json.loads({payload_literal!r})
-store = UrlStore(
+store = CrawlerRuntimeStore(
     settings.CRAWLER_DB_PATH,
     recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
 )

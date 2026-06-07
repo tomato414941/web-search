@@ -23,7 +23,7 @@ Current URL sources already include multiple intents:
 - feed autodiscovery
 - feed entry recording
 
-The current implementation stores these through crawler-side `UrlStore` methods,
+The current implementation stores these through crawler-side `CrawlerRuntimeStore` methods,
 often coupled to frontier admission.
 
 Related issues already cover narrower parts of the problem:
