@@ -27,7 +27,7 @@ class CrawlerRuntimeStore(
     """
     Crawler runtime storage backed by a durable crawl schedule.
 
-    frontier_entries: database table for scheduled crawl tasks.
+    crawl_schedule: database table for scheduled crawl tasks.
     """
 
     def __init__(

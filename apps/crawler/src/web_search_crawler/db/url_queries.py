@@ -32,7 +32,7 @@ class UrlQueriesMixin:
                 f"""
                 SELECT url, domain, canonical_source, crawl_profile,
                        priority_bucket, priority_score, status, next_fetch_at
-                FROM frontier_entries
+                FROM crawl_schedule
                 WHERE url_hash = {ph}
                 """,
                 (h,),

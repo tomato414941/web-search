@@ -17,12 +17,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.execute(
-        "UPDATE frontier_entries "
+        "UPDATE crawl_schedule "
         "SET crawl_profile = 'operator_priority' "
         "WHERE crawl_profile = 'manual_now'"
     )
     op.execute("ALTER TABLE urls DROP COLUMN IF EXISTS discovered_via")
-    op.execute("ALTER TABLE frontier_entries DROP COLUMN IF EXISTS discovered_via")
+    op.execute("ALTER TABLE crawl_schedule DROP COLUMN IF EXISTS discovered_via")
 
 
 def downgrade() -> None:

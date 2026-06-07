@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "006"
+            assert rows[0][0] == "007"
             cur.close()
         finally:
             conn.close()
@@ -40,6 +40,8 @@ class TestMigrate:
             cur.execute("SELECT COUNT(*) FROM index_jobs")
             assert cur.fetchone()[0] == 0
             cur.execute("SELECT COUNT(*) FROM urls")
+            assert cur.fetchone()[0] == 0
+            cur.execute("SELECT COUNT(*) FROM crawl_schedule")
             assert cur.fetchone()[0] == 0
             cur.close()
         finally:
@@ -68,7 +70,7 @@ class TestMigrate:
         finally:
             conn.close()
 
-    def test_frontier_schema_does_not_store_discovery_route(self):
+    def test_crawl_schedule_schema_does_not_store_discovery_route(self):
         conn = get_connection()
         try:
             cur = conn.cursor()
@@ -76,7 +78,7 @@ class TestMigrate:
                 """
                 SELECT column_name
                 FROM information_schema.columns
-                WHERE table_name = 'frontier_entries'
+                WHERE table_name = 'crawl_schedule'
                 """
             )
             columns = {row[0] for row in cur.fetchall()}

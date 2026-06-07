@@ -99,7 +99,7 @@ if scan_candidates:
     FROM latest
     JOIN urls u ON u.url = latest.url
     LEFT JOIN documents d ON d.url = u.url
-    LEFT JOIN frontier_entries f
+    LEFT JOIN crawl_schedule f
         ON f.url_hash = u.url_hash
        AND f.status IN ('pending', 'leased')
     WHERE {{' AND '.join(where)}}

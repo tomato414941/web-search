@@ -34,11 +34,11 @@ class UrlMaintenanceMixin:
                 params.append(f"%.{escaped}")
 
             where = " OR ".join(conditions)
-            frontier_params = params + [int(time.time())]
+            crawl_schedule_params = params + [int(time.time())]
             cur.execute(
                 f"""
                 WITH deleted AS (
-                    DELETE FROM frontier_entries
+                    DELETE FROM crawl_schedule
                     WHERE ({where})
                     RETURNING domain, status
                 ),
@@ -80,11 +80,11 @@ class UrlMaintenanceMixin:
                     leased_count.cnt
                 FROM deleted_count, pending_count, leased_count
                 """,
-                frontier_params,
+                crawl_schedule_params,
             )
-            frontier_deleted, pending_deleted, leased_deleted = cur.fetchone()
-            frontier_deleted = int(frontier_deleted or 0)
-            return frontier_deleted
+            crawl_schedule_deleted, pending_deleted, leased_deleted = cur.fetchone()
+            crawl_schedule_deleted = int(crawl_schedule_deleted or 0)
+            return crawl_schedule_deleted
 
     def collect_admission_rejected_urls(
         self,
@@ -122,17 +122,17 @@ class UrlMaintenanceMixin:
             return cur.fetchall()
 
         with db_connection(self.db_path) as cur:
-            frontier_where = ["status IN ('pending', 'leased')"]
-            frontier_params: list[object] = []
+            crawl_schedule_where = ["status IN ('pending', 'leased')"]
+            crawl_schedule_params: list[object] = []
             if domain_filter:
-                frontier_where.append(f"domain = ANY({ph})")
-                frontier_params.append(list(domain_filter))
+                crawl_schedule_where.append(f"domain = ANY({ph})")
+                crawl_schedule_params.append(list(domain_filter))
             for row in _select_rows(
                 cur,
-                table="frontier_entries",
+                table="crawl_schedule",
                 columns="url_hash, url, domain, status, discovered_at",
-                where=frontier_where,
-                params=frontier_params,
+                where=crawl_schedule_where,
+                params=crawl_schedule_params,
                 order_column="discovered_at",
             ):
                 decision = self.url_admission_policy.evaluate(row[1])
@@ -140,7 +140,7 @@ class UrlMaintenanceMixin:
                     continue
                 candidates.append(
                     {
-                        "source": "frontier",
+                        "source": "crawl_schedule",
                         "url_hash": row[0],
                         "url": row[1],
                         "domain": row[2],
@@ -166,42 +166,42 @@ class UrlMaintenanceMixin:
         )
         summary = {
             "matched": len(candidates),
-            "frontier_deleted": 0,
+            "crawl_schedule_deleted": 0,
             "candidates": candidates,
         }
         if dry_run or not candidates:
             return summary
 
         ph = sql_placeholder()
-        frontier_hashes = [
-            row["url_hash"] for row in candidates if row["source"] == "frontier"
+        crawl_schedule_hashes = [
+            row["url_hash"] for row in candidates if row["source"] == "crawl_schedule"
         ]
         leased_domains = [
             row["domain"]
             for row in candidates
-            if row["source"] == "frontier" and row["status"] == "leased"
+            if row["source"] == "crawl_schedule" and row["status"] == "leased"
         ]
         now = int(time.time())
 
         with db_transaction(self.db_path) as cur:
-            if frontier_hashes:
+            if crawl_schedule_hashes:
                 cur.execute(
                     f"""
                     SELECT status
-                    FROM frontier_entries
+                    FROM crawl_schedule
                     WHERE url_hash = ANY({ph})
                     """,
-                    (frontier_hashes,),
+                    (crawl_schedule_hashes,),
                 )
                 cur.fetchall()
                 cur.execute(
                     f"""
-                    DELETE FROM frontier_entries
+                    DELETE FROM crawl_schedule
                     WHERE url_hash = ANY({ph})
                     """,
-                    (frontier_hashes,),
+                    (crawl_schedule_hashes,),
                 )
-                summary["frontier_deleted"] = cur.rowcount
+                summary["crawl_schedule_deleted"] = cur.rowcount
             if leased_domains:
                 self.domain_scheduling_state.adjust_inflight_leases(
                     cur, leased_domains, delta=-1, now=now

@@ -18,7 +18,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.execute("DROP INDEX IF EXISTS idx_urls_seed_created_at")
     op.execute("ALTER TABLE urls DROP COLUMN IF EXISTS is_seed")
-    op.execute("ALTER TABLE frontier_entries DROP COLUMN IF EXISTS is_seed")
+    op.execute("ALTER TABLE crawl_schedule DROP COLUMN IF EXISTS is_seed")
 
 
 def downgrade() -> None:

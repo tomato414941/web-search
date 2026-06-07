@@ -168,7 +168,7 @@ def upgrade() -> None:
     op.execute("CREATE INDEX IF NOT EXISTS idx_urls_domain ON urls(domain)")
 
     op.execute("""
-        CREATE TABLE IF NOT EXISTS frontier_entries (
+        CREATE TABLE IF NOT EXISTS crawl_schedule (
             url_hash TEXT PRIMARY KEY,
             url TEXT NOT NULL,
             domain TEXT NOT NULL,
@@ -195,32 +195,32 @@ def upgrade() -> None:
         )
     """)
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_frontier_ready "
-        "ON frontier_entries "
+        "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_ready "
+        "ON crawl_schedule "
         "(status, next_fetch_at, priority_bucket, priority_score DESC)"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_frontier_domain_ready "
-        "ON frontier_entries(domain, status, next_fetch_at)"
+        "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_domain_ready "
+        "ON crawl_schedule(domain, status, next_fetch_at)"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_frontier_profile_ready "
-        "ON frontier_entries("
+        "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_profile_ready "
+        "ON crawl_schedule("
         "crawl_profile, next_fetch_at, priority_bucket, priority_score DESC, "
         "last_success_at, discovered_at, url_hash"
         ") WHERE status = 'pending'"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_frontier_pending_planner_order "
-        "ON frontier_entries("
+        "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_pending_planner_order "
+        "ON crawl_schedule("
         "priority_bucket, priority_score DESC, next_fetch_at, "
         "last_success_at ASC NULLS FIRST, discovered_at, url_hash"
         ") INCLUDE (url, domain, lease_expires_at) "
         "WHERE status = 'pending'"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_frontier_profile_planner_order "
-        "ON frontier_entries("
+        "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_profile_planner_order "
+        "ON crawl_schedule("
         "crawl_profile, priority_bucket, priority_score DESC, next_fetch_at, "
         "last_success_at ASC NULLS FIRST, discovered_at, url_hash"
         ") INCLUDE (url, domain, lease_expires_at) "
@@ -281,7 +281,7 @@ def downgrade() -> None:
     for table in [
         "crawl_logs",
         "domain_state",
-        "frontier_entries",
+        "crawl_schedule",
         "urls",
         "index_jobs",
         "search_result_clicks",

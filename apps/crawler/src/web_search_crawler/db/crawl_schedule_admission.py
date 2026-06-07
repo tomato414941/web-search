@@ -81,7 +81,7 @@ class CrawlScheduleAdmissionMixin:
         cur.execute(
             f"""
             SELECT url_hash
-            FROM frontier_entries
+            FROM crawl_schedule
             WHERE url_hash = ANY({ph})
               AND last_fetched_at IS NOT NULL
               AND last_fetched_at >= {ph}
@@ -101,7 +101,7 @@ class CrawlScheduleAdmissionMixin:
         cur.execute(
             f"""
             SELECT url_hash
-            FROM frontier_entries
+            FROM crawl_schedule
             WHERE url_hash = ANY({ph})
             """,
             (hashes,),
@@ -116,7 +116,7 @@ class CrawlScheduleAdmissionMixin:
         execute_values(
             cur,
             """
-            INSERT INTO frontier_entries (
+            INSERT INTO crawl_schedule (
                 url_hash,
                 url,
                 domain,
@@ -137,24 +137,24 @@ class CrawlScheduleAdmissionMixin:
                 domain = EXCLUDED.domain,
                 normalized_url = EXCLUDED.normalized_url,
                 discovery_depth = LEAST(
-                    frontier_entries.discovery_depth,
+                    crawl_schedule.discovery_depth,
                     EXCLUDED.discovery_depth
                 ),
                 canonical_source = COALESCE(
-                    frontier_entries.canonical_source,
+                    crawl_schedule.canonical_source,
                     EXCLUDED.canonical_source
                 ),
                 crawl_profile = EXCLUDED.crawl_profile,
                 priority_bucket = LEAST(
-                    frontier_entries.priority_bucket,
+                    crawl_schedule.priority_bucket,
                     EXCLUDED.priority_bucket
                 ),
                 priority_score = GREATEST(
-                    frontier_entries.priority_score,
+                    crawl_schedule.priority_score,
                     EXCLUDED.priority_score
                 ),
                 next_fetch_at = LEAST(
-                    frontier_entries.next_fetch_at,
+                    crawl_schedule.next_fetch_at,
                     EXCLUDED.next_fetch_at
                 ),
                 updated_at = EXCLUDED.updated_at

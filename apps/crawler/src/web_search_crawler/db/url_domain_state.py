@@ -84,7 +84,7 @@ class DomainSchedulingStateStore:
                 {ph}
             FROM (
                 SELECT domain, COUNT(*)::INTEGER AS leased
-                FROM frontier_entries
+                FROM crawl_schedule
                 WHERE status = 'leased'
                 GROUP BY domain
             ) AS frontier
@@ -98,7 +98,7 @@ class DomainSchedulingStateStore:
             f"""
             WITH actual AS (
                 SELECT domain, COUNT(*)::INTEGER AS leased
-                FROM frontier_entries
+                FROM crawl_schedule
                 WHERE status = 'leased'
                 GROUP BY domain
             )
@@ -122,7 +122,7 @@ class DomainSchedulingStateStore:
             WHERE ds.inflight_leases <> 0
               AND NOT EXISTS (
                   SELECT 1
-                  FROM frontier_entries AS frontier
+                  FROM crawl_schedule AS frontier
                   WHERE frontier.domain = ds.domain
                     AND frontier.status = 'leased'
               )

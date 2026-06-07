@@ -37,7 +37,7 @@ class CrawlScheduleMixin:
         cur.execute(
             f"""
             SELECT domain
-            FROM frontier_entries
+            FROM crawl_schedule
             WHERE status = 'leased'
               AND lease_expires_at IS NOT NULL
               AND lease_expires_at <= {ph}
@@ -50,7 +50,7 @@ class CrawlScheduleMixin:
 
         cur.execute(
             f"""
-            UPDATE frontier_entries
+            UPDATE crawl_schedule
             SET
                 status = 'pending',
                 lease_token = NULL,
@@ -101,7 +101,7 @@ class CrawlScheduleMixin:
             f"""
             WITH active_leases AS (
                 SELECT domain, COUNT(*)::INTEGER AS leased
-                FROM frontier_entries
+                FROM crawl_schedule
                 WHERE status = 'leased'
                 GROUP BY domain
             )
@@ -116,7 +116,7 @@ class CrawlScheduleMixin:
                 COALESCE(active_leases.leased, 0),
                 COALESCE(domain_state.next_request_at, 0),
                 COALESCE(domain_state.backoff_until, 0)
-            FROM frontier_entries AS task
+            FROM crawl_schedule AS task
             LEFT JOIN domain_state ON domain_state.domain = task.domain
             LEFT JOIN active_leases ON active_leases.domain = task.domain
             WHERE {" AND ".join(where_clauses)}
@@ -180,7 +180,7 @@ class CrawlScheduleMixin:
         selected_hashes = [row[0] for row in selected]
         cur.execute(
             f"""
-            UPDATE frontier_entries
+            UPDATE crawl_schedule
             SET
                 status = 'leased',
                 lease_token = {ph},
@@ -253,7 +253,7 @@ class CrawlScheduleMixin:
         ph = sql_placeholder()
         cur.execute(
             f"""
-            UPDATE frontier_entries
+            UPDATE crawl_schedule
             SET
                 status = 'pending',
                 next_fetch_at = {ph},
@@ -365,7 +365,7 @@ class CrawlScheduleMixin:
             cur.execute(
                 f"""
                 SELECT domain
-                FROM frontier_entries
+                FROM crawl_schedule
                 WHERE url_hash = ANY({sql_placeholder()})
                   AND status = 'leased'
                 """,
@@ -374,7 +374,7 @@ class CrawlScheduleMixin:
             leased_domains = [row[0] for row in cur.fetchall()]
             cur.execute(
                 f"""
-                UPDATE frontier_entries
+                UPDATE crawl_schedule
                 SET
                     status = 'pending',
                     lease_token = NULL,
@@ -418,7 +418,7 @@ class CrawlScheduleMixin:
                     fail_streak,
                     status,
                     canonical_source
-                FROM frontier_entries
+                FROM crawl_schedule
                 WHERE url_hash = {sql_placeholder()}
                 """,
                 (h,),
@@ -479,7 +479,7 @@ class CrawlScheduleMixin:
             if priority_bucket is not None and priority_score is not None:
                 cur.execute(
                     f"""
-                    UPDATE frontier_entries
+                    UPDATE crawl_schedule
                     SET
                         crawl_profile = {sql_placeholder()},
                         canonical_source = {sql_placeholder()},

@@ -617,7 +617,7 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
         )
         cur.execute(
             """
-            INSERT INTO frontier_entries (
+            INSERT INTO crawl_schedule (
                 url_hash, url, domain, normalized_url, discovered_at,
                 discovery_depth, canonical_source, crawl_profile,
                 priority_bucket, priority_score, status, next_fetch_at, updated_at
@@ -642,7 +642,7 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
     )
 
     assert summary["matched"] == 1
-    assert summary["frontier_deleted"] == 1
+    assert summary["crawl_schedule_deleted"] == 1
     assert test_url_store.get_crawl_schedule_entry(frontier_url) is None
 
 
@@ -692,7 +692,7 @@ def test_crawl_task_planner_prefetches_past_skewed_domains(test_url_store):
     with db_transaction(test_url_store.db_path) as cur:
         cur.execute(
             """
-            UPDATE frontier_entries
+            UPDATE crawl_schedule
             SET
                 priority_bucket = 0,
                 priority_score = CASE
@@ -752,7 +752,7 @@ def test_expired_frontier_lease_is_reclaimed_on_next_pop(test_url_store):
     with db_transaction(test_url_store.db_path) as cur:
         cur.execute(
             """
-            UPDATE frontier_entries
+            UPDATE crawl_schedule
             SET lease_expires_at = %s
             WHERE url_hash = %s
             """,
@@ -779,7 +779,7 @@ def test_reconcile_expired_crawl_task_leases_recovers_domain_state(test_url_stor
     with db_transaction(test_url_store.db_path) as cur:
         cur.execute(
             """
-            UPDATE frontier_entries
+            UPDATE crawl_schedule
             SET lease_expires_at = %s
             WHERE url_hash = %s
             """,
