@@ -16,9 +16,6 @@ from web_search_crawler.services.crawl_policy import (
     compute_failure_retry_delay,
     compute_success_recrawl_delay,
 )
-from web_search_crawler.services.crawl_task_budget import (
-    allocate_crawl_task_tier_budgets,
-)
 from web_search_postgres.search import sql_placeholder
 
 _CRAWL_SCHEDULE_RETRY_LIMIT = 2
@@ -78,7 +75,6 @@ class CrawlScheduleMixin:
         now: int,
         overscan: int,
         max_per_domain: int,
-        crawl_profiles: tuple[str, ...] | None = None,
     ) -> list[tuple]:
         """Select ready crawl task candidates from the durable schedule."""
         ph = sql_placeholder()
@@ -93,9 +89,6 @@ class CrawlScheduleMixin:
             ),
         ]
         params: list[object] = [now, now]
-        if crawl_profiles:
-            where_clauses.append(f"task.crawl_profile = ANY({ph})")
-            params.append(list(crawl_profiles))
         params.extend([now, now, max(0, max_per_domain), overscan])
         cur.execute(
             f"""
@@ -207,9 +200,8 @@ class CrawlScheduleMixin:
         max_per_domain: int,
         lease_token: str,
         lease_expires_at: int,
-        crawl_profiles: tuple[str, ...] | None = None,
     ) -> list[tuple]:
-        """Select and lease a bounded candidate set for the given profile slice."""
+        """Select and lease a bounded candidate set."""
         if count <= 0:
             return []
 
@@ -219,7 +211,6 @@ class CrawlScheduleMixin:
             now=now,
             overscan=overscan,
             max_per_domain=max_per_domain,
-            crawl_profiles=crawl_profiles,
         )
         selected = self._choose_crawl_candidates(
             candidates,
@@ -307,34 +298,14 @@ class CrawlScheduleMixin:
                 selected = []
                 with db_transaction(self.db_path) as cur:
                     self._reconcile_expired_crawl_task_leases(cur, now=now)
-                    for tier_budget in allocate_crawl_task_tier_budgets(count):
-                        remaining = count - len(selected)
-                        if remaining <= 0:
-                            break
-                        selected.extend(
-                            self._lease_crawl_candidates(
-                                cur,
-                                now=now,
-                                count=min(tier_budget.leases, remaining),
-                                max_per_domain=max_per_domain,
-                                lease_token=lease_token,
-                                lease_expires_at=lease_expires_at,
-                                crawl_profiles=tier_budget.profiles,
-                            )
-                        )
-
-                    remaining = count - len(selected)
-                    if remaining > 0:
-                        selected.extend(
-                            self._lease_crawl_candidates(
-                                cur,
-                                now=now,
-                                count=remaining,
-                                max_per_domain=max_per_domain,
-                                lease_token=lease_token,
-                                lease_expires_at=lease_expires_at,
-                            )
-                        )
+                    selected = self._lease_crawl_candidates(
+                        cur,
+                        now=now,
+                        count=count,
+                        max_per_domain=max_per_domain,
+                        lease_token=lease_token,
+                        lease_expires_at=lease_expires_at,
+                    )
                 break
             except (DeadlockDetected, SerializationFailure):
                 if attempt >= _CRAWL_SCHEDULE_RETRY_LIMIT:

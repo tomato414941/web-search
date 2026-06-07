@@ -36,8 +36,6 @@ _OPERATOR_PRIORITY_SCORE = 200.0
 @dataclass(frozen=True)
 class CrawlPolicy:
     name: str
-    budget_tier: str
-    budget_weight: int
     priority_bucket: int
     priority_score_boost: float
     base_recrawl_interval_sec: int
@@ -56,8 +54,6 @@ class CrawlPolicyAssignment:
 POLICIES: dict[str, CrawlPolicy] = {
     "release_notes": CrawlPolicy(
         name="release_notes",
-        budget_tier="hot",
-        budget_weight=4,
         priority_bucket=1,
         priority_score_boost=120.0,
         base_recrawl_interval_sec=4 * 3600,
@@ -66,8 +62,6 @@ POLICIES: dict[str, CrawlPolicy] = {
     ),
     "news_root": CrawlPolicy(
         name="news_root",
-        budget_tier="hot",
-        budget_weight=4,
         priority_bucket=1,
         priority_score_boost=110.0,
         base_recrawl_interval_sec=4 * 3600,
@@ -76,8 +70,6 @@ POLICIES: dict[str, CrawlPolicy] = {
     ),
     "blog_root": CrawlPolicy(
         name="blog_root",
-        budget_tier="hot",
-        budget_weight=4,
         priority_bucket=1,
         priority_score_boost=90.0,
         base_recrawl_interval_sec=8 * 3600,
@@ -86,8 +78,6 @@ POLICIES: dict[str, CrawlPolicy] = {
     ),
     "canonical_docs": CrawlPolicy(
         name="canonical_docs",
-        budget_tier="reference",
-        budget_weight=3,
         priority_bucket=1,
         priority_score_boost=100.0,
         base_recrawl_interval_sec=7 * 24 * 3600,
@@ -96,8 +86,6 @@ POLICIES: dict[str, CrawlPolicy] = {
     ),
     "article": CrawlPolicy(
         name="article",
-        budget_tier="bulk",
-        budget_weight=1,
         priority_bucket=2,
         priority_score_boost=40.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
@@ -106,8 +94,6 @@ POLICIES: dict[str, CrawlPolicy] = {
     ),
     "generic": CrawlPolicy(
         name="generic",
-        budget_tier="bulk",
-        budget_weight=1,
         priority_bucket=3,
         priority_score_boost=0.0,
         base_recrawl_interval_sec=30 * 24 * 3600,

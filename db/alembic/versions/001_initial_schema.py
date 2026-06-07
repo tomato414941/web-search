@@ -202,24 +202,9 @@ def upgrade() -> None:
         "ON crawl_schedule(domain, status, next_fetch_at)"
     )
     op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_profile_ready "
-        "ON crawl_schedule("
-        "crawl_profile, next_fetch_at, priority_bucket, priority_score DESC, "
-        "last_success_at, discovered_at, url_hash"
-        ") WHERE status = 'pending'"
-    )
-    op.execute(
         "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_pending_planner_order "
         "ON crawl_schedule("
         "priority_bucket, priority_score DESC, next_fetch_at, "
-        "last_success_at ASC NULLS FIRST, discovered_at, url_hash"
-        ") INCLUDE (url, domain, lease_expires_at) "
-        "WHERE status = 'pending'"
-    )
-    op.execute(
-        "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_profile_planner_order "
-        "ON crawl_schedule("
-        "crawl_profile, priority_bucket, priority_score DESC, next_fetch_at, "
         "last_success_at ASC NULLS FIRST, discovered_at, url_hash"
         ") INCLUDE (url, domain, lease_expires_at) "
         "WHERE status = 'pending'"

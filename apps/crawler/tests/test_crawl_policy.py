@@ -1,11 +1,7 @@
 from web_search_crawler.services.crawl_policy import (
-    POLICIES,
     assign_crawl_policy,
     compute_failure_retry_delay,
     compute_success_recrawl_delay,
-)
-from web_search_crawler.services.crawl_task_budget import (
-    allocate_crawl_task_tier_budgets,
 )
 
 
@@ -27,7 +23,6 @@ def test_assign_crawl_policy_marks_release_notes_paths():
 
     assert assignment.crawl_profile == "release_notes"
     assert assignment.priority_bucket == 1
-    assert POLICIES[assignment.crawl_profile].budget_tier == "hot"
 
 
 def test_assign_crawl_policy_marks_canonical_docs_paths():
@@ -74,12 +69,3 @@ def test_compute_failure_retry_delay_scales_with_fail_streak():
 
     assert first == 30 * 60
     assert third == 2 * 3600
-
-
-def test_allocate_crawl_task_tier_budgets_prefers_hot_then_reference():
-    budgets = allocate_crawl_task_tier_budgets(2)
-
-    assert [(budget.tier, budget.leases) for budget in budgets] == [
-        ("hot", 1),
-        ("reference", 1),
-    ]

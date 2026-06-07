@@ -359,7 +359,7 @@ def test_lease_ready_crawl_tasks_leases_url_and_clears_pending_frontier_state(
     assert domain_state.inflight_leases == 1
 
 
-def test_lease_ready_crawl_tasks_reserves_slots_across_budget_tiers(test_url_store):
+def test_lease_ready_crawl_tasks_orders_by_priority(test_url_store):
     urls = [
         "https://docs.python.org/3/whatsnew/3.13.html",
         "https://kubernetes.io/docs/",
@@ -369,13 +369,13 @@ def test_lease_ready_crawl_tasks_reserves_slots_across_budget_tiers(test_url_sto
 
     leased = test_url_store.lease_ready_crawl_tasks(2, lease_seconds=120)
 
-    assert {item.url for item in leased} == {
+    assert [item.url for item in leased] == [
         "https://docs.python.org/3/whatsnew/3.13.html",
         "https://kubernetes.io/docs/",
-    }
+    ]
 
 
-def test_lease_ready_crawl_tasks_redistributes_unused_budget_to_bulk(test_url_store):
+def test_lease_ready_crawl_tasks_leases_generic_urls(test_url_store):
     urls = [
         "https://example.com/a-generic-page",
         "https://example.org/another-generic-page",
@@ -387,9 +387,7 @@ def test_lease_ready_crawl_tasks_redistributes_unused_budget_to_bulk(test_url_st
     assert {item.url for item in leased} == set(urls)
 
 
-def test_lease_ready_crawl_tasks_does_not_duplicate_tier_fallback_leases(
-    test_url_store,
-):
+def test_lease_ready_crawl_tasks_does_not_duplicate_leases(test_url_store):
     urls = [
         "https://example.com/only-generic",
         "https://example.org/also-generic",
