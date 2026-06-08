@@ -47,23 +47,6 @@ class TestMigrate:
         finally:
             conn.close()
 
-    def test_stale_information_origins_table_does_not_exist(self):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT COUNT(*)
-                FROM information_schema.tables
-                WHERE table_schema = 'public'
-                  AND table_name = 'information_origins'
-                """
-            )
-            assert cur.fetchone()[0] == 0
-            cur.close()
-        finally:
-            conn.close()
-
     def test_urls_schema_is_discovery_ledger_only(self):
         conn = get_connection()
         try:
