@@ -622,17 +622,16 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
         cur.execute(
             """
             INSERT INTO crawl_schedule (
-                url_hash, url, domain, normalized_url, discovered_at,
+                url_hash, url, domain, discovered_at,
                 discovery_depth, priority_bucket, priority_score,
                 status, next_fetch_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, 1, 3, 0, 'pending', %s, %s)
+            VALUES (%s, %s, %s, %s, 1, 3, 0, 'pending', %s, %s)
             """,
             (
                 url_hash(frontier_url),
                 frontier_url,
                 "blog.hatena.ne.jp",
-                frontier_url,
                 now,
                 now,
                 now,

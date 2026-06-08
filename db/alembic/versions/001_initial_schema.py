@@ -172,7 +172,6 @@ def upgrade() -> None:
             url_hash TEXT PRIMARY KEY,
             url TEXT NOT NULL,
             domain TEXT NOT NULL,
-            normalized_url TEXT NOT NULL,
             discovered_at INTEGER NOT NULL,
             discovery_depth INTEGER NOT NULL DEFAULT 0,
             priority_bucket SMALLINT NOT NULL,

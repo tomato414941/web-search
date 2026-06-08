@@ -60,7 +60,6 @@ class CrawlScheduleAdmissionMixin:
                     "h": h,
                     "url": normalized_url,
                     "domain": get_domain(normalized_url),
-                    "normalized_url": normalized_url,
                     "discovery_depth": discovery_depth,
                     "priority_bucket": schedule.priority_bucket,
                     "priority_score": schedule.priority_score,
@@ -118,7 +117,6 @@ class CrawlScheduleAdmissionMixin:
                 url_hash,
                 url,
                 domain,
-                normalized_url,
                 discovered_at,
                 discovery_depth,
                 priority_bucket,
@@ -131,7 +129,6 @@ class CrawlScheduleAdmissionMixin:
             ON CONFLICT (url_hash) DO UPDATE SET
                 url = EXCLUDED.url,
                 domain = EXCLUDED.domain,
-                normalized_url = EXCLUDED.normalized_url,
                 discovery_depth = LEAST(
                     crawl_schedule.discovery_depth,
                     EXCLUDED.discovery_depth
@@ -155,7 +152,6 @@ class CrawlScheduleAdmissionMixin:
                     row["h"],
                     row["url"],
                     row["domain"],
-                    row["normalized_url"],
                     now,
                     row["discovery_depth"],
                     row["priority_bucket"],

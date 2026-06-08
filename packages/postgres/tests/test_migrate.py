@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "002"
+            assert rows[0][0] == "003"
             cur.close()
         finally:
             conn.close()
@@ -102,6 +102,23 @@ class TestMigrate:
             assert "etag" not in columns
             assert "last_modified" not in columns
             assert "content_hash" not in columns
+            cur.close()
+        finally:
+            conn.close()
+
+    def test_crawl_schedule_schema_does_not_store_redundant_normalized_url(self):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'crawl_schedule'
+                """
+            )
+            columns = {row[0] for row in cur.fetchall()}
+            assert "normalized_url" not in columns
             cur.close()
         finally:
             conn.close()
