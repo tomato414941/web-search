@@ -71,11 +71,7 @@ async def process_html_result(
 
     outlinks_discovered = len(parsed.outlinks)
     if parsed.feed_links:
-        await admit_discovered_urls(
-            ctx,
-            parsed.feed_links,
-            discovery_depth=0,
-        )
+        await admit_discovered_urls(ctx, parsed.feed_links)
     if parsed.content:
         submit_started_at = time.perf_counter()
         index_result = await submit_html_page_to_indexer(ctx, parsed)

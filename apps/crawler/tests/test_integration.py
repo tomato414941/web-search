@@ -51,13 +51,11 @@ def _record_and_admit_url(
     url: str,
     *,
     admission_intent: str = "normal",
-    discovery_depth: int = 1,
 ) -> bool:
     _url_ledger_repository(url_store).record_discovered_url(url)
     return url_store.schedule_url_for_crawl(
         url,
         admission_intent=admission_intent,
-        discovery_depth=discovery_depth,
     )
 
 
@@ -66,13 +64,11 @@ def _record_and_admit_urls(
     urls: list[str],
     *,
     admission_intent: str = "normal",
-    discovery_depth: int = 1,
 ) -> int:
     _url_ledger_repository(url_store).record_discovered_urls(urls)
     return url_store.schedule_urls_for_crawl(
         urls,
         admission_intent=admission_intent,
-        discovery_depth=discovery_depth,
     )
 
 
@@ -623,10 +619,10 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
             """
             INSERT INTO crawl_schedule (
                 url_hash, url, domain, discovered_at,
-                discovery_depth, priority_bucket, priority_score,
+                priority_bucket, priority_score,
                 status, next_fetch_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, 1, 3, 0, 'pending', %s, %s)
+            VALUES (%s, %s, %s, %s, 3, 0, 'pending', %s, %s)
             """,
             (
                 url_hash(frontier_url),

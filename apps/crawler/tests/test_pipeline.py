@@ -238,7 +238,6 @@ class TestProcessFetchResult:
         mock_admit.assert_any_await(
             ctx,
             ["https://example.com/news/rss.xml"],
-            discovery_depth=0,
         )
         mock_admit.assert_any_await(
             ctx,
@@ -246,7 +245,7 @@ class TestProcessFetchResult:
         )
 
     @pytest.mark.asyncio
-    async def test_feed_autodiscovery_uses_depth_zero(self):
+    async def test_feed_autodiscovery_schedules_feed_url(self):
         ctx = _make_ctx()
         with patch(
             "web_search_crawler.services.crawl_schedule_admission.run_in_db_executor",
@@ -259,7 +258,6 @@ class TestProcessFetchResult:
             await admit_discovered_urls(
                 ctx,
                 ["https://example.com/news/rss.xml"],
-                discovery_depth=0,
             )
 
         assert mock_db.await_args_list[0].args == (
@@ -272,7 +270,6 @@ class TestProcessFetchResult:
         )
         assert mock_db.await_args_list[1].kwargs == {
             "admission_intent": "normal",
-            "discovery_depth": 0,
         }
 
     @pytest.mark.asyncio

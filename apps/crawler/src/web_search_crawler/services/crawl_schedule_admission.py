@@ -16,7 +16,6 @@ async def admit_discovered_urls(
     discovered: list[str],
     *,
     admission_intent: str = "normal",
-    discovery_depth: int = 1,
 ) -> None:
     """Filter discovered URLs and schedule them for crawling."""
     if not discovered:
@@ -39,7 +38,6 @@ async def admit_discovered_urls(
             ctx.url_store.schedule_urls_for_crawl,
             valid_urls,
             admission_intent=admission_intent,
-            discovery_depth=discovery_depth,
         )
     logger.debug(
         "Admitted discovered URLs from %s with %s intent (%d discovered)",

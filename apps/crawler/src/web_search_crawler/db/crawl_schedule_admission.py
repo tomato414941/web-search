@@ -41,7 +41,6 @@ class CrawlScheduleAdmissionMixin:
         urls: list[str],
         *,
         admission_intent: str,
-        discovery_depth: int,
     ) -> list[dict[str, Any]]:
         records: dict[str, dict[str, Any]] = {}
         for url in urls:
@@ -60,7 +59,6 @@ class CrawlScheduleAdmissionMixin:
                     "h": h,
                     "url": normalized_url,
                     "domain": get_domain(normalized_url),
-                    "discovery_depth": discovery_depth,
                     "priority_bucket": schedule.priority_bucket,
                     "priority_score": schedule.priority_score,
                     "next_fetch_at": int(time.time())
@@ -118,7 +116,6 @@ class CrawlScheduleAdmissionMixin:
                 url,
                 domain,
                 discovered_at,
-                discovery_depth,
                 priority_bucket,
                 priority_score,
                 status,
@@ -129,10 +126,6 @@ class CrawlScheduleAdmissionMixin:
             ON CONFLICT (url_hash) DO UPDATE SET
                 url = EXCLUDED.url,
                 domain = EXCLUDED.domain,
-                discovery_depth = LEAST(
-                    crawl_schedule.discovery_depth,
-                    EXCLUDED.discovery_depth
-                ),
                 priority_bucket = LEAST(
                     crawl_schedule.priority_bucket,
                     EXCLUDED.priority_bucket
@@ -153,7 +146,6 @@ class CrawlScheduleAdmissionMixin:
                     row["url"],
                     row["domain"],
                     now,
-                    row["discovery_depth"],
                     row["priority_bucket"],
                     row["priority_score"],
                     "pending",
@@ -207,14 +199,12 @@ class CrawlScheduleAdmissionMixin:
         url: str,
         *,
         admission_intent: str = "normal",
-        discovery_depth: int = 1,
     ) -> bool:
         """Schedule a URL for crawling without writing the urls ledger."""
         return (
             self.schedule_urls_for_crawl(
                 [url],
                 admission_intent=admission_intent,
-                discovery_depth=discovery_depth,
             )
             > 0
         )
@@ -224,7 +214,6 @@ class CrawlScheduleAdmissionMixin:
         urls: list[str],
         *,
         admission_intent: str = "normal",
-        discovery_depth: int = 1,
     ) -> int:
         """Schedule URLs for crawling if eligible."""
         if not urls:
@@ -232,7 +221,6 @@ class CrawlScheduleAdmissionMixin:
         rows = self._normalize_batch_urls(
             urls,
             admission_intent=admission_intent,
-            discovery_depth=discovery_depth,
         )
         if not rows:
             return 0

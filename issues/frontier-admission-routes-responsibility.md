@@ -19,7 +19,6 @@ change.
 Observed frontier admission routes:
 
 - HTML outlinks via `admit_discovered_urls(...)`
-- feed autodiscovery URLs via `admit_discovered_urls(..., discovery_depth=0)`
 - robots-blocked recovery CLI when a URL has no existing frontier entry
 
 Observed non-admission route:
