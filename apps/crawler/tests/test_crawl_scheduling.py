@@ -12,7 +12,6 @@ def test_compute_admission_schedule_applies_operator_priority():
     )
 
     assert assignment.priority_bucket == 0
-    assert assignment.priority_score == 200.0
 
 
 def test_compute_admission_schedule_prioritizes_release_notes_paths():
@@ -21,7 +20,6 @@ def test_compute_admission_schedule_prioritizes_release_notes_paths():
     )
 
     assert assignment.priority_bucket == 1
-    assert assignment.priority_score == 120.0
     assert (
         compute_success_recrawl_delay_for_url(
             "https://docs.python.org/3/whatsnew/3.13.html"
@@ -36,7 +34,6 @@ def test_compute_admission_schedule_prioritizes_reference_docs_paths():
     )
 
     assert assignment.priority_bucket == 1
-    assert assignment.priority_score == 100.0
     assert (
         compute_success_recrawl_delay_for_url(
             "https://docs.docker.com/reference/cli/docker/"
@@ -51,7 +48,6 @@ def test_compute_admission_schedule_prioritizes_news_root_paths():
     )
 
     assert assignment.priority_bucket == 1
-    assert assignment.priority_score == 110.0
     assert compute_success_recrawl_delay_for_url("https://openai.com/news/") == 4 * 3600
 
 
@@ -61,7 +57,6 @@ def test_compute_admission_schedule_prioritizes_blog_root_paths():
     )
 
     assert assignment.priority_bucket == 1
-    assert assignment.priority_score == 90.0
     assert (
         compute_success_recrawl_delay_for_url("https://example.com/blog/") == 8 * 3600
     )
@@ -73,7 +68,6 @@ def test_compute_admission_schedule_prioritizes_news_article_paths_below_roots()
     )
 
     assert assignment.priority_bucket == 2
-    assert assignment.priority_score == 40.0
     assert (
         compute_success_recrawl_delay_for_url("https://openai.com/news/some-update/")
         == 30 * 24 * 3600

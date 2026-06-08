@@ -60,7 +60,6 @@ class CrawlScheduleAdmissionMixin:
                     "url": normalized_url,
                     "domain": get_domain(normalized_url),
                     "priority_bucket": schedule.priority_bucket,
-                    "priority_score": schedule.priority_score,
                     "next_fetch_at": int(time.time())
                     + schedule.initial_next_fetch_delay_sec,
                 },
@@ -117,7 +116,6 @@ class CrawlScheduleAdmissionMixin:
                 domain,
                 discovered_at,
                 priority_bucket,
-                priority_score,
                 status,
                 next_fetch_at,
                 updated_at
@@ -129,10 +127,6 @@ class CrawlScheduleAdmissionMixin:
                 priority_bucket = LEAST(
                     crawl_schedule.priority_bucket,
                     EXCLUDED.priority_bucket
-                ),
-                priority_score = GREATEST(
-                    crawl_schedule.priority_score,
-                    EXCLUDED.priority_score
                 ),
                 next_fetch_at = LEAST(
                     crawl_schedule.next_fetch_at,
@@ -147,7 +141,6 @@ class CrawlScheduleAdmissionMixin:
                     row["domain"],
                     now,
                     row["priority_bucket"],
-                    row["priority_score"],
                     "pending",
                     row["next_fetch_at"],
                     now,

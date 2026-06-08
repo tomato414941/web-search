@@ -174,7 +174,6 @@ def upgrade() -> None:
             domain TEXT NOT NULL,
             discovered_at INTEGER NOT NULL,
             priority_bucket SMALLINT NOT NULL,
-            priority_score DOUBLE PRECISION NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'pending',
             next_fetch_at INTEGER NOT NULL,
             last_fetched_at INTEGER,
@@ -189,7 +188,7 @@ def upgrade() -> None:
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_ready "
         "ON crawl_schedule "
-        "(status, next_fetch_at, priority_bucket, priority_score DESC)"
+        "(status, next_fetch_at, priority_bucket)"
     )
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_domain_ready "
@@ -198,7 +197,7 @@ def upgrade() -> None:
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_crawl_schedule_pending_planner_order "
         "ON crawl_schedule("
-        "priority_bucket, priority_score DESC, next_fetch_at, "
+        "priority_bucket, next_fetch_at, "
         "last_success_at ASC NULLS FIRST, discovered_at, url_hash"
         ") INCLUDE (url, domain, lease_expires_at) "
         "WHERE status = 'pending'"

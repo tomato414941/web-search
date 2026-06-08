@@ -15,7 +15,6 @@ class CrawlScheduleEntry:
     url: str
     domain: str
     priority_bucket: int
-    priority_score: float
     status: str
     next_fetch_at: int
 

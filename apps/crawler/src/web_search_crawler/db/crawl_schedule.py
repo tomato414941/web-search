@@ -103,7 +103,6 @@ class CrawlScheduleMixin:
                 task.domain,
                 task.discovered_at,
                 task.priority_bucket,
-                task.priority_score,
                 task.next_fetch_at,
                 COALESCE(active_leases.leased, 0),
                 COALESCE(domain_state.next_request_at, 0),
@@ -117,7 +116,6 @@ class CrawlScheduleMixin:
               AND COALESCE(active_leases.leased, 0) < {ph}
             ORDER BY
                 task.priority_bucket ASC,
-                task.priority_score DESC,
                 task.next_fetch_at ASC,
                 task.last_success_at ASC NULLS FIRST,
                 task.discovered_at ASC,
@@ -142,9 +140,9 @@ class CrawlScheduleMixin:
         leased_per_domain: dict[str, int] = {}
         for row in candidates:
             domain = row[2]
-            inflight_leases = int(row[7] or 0)
-            next_request_at = int(row[8] or 0)
-            backoff_until = int(row[9] or 0)
+            inflight_leases = int(row[6] or 0)
+            next_request_at = int(row[7] or 0)
+            backoff_until = int(row[8] or 0)
             if next_request_at > now or backoff_until > now:
                 continue
             effective_leases = inflight_leases + leased_per_domain.get(domain, 0)
@@ -405,10 +403,8 @@ class CrawlScheduleMixin:
                     admission_intent="normal",
                 )
                 priority_bucket = reassigned.priority_bucket
-                priority_score = reassigned.priority_score
             else:
                 priority_bucket = None
-                priority_score = None
 
             if is_success:
                 next_delay = compute_success_recrawl_delay_for_url(url)
@@ -432,19 +428,17 @@ class CrawlScheduleMixin:
                 next_fail_streak=next_fail_streak,
                 now=now,
             )
-            if priority_bucket is not None and priority_score is not None:
+            if priority_bucket is not None:
                 cur.execute(
                     f"""
                     UPDATE crawl_schedule
                     SET
                         priority_bucket = {sql_placeholder()},
-                        priority_score = {sql_placeholder()},
                         updated_at = {sql_placeholder()}
                     WHERE url_hash = {sql_placeholder()}
                     """,
                     (
                         priority_bucket,
-                        priority_score,
                         now,
                         h,
                     ),

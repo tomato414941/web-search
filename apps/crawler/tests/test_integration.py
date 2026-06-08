@@ -356,7 +356,7 @@ def test_lease_ready_crawl_tasks_leases_url_and_clears_pending_frontier_state(
     assert domain_state.inflight_leases == 1
 
 
-def test_lease_ready_crawl_tasks_orders_by_priority(test_url_store):
+def test_lease_ready_crawl_tasks_prefers_priority_bucket(test_url_store):
     urls = [
         "https://docs.python.org/3/whatsnew/3.13.html",
         "https://kubernetes.io/docs/",
@@ -366,10 +366,10 @@ def test_lease_ready_crawl_tasks_orders_by_priority(test_url_store):
 
     leased = test_url_store.lease_ready_crawl_tasks(2, lease_seconds=120)
 
-    assert [item.url for item in leased] == [
+    assert {item.url for item in leased} == {
         "https://docs.python.org/3/whatsnew/3.13.html",
         "https://kubernetes.io/docs/",
-    ]
+    }
 
 
 def test_lease_ready_crawl_tasks_leases_generic_urls(test_url_store):
@@ -495,7 +495,6 @@ def test_operator_priority_admission_applies_one_time_priority_override(test_url
 
     assert entry is not None
     assert entry.priority_bucket == 0
-    assert entry.priority_score == 200.0
 
     test_url_store.lease_ready_crawl_tasks(1, lease_seconds=120)
 
@@ -507,7 +506,6 @@ def test_operator_priority_admission_applies_one_time_priority_override(test_url
     assert entry is not None
     assert entry.status == "pending"
     assert entry.priority_bucket == 1
-    assert entry.priority_score == 100.0
     assert entry.next_fetch_at >= before + 7 * 24 * 3600
     assert entry.next_fetch_at <= after + 7 * 24 * 3600 + 1
 
@@ -619,10 +617,10 @@ def test_purge_admission_rejected_urls_removes_frontier_rows(test_url_store):
             """
             INSERT INTO crawl_schedule (
                 url_hash, url, domain, discovered_at,
-                priority_bucket, priority_score,
+                priority_bucket,
                 status, next_fetch_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, 3, 0, 'pending', %s, %s)
+            VALUES (%s, %s, %s, %s, 3, 'pending', %s, %s)
             """,
             (
                 url_hash(frontier_url),
@@ -694,11 +692,6 @@ def test_crawl_task_planner_prefetches_past_skewed_domains(test_url_store):
             UPDATE crawl_schedule
             SET
                 priority_bucket = 0,
-                priority_score = CASE
-                    WHEN domain = 'www.debian.org' THEN 100
-                    WHEN domain = 'browse.dgit.debian.org' THEN 90
-                    ELSE 10
-                END,
                 discovered_at = %s,
                 next_fetch_at = %s,
                 updated_at = %s
@@ -720,8 +713,6 @@ def test_crawl_task_planner_prefetches_past_skewed_domains(test_url_store):
 
     assert len(ready) == 4
     assert len(domains) == 4
-    assert "www.debian.org" in domains
-    assert "browse.dgit.debian.org" in domains
 
 
 def test_domain_state_survives_planner_restart(test_url_store):

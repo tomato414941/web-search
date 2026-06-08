@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "004"
+            assert rows[0][0] == "005"
             cur.close()
         finally:
             conn.close()
@@ -136,6 +136,23 @@ class TestMigrate:
             )
             columns = {row[0] for row in cur.fetchall()}
             assert "discovery_depth" not in columns
+            cur.close()
+        finally:
+            conn.close()
+
+    def test_crawl_schedule_schema_does_not_store_priority_score(self):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'crawl_schedule'
+                """
+            )
+            columns = {row[0] for row in cur.fetchall()}
+            assert "priority_score" not in columns
             cur.close()
         finally:
             conn.close()

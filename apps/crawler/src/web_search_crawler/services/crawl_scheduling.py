@@ -28,13 +28,11 @@ _NEWS_ROOT_PATH_TERMS = ("/news", "/announcements")
 _REFERENCE_PATH_TERMS = ("/docs", "/doc", "/documentation", "/reference", "/api")
 _ROOTISH_PATHS = frozenset(("", "/"))
 _OPERATOR_PRIORITY_BUCKET = 0
-_OPERATOR_PRIORITY_SCORE = 200.0
 
 
 @dataclass(frozen=True)
 class CrawlSchedulingParameters:
     priority_bucket: int
-    priority_score_boost: float
     base_recrawl_interval_sec: int
     failure_retry_delay_sec: int
 
@@ -42,44 +40,37 @@ class CrawlSchedulingParameters:
 @dataclass(frozen=True)
 class CrawlAdmissionSchedule:
     priority_bucket: int
-    priority_score: float
     initial_next_fetch_delay_sec: int
 
 
 SCHEDULING_PARAMETERS: dict[str, CrawlSchedulingParameters] = {
     "release_notes": CrawlSchedulingParameters(
         priority_bucket=1,
-        priority_score_boost=120.0,
         base_recrawl_interval_sec=4 * 3600,
         failure_retry_delay_sec=30 * 60,
     ),
     "news_root": CrawlSchedulingParameters(
         priority_bucket=1,
-        priority_score_boost=110.0,
         base_recrawl_interval_sec=4 * 3600,
         failure_retry_delay_sec=30 * 60,
     ),
     "blog_root": CrawlSchedulingParameters(
         priority_bucket=1,
-        priority_score_boost=90.0,
         base_recrawl_interval_sec=8 * 3600,
         failure_retry_delay_sec=60 * 60,
     ),
     "reference_docs": CrawlSchedulingParameters(
         priority_bucket=1,
-        priority_score_boost=100.0,
         base_recrawl_interval_sec=7 * 24 * 3600,
         failure_retry_delay_sec=6 * 3600,
     ),
     "article": CrawlSchedulingParameters(
         priority_bucket=2,
-        priority_score_boost=40.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
         failure_retry_delay_sec=24 * 3600,
     ),
     "generic": CrawlSchedulingParameters(
         priority_bucket=3,
-        priority_score_boost=0.0,
         base_recrawl_interval_sec=30 * 24 * 3600,
         failure_retry_delay_sec=3 * 24 * 3600,
     ),
@@ -133,16 +124,13 @@ def compute_admission_schedule(
     if admission_intent == "operator_priority":
         return CrawlAdmissionSchedule(
             priority_bucket=_OPERATOR_PRIORITY_BUCKET,
-            priority_score=_OPERATOR_PRIORITY_SCORE,
             initial_next_fetch_delay_sec=0,
         )
 
     priority_bucket = parameters.priority_bucket
-    priority_score = parameters.priority_score_boost
 
     return CrawlAdmissionSchedule(
         priority_bucket=priority_bucket,
-        priority_score=priority_score,
         initial_next_fetch_delay_sec=0,
     )
 
