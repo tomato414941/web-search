@@ -1,6 +1,5 @@
 """Indexer async job queue service."""
 
-import json
 import logging
 import time
 import uuid
@@ -33,7 +32,7 @@ class IndexJob:
     url: str
     title: str
     content: str
-    outlinks: list[str]
+    outlinks_count: int
     status: str
     retry_count: int
     max_retries: int
@@ -66,39 +65,13 @@ class IndexJobService:
     def _now_ts() -> int:
         return int(time.time())
 
-    @staticmethod
-    def _normalize_outlinks(outlinks: list[str] | None) -> list[str]:
-        if not outlinks:
-            return []
-        normalized: list[str] = []
-        for item in outlinks:
-            if not item:
-                continue
-            normalized.append(str(item))
-        return normalized
-
-    @staticmethod
-    def _decode_outlinks(value: Any) -> list[str]:
-        if value is None:
-            return []
-        if isinstance(value, list):
-            return [str(v) for v in value if v]
-        if isinstance(value, str):
-            try:
-                decoded = json.loads(value)
-            except json.JSONDecodeError:
-                return []
-            if isinstance(decoded, list):
-                return [str(v) for v in decoded if v]
-        return []
-
     def enqueue(
         self,
         *,
         url: str,
         title: str,
         content: str,
-        outlinks: list[str] | None,
+        outlinks_count: int,
         published_at: str | None = None,
         updated_at: str | None = None,
         author: str | None = None,
@@ -107,17 +80,14 @@ class IndexJobService:
         """Queue a new indexing job (idempotent by dedupe_key)."""
         del updated_at
         content_hash = hash_text(content)
-        clean_outlinks = self._normalize_outlinks(outlinks)
-        outlinks_hash = (
-            hash_text("\n".join(sorted(clean_outlinks))) if clean_outlinks else ""
-        )
-        dedupe_key = build_dedupe_key(url, content_hash, outlinks_hash)
+        safe_outlinks_count = max(0, outlinks_count)
+        dedupe_key = build_dedupe_key(url, content_hash, safe_outlinks_count)
         return IndexJobRepository.enqueue(
             job_id=str(uuid.uuid4()),
             url=url,
             title=title,
             content=content,
-            outlinks_json=json.dumps(clean_outlinks),
+            outlinks_count=safe_outlinks_count,
             status_pending=STATUS_PENDING,
             max_retries=self.max_retries,
             now_ts=self._now_ts(),
@@ -236,7 +206,7 @@ class IndexJobService:
             url=str(row[1]),
             title=str(row[2]),
             content=str(row[3]),
-            outlinks=self._decode_outlinks(row[4]),
+            outlinks_count=int(row[4] or 0),
             status=str(row[5]),
             retry_count=int(row[6]),
             max_retries=int(row[7]),

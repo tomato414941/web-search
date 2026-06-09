@@ -91,7 +91,7 @@ async def repair_url(session: aiohttp.ClientSession, url: str) -> None:
                 str(response.url),
                 parsed.title,
                 parsed.content,
-                outlinks=parsed.outlinks,
+                outlinks_count=len(parsed.outlinks),
                 published_at=parsed.published_at,
                 updated_at=parsed.updated_at,
                 author=parsed.author,

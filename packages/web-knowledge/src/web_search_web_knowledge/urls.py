@@ -1,4 +1,4 @@
-"""URL ledger persistence."""
+"""Known URL persistence."""
 
 from contextlib import contextmanager
 import logging

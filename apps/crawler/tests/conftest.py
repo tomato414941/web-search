@@ -19,6 +19,7 @@ from web_search_postgres.migrate import migrate  # noqa: E402
 
 # Crawler tables to truncate
 _CRAWLER_TABLES = [
+    "links",
     "domain_state",
     "crawl_schedule",
     "urls",

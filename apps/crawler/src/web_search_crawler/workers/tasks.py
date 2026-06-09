@@ -20,6 +20,7 @@ from web_search_crawler.crawl_task_planner import CrawlTaskPlanner
 from web_search_crawler.services.crawl_runtime import (
     build_crawl_task_planner,
     build_crawler_runtime_store,
+    build_link_graph_repository,
     build_url_ledger_repository,
     load_static_crawl_config,
 )
@@ -33,7 +34,7 @@ from web_search_crawler.workers.types import (
     PipelineContext,
 )
 from web_search_contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
-from web_search_postgres.repositories import UrlLedgerRepository
+from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ async def process_url(
     robots: AsyncRobotsCache,
     url_store: CrawlerRuntimeStore,
     url_ledger: UrlLedgerRepository,
+    link_graph: LinkGraphRepository,
     planner: CrawlTaskPlanner,
     url: str,
     runtime_state: WorkerRuntimeState | None = None,
@@ -81,6 +83,7 @@ async def process_url(
         robots=robots,
         url_store=url_store,
         url_ledger=url_ledger,
+        link_graph=link_graph,
         planner=planner,
         url=url,
         blocked_domains=state.blocked_domains,
@@ -202,6 +205,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
 
     url_store = build_crawler_runtime_store()
     url_ledger = build_url_ledger_repository()
+    link_graph = build_link_graph_repository()
     planner = build_crawl_task_planner(
         url_store, batch_size=settings.CRAWL_TASK_PLANNER_BATCH_SIZE
     )
@@ -262,6 +266,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     robots,
                     url_store,
                     url_ledger,
+                    link_graph,
                     planner,
                     url,
                     runtime_state=state,

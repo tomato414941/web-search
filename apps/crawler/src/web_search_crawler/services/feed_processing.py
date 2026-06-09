@@ -80,6 +80,11 @@ async def process_feed_result(
         return PipelineProcessResult(status="skipped", message=message, timings=timings)
 
     entry_urls = [entry.url for entry in entries]
+    await run_in_db_executor(
+        ctx.link_graph.replace_observed_links,
+        ctx.url,
+        entry_urls,
+    )
     if entry_urls:
         await run_in_db_executor(
             ctx.url_ledger.record_discovered_urls,

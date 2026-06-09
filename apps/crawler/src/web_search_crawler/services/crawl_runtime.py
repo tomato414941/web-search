@@ -9,7 +9,7 @@ from web_search_crawler.crawl_task_planner import (
     CrawlTaskPlannerConfig,
 )
 from web_search_core.url_admission import load_url_admission_policy
-from web_search_postgres.repositories import UrlLedgerRepository
+from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
 
 
 def build_crawler_runtime_store() -> CrawlerRuntimeStore:
@@ -21,6 +21,12 @@ def build_crawler_runtime_store() -> CrawlerRuntimeStore:
 
 def build_url_ledger_repository() -> UrlLedgerRepository:
     return UrlLedgerRepository(
+        load_url_admission_policy(settings.URL_ADMISSION_RULES_PATH),
+    )
+
+
+def build_link_graph_repository() -> LinkGraphRepository:
+    return LinkGraphRepository(
         load_url_admission_policy(settings.URL_ADMISSION_RULES_PATH),
     )
 

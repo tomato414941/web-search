@@ -16,6 +16,7 @@ members = [
     "web-search-postgres",
     "web-search-search-config",
     "web-search-telemetry",
+    "web-search-web-knowledge",
     "web-search-workspace",
 ]
 
@@ -3049,6 +3050,7 @@ dependencies = [
     { name = "web-search-contracts" },
     { name = "web-search-core" },
     { name = "web-search-postgres" },
+    { name = "web-search-web-knowledge" },
 ]
 
 [package.metadata]
@@ -3066,6 +3068,7 @@ requires-dist = [
     { name = "web-search-contracts", editable = "packages/contracts" },
     { name = "web-search-core", editable = "packages/core" },
     { name = "web-search-postgres", editable = "packages/postgres" },
+    { name = "web-search-web-knowledge", editable = "packages/web-knowledge" },
 ]
 
 [[package]]
@@ -3215,6 +3218,23 @@ source = { editable = "packages/search-config" }
 name = "web-search-telemetry"
 version = "0.1.0"
 source = { editable = "packages/search-telemetry" }
+
+[[package]]
+name = "web-search-web-knowledge"
+version = "0.1.0"
+source = { editable = "packages/web-knowledge" }
+dependencies = [
+    { name = "psycopg2-binary" },
+    { name = "web-search-core" },
+    { name = "web-search-postgres" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "psycopg2-binary", specifier = ">=2.9.0" },
+    { name = "web-search-core", editable = "packages/core" },
+    { name = "web-search-postgres", editable = "packages/postgres" },
+]
 
 [[package]]
 name = "web-search-workspace"

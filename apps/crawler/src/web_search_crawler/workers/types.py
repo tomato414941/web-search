@@ -11,7 +11,7 @@ from web_search_crawler.crawl_task_planner import CrawlTaskPlanner
 from web_search_crawler.services.fetchers import AiohttpFetcher, Fetcher
 from web_search_crawler.utils.robots import AsyncRobotsCache
 from web_search_core.urls import get_domain
-from web_search_postgres.repositories import UrlLedgerRepository
+from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
 
 
 @dataclass
@@ -22,6 +22,7 @@ class PipelineContext:
     robots: AsyncRobotsCache
     url_store: CrawlerRuntimeStore
     url_ledger: UrlLedgerRepository
+    link_graph: LinkGraphRepository
     planner: CrawlTaskPlanner
     url: str
     domain: str = field(init=False)

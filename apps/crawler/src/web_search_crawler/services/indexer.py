@@ -71,7 +71,7 @@ async def submit_page_to_indexer(
     url: str,
     title: str,
     content: str,
-    outlinks: list[str] | None = None,
+    outlinks_count: int = 0,
     published_at: str | None = None,
     updated_at: str | None = None,
     author: str | None = None,
@@ -87,7 +87,7 @@ async def submit_page_to_indexer(
         url: Page URL
         title: Page title
         content: Page content
-        outlinks: List of discovered outbound URLs
+        outlinks_count: Number of observed outbound URLs
 
     Returns:
         IndexerSubmitResult containing success, status code, and error details.
@@ -100,9 +100,8 @@ async def submit_page_to_indexer(
         "url": url,
         "title": title,
         "content": content,
+        "outlinks_count": outlinks_count,
     }
-    if outlinks:
-        payload["outlinks"] = outlinks
     if published_at:
         payload["published_at"] = published_at
     if updated_at:

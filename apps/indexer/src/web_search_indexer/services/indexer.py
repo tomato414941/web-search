@@ -6,9 +6,9 @@ import logging
 
 from web_search_indexer.core.config import settings
 from web_search_postgres import get_connection
-from web_search_postgres.repositories import DocumentRepository
 from web_search_indexer.services.document_indexer import SearchIndexer
 from web_search_indexer.services.opensearch_document import build_opensearch_document
+from web_search_postgres.repositories import DocumentRepository
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +35,6 @@ def _sanitize_text(value: str) -> str:
     return value.replace("\x00", " ")
 
 
-def _sanitize_outlinks(outlinks: list[str] | None) -> list[str]:
-    if not outlinks:
-        return []
-    cleaned: list[str] = []
-    for outlink in outlinks:
-        if not outlink:
-            continue
-        cleaned.append(outlink.replace("\x00", ""))
-    return cleaned
-
-
 @dataclass(slots=True)
 class IndexedPage:
     url: str
@@ -66,7 +55,7 @@ class IndexerService:
         url: str,
         title: str,
         content: str,
-        outlinks: list[str] | None = None,
+        outlinks_count: int = 0,
         published_at: str | None = None,
         author: str | None = None,
         organization: str | None = None,
@@ -76,14 +65,12 @@ class IndexerService:
         """Index a single page into the baseline document store."""
         safe_title = _sanitize_text(title)
         safe_content = _sanitize_text(content)
-        safe_outlinks = _sanitize_outlinks(outlinks)
 
         await asyncio.to_thread(
-            self._write_document_and_links,
+            self._write_document,
             url,
             safe_title,
             safe_content,
-            safe_outlinks,
             published_at,
         )
 
@@ -91,7 +78,7 @@ class IndexerService:
             url=url,
             title=safe_title,
             content=safe_content,
-            outlinks_count=len(safe_outlinks),
+            outlinks_count=max(0, outlinks_count),
             published_at=published_at,
             author=author,
             organization=organization,
@@ -109,12 +96,11 @@ class IndexerService:
             return 0
         return await asyncio.to_thread(self._index_pages_to_opensearch_sync, pages)
 
-    def _write_document_and_links(
+    def _write_document(
         self,
         url: str,
         title: str,
         content: str,
-        outlinks: list[str],
         published_at: str | None,
     ) -> None:
         conn = get_connection()
@@ -122,7 +108,6 @@ class IndexerService:
             self.search_indexer.index_document(
                 url, title, content, conn, published_at=published_at
             )
-            self._save_links(conn, url, outlinks)
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -130,13 +115,6 @@ class IndexerService:
             raise
         finally:
             conn.close()
-
-    def _save_links(self, conn, src_url: str, outlinks: list[str]) -> None:
-        """Save outlinks to the links table."""
-        try:
-            DocumentRepository.replace_links(conn, src_url, outlinks)
-        except Exception as e:
-            logger.warning(f"Failed to save links for {src_url}: {e}")
 
     def _index_to_opensearch(
         self,

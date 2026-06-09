@@ -10,7 +10,7 @@ def test_enqueue_and_get_status():
         url="https://example.com",
         title="Title",
         content="Body",
-        outlinks=["https://example.com/a"],
+        outlinks_count=1,
     )
 
     assert created is True
@@ -30,13 +30,13 @@ def test_enqueue_is_deduplicated_by_content_hash():
         url="https://example.com",
         title="Title-1",
         content="same-content",
-        outlinks=[],
+        outlinks_count=0,
     )
     job_id_2, created_2 = service.enqueue(
         url="https://example.com",
         title="Title-2",
         content="same-content",
-        outlinks=[],
+        outlinks_count=0,
     )
 
     assert created_1 is True
@@ -50,7 +50,7 @@ def test_claim_and_mark_done():
         url="https://claim.example.com",
         title="Claim",
         content="content",
-        outlinks=[],
+        outlinks_count=0,
     )
 
     jobs = service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-1")
@@ -74,7 +74,7 @@ def test_failure_retries_then_permanent_failure():
         url="https://retry.example.com",
         title="Retry",
         content="content",
-        outlinks=[],
+        outlinks_count=0,
     )
 
     first_claim = service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-1")
@@ -103,7 +103,7 @@ def test_mark_done_cas_rejects_wrong_worker():
         url="https://cas-done.example.com",
         title="CAS",
         content="cas-test-done",
-        outlinks=[],
+        outlinks_count=0,
     )
     service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-A")
 
@@ -129,7 +129,7 @@ def test_mark_failure_cas_rejects_wrong_worker():
         url="https://cas-fail.example.com",
         title="CAS",
         content="cas-test-fail",
-        outlinks=[],
+        outlinks_count=0,
     )
     service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-A")
 

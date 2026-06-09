@@ -49,7 +49,7 @@ async def submit_html_page_to_indexer(
         ctx.url,
         parsed.title,
         parsed.content,
-        outlinks=parsed.outlinks,
+        outlinks_count=len(parsed.outlinks),
         published_at=parsed.published_at,
         updated_at=parsed.updated_at,
         author=parsed.author,
@@ -70,6 +70,11 @@ async def process_html_result(
     timings.parse_ms = elapsed_ms(parse_started_at)
 
     outlinks_discovered = len(parsed.outlinks)
+    await run_in_db_executor(
+        ctx.link_graph.replace_observed_links,
+        ctx.url,
+        parsed.outlinks,
+    )
     if parsed.feed_links:
         await admit_discovered_urls(ctx, parsed.feed_links)
     if parsed.content:

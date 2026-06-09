@@ -49,6 +49,7 @@ def _make_ctx(**overrides) -> PipelineContext:
         robots=MagicMock(),
         url_store=MagicMock(),
         url_ledger=MagicMock(),
+        link_graph=MagicMock(),
         planner=MagicMock(),
         url="http://example.com/page",
         blocked_domains=frozenset(),

@@ -16,7 +16,7 @@ class IndexJobRepository:
         url: str,
         title: str,
         content: str,
-        outlinks_json: str,
+        outlinks_count: int,
         status_pending: str,
         max_retries: int,
         now_ts: int,
@@ -27,20 +27,19 @@ class IndexJobRepository:
         organization: str | None,
     ) -> tuple[str, bool]:
         ph = sql_placeholder()
-        jsonb_ph = f"{ph}::jsonb"
         con = get_connection()
         try:
             cur = con.cursor()
             cur.execute(
                 f"""
                 INSERT INTO index_jobs (
-                    job_id, url, title, content, outlinks,
+                    job_id, url, title, content, outlinks_count,
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
                     created_at, updated_at, content_hash, dedupe_key,
                     published_at, author, organization
                 ) VALUES (
-                    {ph}, {ph}, {ph}, {ph}, {jsonb_ph},
+                    {ph}, {ph}, {ph}, {ph}, {ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
                     {ph}, {ph}, {ph}, {ph},
@@ -54,7 +53,7 @@ class IndexJobRepository:
                     url,
                     title,
                     content,
-                    outlinks_json,
+                    outlinks_count,
                     status_pending,
                     max_retries,
                     now_ts,
@@ -152,7 +151,7 @@ class IndexJobRepository:
                 WHERE j.job_id = c.job_id
                 RETURNING
                     j.job_id, j.url, j.title, j.content,
-                    j.outlinks, j.status, j.retry_count, j.max_retries,
+                    j.outlinks_count, j.status, j.retry_count, j.max_retries,
                     j.published_at, j.author, j.organization
                 """,
                 (
@@ -271,7 +270,6 @@ class IndexJobRepository:
                         status = {ph},
                         content = '',
                         title = '',
-                        outlinks = {ph},
                         lease_until = NULL,
                         worker_id = NULL,
                         last_error = NULL,
@@ -280,7 +278,7 @@ class IndexJobRepository:
                       AND status = {ph}
                       AND worker_id = {ph}
                     """,
-                    (status_done, "[]", now_ts, job_id, status_processing, worker_id),
+                    (status_done, now_ts, job_id, status_processing, worker_id),
                 )
             else:
                 cur.execute(
@@ -290,14 +288,13 @@ class IndexJobRepository:
                         status = {ph},
                         content = '',
                         title = '',
-                        outlinks = {ph},
                         lease_until = NULL,
                         worker_id = NULL,
                         last_error = NULL,
                         updated_at = {ph}
                     WHERE job_id = {ph}
                     """,
-                    (status_done, "[]", now_ts, job_id),
+                    (status_done, now_ts, job_id),
                 )
             affected = cur.rowcount
             con.commit()

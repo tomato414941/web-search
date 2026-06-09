@@ -100,7 +100,7 @@ async def _process_single_job(
                 url=job.url,
                 title=job.title,
                 content=job.content,
-                outlinks=job.outlinks,
+                outlinks_count=job.outlinks_count,
                 published_at=job.published_at,
                 author=job.author,
                 organization=job.organization,

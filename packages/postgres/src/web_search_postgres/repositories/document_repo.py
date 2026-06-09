@@ -1,4 +1,4 @@
-"""Repository for documents, links, and related search metadata."""
+"""Repository for documents and related search metadata."""
 
 from collections.abc import Sequence
 from datetime import datetime
@@ -57,29 +57,6 @@ class DocumentRepository:
         cur = conn.cursor()
         cur.execute(f"DELETE FROM documents WHERE url = {ph}", (url,))
         cur.close()
-
-    @staticmethod
-    def replace_links(conn: Any, src_url: str, outlinks: list[str]) -> None:
-        ph = sql_placeholder()
-        cur = conn.cursor()
-        savepoint = "sp_save_links"
-        try:
-            cur.execute(f"SAVEPOINT {savepoint}")
-            cur.execute(f"DELETE FROM links WHERE src = {ph}", (src_url,))
-            pairs = [(src_url, dst) for dst in outlinks if dst != src_url]
-            if pairs:
-                cur.executemany(
-                    f"INSERT INTO links (src, dst) VALUES ({ph}, {ph}) "
-                    "ON CONFLICT DO NOTHING",
-                    pairs,
-                )
-            cur.execute(f"RELEASE SAVEPOINT {savepoint}")
-        except Exception:
-            cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
-            cur.execute(f"RELEASE SAVEPOINT {savepoint}")
-            raise
-        finally:
-            cur.close()
 
     @staticmethod
     def fetch_link_ranks(url: str) -> tuple[float, float]:

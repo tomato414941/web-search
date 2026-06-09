@@ -34,16 +34,21 @@ class TestDedupe:
         assert hash_text("hello") != hash_text("world")
 
     def test_build_dedupe_key_deterministic(self):
-        key1 = build_dedupe_key("url", "hash1", "hash2")
-        key2 = build_dedupe_key("url", "hash1", "hash2")
+        key1 = build_dedupe_key("url", "hash1")
+        key2 = build_dedupe_key("url", "hash1")
         assert key1 == key2
 
     def test_build_dedupe_key_different_urls(self):
-        key1 = build_dedupe_key("url1", "hash", "")
-        key2 = build_dedupe_key("url2", "hash", "")
+        key1 = build_dedupe_key("url1", "hash")
+        key2 = build_dedupe_key("url2", "hash")
         assert key1 != key2
 
     def test_build_dedupe_key_different_content(self):
-        key1 = build_dedupe_key("url", "hash1", "")
-        key2 = build_dedupe_key("url", "hash2", "")
+        key1 = build_dedupe_key("url", "hash1")
+        key2 = build_dedupe_key("url", "hash2")
+        assert key1 != key2
+
+    def test_build_dedupe_key_different_link_count(self):
+        key1 = build_dedupe_key("url", "hash", 1)
+        key2 = build_dedupe_key("url", "hash", 2)
         assert key1 != key2

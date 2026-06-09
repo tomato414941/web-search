@@ -9,7 +9,7 @@ class IndexPageRequest(BaseModel):
     url: HttpUrl
     title: str = Field(max_length=1000)
     content: str = Field(max_length=1_000_000)
-    outlinks: list[str] = Field(default_factory=list, max_length=500)
+    outlinks_count: int = Field(default=0, ge=0, le=500)
     published_at: str | None = Field(default=None, max_length=50)
     updated_at: str | None = Field(default=None, max_length=50)
     author: str | None = Field(default=None, max_length=200)

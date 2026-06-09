@@ -23,7 +23,7 @@ from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
 from web_search_crawler.workers.tasks import process_url
 from web_search_core.urls import url_hash
-from web_search_postgres.repositories import UrlLedgerRepository
+from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
 
 
 @pytest.fixture
@@ -32,8 +32,9 @@ def test_components(tmp_path):
     db_path = str(tmp_path / "test.db")
     url_store = CrawlerRuntimeStore(db_path, recrawl_after_days=30)
     url_ledger = UrlLedgerRepository(url_store.url_admission_policy)
+    link_graph = LinkGraphRepository(url_store.url_admission_policy)
     planner = CrawlTaskPlanner(url_store, CrawlTaskPlannerConfig())
-    return url_store, url_ledger, planner
+    return url_store, url_ledger, link_graph, planner
 
 
 def _url_ledger_contains(url_store: CrawlerRuntimeStore, url: str) -> bool:
@@ -75,7 +76,7 @@ def _record_and_admit_urls(
 @pytest.mark.asyncio
 async def test_process_url_success_flow(test_components):
     """Test complete process_url flow with successful indexing"""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
 
     # Mock dependencies
     mock_session = MagicMock()
@@ -125,6 +126,7 @@ async def test_process_url_success_flow(test_components):
                     mock_robots,
                     url_store,
                     url_ledger,
+                    link_graph,
                     planner,
                     "http://example.com/test",
                 )
@@ -145,7 +147,7 @@ async def test_process_url_success_flow(test_components):
 @pytest.mark.asyncio
 async def test_process_url_robots_blocked(test_components):
     """Test process_url when robots.txt blocks URL"""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -158,6 +160,7 @@ async def test_process_url_robots_blocked(test_components):
             mock_robots,
             url_store,
             url_ledger,
+            link_graph,
             planner,
             "http://example.com/blocked",
         )
@@ -172,7 +175,7 @@ async def test_process_url_robots_blocked(test_components):
 @pytest.mark.asyncio
 async def test_process_url_http_error(test_components):
     """Test process_url with HTTP error (404)"""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -191,6 +194,7 @@ async def test_process_url_http_error(test_components):
             mock_robots,
             url_store,
             url_ledger,
+            link_graph,
             planner,
             "http://example.com/notfound",
         )
@@ -202,7 +206,7 @@ async def test_process_url_http_error(test_components):
 @pytest.mark.asyncio
 async def test_process_url_network_error(test_components):
     """Test process_url with network error returning the URL to the frontier."""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
     test_url = "http://example.com/error"
 
     # Add URL to frontier then lease it (simulates real flow)
@@ -225,6 +229,7 @@ async def test_process_url_network_error(test_components):
             mock_robots,
             url_store,
             url_ledger,
+            link_graph,
             planner,
             test_url,
         )
@@ -238,7 +243,7 @@ async def test_process_url_network_error(test_components):
 @pytest.mark.asyncio
 async def test_process_url_discovers_links(test_components):
     """Test that process_url adds discovered links to url_store"""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -286,6 +291,7 @@ async def test_process_url_discovers_links(test_components):
                     mock_robots,
                     url_store,
                     url_ledger,
+                    link_graph,
                     planner,
                     "http://example.com/",
                 )
@@ -849,7 +855,7 @@ def test_lease_ready_crawl_tasks_ignores_stale_domain_inflight_counts(test_url_s
 @pytest.mark.asyncio
 async def test_process_url_non_html_200_logged_as_skipped(test_components):
     """Non-HTML 200 responses should be logged as skipped, not http_error."""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -873,6 +879,7 @@ async def test_process_url_non_html_200_logged_as_skipped(test_components):
                 mock_robots,
                 url_store,
                 url_ledger,
+                link_graph,
                 planner,
                 "http://example.com/archive.gz",
             )
@@ -903,7 +910,7 @@ async def test_process_url_non_html_200_logged_as_skipped(test_components):
 @pytest.mark.asyncio
 async def test_process_url_logs_indexer_error_detail(test_components):
     """Indexer error details should be persisted in crawl history."""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
 
     mock_session = MagicMock()
     mock_robots = AsyncMock()
@@ -944,6 +951,7 @@ async def test_process_url_logs_indexer_error_detail(test_components):
                     mock_robots,
                     url_store,
                     url_ledger,
+                    link_graph,
                     planner,
                     "http://example.com/fail",
                 )
@@ -974,7 +982,7 @@ async def test_process_url_logs_indexer_error_detail(test_components):
 @pytest.mark.asyncio
 async def test_process_url_retry_returns_url_to_frontier(test_components):
     """Verify retry returns URL to the frontier via requeue."""
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
     test_url = "http://example.com/retry-test"
 
     # Add and lease to simulate real flow
@@ -1001,6 +1009,7 @@ async def test_process_url_retry_returns_url_to_frontier(test_components):
             mock_robots,
             url_store,
             url_ledger,
+            link_graph,
             planner,
             test_url,
         )
@@ -1157,7 +1166,7 @@ async def test_process_url_too_long_is_skipped_before_fetch(test_components):
     """Overly long URLs should be skipped before robots/fetch/indexer."""
     from web_search_core.utils import MAX_URL_LENGTH
 
-    url_store, url_ledger, planner = test_components
+    url_store, url_ledger, link_graph, planner = test_components
     over_limit_url = "http://example.com/" + ("a" * MAX_URL_LENGTH)
 
     mock_session = MagicMock()
@@ -1172,6 +1181,7 @@ async def test_process_url_too_long_is_skipped_before_fetch(test_components):
             mock_robots,
             url_store,
             url_ledger,
+            link_graph,
             planner,
             over_limit_url,
         )

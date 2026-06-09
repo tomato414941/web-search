@@ -34,7 +34,7 @@ async def submit_page(
             url=str(page.url),
             title=page.title,
             content=page.content,
-            outlinks=page.outlinks,
+            outlinks_count=page.outlinks_count,
             published_at=page.published_at,
             updated_at=page.updated_at,
             author=page.author,
