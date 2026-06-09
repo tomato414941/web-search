@@ -52,7 +52,7 @@ import json
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_core.url_admission import load_url_admission_policy
-from web_search_web_knowledge import UrlLedgerRepository
+from web_search_web_model import UrlLedgerRepository
 from web_search_postgres.search import get_connection, sql_placeholder
 
 payload = json.loads({payload_literal!r})

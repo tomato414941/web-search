@@ -13,10 +13,12 @@ The source-of-truth layout is:
 - `packages/contracts/` typed service contracts and shared enums
 - `packages/core/` runtime helpers, config, logging, retries, and test helpers
 - `packages/postgres/` PostgreSQL access, migrations, and repositories
+- `packages/web-model/` known URLs, observed links, and Web model repositories
 - `packages/kernel/` search analyzer, query parsing, snippets, and scoring helpers
 - `packages/opensearch/` OpenSearch client, mapping, and retrieval helpers
 - `packages/indexing/` optional embedding backfill helpers plus PageRank and origin scoring support
 - `packages/search-config/` canonical-source and search-eval policy data
+- `packages/search-telemetry/` search request, impression, and click event storage
 - `apps/mcp/` MCP server for AI agent integration (Claude Code, Claude Desktop)
 - `docs/` architecture and setup guides, plus API references
 - `scripts/` operational scripts (`ops/`), one-shot migrations (`migrations/`), dev tools (`dev/`)
@@ -34,7 +36,7 @@ Run commands from the repo root unless noted:
 - `uv run --package web-search-crawler uvicorn web_search_crawler.main:app --reload --port 8082` to run the crawler.
 - `docker compose up --build -d` to start the full stack (frontend, indexer, crawler).
 - `make ci`, `make ci-frontend`, `make ci-packages`, `make ci-crawler`, `make ci-indexer`, and `make ci-mcp` to run tests.
-- `ruff check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/` and `ruff format ...` for linting/formatting.
+- `ruff check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ packages/search-telemetry/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/` and `ruff format ...` for linting/formatting.
 - `pre-commit run --all-files` before committing to catch style issues.
 
 ## Branch Policy

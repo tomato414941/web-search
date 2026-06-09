@@ -1,7 +1,7 @@
 [project]
-name = "web-search-web-knowledge"
+name = "web-search-web-model"
 version = "0.1.0"
-description = "Web knowledge boundary for known URLs and observed links"
+description = "Web model boundary for known URLs, observed links, and derived graph signals"
 requires-python = ">=3.11"
 dependencies = [
     "web-search-core",

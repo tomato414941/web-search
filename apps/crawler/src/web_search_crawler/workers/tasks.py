@@ -34,7 +34,7 @@ from web_search_crawler.workers.types import (
     PipelineContext,
 )
 from web_search_contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
-from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
+from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
 
 logger = logging.getLogger(__name__)
 

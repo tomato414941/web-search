@@ -9,7 +9,7 @@ from web_search_crawler.crawl_task_planner import (
     CrawlTaskPlannerConfig,
 )
 from web_search_core.url_admission import load_url_admission_policy
-from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
+from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
 
 
 def build_crawler_runtime_store() -> CrawlerRuntimeStore:

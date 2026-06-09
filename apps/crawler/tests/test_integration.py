@@ -23,7 +23,7 @@ from web_search_crawler.services.indexer import IndexerSubmitResult
 from web_search_crawler.utils.parser import ParsedDocument
 from web_search_crawler.workers.tasks import process_url
 from web_search_core.urls import url_hash
-from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
+from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
 
 
 @pytest.fixture

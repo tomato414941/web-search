@@ -4,7 +4,7 @@ from web_search_core.testing import ensure_test_pg
 from web_search_core.url_admission import URLAdmissionPolicy
 from web_search_postgres.migrate import migrate
 from web_search_postgres.search import get_connection
-from web_search_web_knowledge import LinkGraphRepository
+from web_search_web_model import LinkGraphRepository
 
 
 ensure_test_pg()

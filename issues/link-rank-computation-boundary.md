@@ -5,7 +5,7 @@
 PageRank and domain-rank computation currently live in the indexer service even
 though they consume the Web link graph.
 
-`links` is now owned as observed Web structure by the `web-knowledge` boundary.
+`links` is now owned as observed Web structure by the `web-model` boundary.
 However, the rank computation that reads that graph still sits under
 `apps/indexer`, and it reads the graph through PostgreSQL repositories that load
 large portions of `links` into Python memory.
@@ -17,7 +17,7 @@ concern that is not document ingestion.
 
 Current behavior:
 
-- crawler observes links and writes them through `web-knowledge`
+- crawler observes links and writes them through `web-model`
 - `apps/indexer/src/web_search_indexer/services/pagerank.py` computes page and
   domain ranks
 - `RankingRepository.fetch_links()` runs `SELECT src, dst FROM links`
@@ -44,7 +44,7 @@ Treat link-rank computation as graph-derived maintenance, not document indexing.
 
 Decide the intended owner and execution model before optimizing the SQL:
 
-- `web-knowledge` owns the observed URL graph
+- `web-model` owns the observed URL graph
 - rank outputs such as `page_ranks` and `domain_ranks` are derived data
 - document indexing may consume rank outputs, but should not own graph
   computation by default
@@ -62,7 +62,7 @@ Possible target shapes:
 
 ## Open Questions
 
-- Should this live under `web-knowledge`, a separate `ranking-maintenance`
+- Should this live under `web-model`, a separate `ranking-maintenance`
   package, or another boundary?
 - Are `page_ranks` and `domain_ranks` search-ranking outputs, graph-analysis
   outputs, or both?
@@ -74,5 +74,5 @@ Possible target shapes:
 
 ## Related
 
-- `issues/web-knowledge-boundary.md`
+- `issues/web-model-boundary.md`
 - `issues/indexer-manual-ranking-recalculation-api.md`

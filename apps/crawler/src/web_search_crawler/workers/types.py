@@ -11,7 +11,7 @@ from web_search_crawler.crawl_task_planner import CrawlTaskPlanner
 from web_search_crawler.services.fetchers import AiohttpFetcher, Fetcher
 from web_search_crawler.utils.robots import AsyncRobotsCache
 from web_search_core.urls import get_domain
-from web_search_web_knowledge import LinkGraphRepository, UrlLedgerRepository
+from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
 
 
 @dataclass

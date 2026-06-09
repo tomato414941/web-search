@@ -60,10 +60,10 @@ Plan a safe, explicit repair path:
 - define a deduplication strategy if duplicates exist
 - create the missing destination index without blocking normal operation
 - add the unique constraint or primary key only after duplicates are resolved
-- verify that `web-knowledge` writes continue to work after the constraint is in
+- verify that `web-model` writes continue to work after the constraint is in
   place
 
-This should be handled separately from the `web-knowledge` ownership move and
+This should be handled separately from the `web-model` ownership move and
 separately from rank-computation design.
 
 ## Open Questions
@@ -77,5 +77,5 @@ separately from rank-computation design.
 
 ## Related
 
-- `issues/web-knowledge-boundary.md`
+- `issues/web-model-boundary.md`
 - `issues/link-rank-computation-boundary.md`
