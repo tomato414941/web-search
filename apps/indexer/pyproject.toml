@@ -28,7 +28,6 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [project.scripts]
-web-search-calc-pagerank = "web_search_indexer.cli.calc_pagerank:main"
 web-search-inject-dummy-data = "web_search_indexer.cli.inject_dummy_data:main"
 web-search-verify-opensearch = "web_search_indexer.cli.verify_opensearch:main"
 web-search-backfill-factual-density = "web_search_indexer.cli.backfill_factual_density:main"

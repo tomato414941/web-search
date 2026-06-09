@@ -77,6 +77,7 @@ set_environment_config() {
         indexer
         indexer-worker
         indexer-maintenance-worker
+        web-model-maintenance-worker
         postgres
       )
       OPTIONAL_IF_PRESENT_SERVICES=(

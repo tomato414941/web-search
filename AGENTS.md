@@ -16,7 +16,7 @@ The source-of-truth layout is:
 - `packages/web-model/` known URLs, observed links, and Web model repositories
 - `packages/kernel/` search analyzer, query parsing, snippets, and scoring helpers
 - `packages/opensearch/` OpenSearch client, mapping, and retrieval helpers
-- `packages/indexing/` optional embedding backfill helpers plus PageRank and origin scoring support
+- `packages/indexing/` optional embedding backfill helpers
 - `packages/search-config/` canonical-source and search-eval policy data
 - `packages/search-telemetry/` search request, impression, and click event storage
 - `apps/mcp/` MCP server for AI agent integration (Claude Code, Claude Desktop)

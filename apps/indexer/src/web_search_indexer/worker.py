@@ -24,10 +24,6 @@ from web_search_indexer.services.index_job_container import (
 )
 from web_search_indexer.services.indexer import IndexedPage, indexer_service
 from web_search_postgres.migrate import migrate
-from web_search_indexer.services.pagerank import (
-    calculate_domain_pagerank,
-    calculate_pagerank,
-)
 
 logger = logging.getLogger(__name__)
 WorkerMode = Literal["all", "jobs", "maintenance"]
@@ -39,20 +35,6 @@ TaskSpec = tuple[str, TaskFactory]
 class ProcessedJob:
     job_id: str
     page: IndexedPage
-
-
-async def _pagerank_loop() -> None:
-    interval = settings.PAGERANK_INTERVAL_HOURS * 3600
-    while True:
-        await asyncio.sleep(interval)
-        try:
-            count = await asyncio.to_thread(calculate_pagerank)
-            record_maintenance_run("pagerank", success=True)
-            logger.info("Page PageRank recalculated: %s pages", count)
-        except Exception:
-            record_maintenance_run("pagerank", success=False)
-            record_worker_error("pagerank")
-            logger.exception("Page PageRank calculation failed")
 
 
 async def _job_cleanup_loop() -> None:
@@ -71,20 +53,6 @@ async def _job_cleanup_loop() -> None:
             record_maintenance_run("job_cleanup", success=False)
             record_worker_error("job_cleanup")
             logger.exception("Job cleanup failed")
-
-
-async def _domain_rank_loop() -> None:
-    interval = settings.DOMAIN_RANK_INTERVAL_HOURS * 3600
-    while True:
-        await asyncio.sleep(interval)
-        try:
-            count = await asyncio.to_thread(calculate_domain_pagerank)
-            record_maintenance_run("domain_rank", success=True)
-            logger.info("Domain PageRank recalculated: %s domains", count)
-        except Exception:
-            record_maintenance_run("domain_rank", success=False)
-            record_worker_error("domain_rank")
-            logger.exception("Domain PageRank calculation failed")
 
 
 async def _process_single_job(
@@ -217,8 +185,6 @@ def _build_task_specs(mode: WorkerMode) -> list[TaskSpec]:
     if mode in {"all", "maintenance"}:
         task_specs.extend(
             [
-                ("pagerank", _pagerank_loop),
-                ("domain-rank", _domain_rank_loop),
                 ("job-cleanup", _job_cleanup_loop),
             ]
         )

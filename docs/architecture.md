@@ -77,10 +77,11 @@ The project uses a **Folder-Separated Monorepo** pattern:
 | `packages/kernel/` | `web_search_kernel` | **Search Kernel**. Analyzer, query parsing, snippets, and scoring helpers. | `analyzer.py`, `searcher.py`, `snippet.py` |
 | `packages/opensearch/` | `web_search_opensearch` | **Retrieval Adapter**. OpenSearch client, mapping, and BM25 query builder. | `client.py`, `mapping.py`, `search.py` |
 | `packages/indexing/` | `web_search_indexing` | **Experimental Enrichment Adapter**. OpenAI embedding client, schema bootstrap, and backfill image. | `embedding.py`, `backfill_embeddings.py` |
+| `packages/web-model/` | `web_search_web_model` | **Web Model**. Known URLs, observed links, and graph-derived rank maintenance. | `urls.py`, `links.py`, `rankings.py` |
 | `packages/search-config/` | `web_search_search_config` | **Search Policy Config**. Canonical-source and search-eval definitions. | `canonical_sources.py`, `search_eval.py`, `evaluator.py` |
 | `db/alembic/` | - | **Database Migrations**. | `versions/001_initial_schema.py` |
 | `docs/` | - | **Documentation**. | `architecture.md`, `setup.md`, `api.md` |
-| `scripts/ops/` | - | **Operations**. | PageRank calculation, OpenSearch verify |
+| `scripts/ops/` | - | **Operations**. | Deploy and verification scripts |
 
 ## Key Design Patterns
 

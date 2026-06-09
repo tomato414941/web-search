@@ -133,8 +133,6 @@ services:
       - INDEXER_JOB_POLL_INTERVAL_MS=${INDEXER_JOB_POLL_INTERVAL_MS:-500}
       - INDEXER_JOB_RETRY_BASE_SEC=${INDEXER_JOB_RETRY_BASE_SEC:-5}
       - INDEXER_JOB_RETRY_MAX_SEC=${INDEXER_JOB_RETRY_MAX_SEC:-1800}
-      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
-      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
       - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
       - QUEUE_METRICS_INTERVAL_SEC=${QUEUE_METRICS_INTERVAL_SEC:-60}
       - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_WORKER:-1}
@@ -168,8 +166,6 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - INDEXER_API_KEY=${INDEXER_API_KEY}
-      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
-      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
       - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
       - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_MAINTENANCE:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_MAINTENANCE:-2}
@@ -178,6 +174,36 @@ services:
       db-migrate:
         condition: service_completed_successfully
     mem_limit: ${INDEXER_MAINTENANCE_MEM_LIMIT:-256m}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from web_search_postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  web-model-maintenance-worker:
+    build:
+      context: .
+      dockerfile: packages/web-model/Dockerfile
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
+      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
+      - DB_POOL_MIN=${DB_POOL_MIN_WEB_MODEL_MAINTENANCE:-1}
+      - DB_POOL_MAX=${DB_POOL_MAX_WEB_MODEL_MAINTENANCE:-2}
+    command: ["python", "-m", "web_search_web_model.worker"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    mem_limit: ${WEB_MODEL_MAINTENANCE_MEM_LIMIT:-256m}
     healthcheck:
       test:
         [
@@ -276,6 +302,8 @@ services:
       indexer-worker:
         condition: service_started
       indexer-maintenance-worker:
+        condition: service_started
+      web-model-maintenance-worker:
         condition: service_started
     mem_limit: ${PROMETHEUS_MEM_LIMIT:-256m}
     healthcheck:

@@ -1,28 +1,11 @@
-"""
-PageRank Calculation Module
-
-Provides both page-level and domain-level PageRank using Power Iteration.
-- Page PageRank: For search result ranking (low frequency)
-- Domain PageRank: For crawl priority (lightweight, higher frequency)
-"""
+"""Graph-derived ranking calculations."""
 
 import logging
 from urllib.parse import urlparse
 
-from web_search_postgres.repositories import RankingRepository
+from web_search_web_model.ranking_repository import RankingRepository
 
 logger = logging.getLogger(__name__)
-
-
-def _iter_batches(iterable, size):
-    batch = []
-    for item in iterable:
-        batch.append(item)
-        if len(batch) >= size:
-            yield batch
-            batch = []
-    if batch:
-        yield batch
 
 
 def calculate_pagerank(iterations: int = 20, damping: float = 0.85) -> int:

@@ -78,4 +78,4 @@ separately from rank-computation design.
 ## Related
 
 - `issues/web-model-boundary.md`
-- `issues/link-rank-computation-boundary.md`
+- `issues/closed/link-rank-computation-boundary.md`

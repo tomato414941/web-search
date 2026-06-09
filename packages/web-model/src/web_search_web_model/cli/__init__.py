@@ -1,0 +1,1 @@
+"""Web model CLI commands."""

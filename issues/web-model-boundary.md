@@ -12,8 +12,9 @@ conceptual area:
 - `links` are observed URL-to-URL edges
 - rank-like values are attributes derived from the URL/link graph
 
-The current package name and write path are moving in the right direction, but
-graph-derived maintenance still sits in the indexer boundary.
+The current package name and write path are moving in the right direction. The
+remaining open questions are about the exact invariants of `links` and how broad
+the Web model boundary should become.
 
 ## Evidence
 
@@ -24,24 +25,19 @@ Current behavior:
 - the crawler records discovered URLs for URL registration and crawl admission
 - the crawler writes observed links through the Web model repository
 - the indexer no longer writes `links`
-- PageRank and domain-rank computation still live in the indexer service
+- PageRank and domain-rank computation live in the Web model boundary
 
 The current top-level package boundaries also hide the issue:
 
-- `packages/postgres` still contains graph-derived ranking repository helpers
-- `apps/indexer` still contains PageRank/domain-rank calculation code
-- `packages/web-model` owns URL and link writes, but not all Web-model-derived
-  maintenance
+- `packages/web-model` owns URL/link writes and graph-derived rank calculation
+- indexer reads computed rank outputs when building searchable documents
 
 ## Impact
 
-- Web model ownership remains partially split across package boundaries.
-- The indexer still owns a graph-derived maintenance concern that should not
-  belong to document indexing.
-- Graph-derived rank changes still require touching indexer service code and
-  PostgreSQL ranking repositories.
 - The intended invariants for `links` are unclear, including whether `src`
   means crawled-and-parsed URL or indexed document URL.
+- It is still unclear whether rank outputs are permanent Web model attributes
+  or temporary search-ranking signals.
 
 ## Direction
 
@@ -73,7 +69,7 @@ Target shape:
 - indexer writes searchable documents and does not write the link graph
 - `urls` and `links` are managed through the same conceptual boundary
 - `links` represents observed URL references, not indexing side effects
-- graph-derived maintenance is no longer implemented as indexer service logic
+- graph-derived maintenance is implemented as Web model logic
 
 ## Open Questions
 

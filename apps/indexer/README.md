@@ -37,7 +37,6 @@ make sync-indexer
 
 # Start Server
 uv run --package web-search-indexer uvicorn web_search_indexer.main:app --reload --port 8081
-uv run --package web-search-indexer web-search-calc-pagerank
 uv run --package web-search-indexer web-search-inject-dummy-data
 uv run --package web-search-indexer web-search-verify-opensearch
 uv run --package web-search-indexer web-search-backfill-factual-density

@@ -5,8 +5,8 @@
 The indexer has exposed synchronous HTTP endpoints for manually recalculating
 ranking signals.
 
-The PageRank HTTP endpoint has been removed; PageRank now uses maintenance
-worker and CLI entrances.
+The PageRank HTTP endpoint has been removed; PageRank now uses Web model
+maintenance worker and CLI entrances.
 
 These endpoints may be useful as operator controls, but it is not yet clear
 whether synchronous HTTP is the right execution boundary for potentially heavy
@@ -19,10 +19,10 @@ can be rerun deliberately when needed.
 ## Evidence
 
 `pagerank` is available through the `web-search-calc-pagerank` CLI and through
-indexer worker maintenance loops.
+Web model worker maintenance loops.
 
-The project already runs an `indexer-maintenance-worker` service. It handles
-periodic PageRank, domain-rank, and job-cleanup work.
+The project runs a `web-model-maintenance-worker` service for periodic PageRank
+and domain-rank work. `indexer-maintenance-worker` handles index job cleanup.
 
 ## Impact
 
@@ -53,7 +53,7 @@ ranking recalculation should be:
 
 The likely near-term direction is:
 
-- scheduled refresh: `indexer-maintenance-worker`
+- scheduled refresh: `web-model-maintenance-worker`
 - manual rerun: CLI
 - future richer control: operation/job system
 - indexer ingestion API: no ranking-maintenance endpoints

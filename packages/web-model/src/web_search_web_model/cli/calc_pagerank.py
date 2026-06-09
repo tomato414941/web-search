@@ -3,7 +3,7 @@
 import argparse
 import os
 
-from web_search_indexer.services.pagerank import (
+from web_search_web_model.rankings import (
     calculate_domain_pagerank,
     calculate_pagerank,
 )

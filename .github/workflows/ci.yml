@@ -39,6 +39,7 @@ jobs:
               - 'packages/contracts/**'
               - 'packages/core/**'
               - 'packages/postgres/**'
+              - 'packages/web-model/**'
               - 'packages/kernel/**'
               - 'packages/opensearch/**'
               - 'packages/indexing/**'
@@ -61,6 +62,7 @@ jobs:
               - 'packages/contracts/**'
               - 'packages/core/**'
               - 'packages/postgres/**'
+              - 'packages/web-model/**'
               - 'packages/kernel/**'
               - 'packages/opensearch/**'
               - 'packages/indexing/**'
@@ -74,6 +76,7 @@ jobs:
               - 'packages/contracts/pyproject.toml'
               - 'packages/core/pyproject.toml'
               - 'packages/postgres/pyproject.toml'
+              - 'packages/web-model/pyproject.toml'
               - 'packages/kernel/pyproject.toml'
               - 'packages/opensearch/pyproject.toml'
               - 'packages/indexing/pyproject.toml'
@@ -285,6 +288,8 @@ jobs:
         run: uv export --frozen --package web-search-crawler --no-dev --no-emit-local --format requirements-txt | pip-audit -r /dev/stdin
       - name: Audit indexer dependencies
         run: uv export --frozen --package web-search-indexer --no-dev --no-emit-local --format requirements-txt | pip-audit -r /dev/stdin
+      - name: Audit web model dependencies
+        run: uv export --frozen --package web-search-web-model --no-dev --no-emit-local --format requirements-txt | pip-audit -r /dev/stdin
       - name: Audit MCP dependencies
         # PYSEC-2025-183 / CVE-2025-45768 is disputed upstream and has no
         # fixed PyJWT release; the risk depends on application-chosen key length.

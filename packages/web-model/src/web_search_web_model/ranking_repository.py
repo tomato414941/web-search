@@ -1,4 +1,4 @@
-"""Repository helpers for ranking and origin scoring data."""
+"""Repository helpers for graph-derived ranking data."""
 
 from web_search_postgres.search import open_db, sql_placeholder
 
@@ -47,56 +47,6 @@ class RankingRepository:
             key_column="domain",
             scores=scores,
         )
-
-    @staticmethod
-    def fetch_inlink_counts() -> dict[str, int]:
-        con = open_db()
-        try:
-            cur = con.cursor()
-            cur.execute(
-                """
-                SELECT dst AS url, COUNT(*) AS inlink_count
-                FROM links
-                WHERE dst IN (SELECT url FROM documents)
-                GROUP BY dst
-                """
-            )
-            rows = {str(url): int(count) for url, count in cur}
-            cur.close()
-            return rows
-        finally:
-            con.close()
-
-    @staticmethod
-    def fetch_outlink_counts() -> dict[str, int]:
-        con = open_db()
-        try:
-            cur = con.cursor()
-            cur.execute(
-                """
-                SELECT src AS url, COUNT(*) AS outlink_count
-                FROM links
-                WHERE src IN (SELECT url FROM documents)
-                GROUP BY src
-                """
-            )
-            rows = {str(url): int(count) for url, count in cur}
-            cur.close()
-            return rows
-        finally:
-            con.close()
-
-    @staticmethod
-    def fetch_document_word_counts() -> dict[str, int]:
-        con = open_db()
-        try:
-            cur = con.cursor()
-            cur.execute("SELECT url, word_count FROM documents")
-            rows = {str(url): int(word_count or 0) for url, word_count in cur}
-            cur.close()
-            return rows
-        finally:
-            con.close()
 
     @staticmethod
     def _replace_scores(

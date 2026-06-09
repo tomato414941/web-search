@@ -31,10 +31,6 @@ class IndexerSettings(InfrastructureSettings):
     INDEXER_JOB_RETRY_MAX_SEC: int = 1800
     INDEXER_JOB_CONCURRENCY: int = 5
 
-    # PageRank scheduling
-    PAGERANK_INTERVAL_HOURS: int = 24
-    DOMAIN_RANK_INTERVAL_HOURS: int = 6
-
     # OpenSearch
     OPENSEARCH_URL: str = "http://opensearch:9200"
     OPENSEARCH_ENABLED: bool = False
