@@ -7,6 +7,17 @@ from urllib.parse import urlparse
 
 from web_search_postgres.search import get_connection, sql_placeholder
 
+OpenSearchDocumentRow = tuple[
+    str,
+    str,
+    str,
+    int,
+    datetime | None,
+    datetime | None,
+    str | None,
+    str | None,
+]
+
 
 class DocumentRepository:
     """Data-access helpers for indexed documents and related metadata."""
@@ -176,12 +187,13 @@ class DocumentRepository:
     @staticmethod
     def fetch_documents_for_opensearch(
         *, limit: int, offset: int
-    ) -> list[tuple[str, str, str, int, datetime | None]]:
+    ) -> list[OpenSearchDocumentRow]:
         conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT url, title, content, word_count, indexed_at "
+                "SELECT url, title, content, word_count, indexed_at, "
+                "published_at, author, organization "
                 "FROM documents ORDER BY url LIMIT %s OFFSET %s",
                 (limit, offset),
             )
@@ -192,8 +204,20 @@ class DocumentRepository:
                     str(content or ""),
                     int(word_count or 0),
                     indexed_at,
+                    published_at,
+                    str(author) if author else None,
+                    str(organization) if organization else None,
                 )
-                for url, title, content, word_count, indexed_at in cur.fetchall()
+                for (
+                    url,
+                    title,
+                    content,
+                    word_count,
+                    indexed_at,
+                    published_at,
+                    author,
+                    organization,
+                ) in cur.fetchall()
             ]
             cur.close()
             return rows

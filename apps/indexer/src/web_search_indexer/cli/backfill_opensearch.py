@@ -14,9 +14,10 @@ import os
 import sys
 import time
 
-from web_search_kernel.analyzer import analyzer
 from web_search_opensearch.client import bulk_index, get_client
 from web_search_opensearch.mapping import ensure_index
+from web_search_indexer.services.indexer import IndexedPage
+from web_search_indexer.services.opensearch_document import build_opensearch_document
 from web_search_postgres.repositories import DocumentRepository
 
 logging.basicConfig(
@@ -24,13 +25,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-
-def tokenize_text(text: str) -> str:
-    """Tokenize text using SudachiPy analyzer."""
-    if not text:
-        return ""
-    return analyzer.tokenize(text)
 
 
 def backfill(
@@ -52,19 +46,6 @@ def backfill(
     client = get_client(opensearch_url)
     ensure_index(client)
 
-    try:
-        opensearch_count = client.count(index="documents")["count"]
-        logger.info("OpenSearch currently has %d documents", opensearch_count)
-        if opensearch_count >= total and total > 0:
-            logger.info(
-                "OpenSearch already up to date (%d >= %d), skipping",
-                opensearch_count,
-                total,
-            )
-            return
-    except Exception:
-        logger.info("Could not check OpenSearch count, proceeding with backfill")
-
     indexed = 0
     offset = 0
     start = time.time()
@@ -81,19 +62,33 @@ def backfill(
         link_rank_map = DocumentRepository.fetch_link_rank_map(urls)
 
         docs = []
-        for url, title, content, word_count, indexed_at in rows:
+        for (
+            url,
+            title,
+            content,
+            _word_count,
+            indexed_at,
+            published_at,
+            author,
+            organization,
+        ) in rows:
             page_rank, domain_rank = link_rank_map.get(url, (0.0, 0.0))
-            docs.append(
-                {
-                    "url": url,
-                    "title": tokenize_text(title),
-                    "content": tokenize_text(content),
-                    "word_count": word_count,
-                    "indexed_at": indexed_at.isoformat() if indexed_at else None,
-                    "page_rank": page_rank,
-                    "domain_rank": domain_rank,
-                }
+            doc = build_opensearch_document(
+                IndexedPage(
+                    url=url,
+                    title=title,
+                    content=content,
+                    outlinks_count=0,
+                    published_at=published_at.isoformat() if published_at else None,
+                    author=author,
+                    organization=organization,
+                ),
+                page_rank=page_rank,
+                domain_rank=domain_rank,
+                indexed_at=indexed_at.isoformat() if indexed_at else None,
             )
+            if doc is not None:
+                docs.append(doc)
 
         indexed += bulk_index(client, docs)
         offset += len(rows)
