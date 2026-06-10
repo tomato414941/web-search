@@ -34,8 +34,8 @@ projection. Existing OpenSearch documents keep their old `page_rank` and
   succeeds.
 - The value of page-level PageRank is hard to judge because the effect is weak,
   indirect, and not tied to an evaluation loop.
-- The system has no single authority-refresh operation that covers calculation,
-  projection update, and quality verification.
+- The system has a link authority refresh operation for calculation and search
+  projection rebuild, but it is not yet tied to quality verification.
 - It is unclear whether `page_ranks` and `domain_ranks` are Web model
   attributes, search-ranking signals, or temporary OpenSearch projection inputs.
 
@@ -60,8 +60,7 @@ Likely target shape:
   signal
 - page-level authority remains only if it has a clear search use case and
   projection refresh path
-- rank recalculation and OpenSearch projection refresh become one operational
-  unit
+- rank recalculation and search projection rebuild are one operational unit
 - frontend reranking treats authority as an explicit weak prior, not as an
   opaque aggregate score
 
