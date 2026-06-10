@@ -135,56 +135,6 @@ class DocumentRepository:
             conn.close()
 
     @staticmethod
-    def count_documents_with_published_at() -> int:
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM documents WHERE published_at IS NOT NULL")
-            row = cur.fetchone()
-            cur.close()
-            return int(row[0]) if row else 0
-        finally:
-            conn.close()
-
-    @staticmethod
-    def fetch_documents_for_temporal_anchor(
-        *, limit: int, offset: int
-    ) -> list[tuple[str, datetime | None]]:
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT url, published_at FROM documents ORDER BY url LIMIT %s OFFSET %s",
-                (limit, offset),
-            )
-            rows = [(str(url), published_at) for url, published_at in cur.fetchall()]
-            cur.close()
-            return rows
-        finally:
-            conn.close()
-
-    @staticmethod
-    def fetch_documents_for_factual_density(
-        *, limit: int, offset: int
-    ) -> list[tuple[str, str, int]]:
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT url, content, word_count "
-                "FROM documents ORDER BY url LIMIT %s OFFSET %s",
-                (limit, offset),
-            )
-            rows = [
-                (str(url), str(content or ""), int(word_count or 0))
-                for url, content, word_count in cur.fetchall()
-            ]
-            cur.close()
-            return rows
-        finally:
-            conn.close()
-
-    @staticmethod
     def fetch_documents_for_opensearch(
         *, limit: int, offset: int
     ) -> list[OpenSearchDocumentRow]:
