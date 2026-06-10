@@ -31,5 +31,5 @@ where = ["src"]
 web-search-inject-dummy-data = "web_search_indexer.cli.inject_dummy_data:main"
 web-search-verify-opensearch = "web_search_indexer.cli.verify_opensearch:main"
 web-search-backfill-factual-density = "web_search_indexer.cli.backfill_factual_density:main"
-web-search-backfill-opensearch = "web_search_indexer.cli.backfill_opensearch:main"
+web-search-rebuild-search-projection = "web_search_indexer.cli.rebuild_search_projection:main"
 web-search-backfill-temporal-anchor = "web_search_indexer.cli.backfill_temporal_anchor:main"

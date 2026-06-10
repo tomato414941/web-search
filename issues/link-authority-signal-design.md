@@ -26,7 +26,7 @@ Current behavior:
 
 This means recalculating PageRank does not by itself update the search-time
 projection. Existing OpenSearch documents keep their old `page_rank` and
-`domain_rank` values until they are reindexed or backfilled.
+`domain_rank` values until the search projection is rebuilt.
 
 ## Impact
 

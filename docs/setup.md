@@ -39,15 +39,15 @@ COMPOSE_PROFILES=search,crawler docker compose up --build -d
 ```
 
 - `search`: starts `opensearch`
-- `search-backfill`: runs `opensearch-backfill` as a one-off backfill job
+- `search-projection-rebuild`: rebuilds the OpenSearch search projection
 - `crawler`: starts `crawler`
 - `embedding`: runs the one-off `embedding-backfill` job; requires `OPENAI_API_KEY` and `EMBEDDING_ENRICHMENT_ENABLED=true`
 - `monitoring`: starts `prometheus` and `grafana`
 
-Run the OpenSearch backfill only when you explicitly need it:
+Rebuild the OpenSearch search projection only when you explicitly need it:
 
 ```bash
-COMPOSE_PROFILES=search,search-backfill docker compose up --build opensearch-backfill
+COMPOSE_PROFILES=search,search-projection-rebuild docker compose up --build search-projection-rebuild
 ```
 
 Monitoring only:

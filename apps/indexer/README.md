@@ -40,7 +40,7 @@ uv run --package web-search-indexer uvicorn web_search_indexer.main:app --reload
 uv run --package web-search-indexer web-search-inject-dummy-data
 uv run --package web-search-indexer web-search-verify-opensearch
 uv run --package web-search-indexer web-search-backfill-factual-density
-uv run --package web-search-indexer web-search-backfill-opensearch
+uv run --package web-search-indexer web-search-rebuild-search-projection
 uv run --package web-search-indexer web-search-backfill-temporal-anchor
 ```
 

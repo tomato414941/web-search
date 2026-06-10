@@ -264,16 +264,16 @@ services:
       retries: 5
       start_period: 60s
 
-  opensearch-backfill:
+  search-projection-rebuild:
     build:
       context: .
       dockerfile: apps/indexer/Dockerfile
     restart: "no"
-    profiles: ["search-backfill"]
+    profiles: ["search-projection-rebuild"]
     environment:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-    command: ["python", "-m", "web_search_indexer.cli.backfill_opensearch"]
+    command: ["python", "-m", "web_search_indexer.cli.rebuild_search_projection"]
     depends_on:
       db-migrate:
         condition: service_completed_successfully

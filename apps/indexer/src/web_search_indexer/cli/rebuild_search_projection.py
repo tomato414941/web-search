@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Backfill existing PostgreSQL documents into OpenSearch.
+"""Rebuild the OpenSearch search projection from PostgreSQL source data.
 
 Usage:
-    web-search-backfill-opensearch [--batch-size 500] [--dry-run]
+    web-search-rebuild-search-projection [--batch-size 500] [--dry-run]
 
 Requires:
     DATABASE_URL and OPENSEARCH_URL environment variables.
 """
 
 import argparse
+from dataclasses import dataclass
 import logging
 import os
 import sys
@@ -16,7 +17,6 @@ import time
 
 from web_search_opensearch.client import bulk_index, get_client
 from web_search_opensearch.mapping import ensure_index
-from web_search_indexer.services.indexer import IndexedPage
 from web_search_indexer.services.opensearch_document import build_opensearch_document
 from web_search_postgres.repositories import DocumentRepository
 
@@ -27,7 +27,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def backfill(
+@dataclass(slots=True)
+class ProjectionPage:
+    url: str
+    title: str
+    content: str
+    outlinks_count: int
+    published_at: str | None
+    author: str | None
+    organization: str | None
+
+
+def rebuild_search_projection(
     batch_size: int = 500,
     dry_run: bool = False,
     opensearch_url: str = "http://localhost:9200",
@@ -37,7 +48,7 @@ def backfill(
         sys.exit(1)
 
     total = DocumentRepository.count_documents()
-    logger.info("Total documents to backfill: %d", total)
+    logger.info("Total documents to project: %d", total)
 
     if dry_run:
         logger.info("Dry run - exiting")
@@ -74,7 +85,7 @@ def backfill(
         ) in rows:
             page_rank, domain_rank = link_rank_map.get(url, (0.0, 0.0))
             doc = build_opensearch_document(
-                IndexedPage(
+                ProjectionPage(
                     url=url,
                     title=title,
                     content=content,
@@ -105,7 +116,7 @@ def backfill(
 
     elapsed = time.time() - start
     logger.info(
-        "Backfill complete: %d/%d documents in %.1fs (%.0f docs/sec)",
+        "Search projection rebuild complete: %d/%d documents in %.1fs (%.0f docs/sec)",
         indexed,
         total,
         elapsed,
@@ -114,7 +125,9 @@ def backfill(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Backfill OpenSearch from PostgreSQL")
+    parser = argparse.ArgumentParser(
+        description="Rebuild the OpenSearch search projection from PostgreSQL"
+    )
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
@@ -123,7 +136,7 @@ def main():
     )
     args = parser.parse_args()
 
-    backfill(
+    rebuild_search_projection(
         batch_size=args.batch_size,
         dry_run=args.dry_run,
         opensearch_url=args.opensearch_url,

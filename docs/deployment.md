@@ -34,7 +34,7 @@ For local development, use [setup.md](./setup.md).
 Optional services are enabled through Compose profiles only when needed:
 
 - `search`: OpenSearch runtime.
-- `search-backfill`: one-off OpenSearch rebuild job.
+- `search-projection-rebuild`: one-off search projection rebuild job.
 - `crawler`: crawler API and worker runtime.
 - `embedding`: one-off optional embedding enrichment job.
 - `monitoring`: Prometheus and Grafana.
