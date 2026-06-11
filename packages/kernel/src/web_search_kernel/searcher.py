@@ -20,7 +20,6 @@ class SearchHit:
     word_count: int | None = None
     link_density: float | None = None
     title_present: bool | None = None
-    published_at_present: bool | None = None
     indexed_at: str | None = None
     published_at: str | None = None
     authorship_clarity: float | None = None

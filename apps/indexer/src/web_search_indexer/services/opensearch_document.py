@@ -73,7 +73,6 @@ def build_opensearch_document(
         "word_count": word_count,
         "link_density": link_density(page.outlinks_count, word_count),
         "title_present": bool(page.title),
-        "published_at_present": bool(page.published_at),
         "indexed_at": indexed_at or datetime.now(UTC).isoformat(),
         "page_rank": page_rank,
         "domain_rank": domain_rank,

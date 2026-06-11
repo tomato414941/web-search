@@ -67,7 +67,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         word_count=120,
         link_density=0.05,
         title_present=True,
-        published_at_present=True,
         indexed_at="2026-03-01T00:00:00+00:00",
         published_at="2026-02-28T00:00:00+00:00",
         authorship_clarity=0.8,
@@ -90,4 +89,4 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
     assert payload["word_count"] == 120
     assert payload["link_density"] == 0.05
     assert payload["title_present"] is True
-    assert payload["published_at_present"] is True
+    assert payload["published_at"] == "2026-02-28T00:00:00+00:00"

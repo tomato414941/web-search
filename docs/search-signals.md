@@ -91,7 +91,6 @@ into one large aggregate.
 | `word_count` | extracted content | shallow size signal |
 | `link_density` | outlinks / words | shallow aggregation signal |
 | `title_present` | extracted metadata | shallow structure signal |
-| `published_at_present` | extracted metadata | shallow temporal-structure signal |
 
 **Request-time ranking signals**
 
@@ -107,8 +106,6 @@ into one large aggregate.
 
 - Shallow document features are tracked as independent signals because they do
   not represent one coherent concept.
-- `published_at_present` is tracked as a signal about available metadata, not
-  as a claim that the document is high quality.
 - Domain normalization used for result diversity is a grouping key, not a
   ranking signal.
 

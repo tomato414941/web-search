@@ -71,10 +71,6 @@ class SearchHit(BaseModel):
         default=None,
         description="Whether the page has a non-empty title",
     )
-    published_at_present: bool | None = Field(
-        default=None,
-        description="Whether the page exposes an original publication time",
-    )
     author: str | None = Field(
         default=None,
         description="Author name extracted from HTML metadata",

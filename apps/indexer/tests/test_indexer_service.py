@@ -45,7 +45,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     assert captured["word_count"] == 4
     assert captured["link_density"] == 0.75
     assert captured["title_present"] is True
-    assert captured["published_at_present"] is False
 
 
 def test_build_opensearch_document_uses_search_field_names(monkeypatch):
