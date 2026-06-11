@@ -53,7 +53,6 @@ def index_document(
     page_rank: float = 0.0,
     domain_rank: float = 0.0,
     published_at: str | None = None,
-    temporal_anchor: float = 0.2,
     authorship_clarity: float = 0.1,
     factual_density: float = 0.0,
     author: str | None = None,
@@ -74,7 +73,6 @@ def index_document(
         "indexed_at": indexed_at,
         "page_rank": page_rank,
         "domain_rank": domain_rank,
-        "temporal_anchor": temporal_anchor,
         "authorship_clarity": authorship_clarity,
         "factual_density": factual_density,
     }

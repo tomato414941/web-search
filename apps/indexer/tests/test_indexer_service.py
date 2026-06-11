@@ -13,11 +13,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
     monkeypatch.setattr(
         opensearch_document,
-        "compute_temporal_anchor",
-        lambda *args, **kwargs: 0.2,
-    )
-    monkeypatch.setattr(
-        opensearch_document,
         "compute_authorship_clarity",
         lambda *args, **kwargs: 0.3,
     )
@@ -66,11 +61,6 @@ def test_build_opensearch_document_uses_search_field_names(monkeypatch):
 
     monkeypatch.setattr(
         opensearch_document,
-        "compute_temporal_anchor",
-        lambda *args, **kwargs: 0.2,
-    )
-    monkeypatch.setattr(
-        opensearch_document,
         "compute_authorship_clarity",
         lambda *args, **kwargs: 0.3,
     )
@@ -99,11 +89,6 @@ def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
     client = MagicMock()
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_temporal_anchor",
-        lambda *args, **kwargs: 0.2,
-    )
     monkeypatch.setattr(
         opensearch_document,
         "compute_authorship_clarity",
@@ -145,11 +130,6 @@ def test_index_to_opensearch_skips_excluded_paths(monkeypatch):
     client = MagicMock()
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_temporal_anchor",
-        lambda *args, **kwargs: 0.2,
-    )
     monkeypatch.setattr(
         opensearch_document,
         "compute_authorship_clarity",

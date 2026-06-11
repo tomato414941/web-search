@@ -23,7 +23,6 @@ class SearchHit:
     published_at_present: bool | None = None
     indexed_at: str | None = None
     published_at: str | None = None
-    temporal_anchor: float | None = None
     authorship_clarity: float | None = None
     factual_density: float | None = None
     page_rank: float | None = None

@@ -33,7 +33,7 @@ Layer 3: Search Ranking
          → source-aware reranking for narrow query classes
          ↑
 Layer 2: Signal Scoring (indexer)
-         factual_density + temporal_anchor + authorship_clarity
+         factual_density + authorship_clarity
          + shallow document signals
          ↑
 Layer 1: Main Content Extraction (crawler)
@@ -85,7 +85,6 @@ into one large aggregate.
 |--------|--------|------|
 | `score` | OpenSearch BM25 | lexical relevance score for the returned hit |
 | `factual_density` | extracted content | fact-heavy content prior |
-| `temporal_anchor` | extracted content + metadata | temporal transparency signal |
 | `authorship_clarity` | extracted metadata | authorship transparency signal |
 | `page_rank` | link graph | page-level link prior |
 | `domain_rank` | link graph | domain-level link prior |

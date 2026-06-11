@@ -3,18 +3,6 @@
 from urllib.parse import urlparse
 
 
-def compute_temporal_anchor(published_at: str | None) -> float:
-    """Score how well the document's time context is grounded.
-
-    AI agents need to know WHEN information was true.
-    This does NOT boost fresh content — it scores temporal transparency.
-    The AI agent decides freshness relevance, not the search engine.
-    """
-    if published_at:
-        return 1.0
-    return 0.2
-
-
 UGC_DOMAINS = frozenset(
     [
         "reddit.com",

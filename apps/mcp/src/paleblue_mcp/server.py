@@ -52,7 +52,6 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
         lines.append(f"### {i}. [{title}]({url})")
         if snip:
             lines.append(snip)
-        temporal_anchor = hit.get("temporal_anchor")
         author = hit.get("author")
         organization = hit.get("organization")
         meta_parts = []
@@ -64,8 +63,6 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
             meta_parts.append(f"Published: {published_at}")
         if indexed_at:
             meta_parts.append(f"Indexed: {indexed_at}")
-        if temporal_anchor is not None:
-            meta_parts.append(f"Temporal anchor: {temporal_anchor}")
         if meta_parts:
             lines.append(f"*{' | '.join(meta_parts)}*")
 
