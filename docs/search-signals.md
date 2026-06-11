@@ -33,7 +33,7 @@ Layer 3: Search Ranking
          → source-aware reranking for narrow query classes
          ↑
 Layer 2: Signal Scoring (indexer)
-         factual_density + authorship_clarity
+         authorship_clarity
          + shallow document signals
          ↑
 Layer 1: Main Content Extraction (crawler)
@@ -84,7 +84,6 @@ into one large aggregate.
 | Signal | Source | Role |
 |--------|--------|------|
 | `score` | OpenSearch BM25 | lexical relevance score for the returned hit |
-| `factual_density` | extracted content | fact-heavy content prior |
 | `authorship_clarity` | extracted metadata | authorship transparency signal |
 | `page_rank` | link graph | page-level link prior |
 | `domain_rank` | link graph | domain-level link prior |
@@ -149,8 +148,6 @@ request-time reranking.
   document signals used for storage and ranking policy integration.
 - `packages/kernel/src/web_search_kernel/analyzer.py` holds the shared Sudachi-based
   tokenization logic for both indexing and query processing.
-- `packages/kernel/src/web_search_kernel/factual_density.py` holds reusable
-  search-kernel scoring logic.
 - Raw HTML storage is not part of the current runtime. If it becomes important
   again, treat it as a deferred project-plan item rather than current runtime
   behavior.

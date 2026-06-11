@@ -53,7 +53,6 @@ def index_document(
     domain_rank: float = 0.0,
     published_at: str | None = None,
     authorship_clarity: float = 0.1,
-    factual_density: float = 0.0,
     author: str | None = None,
     organization: str | None = None,
     host: str | None = None,
@@ -72,7 +71,6 @@ def index_document(
         "page_rank": page_rank,
         "domain_rank": domain_rank,
         "authorship_clarity": authorship_clarity,
-        "factual_density": factual_density,
     }
     if host is not None:
         body["host"] = host

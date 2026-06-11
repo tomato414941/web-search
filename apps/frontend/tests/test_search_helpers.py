@@ -70,7 +70,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         indexed_at="2026-03-01T00:00:00+00:00",
         published_at="2026-02-28T00:00:00+00:00",
         authorship_clarity=0.8,
-        factual_density=0.7,
         page_rank=0.5,
         domain_rank=0.4,
         author="Alice",

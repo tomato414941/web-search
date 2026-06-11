@@ -24,12 +24,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     import web_search_opensearch.client as opensearch_client
 
     monkeypatch.setattr(opensearch_client, "index_document", fake_index_document)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_factual_density",
-        lambda *args, **kwargs: 0.6,
-    )
-
     service._index_to_opensearch(
         url="https://github.com/",
         title="GitHub",
@@ -63,12 +57,6 @@ def test_build_opensearch_document_uses_search_field_names(monkeypatch):
         "compute_authorship_clarity",
         lambda *args, **kwargs: 0.3,
     )
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_factual_density",
-        lambda *args, **kwargs: 0.6,
-    )
-
     doc = opensearch_document.build_opensearch_document(
         page,
         page_rank=0.5,
@@ -107,12 +95,6 @@ def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
 
     monkeypatch.setattr(opensearch_client, "index_document", fake_index_document)
     monkeypatch.setattr(opensearch_client, "delete_document", fake_delete_document)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_factual_density",
-        lambda *args, **kwargs: 0.6,
-    )
-
     service._index_to_opensearch(
         url="https://accounts.hatena.ne.jp/login",
         title="Login",
@@ -148,12 +130,6 @@ def test_index_to_opensearch_skips_excluded_paths(monkeypatch):
 
     monkeypatch.setattr(opensearch_client, "index_document", fake_index_document)
     monkeypatch.setattr(opensearch_client, "delete_document", fake_delete_document)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_factual_density",
-        lambda *args, **kwargs: 0.6,
-    )
-
     service._index_to_opensearch(
         url="https://example.com/login/reset",
         title="Login",

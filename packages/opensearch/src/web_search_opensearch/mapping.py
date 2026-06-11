@@ -53,7 +53,6 @@ INDEX_SETTINGS = {
             "page_rank": {"type": "float"},
             "domain_rank": {"type": "float"},
             "authorship_clarity": {"type": "float"},
-            "factual_density": {"type": "float"},
             "author": {"type": "keyword"},
             "organization": {"type": "keyword"},
         }
