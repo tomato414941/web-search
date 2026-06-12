@@ -47,7 +47,6 @@ INDEX_SETTINGS = {
             },
             "word_count": {"type": "integer"},
             "link_density": {"type": "float"},
-            "title_present": {"type": "boolean"},
             "indexed_at": {"type": "date"},
             "published_at": {"type": "date"},
             "page_rank": {"type": "float"},

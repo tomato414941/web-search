@@ -66,7 +66,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         score=1.0,
         word_count=120,
         link_density=0.05,
-        title_present=True,
         indexed_at="2026-03-01T00:00:00+00:00",
         published_at="2026-02-28T00:00:00+00:00",
         page_rank=0.5,
@@ -86,5 +85,4 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
     assert payload["domain_rank"] == 0.4
     assert payload["word_count"] == 120
     assert payload["link_density"] == 0.05
-    assert payload["title_present"] is True
     assert payload["published_at"] == "2026-02-28T00:00:00+00:00"

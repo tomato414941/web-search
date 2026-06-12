@@ -87,7 +87,6 @@ into one large aggregate.
 | `domain_rank` | link graph | domain-level link prior |
 | `word_count` | extracted content | shallow size signal |
 | `link_density` | outlinks / words | shallow aggregation signal |
-| `title_present` | extracted metadata | shallow structure signal |
 
 **Request-time ranking signals**
 

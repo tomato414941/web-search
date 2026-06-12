@@ -59,10 +59,6 @@ class SearchHit(BaseModel):
         default=None,
         description="Outgoing-link density relative to content length",
     )
-    title_present: bool | None = Field(
-        default=None,
-        description="Whether the page has a non-empty title",
-    )
     author: str | None = Field(
         default=None,
         description="Author name extracted from HTML metadata",

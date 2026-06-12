@@ -19,7 +19,6 @@ class SearchHit:
     score: float
     word_count: int | None = None
     link_density: float | None = None
-    title_present: bool | None = None
     indexed_at: str | None = None
     published_at: str | None = None
     page_rank: float | None = None
