@@ -11,11 +11,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     captured = {}
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_authorship_clarity",
-        lambda *args, **kwargs: 0.3,
-    )
     monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     def fake_index_document(*args, **kwargs):
@@ -52,11 +47,6 @@ def test_build_opensearch_document_uses_search_field_names(monkeypatch):
         organization="GitHub",
     )
 
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_authorship_clarity",
-        lambda *args, **kwargs: 0.3,
-    )
     doc = opensearch_document.build_opensearch_document(
         page,
         page_rank=0.5,
@@ -76,11 +66,6 @@ def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
     client = MagicMock()
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_authorship_clarity",
-        lambda *args, **kwargs: 0.3,
-    )
     monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     called = {"indexed": False, "deleted": False}
@@ -111,11 +96,6 @@ def test_index_to_opensearch_skips_excluded_paths(monkeypatch):
     client = MagicMock()
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(
-        opensearch_document,
-        "compute_authorship_clarity",
-        lambda *args, **kwargs: 0.3,
-    )
     monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     called = {"indexed": False, "deleted": False}

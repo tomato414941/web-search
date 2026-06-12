@@ -43,10 +43,6 @@ class SearchHit(BaseModel):
         default=None,
         description="When this page was originally published (ISO 8601 UTC)",
     )
-    authorship_clarity: float | None = Field(
-        default=None,
-        description="Authorship clarity score (0.0-1.0)",
-    )
     page_rank: float | None = Field(
         default=None,
         description="Page-level link-based rank signal",

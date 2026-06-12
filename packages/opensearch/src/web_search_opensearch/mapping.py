@@ -52,7 +52,6 @@ INDEX_SETTINGS = {
             "published_at": {"type": "date"},
             "page_rank": {"type": "float"},
             "domain_rank": {"type": "float"},
-            "authorship_clarity": {"type": "float"},
             "author": {"type": "keyword"},
             "organization": {"type": "keyword"},
         }

@@ -22,7 +22,6 @@ class SearchHit:
     title_present: bool | None = None
     indexed_at: str | None = None
     published_at: str | None = None
-    authorship_clarity: float | None = None
     page_rank: float | None = None
     domain_rank: float | None = None
     author: str | None = None

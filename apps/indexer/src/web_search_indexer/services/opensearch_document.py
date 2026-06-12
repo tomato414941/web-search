@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from typing import Protocol
 from urllib.parse import urlparse
 
-from web_search_indexer.services.scoring import compute_authorship_clarity
 from web_search_kernel.analyzer import STOP_WORDS, analyzer
 from web_search_search_config.index_exclusions import is_search_index_excluded
 
@@ -56,9 +55,6 @@ def build_opensearch_document(
     if is_search_index_excluded(host, path):
         return None
 
-    authorship_clarity = compute_authorship_clarity(
-        page.author, page.organization, page.url
-    )
     return {
         "url": page.url,
         "title": title_tokens,
@@ -70,7 +66,6 @@ def build_opensearch_document(
         "page_rank": page_rank,
         "domain_rank": domain_rank,
         "published_at": page.published_at,
-        "authorship_clarity": authorship_clarity,
         "author": page.author,
         "organization": page.organization,
         "host": host,

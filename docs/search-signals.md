@@ -33,8 +33,7 @@ Layer 3: Search Ranking
          → source-aware reranking for narrow query classes
          ↑
 Layer 2: Signal Scoring (indexer)
-         authorship_clarity
-         + shallow document signals
+         shallow document signals
          ↑
 Layer 1: Main Content Extraction (crawler)
          trafilatura for boilerplate removal → clean main text + metadata extraction
@@ -84,7 +83,6 @@ into one large aggregate.
 | Signal | Source | Role |
 |--------|--------|------|
 | `score` | OpenSearch BM25 | lexical relevance score for the returned hit |
-| `authorship_clarity` | extracted metadata | authorship transparency signal |
 | `page_rank` | link graph | page-level link prior |
 | `domain_rank` | link graph | domain-level link prior |
 | `word_count` | extracted content | shallow size signal |
@@ -127,7 +125,6 @@ request-time reranking.
 | Field | Description |
 |-------|-------------|
 | `score` | Relevance score for this hit |
-| `authorship_clarity` | Author/org presence score (0.0-1.0) |
 | `author` / `organization` | Extracted from HTML metadata (JSON-LD, meta tags) |
 | `page_rank` / `domain_rank` | link-based prior signals |
 | `word_count` / `link_density` | shallow document-shape signals |
@@ -138,7 +135,7 @@ request-time reranking.
 |-----------|-----------------|
 | User behavior signals (Navboost) | No user traffic yet |
 | SpamBrain-level ML | Overkill for 600K page corpus |
-| E-E-A-T evaluation | Partially addressed by `authorship_clarity` (rule-based, no ML) |
+| E-E-A-T evaluation | Not represented by a dedicated ranking signal |
 | BrowseRank | Requires browser instrumentation data |
 
 ## Current Runtime Notes
