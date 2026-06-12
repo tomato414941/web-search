@@ -75,6 +75,29 @@ separately from rank-computation design.
   uniqueness key?
 - Can the repair be done online for the current table size?
 
+## Resolution (2026-06-12)
+
+Repaired on the production database via a one-shot rebuild
+(`scripts/migrations/repair_links_schema_drift.sh`, removed after execution):
+
+- duplicates confirmed: 161.9M rows reduced to 136.9M distinct rows (~15.4%
+  excess removed)
+- rebuilt `links` with `NOT NULL`, `PRIMARY KEY (src, dst)`, `idx_links_src`,
+  and `idx_links_dst`, matching the migration baseline
+- `ON CONFLICT DO NOTHING` now has a real uniqueness guarantee; crawler
+  delete-then-insert writes verified after the swap
+- the Hetzner volume holding PostgreSQL data was resized 100GB -> 130GB to fit
+  the primary key build (index footprint: 21GB table + 27GB indexes)
+
+Answers to the open questions: duplicate rows were fully identical, so no
+keep-earliest/latest policy was needed. The rebuild ran online except for the
+crawler, which was stopped during the operation.
+
+Follow-up observation recorded during the repair: `RankingRepository
+.fetch_links()` materializes the full edge list in memory, which cannot work at
+the current graph size (137M edges vs 8GB host RAM). This belongs to
+`issues/link-authority-signal-design.md`.
+
 ## Related
 
 - `issues/web-model-boundary.md`
