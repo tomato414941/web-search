@@ -19,7 +19,7 @@ how they fit into the current ranking path.
 Previously, PaleBlueSearch indexed full page text including navigation, footers, and sidebars via `soup.get_text()`. This caused:
 
 1. **Low search relevance** — BM25 matches on boilerplate keywords (nav links, footer text)
-2. **Inflated word_count** — includes non-content text, making quality metrics unreliable
+2. **Inflated content size** — includes non-content text, making content-shape checks unreliable
 3. **Noisy snippets** — search results contain boilerplate fragments
 4. **Aggregation pages rank too high** — link-heavy pages (e.g. bookmark listings) have high keyword density
 
@@ -33,7 +33,7 @@ Layer 3: Search Ranking
          → source-aware reranking for narrow query classes
          ↑
 Layer 2: Signal Scoring (indexer)
-         shallow document signals
+         link authority signals
          ↑
 Layer 1: Main Content Extraction (crawler)
          trafilatura for boilerplate removal → clean main text + metadata extraction
@@ -59,8 +59,8 @@ Replace `soup.get_text()` with trafilatura (F1=0.958, ACL 2021) for main content
 
 **Fallback:** BeautifulSoup `get_text()` when trafilatura returns None (API docs, SPAs, minimal HTML).
 
-**Impact:** Improves everything downstream — BM25 relevance, word_count
-accuracy, snippet quality, and signal quality.
+**Impact:** Improves everything downstream — BM25 relevance, snippet quality,
+and signal quality.
 
 ### Japanese Tokenization
 
@@ -85,7 +85,6 @@ into one large aggregate.
 | `score` | OpenSearch BM25 | lexical relevance score for the returned hit |
 | `page_rank` | link graph | page-level link prior |
 | `domain_rank` | link graph | domain-level link prior |
-| `word_count` | extracted content | shallow size signal |
 
 **Request-time ranking signals**
 
@@ -99,8 +98,6 @@ into one large aggregate.
 
 **Notes**
 
-- Shallow document features are tracked as independent signals because they do
-  not represent one coherent concept.
 - Domain normalization used for result diversity is a grouping key, not a
   ranking signal.
 
@@ -125,7 +122,6 @@ request-time reranking.
 | `score` | Relevance score for this hit |
 | `author` / `organization` | Extracted from HTML metadata (JSON-LD, meta tags) |
 | `page_rank` / `domain_rank` | link-based prior signals |
-| `word_count` | shallow document-size signal |
 
 ## What We Don't Need (and Why)
 

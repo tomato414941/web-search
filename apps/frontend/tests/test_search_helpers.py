@@ -64,7 +64,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         title="Example",
         content="Python content",
         score=1.0,
-        word_count=120,
         indexed_at="2026-03-01T00:00:00+00:00",
         published_at="2026-02-28T00:00:00+00:00",
         page_rank=0.5,
@@ -82,5 +81,4 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
     assert payload["content"] == "Python content"
     assert payload["page_rank"] == 0.5
     assert payload["domain_rank"] == 0.4
-    assert payload["word_count"] == 120
     assert payload["published_at"] == "2026-02-28T00:00:00+00:00"

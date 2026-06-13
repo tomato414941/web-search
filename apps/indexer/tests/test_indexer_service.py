@@ -31,7 +31,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     assert captured["domain_rank"] == 0.25
     assert captured["path"] == "/"
     assert captured["is_homepage"] is True
-    assert captured["word_count"] == 4
 
 
 def test_build_opensearch_document_uses_search_field_names(monkeypatch):

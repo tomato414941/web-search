@@ -51,10 +51,6 @@ class SearchHit(BaseModel):
         default=None,
         description="Domain-level link-based rank signal",
     )
-    word_count: int | None = Field(
-        default=None,
-        description="Approximate word count of the indexed content",
-    )
     author: str | None = Field(
         default=None,
         description="Author name extracted from HTML metadata",

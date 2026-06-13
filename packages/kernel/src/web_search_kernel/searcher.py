@@ -17,7 +17,6 @@ class SearchHit:
     title: str
     content: str
     score: float
-    word_count: int | None = None
     indexed_at: str | None = None
     published_at: str | None = None
     page_rank: float | None = None

@@ -11,7 +11,6 @@ OpenSearchDocumentRow = tuple[
     str,
     str,
     str,
-    int,
     datetime | None,
     datetime | None,
     str | None,
@@ -142,7 +141,7 @@ class DocumentRepository:
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT url, title, content, word_count, indexed_at, "
+                "SELECT url, title, content, indexed_at, "
                 "published_at, author, organization "
                 "FROM documents ORDER BY url LIMIT %s OFFSET %s",
                 (limit, offset),
@@ -152,7 +151,6 @@ class DocumentRepository:
                     str(url),
                     str(title or ""),
                     str(content or ""),
-                    int(word_count or 0),
                     indexed_at,
                     published_at,
                     str(author) if author else None,
@@ -162,7 +160,6 @@ class DocumentRepository:
                     url,
                     title,
                     content,
-                    word_count,
                     indexed_at,
                     published_at,
                     author,

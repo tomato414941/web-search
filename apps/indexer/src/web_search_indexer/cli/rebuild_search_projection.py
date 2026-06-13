@@ -32,7 +32,6 @@ class ProjectionPage:
     url: str
     title: str
     content: str
-    outlinks_count: int
     published_at: str | None
     author: str | None
     organization: str | None
@@ -77,7 +76,6 @@ def rebuild_search_projection(
             url,
             title,
             content,
-            _word_count,
             indexed_at,
             published_at,
             author,
@@ -89,7 +87,6 @@ def rebuild_search_projection(
                     url=url,
                     title=title,
                     content=content,
-                    outlinks_count=0,
                     published_at=published_at.isoformat() if published_at else None,
                     author=author,
                     organization=organization,

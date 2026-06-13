@@ -33,7 +33,6 @@ def test_rebuild_search_projection_does_not_skip_when_counts_match(monkeypatch):
                         "https://example.com/post",
                         "Example Title",
                         "Example content with facts.",
-                        4,
                         datetime(2026, 1, 1, tzinfo=UTC),
                         datetime(2025, 12, 31, tzinfo=UTC),
                         "Ada",

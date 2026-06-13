@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Protocol
 from urllib.parse import urlparse
 
-from web_search_kernel.analyzer import STOP_WORDS, analyzer
+from web_search_kernel.analyzer import analyzer
 from web_search_search_config.index_exclusions import is_search_index_excluded
 
 
@@ -12,7 +12,6 @@ class OpenSearchPage(Protocol):
     url: str
     title: str
     content: str
-    outlinks_count: int
     published_at: str | None
     author: str | None
     organization: str | None
@@ -26,14 +25,6 @@ def opensearch_url_metadata(url: str) -> tuple[str, str, bool]:
     return host, path, is_homepage
 
 
-def _content_word_count(content_tokens: str) -> int:
-    if not content_tokens:
-        return 0
-    return len(
-        [t for t in content_tokens.split() if len(t) > 1 and t not in STOP_WORDS]
-    )
-
-
 def build_opensearch_document(
     page: OpenSearchPage,
     *,
@@ -43,7 +34,6 @@ def build_opensearch_document(
 ) -> dict[str, object] | None:
     title_tokens = analyzer.tokenize(page.title) if page.title else ""
     content_tokens = analyzer.tokenize(page.content) if page.content else ""
-    word_count = _content_word_count(content_tokens)
 
     host, path, is_homepage = opensearch_url_metadata(page.url)
     if is_search_index_excluded(host, path):
@@ -53,7 +43,6 @@ def build_opensearch_document(
         "url": page.url,
         "title": title_tokens,
         "content": content_tokens,
-        "word_count": word_count,
         "indexed_at": indexed_at or datetime.now(UTC).isoformat(),
         "page_rank": page_rank,
         "domain_rank": domain_rank,
