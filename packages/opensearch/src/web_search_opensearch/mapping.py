@@ -46,7 +46,6 @@ INDEX_SETTINGS = {
                 "similarity": "custom_bm25",
             },
             "word_count": {"type": "integer"},
-            "link_density": {"type": "float"},
             "indexed_at": {"type": "date"},
             "published_at": {"type": "date"},
             "page_rank": {"type": "float"},

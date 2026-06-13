@@ -26,12 +26,6 @@ def opensearch_url_metadata(url: str) -> tuple[str, str, bool]:
     return host, path, is_homepage
 
 
-def link_density(outlinks_count: int, word_count: int) -> float:
-    if word_count <= 0:
-        return 0.0
-    return round(outlinks_count / word_count, 6)
-
-
 def _content_word_count(content_tokens: str) -> int:
     if not content_tokens:
         return 0
@@ -60,7 +54,6 @@ def build_opensearch_document(
         "title": title_tokens,
         "content": content_tokens,
         "word_count": word_count,
-        "link_density": link_density(page.outlinks_count, word_count),
         "indexed_at": indexed_at or datetime.now(UTC).isoformat(),
         "page_rank": page_rank,
         "domain_rank": domain_rank,

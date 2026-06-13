@@ -55,10 +55,6 @@ class SearchHit(BaseModel):
         default=None,
         description="Approximate word count of the indexed content",
     )
-    link_density: float | None = Field(
-        default=None,
-        description="Outgoing-link density relative to content length",
-    )
     author: str | None = Field(
         default=None,
         description="Author name extracted from HTML metadata",

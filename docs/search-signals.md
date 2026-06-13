@@ -86,7 +86,6 @@ into one large aggregate.
 | `page_rank` | link graph | page-level link prior |
 | `domain_rank` | link graph | domain-level link prior |
 | `word_count` | extracted content | shallow size signal |
-| `link_density` | outlinks / words | shallow aggregation signal |
 
 **Request-time ranking signals**
 
@@ -126,7 +125,7 @@ request-time reranking.
 | `score` | Relevance score for this hit |
 | `author` / `organization` | Extracted from HTML metadata (JSON-LD, meta tags) |
 | `page_rank` / `domain_rank` | link-based prior signals |
-| `word_count` / `link_density` | shallow document-shape signals |
+| `word_count` | shallow document-size signal |
 
 ## What We Don't Need (and Why)
 
