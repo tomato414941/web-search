@@ -38,8 +38,7 @@ def upgrade() -> None:
             url TEXT PRIMARY KEY,
             title TEXT,
             content TEXT,
-            indexed_at TIMESTAMP,
-            updated_at TIMESTAMP
+            indexed_at TIMESTAMP
         )
     """)
 

@@ -200,7 +200,6 @@ class TestProcessFetchResult:
                     content="Body",
                     outlinks=["http://example.com/a", "http://example.com/b"],
                     feed_links=["https://example.com/news/rss.xml"],
-                    updated_at=None,
                 ),
             ),
             patch(

@@ -36,7 +36,6 @@ class IndexJob:
     status: str
     retry_count: int
     max_retries: int
-    updated_at: str | None = None
 
 
 class IndexJobService:
@@ -69,10 +68,8 @@ class IndexJobService:
         title: str,
         content: str,
         outlinks_count: int,
-        updated_at: str | None = None,
     ) -> tuple[str, bool]:
         """Queue a new indexing job (idempotent by dedupe_key)."""
-        del updated_at
         content_hash = hash_text(content)
         safe_outlinks_count = max(0, outlinks_count)
         dedupe_key = build_dedupe_key(url, content_hash, safe_outlinks_count)

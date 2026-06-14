@@ -92,7 +92,6 @@ async def repair_url(session: aiohttp.ClientSession, url: str) -> None:
                 parsed.title,
                 parsed.content,
                 outlinks_count=len(parsed.outlinks),
-                updated_at=parsed.updated_at,
             )
             print(
                 "  submit="

@@ -4,10 +4,8 @@ HTML Parser Utilities
 Functions for extracting content and links from HTML.
 """
 
-import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
@@ -16,14 +14,6 @@ from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
 import warnings
 
 warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
-
-_DATE_FORMATS = (
-    "%Y-%m-%dT%H:%M:%S%z",
-    "%Y-%m-%dT%H:%M:%S.%f%z",
-    "%Y-%m-%dT%H:%M:%SZ",
-    "%Y-%m-%dT%H:%M:%S",
-    "%Y-%m-%d",
-)
 
 
 def _strip_nul(text: str) -> str:
@@ -98,21 +88,6 @@ def _maybe_enrich_homepage_text(
     return _normalize_space(f"{text} {fallback}")
 
 
-def _parse_date(raw: str) -> str | None:
-    """Parse date string to ISO 8601, rejecting future dates."""
-    for fmt in _DATE_FORMATS:
-        try:
-            dt = datetime.strptime(raw, fmt)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            if dt > datetime.now(timezone.utc):
-                return None
-            return dt.isoformat()
-        except ValueError:
-            continue
-    return None
-
-
 def _local_name(tag: str) -> str:
     if "}" in tag:
         return tag.rsplit("}", 1)[1]
@@ -140,48 +115,12 @@ def _find_atom_link(element: ET.Element) -> str | None:
     return None
 
 
-def extract_updated_at(soup: BeautifulSoup) -> str | None:
-    """Extract last modified date from HTML metadata.
-
-    Priority:
-    1. <meta property="article:modified_time">
-    2. JSON-LD dateModified
-    3. <meta http-equiv="last-modified">
-    """
-    tag = soup.find("meta", attrs={"property": "article:modified_time"})
-    if tag and tag.get("content"):
-        result = _parse_date(tag["content"].strip())
-        if result:
-            return result
-
-    for script in soup.find_all("script", type="application/ld+json"):
-        try:
-            data = json.loads(script.string or "")
-            if isinstance(data, list):
-                data = data[0] if data else {}
-            if isinstance(data, dict) and "dateModified" in data:
-                result = _parse_date(data["dateModified"].strip())
-                if result:
-                    return result
-        except (json.JSONDecodeError, TypeError):
-            continue
-
-    tag = soup.find("meta", attrs={"http-equiv": "last-modified"})
-    if tag and tag.get("content"):
-        result = _parse_date(tag["content"].strip())
-        if result:
-            return result
-
-    return None
-
-
 @dataclass
 class ParsedDocument:
     """Full extraction result from HTML parsing."""
 
     title: str
     content: str
-    updated_at: str | None = None
     outlinks: list[str] | None = None
     feed_links: list[str] | None = None
 
@@ -207,9 +146,6 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
     title = ""
     if soup.title and soup.title.string:
         title = _strip_nul(soup.title.string).strip()
-
-    # Extract metadata BEFORE decomposing script tags
-    updated_at = extract_updated_at(soup)
 
     # Main content via trafilatura (uses raw HTML, not soup)
     text = trafilatura.extract(
@@ -266,7 +202,6 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
     return ParsedDocument(
         title=title,
         content=text,
-        updated_at=updated_at,
         outlinks=outlinks,
         feed_links=feed_links,
     )
