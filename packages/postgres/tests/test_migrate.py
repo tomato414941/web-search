@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "011"
+            assert rows[0][0] == "012"
             cur.close()
         finally:
             conn.close()
@@ -102,6 +102,24 @@ class TestMigrate:
             assert "etag" not in columns
             assert "last_modified" not in columns
             assert "content_hash" not in columns
+            cur.close()
+        finally:
+            conn.close()
+
+    def test_index_jobs_schema_does_not_store_content_hash(self):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'index_jobs'
+                """
+            )
+            columns = {row[0] for row in cur.fetchall()}
+            assert "content_hash" not in columns
+            assert "dedupe_key" in columns
             cur.close()
         finally:
             conn.close()

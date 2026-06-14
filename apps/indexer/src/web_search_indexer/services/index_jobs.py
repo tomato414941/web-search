@@ -82,7 +82,6 @@ class IndexJobService:
             status_pending=STATUS_PENDING,
             max_retries=self.max_retries,
             now_ts=self._now_ts(),
-            content_hash=content_hash,
             dedupe_key=dedupe_key,
         )
 

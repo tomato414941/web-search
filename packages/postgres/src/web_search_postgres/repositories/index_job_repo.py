@@ -20,7 +20,6 @@ class IndexJobRepository:
         status_pending: str,
         max_retries: int,
         now_ts: int,
-        content_hash: str,
         dedupe_key: str,
     ) -> tuple[str, bool]:
         ph = sql_placeholder()
@@ -33,12 +32,12 @@ class IndexJobRepository:
                     job_id, url, title, content, outlinks_count,
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
-                    created_at, updated_at, content_hash, dedupe_key
+                    created_at, updated_at, dedupe_key
                 ) VALUES (
                     {ph}, {ph}, {ph}, {ph}, {ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
-                    {ph}, {ph}, {ph}, {ph}
+                    {ph}, {ph}, {ph}
                 )
                 ON CONFLICT (dedupe_key) DO NOTHING
                 RETURNING job_id
@@ -54,7 +53,6 @@ class IndexJobRepository:
                     now_ts,
                     now_ts,
                     now_ts,
-                    content_hash,
                     dedupe_key,
                 ),
             )

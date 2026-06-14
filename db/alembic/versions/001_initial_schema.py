@@ -133,7 +133,6 @@ def upgrade() -> None:
             last_error TEXT,
             created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
             updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
-            content_hash TEXT NOT NULL,
             dedupe_key TEXT NOT NULL UNIQUE
         )
     """)
