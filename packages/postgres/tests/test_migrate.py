@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "012"
+            assert rows[0][0] == "013"
             cur.close()
         finally:
             conn.close()
@@ -106,7 +106,7 @@ class TestMigrate:
         finally:
             conn.close()
 
-    def test_index_jobs_schema_does_not_store_content_hash(self):
+    def test_index_jobs_schema_does_not_store_payload_dedupe_fields(self):
         conn = get_connection()
         try:
             cur = conn.cursor()
@@ -119,7 +119,31 @@ class TestMigrate:
             )
             columns = {row[0] for row in cur.fetchall()}
             assert "content_hash" not in columns
-            assert "dedupe_key" in columns
+            assert "dedupe_key" not in columns
+            cur.close()
+        finally:
+            conn.close()
+
+    def test_index_jobs_schema_has_active_url_uniqueness(self):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT indexdef
+                FROM pg_indexes
+                WHERE tablename = 'index_jobs'
+                  AND indexname = 'idx_index_jobs_active_url'
+                """
+            )
+            row = cur.fetchone()
+            assert row is not None
+            indexdef = row[0]
+            assert "UNIQUE" in indexdef
+            assert "url" in indexdef
+            assert "pending" in indexdef
+            assert "processing" in indexdef
+            assert "failed_retry" in indexdef
             cur.close()
         finally:
             conn.close()

@@ -132,9 +132,13 @@ def upgrade() -> None:
             worker_id TEXT,
             last_error TEXT,
             created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
-            updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
-            dedupe_key TEXT NOT NULL UNIQUE
+            updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT
         )
+    """)
+    op.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_index_jobs_active_url
+        ON index_jobs(url)
+        WHERE status IN ('pending', 'processing', 'failed_retry')
     """)
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_index_jobs_status_available "

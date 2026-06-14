@@ -23,25 +23,83 @@ def test_enqueue_and_get_status():
     assert status["retry_count"] == 0
 
 
-def test_enqueue_is_deduplicated_by_content_hash():
+def test_enqueue_is_deduplicated_by_active_url():
     service = IndexJobService()
 
     job_id_1, created_1 = service.enqueue(
         url="https://example.com",
         title="Title-1",
-        content="same-content",
+        content="first-content",
         outlinks_count=0,
     )
     job_id_2, created_2 = service.enqueue(
         url="https://example.com",
         title="Title-2",
-        content="same-content",
-        outlinks_count=0,
+        content="different-content",
+        outlinks_count=42,
     )
 
     assert created_1 is True
     assert created_2 is False
     assert job_id_1 == job_id_2
+
+
+def test_enqueue_allows_same_url_after_done():
+    service = IndexJobService()
+
+    job_id_1, created_1 = service.enqueue(
+        url="https://done-again.example.com",
+        title="Title-1",
+        content="first-content",
+        outlinks_count=0,
+    )
+    assert created_1 is True
+
+    service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-1")
+    assert service.mark_done(job_id_1, worker_id="worker-1") is True
+
+    job_id_2, created_2 = service.enqueue(
+        url="https://done-again.example.com",
+        title="Title-2",
+        content="second-content",
+        outlinks_count=3,
+    )
+
+    assert created_2 is True
+    assert job_id_2 != job_id_1
+
+
+def test_enqueue_allows_same_url_after_permanent_failure():
+    service = IndexJobService(
+        max_retries=1,
+        retry_base_seconds=0,
+        retry_max_seconds=0,
+    )
+
+    job_id_1, created_1 = service.enqueue(
+        url="https://failed-again.example.com",
+        title="Title-1",
+        content="first-content",
+        outlinks_count=0,
+    )
+    assert created_1 is True
+
+    service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-1")
+    assert service.mark_failure(job_id_1, "permanent", worker_id="worker-1") is True
+
+    status = service.get_job_status(job_id_1)
+    assert status is not None
+    assert status["status"] == "failed_permanent"
+
+    job_id_2, created_2 = service.enqueue(
+        url="https://failed-again.example.com",
+        title="Title-2",
+        content="second-content",
+        outlinks_count=2,
+    )
+
+    assert created_2 is True
+    assert job_id_2 != job_id_1
 
 
 def test_claim_and_mark_done():

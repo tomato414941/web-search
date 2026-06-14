@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from web_search_indexer.metrics import record_claim_batch, record_job_result
-from web_search_indexer.services.dedupe import build_dedupe_key, hash_text
 from web_search_indexer.services.job_recovery import (
     cleanup_old_done_jobs,
 )
@@ -69,10 +68,8 @@ class IndexJobService:
         content: str,
         outlinks_count: int,
     ) -> tuple[str, bool]:
-        """Queue a new indexing job (idempotent by dedupe_key)."""
-        content_hash = hash_text(content)
+        """Queue a new indexing job, one active job per URL."""
         safe_outlinks_count = max(0, outlinks_count)
-        dedupe_key = build_dedupe_key(url, content_hash, safe_outlinks_count)
         return IndexJobRepository.enqueue(
             job_id=str(uuid.uuid4()),
             url=url,
@@ -82,7 +79,6 @@ class IndexJobService:
             status_pending=STATUS_PENDING,
             max_retries=self.max_retries,
             now_ts=self._now_ts(),
-            dedupe_key=dedupe_key,
         )
 
     def get_job_status(self, job_id: str) -> dict[str, Any] | None:

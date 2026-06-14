@@ -5,6 +5,12 @@ from typing import Any
 from web_search_core.retry import RetryPolicy
 from web_search_postgres.search import get_connection, sql_placeholder
 
+ACTIVE_INDEX_JOB_STATUSES = ("pending", "processing", "failed_retry")
+
+
+def _active_status_sql() -> str:
+    return ", ".join(f"'{status}'" for status in ACTIVE_INDEX_JOB_STATUSES)
+
 
 class IndexJobRepository:
     """Data-access layer for index_jobs operations."""
@@ -20,9 +26,9 @@ class IndexJobRepository:
         status_pending: str,
         max_retries: int,
         now_ts: int,
-        dedupe_key: str,
     ) -> tuple[str, bool]:
         ph = sql_placeholder()
+        active_statuses = _active_status_sql()
         con = get_connection()
         try:
             cur = con.cursor()
@@ -32,14 +38,16 @@ class IndexJobRepository:
                     job_id, url, title, content, outlinks_count,
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
-                    created_at, updated_at, dedupe_key
+                    created_at, updated_at
                 ) VALUES (
                     {ph}, {ph}, {ph}, {ph}, {ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
-                    {ph}, {ph}, {ph}
+                    {ph}, {ph}
                 )
-                ON CONFLICT (dedupe_key) DO NOTHING
+                ON CONFLICT (url)
+                WHERE status IN ({active_statuses})
+                DO NOTHING
                 RETURNING job_id
                 """,
                 (
@@ -53,7 +61,6 @@ class IndexJobRepository:
                     now_ts,
                     now_ts,
                     now_ts,
-                    dedupe_key,
                 ),
             )
             row = cur.fetchone()
@@ -63,14 +70,21 @@ class IndexJobRepository:
                 return str(row[0]), True
 
             cur.execute(
-                f"SELECT job_id FROM index_jobs WHERE dedupe_key = {ph}",
-                (dedupe_key,),
+                f"""
+                SELECT job_id
+                FROM index_jobs
+                WHERE url = {ph}
+                  AND status IN ({active_statuses})
+                ORDER BY created_at ASC, job_id ASC
+                LIMIT 1
+                """,
+                (url,),
             )
             existing = cur.fetchone()
             con.commit()
             cur.close()
             if not existing:
-                raise RuntimeError("Failed to resolve deduplicated index job")
+                raise RuntimeError("Failed to resolve active index job")
             return str(existing[0]), False
         finally:
             con.close()

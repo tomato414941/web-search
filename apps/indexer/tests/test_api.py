@@ -184,7 +184,7 @@ class TestIndexerAPIValidation:
         assert body1["job_id"] == body2["job_id"]
         assert body2["deduplicated"] is True
 
-    def test_different_content_creates_different_job(self, test_client):
+    def test_different_content_is_deduplicated_for_active_url(self, test_client):
         url = "https://reindex.example.com"
 
         response1 = test_client.post(
@@ -200,7 +200,10 @@ class TestIndexerAPIValidation:
 
         assert response1.status_code == 202
         assert response2.status_code == 202
-        assert response1.json()["job_id"] != response2.json()["job_id"]
+        body1 = response1.json()
+        body2 = response2.json()
+        assert body1["job_id"] == body2["job_id"]
+        assert body2["deduplicated"] is True
 
 
 class TestHealthEndpoint:
