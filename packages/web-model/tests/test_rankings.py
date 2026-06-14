@@ -31,13 +31,13 @@ def _insert_document_graph() -> None:
         cur = conn.cursor()
         cur.executemany(
             """
-            INSERT INTO documents (url, title, content, word_count)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO documents (url, title, content)
+            VALUES (%s, %s, %s)
             """,
             [
-                ("https://a.example/page", "A", "alpha", 1),
-                ("https://b.example/page", "B", "bravo", 1),
-                ("https://c.example/page", "C", "charlie", 1),
+                ("https://a.example/page", "A", "alpha"),
+                ("https://b.example/page", "B", "bravo"),
+                ("https://c.example/page", "C", "charlie"),
             ],
         )
         cur.executemany(

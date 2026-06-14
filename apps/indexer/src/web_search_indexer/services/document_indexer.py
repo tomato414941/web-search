@@ -8,7 +8,6 @@ Search indexing is handled by OpenSearch via dual-write.
 from datetime import datetime, timezone
 from typing import Any
 
-from web_search_kernel.analyzer import STOP_WORDS, analyzer
 from web_search_postgres.repositories import DocumentRepository
 from web_search_postgres import get_connection
 
@@ -38,13 +37,11 @@ class SearchIndexer:
             conn = get_connection()
 
         try:
-            content_tokens = self._tokenize(content)
             DocumentRepository.upsert_document(
                 conn,
                 url=url,
                 title=title,
                 content=content,
-                word_count=len(content_tokens),
                 indexed_at=datetime.now(timezone.utc).isoformat(),
                 published_at=published_at,
             )
@@ -67,10 +64,3 @@ class SearchIndexer:
         finally:
             if should_close:
                 conn.close()
-
-    def _tokenize(self, text: str) -> list[str]:
-        """Tokenize text using SudachiPy analyzer."""
-        if not text:
-            return []
-        tokenized = analyzer.tokenize(text)
-        return [t for t in tokenized.split() if len(t) > 1 and t not in STOP_WORDS]

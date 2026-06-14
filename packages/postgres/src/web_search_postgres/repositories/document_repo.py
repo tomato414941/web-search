@@ -25,7 +25,7 @@ class DocumentRepository:
     def fetch_by_url(conn: Any, url: str) -> tuple | None:
         cur = conn.cursor()
         cur.execute(
-            "SELECT title, content, word_count, indexed_at, published_at"
+            "SELECT title, content, indexed_at, published_at"
             " FROM documents WHERE url = %s",
             (url,),
         )
@@ -40,7 +40,6 @@ class DocumentRepository:
         url: str,
         title: str,
         content: str,
-        word_count: int,
         indexed_at: str,
         published_at: str | None,
     ) -> None:
@@ -48,16 +47,15 @@ class DocumentRepository:
         cur = conn.cursor()
         cur.execute(
             f"""
-            INSERT INTO documents (url, title, content, word_count, indexed_at, published_at)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            INSERT INTO documents (url, title, content, indexed_at, published_at)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
             ON CONFLICT (url) DO UPDATE SET
                 title = EXCLUDED.title,
                 content = EXCLUDED.content,
-                word_count = EXCLUDED.word_count,
                 indexed_at = EXCLUDED.indexed_at,
                 published_at = COALESCE(EXCLUDED.published_at, documents.published_at)
             """,
-            (url, title, content, word_count, indexed_at, published_at),
+            (url, title, content, indexed_at, published_at),
         )
         cur.close()
 

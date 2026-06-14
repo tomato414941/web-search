@@ -127,7 +127,6 @@ async def fetch_content(url: str) -> str:
         data = await _client.get_content(url)
         title = data.get("title") or "Untitled"
         content = data.get("content") or ""
-        word_count = data.get("word_count", 0)
         indexed_at = data.get("indexed_at", "")
         published_at = data.get("published_at", "")
 
@@ -140,8 +139,6 @@ async def fetch_content(url: str) -> str:
             meta_parts.append(f"Published: {published_at}")
         if indexed_at:
             meta_parts.append(f"Indexed: {indexed_at}")
-        if word_count:
-            meta_parts.append(f"Words: {word_count}")
         if meta_parts:
             lines.append(" | ".join(meta_parts))
         lines.append("")

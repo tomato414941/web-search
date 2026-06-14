@@ -14,7 +14,6 @@ class ContentResponse(BaseModel):
     url: str = Field(description="Page URL")
     title: str | None = Field(default=None, description="Page title")
     content: str | None = Field(default=None, description="Full page text")
-    word_count: int = Field(default=0, description="Word count")
     indexed_at: str | None = Field(
         default=None, description="When this page was last indexed (ISO 8601 UTC)"
     )
@@ -49,7 +48,6 @@ async def api_content(
         url=url,
         title=row[0],
         content=row[1],
-        word_count=row[2] or 0,
-        indexed_at=row[3].isoformat() if row[3] else None,
-        published_at=row[4].isoformat() if row[4] else None,
+        indexed_at=row[2].isoformat() if row[2] else None,
+        published_at=row[3].isoformat() if row[3] else None,
     )

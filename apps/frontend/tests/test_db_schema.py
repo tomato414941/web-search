@@ -36,19 +36,18 @@ def test_documents_table_schema():
     try:
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO documents (url, title, content, word_count, indexed_at) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO documents (url, title, content, indexed_at) VALUES (%s, %s, %s, %s)",
             (
                 "http://example.com",
                 "Test Title",
                 "Test Content",
-                2,
                 "2024-01-01T00:00:00",
             ),
         )
         conn.commit()
 
         cur.execute(
-            "SELECT url, title, content, word_count, indexed_at FROM documents WHERE url = %s",
+            "SELECT url, title, content, indexed_at FROM documents WHERE url = %s",
             ("http://example.com",),
         )
         row = cur.fetchone()
@@ -60,4 +59,3 @@ def test_documents_table_schema():
     assert row[0] == "http://example.com"
     assert row[1] == "Test Title"
     assert row[2] == "Test Content"
-    assert row[3] == 2

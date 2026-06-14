@@ -71,10 +71,10 @@ class TestAPIContent:
             cur = conn.cursor()
             cur.execute(
                 """
-                INSERT INTO documents (url, title, content, word_count)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO documents (url, title, content)
+                VALUES (%s, %s, %s)
                 """,
-                ("https://example.com", "Example", "full page text", 3),
+                ("https://example.com", "Example", "full page text"),
             )
             conn.commit()
             cur.close()

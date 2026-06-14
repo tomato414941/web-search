@@ -38,7 +38,6 @@ def upgrade() -> None:
             url TEXT PRIMARY KEY,
             title TEXT,
             content TEXT,
-            word_count INTEGER DEFAULT 0,
             indexed_at TIMESTAMP,
             published_at TIMESTAMP,
             updated_at TIMESTAMP,
