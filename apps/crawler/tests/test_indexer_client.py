@@ -27,7 +27,6 @@ async def test_submit_page_success():
         "http://example.com/test",
         "Test Page",
         "Test content",
-        outlinks_count=2,
     )
 
     assert result.ok is True
@@ -41,7 +40,6 @@ async def test_submit_page_success():
     assert call_kwargs["json"]["url"] == "http://example.com/test"
     assert call_kwargs["json"]["title"] == "Test Page"
     assert call_kwargs["json"]["content"] == "Test content"
-    assert call_kwargs["json"]["outlinks_count"] == 2
 
 
 @pytest.mark.asyncio

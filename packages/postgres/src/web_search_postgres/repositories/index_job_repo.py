@@ -22,7 +22,6 @@ class IndexJobRepository:
         url: str,
         title: str,
         content: str,
-        outlinks_count: int,
         status_pending: str,
         max_retries: int,
         now_ts: int,
@@ -35,12 +34,12 @@ class IndexJobRepository:
             cur.execute(
                 f"""
                 INSERT INTO index_jobs (
-                    job_id, url, title, content, outlinks_count,
+                    job_id, url, title, content,
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
                     created_at, updated_at
                 ) VALUES (
-                    {ph}, {ph}, {ph}, {ph}, {ph},
+                    {ph}, {ph}, {ph}, {ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
                     {ph}, {ph}
@@ -55,7 +54,6 @@ class IndexJobRepository:
                     url,
                     title,
                     content,
-                    outlinks_count,
                     status_pending,
                     max_retries,
                     now_ts,
@@ -155,7 +153,7 @@ class IndexJobRepository:
                 WHERE j.job_id = c.job_id
                 RETURNING
                     j.job_id, j.url, j.title, j.content,
-                    j.outlinks_count, j.status, j.retry_count, j.max_retries
+                    j.status, j.retry_count, j.max_retries
                 """,
                 (
                     status_pending,

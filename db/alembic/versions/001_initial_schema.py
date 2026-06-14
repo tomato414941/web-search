@@ -123,7 +123,6 @@ def upgrade() -> None:
             url TEXT NOT NULL,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
-            outlinks_count INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL,
             retry_count INTEGER NOT NULL DEFAULT 0,
             max_retries INTEGER NOT NULL DEFAULT 5,

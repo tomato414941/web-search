@@ -23,7 +23,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
         url="https://github.com/",
         title="GitHub",
         content="GitHub builds software together.",
-        outlinks_count=3,
     )
 
     assert captured["host"] == "github.com"
@@ -38,7 +37,6 @@ def test_build_opensearch_document_uses_search_field_names(monkeypatch):
         url="https://github.com/",
         title="GitHub",
         content="GitHub builds software together.",
-        outlinks_count=3,
     )
 
     doc = opensearch_document.build_opensearch_document(
@@ -78,7 +76,6 @@ def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
         url="https://accounts.hatena.ne.jp/login",
         title="Login",
         content="Login page",
-        outlinks_count=0,
     )
 
     assert called["deleted"] is True
@@ -108,7 +105,6 @@ def test_index_to_opensearch_skips_excluded_paths(monkeypatch):
         url="https://example.com/login/reset",
         title="Login",
         content="Login page",
-        outlinks_count=0,
     )
 
     assert called["deleted"] is True
@@ -134,7 +130,6 @@ def test_batch_opensearch_raises_on_partial_bulk(monkeypatch):
         url="https://example.com/missing",
         title="Title",
         content="Body",
-        outlinks_count=0,
     )
 
     with pytest.raises(indexer_module.OpenSearchIndexingError):

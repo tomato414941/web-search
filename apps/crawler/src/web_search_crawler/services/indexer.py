@@ -71,7 +71,6 @@ async def submit_page_to_indexer(
     url: str,
     title: str,
     content: str,
-    outlinks_count: int = 0,
 ) -> IndexerSubmitResult:
     """
     Submit a page to the Indexer API
@@ -83,8 +82,6 @@ async def submit_page_to_indexer(
         url: Page URL
         title: Page title
         content: Page content
-        outlinks_count: Number of observed outbound URLs
-
     Returns:
         IndexerSubmitResult containing success, status code, and error details.
     """
@@ -96,7 +93,6 @@ async def submit_page_to_indexer(
         "url": url,
         "title": title,
         "content": content,
-        "outlinks_count": outlinks_count,
     }
     try:
         async with session.post(

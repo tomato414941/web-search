@@ -10,7 +10,6 @@ def test_enqueue_and_get_status():
         url="https://example.com",
         title="Title",
         content="Body",
-        outlinks_count=1,
     )
 
     assert created is True
@@ -30,13 +29,11 @@ def test_enqueue_is_deduplicated_by_active_url():
         url="https://example.com",
         title="Title-1",
         content="first-content",
-        outlinks_count=0,
     )
     job_id_2, created_2 = service.enqueue(
         url="https://example.com",
         title="Title-2",
         content="different-content",
-        outlinks_count=42,
     )
 
     assert created_1 is True
@@ -51,7 +48,6 @@ def test_enqueue_allows_same_url_after_done():
         url="https://done-again.example.com",
         title="Title-1",
         content="first-content",
-        outlinks_count=0,
     )
     assert created_1 is True
 
@@ -62,7 +58,6 @@ def test_enqueue_allows_same_url_after_done():
         url="https://done-again.example.com",
         title="Title-2",
         content="second-content",
-        outlinks_count=3,
     )
 
     assert created_2 is True
@@ -80,7 +75,6 @@ def test_enqueue_allows_same_url_after_permanent_failure():
         url="https://failed-again.example.com",
         title="Title-1",
         content="first-content",
-        outlinks_count=0,
     )
     assert created_1 is True
 
@@ -95,7 +89,6 @@ def test_enqueue_allows_same_url_after_permanent_failure():
         url="https://failed-again.example.com",
         title="Title-2",
         content="second-content",
-        outlinks_count=2,
     )
 
     assert created_2 is True
@@ -108,7 +101,6 @@ def test_claim_and_mark_done():
         url="https://claim.example.com",
         title="Claim",
         content="content",
-        outlinks_count=0,
     )
 
     jobs = service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-1")
@@ -132,7 +124,6 @@ def test_failure_retries_then_permanent_failure():
         url="https://retry.example.com",
         title="Retry",
         content="content",
-        outlinks_count=0,
     )
 
     first_claim = service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-1")
@@ -161,7 +152,6 @@ def test_mark_done_cas_rejects_wrong_worker():
         url="https://cas-done.example.com",
         title="CAS",
         content="cas-test-done",
-        outlinks_count=0,
     )
     service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-A")
 
@@ -187,7 +177,6 @@ def test_mark_failure_cas_rejects_wrong_worker():
         url="https://cas-fail.example.com",
         title="CAS",
         content="cas-test-fail",
-        outlinks_count=0,
     )
     service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-A")
 

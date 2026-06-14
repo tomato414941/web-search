@@ -40,7 +40,6 @@ class IndexedPage:
     url: str
     title: str
     content: str
-    outlinks_count: int
 
 
 class IndexerService:
@@ -52,7 +51,6 @@ class IndexerService:
         url: str,
         title: str,
         content: str,
-        outlinks_count: int = 0,
         *,
         skip_opensearch: bool = False,
     ) -> IndexedPage:
@@ -71,7 +69,6 @@ class IndexerService:
             url=url,
             title=safe_title,
             content=safe_content,
-            outlinks_count=max(0, outlinks_count),
         )
 
         if settings.OPENSEARCH_ENABLED and not skip_opensearch:
@@ -108,13 +105,11 @@ class IndexerService:
         url: str,
         title: str,
         content: str,
-        outlinks_count: int = 0,
     ) -> None:
         page = IndexedPage(
             url=url,
             title=title,
             content=content,
-            outlinks_count=outlinks_count,
         )
         self._index_to_opensearch_page(page)
 

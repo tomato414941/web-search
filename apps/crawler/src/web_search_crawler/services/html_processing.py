@@ -45,7 +45,6 @@ async def submit_html_page_to_indexer(
         ctx.url,
         parsed.title,
         parsed.content,
-        outlinks_count=len(parsed.outlinks),
     )
 
 

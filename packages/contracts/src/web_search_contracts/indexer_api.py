@@ -9,7 +9,6 @@ class IndexPageRequest(BaseModel):
     url: HttpUrl
     title: str = Field(max_length=1000)
     content: str = Field(max_length=1_000_000)
-    outlinks_count: int = Field(default=0, ge=0, le=500)
 
 
 class IndexPageResponse(BaseModel):

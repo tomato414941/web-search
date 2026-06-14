@@ -31,7 +31,6 @@ class IndexJob:
     url: str
     title: str
     content: str
-    outlinks_count: int
     status: str
     retry_count: int
     max_retries: int
@@ -66,16 +65,13 @@ class IndexJobService:
         url: str,
         title: str,
         content: str,
-        outlinks_count: int,
     ) -> tuple[str, bool]:
         """Queue a new indexing job, one active job per URL."""
-        safe_outlinks_count = max(0, outlinks_count)
         return IndexJobRepository.enqueue(
             job_id=str(uuid.uuid4()),
             url=url,
             title=title,
             content=content,
-            outlinks_count=safe_outlinks_count,
             status_pending=STATUS_PENDING,
             max_retries=self.max_retries,
             now_ts=self._now_ts(),
@@ -189,8 +185,7 @@ class IndexJobService:
             url=str(row[1]),
             title=str(row[2]),
             content=str(row[3]),
-            outlinks_count=int(row[4] or 0),
-            status=str(row[5]),
-            retry_count=int(row[6]),
-            max_retries=int(row[7]),
+            status=str(row[4]),
+            retry_count=int(row[5]),
+            max_retries=int(row[6]),
         )

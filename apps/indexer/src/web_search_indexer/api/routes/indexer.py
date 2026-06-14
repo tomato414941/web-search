@@ -34,7 +34,6 @@ async def submit_page(
             url=str(page.url),
             title=page.title,
             content=page.content,
-            outlinks_count=page.outlinks_count,
         )
         return {
             "ok": True,
