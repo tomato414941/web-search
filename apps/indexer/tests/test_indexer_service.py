@@ -39,7 +39,6 @@ def test_build_opensearch_document_uses_search_field_names(monkeypatch):
         title="GitHub",
         content="GitHub builds software together.",
         outlinks_count=3,
-        published_at=None,
     )
 
     doc = opensearch_document.build_opensearch_document(
@@ -136,7 +135,6 @@ def test_batch_opensearch_raises_on_partial_bulk(monkeypatch):
         title="Title",
         content="Body",
         outlinks_count=0,
-        published_at=None,
     )
 
     with pytest.raises(indexer_module.OpenSearchIndexingError):

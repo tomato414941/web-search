@@ -237,7 +237,6 @@ def test_parse_feed_extracts_rss_entries():
           <title>Inside our approach to the Model Spec</title>
           <description>Learn how OpenAI's Model Spec works.</description>
           <link>https://openai.com/index/our-approach-to-the-model-spec</link>
-          <pubDate>Wed, 25 Mar 2026 10:00:00 GMT</pubDate>
         </item>
       </channel>
     </rss>
@@ -249,7 +248,6 @@ def test_parse_feed_extracts_rss_entries():
     assert entries[0].url == "https://openai.com/index/our-approach-to-the-model-spec"
     assert entries[0].title == "Inside our approach to the Model Spec"
     assert "OpenAI's Model Spec" in entries[0].content
-    assert entries[0].published_at == "2026-03-25T10:00:00+00:00"
 
 
 # ==========================================

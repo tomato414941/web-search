@@ -32,7 +32,6 @@ class ProjectionPage:
     url: str
     title: str
     content: str
-    published_at: str | None
 
 
 def rebuild_search_projection(
@@ -75,7 +74,6 @@ def rebuild_search_projection(
             title,
             content,
             indexed_at,
-            published_at,
         ) in rows:
             page_rank, domain_rank = link_rank_map.get(url, (0.0, 0.0))
             doc = build_opensearch_document(
@@ -83,7 +81,6 @@ def rebuild_search_projection(
                     url=url,
                     title=title,
                     content=content,
-                    published_at=published_at.isoformat() if published_at else None,
                 ),
                 page_rank=page_rank,
                 domain_rank=domain_rank,

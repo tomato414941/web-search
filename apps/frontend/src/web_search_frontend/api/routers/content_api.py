@@ -17,9 +17,6 @@ class ContentResponse(BaseModel):
     indexed_at: str | None = Field(
         default=None, description="When this page was last indexed (ISO 8601 UTC)"
     )
-    published_at: str | None = Field(
-        default=None, description="Original publication date (ISO 8601 UTC)"
-    )
 
 
 @router.get(
@@ -49,5 +46,4 @@ async def api_content(
         title=row[0],
         content=row[1],
         indexed_at=row[2].isoformat() if row[2] else None,
-        published_at=row[3].isoformat() if row[3] else None,
     )

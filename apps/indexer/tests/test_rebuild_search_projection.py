@@ -34,7 +34,6 @@ def test_rebuild_search_projection_does_not_skip_when_counts_match(monkeypatch):
                         "Example Title",
                         "Example content with facts.",
                         datetime(2026, 1, 1, tzinfo=UTC),
-                        datetime(2025, 12, 31, tzinfo=UTC),
                     )
                 ]
                 if offset == 0
@@ -62,4 +61,3 @@ def test_rebuild_search_projection_does_not_skip_when_counts_match(monkeypatch):
     assert doc["url"] == "https://example.com/post"
     assert doc["page_rank"] == 0.7
     assert doc["domain_rank"] == 0.3
-    assert doc["published_at"] == "2025-12-31T00:00:00+00:00"

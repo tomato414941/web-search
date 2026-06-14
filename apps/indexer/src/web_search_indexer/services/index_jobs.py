@@ -36,7 +36,6 @@ class IndexJob:
     status: str
     retry_count: int
     max_retries: int
-    published_at: str | None = None
     updated_at: str | None = None
 
 
@@ -70,7 +69,6 @@ class IndexJobService:
         title: str,
         content: str,
         outlinks_count: int,
-        published_at: str | None = None,
         updated_at: str | None = None,
     ) -> tuple[str, bool]:
         """Queue a new indexing job (idempotent by dedupe_key)."""
@@ -89,7 +87,6 @@ class IndexJobService:
             now_ts=self._now_ts(),
             content_hash=content_hash,
             dedupe_key=dedupe_key,
-            published_at=published_at,
         )
 
     def get_job_status(self, job_id: str) -> dict[str, Any] | None:
@@ -204,5 +201,4 @@ class IndexJobService:
             status=str(row[5]),
             retry_count=int(row[6]),
             max_retries=int(row[7]),
-            published_at=str(row[8]) if len(row) > 8 and row[8] else None,
         )

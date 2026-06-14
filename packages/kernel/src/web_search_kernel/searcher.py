@@ -18,7 +18,6 @@ class SearchHit:
     content: str
     score: float
     indexed_at: str | None = None
-    published_at: str | None = None
     page_rank: float | None = None
     domain_rank: float | None = None
 

@@ -41,7 +41,6 @@ class IndexedPage:
     title: str
     content: str
     outlinks_count: int
-    published_at: str | None
 
 
 class IndexerService:
@@ -54,7 +53,6 @@ class IndexerService:
         title: str,
         content: str,
         outlinks_count: int = 0,
-        published_at: str | None = None,
         *,
         skip_opensearch: bool = False,
     ) -> IndexedPage:
@@ -67,7 +65,6 @@ class IndexerService:
             url,
             safe_title,
             safe_content,
-            published_at,
         )
 
         page = IndexedPage(
@@ -75,7 +72,6 @@ class IndexerService:
             title=safe_title,
             content=safe_content,
             outlinks_count=max(0, outlinks_count),
-            published_at=published_at,
         )
 
         if settings.OPENSEARCH_ENABLED and not skip_opensearch:
@@ -95,13 +91,10 @@ class IndexerService:
         url: str,
         title: str,
         content: str,
-        published_at: str | None,
     ) -> None:
         conn = get_connection()
         try:
-            self.search_indexer.index_document(
-                url, title, content, conn, published_at=published_at
-            )
+            self.search_indexer.index_document(url, title, content, conn)
             conn.commit()
         except Exception as e:
             conn.rollback()
@@ -115,7 +108,6 @@ class IndexerService:
         url: str,
         title: str,
         content: str,
-        published_at: str | None = None,
         outlinks_count: int = 0,
     ) -> None:
         page = IndexedPage(
@@ -123,7 +115,6 @@ class IndexerService:
             title=title,
             content=content,
             outlinks_count=outlinks_count,
-            published_at=published_at,
         )
         self._index_to_opensearch_page(page)
 

@@ -14,7 +14,6 @@ def build_search_hits(raw_hits: list[dict[str, Any]]) -> list[SearchHit]:
             content=hit["content"],
             score=hit["score"],
             indexed_at=hit.get("indexed_at"),
-            published_at=hit.get("published_at"),
             page_rank=hit.get("page_rank"),
             domain_rank=hit.get("domain_rank"),
         )
@@ -25,8 +24,6 @@ def build_search_hits(raw_hits: list[dict[str, Any]]) -> list[SearchHit]:
 def append_hit_metadata(hit_dict: dict[str, Any], hit: SearchHit) -> None:
     if hit.indexed_at:
         hit_dict["indexed_at"] = hit.indexed_at
-    if hit.published_at:
-        hit_dict["published_at"] = hit.published_at
     if hit.page_rank is not None:
         hit_dict["page_rank"] = hit.page_rank
     if hit.domain_rank is not None:

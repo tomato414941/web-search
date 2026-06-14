@@ -122,6 +122,6 @@ documented in [search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md).
 
 ### 5. Data Flow
-1.  **Crawl**: Crawler fetches HTML, extracts main content via trafilatura, extracts links/`published_at`, sends to Indexer via HTTP API.
-2.  **Index**: Indexer tokenizes text (SudachiPy), computes document signals (factual density, temporal anchor, authorship clarity, information origin), writes to PostgreSQL + OpenSearch. Optional embeddings are a separate backfill lane.
+1.  **Crawl**: Crawler fetches HTML, extracts main content via trafilatura, extracts links, and sends page content to Indexer via HTTP API.
+2.  **Index**: Indexer tokenizes text (SudachiPy), writes indexed documents to PostgreSQL + OpenSearch, and keeps optional embeddings in a separate backfill lane.
 3.  **Search**: Frontend queries OpenSearch with BM25, then applies a small canonical-source policy when the query is navigational/reference/news-like.

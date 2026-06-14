@@ -73,14 +73,12 @@ async def test_index_job_worker_batches_opensearch_before_mark_done(monkeypatch)
         title="Title",
         content="Body",
         outlinks_count=1,
-        published_at=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
         title=job.title,
         content=job.content,
         outlinks_count=1,
-        published_at=None,
     )
 
     async def fake_index_page(**kwargs):
@@ -142,14 +140,12 @@ async def test_index_job_worker_marks_failure_when_opensearch_fails(monkeypatch)
         title="Title",
         content="Body",
         outlinks_count=0,
-        published_at=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
         title=job.title,
         content=job.content,
         outlinks_count=0,
-        published_at=None,
     )
 
     async def fake_index_page(**kwargs):
@@ -216,14 +212,12 @@ async def test_index_job_worker_ignores_embedding_flag(monkeypatch):
         title="Title",
         content="Body",
         outlinks_count=0,
-        published_at=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
         title=job.title,
         content=job.content,
         outlinks_count=0,
-        published_at=None,
     )
 
     async def fake_index_page(**kwargs):
@@ -292,14 +286,12 @@ async def test_index_job_worker_has_no_embedding_kwargs(monkeypatch):
         title="Title",
         content="Body",
         outlinks_count=0,
-        published_at=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
         title=job.title,
         content=job.content,
         outlinks_count=0,
-        published_at=None,
     )
 
     async def fake_index_page(**kwargs):

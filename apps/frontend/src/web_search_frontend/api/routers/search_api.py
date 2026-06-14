@@ -39,10 +39,6 @@ class SearchHit(BaseModel):
     indexed_at: str | None = Field(
         default=None, description="When this page was last indexed (ISO 8601 UTC)"
     )
-    published_at: str | None = Field(
-        default=None,
-        description="When this page was originally published (ISO 8601 UTC)",
-    )
     page_rank: float | None = Field(
         default=None,
         description="Page-level link-based rank signal",

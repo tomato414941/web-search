@@ -85,7 +85,6 @@ def search_bm25(
             "title",
             "content",
             "indexed_at",
-            "published_at",
             "page_rank",
             "domain_rank",
         ],
@@ -104,7 +103,6 @@ def search_bm25(
                 "content": src.get("content", ""),
                 "score": hit["_score"],
                 "indexed_at": src.get("indexed_at"),
-                "published_at": src.get("published_at"),
                 "page_rank": src.get("page_rank"),
                 "domain_rank": src.get("domain_rank"),
             }

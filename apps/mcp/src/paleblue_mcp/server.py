@@ -47,14 +47,11 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
         url = hit.get("url", "")
         snip = hit.get("snip_plain", "")
         indexed_at = hit.get("indexed_at", "")
-        published_at = hit.get("published_at", "")
 
         lines.append(f"### {i}. [{title}]({url})")
         if snip:
             lines.append(snip)
         meta_parts = []
-        if published_at:
-            meta_parts.append(f"Published: {published_at}")
         if indexed_at:
             meta_parts.append(f"Indexed: {indexed_at}")
         if meta_parts:
@@ -122,15 +119,12 @@ async def fetch_content(url: str) -> str:
         title = data.get("title") or "Untitled"
         content = data.get("content") or ""
         indexed_at = data.get("indexed_at", "")
-        published_at = data.get("published_at", "")
 
         lines = [
             f"# {title}",
             f"URL: {url}",
         ]
         meta_parts = []
-        if published_at:
-            meta_parts.append(f"Published: {published_at}")
         if indexed_at:
             meta_parts.append(f"Indexed: {indexed_at}")
         if meta_parts:

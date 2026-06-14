@@ -265,7 +265,6 @@ async def test_process_url_discovers_links(test_components):
         return_value=ParsedDocument(
             title="Test",
             content="Content",
-            published_at=None,
             updated_at=None,
             outlinks=[
                 "http://example.com/link1",

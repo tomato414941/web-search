@@ -31,7 +31,6 @@ async def parse_html_page(html: str, url: str, max_outlinks: int) -> ParseResult
         content=doc.content,
         outlinks=doc.outlinks or [],
         feed_links=doc.feed_links or [],
-        published_at=doc.published_at,
         updated_at=doc.updated_at,
     )
 
@@ -48,7 +47,6 @@ async def submit_html_page_to_indexer(
         parsed.title,
         parsed.content,
         outlinks_count=len(parsed.outlinks),
-        published_at=parsed.published_at,
         updated_at=parsed.updated_at,
     )
 

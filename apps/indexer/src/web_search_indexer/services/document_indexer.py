@@ -21,7 +21,6 @@ class SearchIndexer:
         title: str,
         content: str,
         conn: Any | None = None,
-        published_at: str | None = None,
     ) -> None:
         """Index a document into the documents table.
 
@@ -30,7 +29,6 @@ class SearchIndexer:
             title: Document title
             content: Document content
             conn: Optional existing connection (for batch operations)
-            published_at: ISO 8601 publication date from HTML metadata
         """
         should_close = conn is None
         if conn is None:
@@ -43,7 +41,6 @@ class SearchIndexer:
                 title=title,
                 content=content,
                 indexed_at=datetime.now(timezone.utc).isoformat(),
-                published_at=published_at,
             )
             if should_close:
                 conn.commit()

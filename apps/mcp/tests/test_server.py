@@ -18,7 +18,6 @@ MOCK_SEARCH_DATA = {
             "snip_plain": "Modern Python web framework",
             "rank": 15.0,
             "indexed_at": "2026-03-01T00:00:00+00:00",
-            "published_at": "2025-12-01T00:00:00+00:00",
         },
         {
             "url": "https://flask.palletsprojects.com",
@@ -26,7 +25,6 @@ MOCK_SEARCH_DATA = {
             "snip_plain": "Lightweight WSGI framework",
             "rank": 12.0,
             "indexed_at": "2026-02-28T00:00:00+00:00",
-            "published_at": None,
         },
     ],
 }
@@ -38,19 +36,7 @@ def test_format_hits_markdown():
     assert "**2 results**" in result
     assert "[FastAPI](https://fastapi.tiangolo.com)" in result
     assert "Modern Python web framework" in result
-    assert "Published: 2025-12-01" in result
     assert "Indexed: 2026-03-01" in result
-
-
-def test_format_hits_no_published_at():
-    result = _format_hits(MOCK_SEARCH_DATA)
-    # Flask hit has no published_at, should only show indexed_at
-    flask_section = (
-        result.split("Flask")[1].split("###")[0]
-        if "###" in result.split("Flask")[1]
-        else result.split("Flask")[1]
-    )
-    assert "Published:" not in flask_section or "Published: 2025" not in flask_section
 
 
 def test_format_hits_empty():
@@ -80,7 +66,6 @@ def test_format_hits_untitled():
                 "snip_plain": "Some text",
                 "rank": 5.0,
                 "indexed_at": None,
-                "published_at": None,
             }
         ],
     }

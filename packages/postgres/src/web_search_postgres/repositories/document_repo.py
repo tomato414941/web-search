@@ -12,7 +12,6 @@ OpenSearchDocumentRow = tuple[
     str,
     str,
     datetime | None,
-    datetime | None,
 ]
 
 
@@ -23,8 +22,7 @@ class DocumentRepository:
     def fetch_by_url(conn: Any, url: str) -> tuple | None:
         cur = conn.cursor()
         cur.execute(
-            "SELECT title, content, indexed_at, published_at"
-            " FROM documents WHERE url = %s",
+            "SELECT title, content, indexed_at FROM documents WHERE url = %s",
             (url,),
         )
         row = cur.fetchone()
@@ -39,21 +37,19 @@ class DocumentRepository:
         title: str,
         content: str,
         indexed_at: str,
-        published_at: str | None,
     ) -> None:
         ph = sql_placeholder()
         cur = conn.cursor()
         cur.execute(
             f"""
-            INSERT INTO documents (url, title, content, indexed_at, published_at)
-            VALUES ({ph}, {ph}, {ph}, {ph}, {ph})
+            INSERT INTO documents (url, title, content, indexed_at)
+            VALUES ({ph}, {ph}, {ph}, {ph})
             ON CONFLICT (url) DO UPDATE SET
                 title = EXCLUDED.title,
                 content = EXCLUDED.content,
-                indexed_at = EXCLUDED.indexed_at,
-                published_at = COALESCE(EXCLUDED.published_at, documents.published_at)
+                indexed_at = EXCLUDED.indexed_at
             """,
-            (url, title, content, indexed_at, published_at),
+            (url, title, content, indexed_at),
         )
         cur.close()
 
@@ -137,8 +133,7 @@ class DocumentRepository:
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT url, title, content, indexed_at, "
-                "published_at "
+                "SELECT url, title, content, indexed_at "
                 "FROM documents ORDER BY url LIMIT %s OFFSET %s",
                 (limit, offset),
             )
@@ -148,14 +143,12 @@ class DocumentRepository:
                     str(title or ""),
                     str(content or ""),
                     indexed_at,
-                    published_at,
                 )
                 for (
                     url,
                     title,
                     content,
                     indexed_at,
-                    published_at,
                 ) in cur.fetchall()
             ]
             cur.close()

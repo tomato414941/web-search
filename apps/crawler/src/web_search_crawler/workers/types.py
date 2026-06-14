@@ -44,7 +44,6 @@ class ParseResult:
     content: str
     outlinks: list[str]
     feed_links: list[str]
-    published_at: str | None = None
     updated_at: str | None = None
 
 

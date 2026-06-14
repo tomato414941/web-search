@@ -34,8 +34,7 @@ Current behavior:
 - retrieval is BM25-based
 - query operators such as `site:`, quoted phrases, and negation are supported
 - successful responses may include transparency metadata such as
-  `published_at`, `page_rank`, `domain_rank`, and
-  other document signals when available
+  `page_rank` and `domain_rank` when available
 
 Use [search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md) for ranking and signal semantics.

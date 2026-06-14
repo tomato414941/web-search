@@ -82,14 +82,6 @@ make sync-mcp
 | `PALEBLUE_BASE_URL` | `https://palebluesearch.com` | API base URL |
 | `PALEBLUE_TIMEOUT` | `30` | HTTP timeout in seconds |
 
-## Why Freshness Metadata?
-
-Every search result includes `indexed_at` and `published_at` timestamps. AI agents can use these to:
-
-- Filter out stale information
-- Prioritize recent sources
-- Cite when information was published and last verified
-
 ## License
 
 MIT

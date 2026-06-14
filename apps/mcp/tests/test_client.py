@@ -19,7 +19,6 @@ MOCK_SEARCH_RESPONSE = {
             "snip_plain": "Python programming",
             "rank": 10.5,
             "indexed_at": "2026-03-01T00:00:00+00:00",
-            "published_at": None,
         }
     ],
     "mode": "bm25",

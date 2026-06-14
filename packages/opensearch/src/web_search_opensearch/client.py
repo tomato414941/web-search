@@ -48,7 +48,6 @@ def index_document(
     indexed_at: str,
     page_rank: float = 0.0,
     domain_rank: float = 0.0,
-    published_at: str | None = None,
     host: str | None = None,
     path: str | None = None,
     is_homepage: bool | None = None,
@@ -68,9 +67,6 @@ def index_document(
         body["path"] = path
     if is_homepage is not None:
         body["is_homepage"] = is_homepage
-    if published_at is not None:
-        body["published_at"] = published_at
-
     client.index(index=INDEX_NAME, id=doc_id(url), body=body)
 
 

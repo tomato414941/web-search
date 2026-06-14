@@ -39,7 +39,6 @@ def upgrade() -> None:
             title TEXT,
             content TEXT,
             indexed_at TIMESTAMP,
-            published_at TIMESTAMP,
             updated_at TIMESTAMP
         )
     """)
@@ -136,8 +135,7 @@ def upgrade() -> None:
             created_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
             updated_at BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())::BIGINT,
             content_hash TEXT NOT NULL,
-            dedupe_key TEXT NOT NULL UNIQUE,
-            published_at TEXT
+            dedupe_key TEXT NOT NULL UNIQUE
         )
     """)
     op.execute(

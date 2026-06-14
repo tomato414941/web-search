@@ -72,7 +72,6 @@ async def submit_page_to_indexer(
     title: str,
     content: str,
     outlinks_count: int = 0,
-    published_at: str | None = None,
     updated_at: str | None = None,
 ) -> IndexerSubmitResult:
     """
@@ -100,8 +99,6 @@ async def submit_page_to_indexer(
         "content": content,
         "outlinks_count": outlinks_count,
     }
-    if published_at:
-        payload["published_at"] = published_at
     if updated_at:
         payload["updated_at"] = updated_at
 

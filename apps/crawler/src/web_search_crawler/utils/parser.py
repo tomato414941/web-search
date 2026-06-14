@@ -8,7 +8,6 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
@@ -114,23 +113,6 @@ def _parse_date(raw: str) -> str | None:
     return None
 
 
-def _parse_feed_date(raw: str | None) -> str | None:
-    if not raw:
-        return None
-    parsed = _parse_date(raw.strip())
-    if parsed:
-        return parsed
-    try:
-        dt = parsedate_to_datetime(raw.strip())
-    except (TypeError, ValueError, IndexError):
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    if dt > datetime.now(timezone.utc):
-        return None
-    return dt.isoformat()
-
-
 def _local_name(tag: str) -> str:
     if "}" in tag:
         return tag.rsplit("}", 1)[1]
@@ -156,61 +138,6 @@ def _find_atom_link(element: ET.Element) -> str | None:
         if href and rel in {"", "alternate"}:
             return href
     return None
-
-
-def extract_published_at(soup: BeautifulSoup) -> str | None:
-    """Extract published date from HTML metadata.
-
-    Priority:
-    1. <meta property="article:published_time">
-    2. JSON-LD datePublished
-    3. <meta name="date">
-    4. <meta name="DC.date">
-    5. <time datetime="...">
-    """
-    raw = None
-
-    tag = soup.find("meta", attrs={"property": "article:published_time"})
-    if tag and tag.get("content"):
-        raw = tag["content"]
-
-    if raw is None:
-        for script in soup.find_all("script", type="application/ld+json"):
-            try:
-                data = json.loads(script.string or "")
-                if isinstance(data, dict) and "datePublished" in data:
-                    raw = data["datePublished"]
-                elif isinstance(data, list):
-                    for item in data:
-                        if isinstance(item, dict) and "datePublished" in item:
-                            raw = item["datePublished"]
-                            break
-            except (json.JSONDecodeError, TypeError):
-                continue
-            if raw:
-                break
-
-    if raw is None:
-        tag = soup.find("meta", attrs={"name": "date"})
-        if tag and tag.get("content"):
-            raw = tag["content"]
-
-    if raw is None:
-        tag = soup.find("meta", attrs={"name": "DC.date"})
-        if tag and tag.get("content"):
-            raw = tag["content"]
-
-    if raw is None:
-        tag = soup.find("time", attrs={"pubdate": True})
-        if not tag:
-            tag = soup.find("time", attrs={"datetime": True})
-        if tag and tag.get("datetime"):
-            raw = tag["datetime"]
-
-    if raw is None:
-        return None
-
-    return _parse_date(raw.strip())
 
 
 def extract_updated_at(soup: BeautifulSoup) -> str | None:
@@ -254,7 +181,6 @@ class ParsedDocument:
 
     title: str
     content: str
-    published_at: str | None = None
     updated_at: str | None = None
     outlinks: list[str] | None = None
     feed_links: list[str] | None = None
@@ -265,7 +191,6 @@ class FeedEntry:
     url: str
     title: str
     content: str
-    published_at: str | None = None
 
 
 def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocument:
@@ -284,7 +209,6 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
         title = _strip_nul(soup.title.string).strip()
 
     # Extract metadata BEFORE decomposing script tags
-    published_at = extract_published_at(soup)
     updated_at = extract_updated_at(soup)
 
     # Main content via trafilatura (uses raw HTML, not soup)
@@ -342,7 +266,6 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
     return ParsedDocument(
         title=title,
         content=text,
-        published_at=published_at,
         updated_at=updated_at,
         outlinks=outlinks,
         feed_links=feed_links,
@@ -366,10 +289,6 @@ def parse_feed(xml_text: str) -> list[FeedEntry]:
             url = _find_child_text(element, ("link", "guid"))
         else:
             url = _find_atom_link(element) or _find_child_text(element, ("id",))
-        published_at = _parse_feed_date(
-            _find_child_text(element, ("pubDate", "published", "updated"))
-        )
-
         if not title or not url or not content:
             continue
 
@@ -378,7 +297,6 @@ def parse_feed(xml_text: str) -> list[FeedEntry]:
                 url=url,
                 title=title,
                 content=content,
-                published_at=published_at,
             )
         )
 

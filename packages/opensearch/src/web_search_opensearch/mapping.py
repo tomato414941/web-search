@@ -46,7 +46,6 @@ INDEX_SETTINGS = {
                 "similarity": "custom_bm25",
             },
             "indexed_at": {"type": "date"},
-            "published_at": {"type": "date"},
             "page_rank": {"type": "float"},
             "domain_rank": {"type": "float"},
         }

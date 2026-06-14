@@ -22,7 +22,6 @@ class IndexJobRepository:
         now_ts: int,
         content_hash: str,
         dedupe_key: str,
-        published_at: str | None,
     ) -> tuple[str, bool]:
         ph = sql_placeholder()
         con = get_connection()
@@ -34,14 +33,12 @@ class IndexJobRepository:
                     job_id, url, title, content, outlinks_count,
                     status, retry_count, max_retries,
                     available_at, lease_until, worker_id, last_error,
-                    created_at, updated_at, content_hash, dedupe_key,
-                    published_at
+                    created_at, updated_at, content_hash, dedupe_key
                 ) VALUES (
                     {ph}, {ph}, {ph}, {ph}, {ph},
                     {ph}, 0, {ph},
                     {ph}, NULL, NULL, NULL,
-                    {ph}, {ph}, {ph}, {ph},
-                    {ph}
+                    {ph}, {ph}, {ph}, {ph}
                 )
                 ON CONFLICT (dedupe_key) DO NOTHING
                 RETURNING job_id
@@ -59,7 +56,6 @@ class IndexJobRepository:
                     now_ts,
                     content_hash,
                     dedupe_key,
-                    published_at,
                 ),
             )
             row = cur.fetchone()
@@ -147,8 +143,7 @@ class IndexJobRepository:
                 WHERE j.job_id = c.job_id
                 RETURNING
                     j.job_id, j.url, j.title, j.content,
-                    j.outlinks_count, j.status, j.retry_count, j.max_retries,
-                    j.published_at
+                    j.outlinks_count, j.status, j.retry_count, j.max_retries
                 """,
                 (
                     status_pending,
