@@ -52,13 +52,7 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
         lines.append(f"### {i}. [{title}]({url})")
         if snip:
             lines.append(snip)
-        author = hit.get("author")
-        organization = hit.get("organization")
         meta_parts = []
-        if author:
-            meta_parts.append(f"Author: {author}")
-        if organization:
-            meta_parts.append(f"Org: {organization}")
         if published_at:
             meta_parts.append(f"Published: {published_at}")
         if indexed_at:

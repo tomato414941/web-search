@@ -70,8 +70,6 @@ async def _process_single_job(
                 content=job.content,
                 outlinks_count=job.outlinks_count,
                 published_at=job.published_at,
-                author=job.author,
-                organization=job.organization,
                 skip_opensearch=True,
             )
             return ProcessedJob(

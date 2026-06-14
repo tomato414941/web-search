@@ -74,8 +74,6 @@ async def test_index_job_worker_batches_opensearch_before_mark_done(monkeypatch)
         content="Body",
         outlinks_count=1,
         published_at=None,
-        author=None,
-        organization=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
@@ -83,8 +81,6 @@ async def test_index_job_worker_batches_opensearch_before_mark_done(monkeypatch)
         content=job.content,
         outlinks_count=1,
         published_at=None,
-        author=None,
-        organization=None,
     )
 
     async def fake_index_page(**kwargs):
@@ -147,8 +143,6 @@ async def test_index_job_worker_marks_failure_when_opensearch_fails(monkeypatch)
         content="Body",
         outlinks_count=0,
         published_at=None,
-        author=None,
-        organization=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
@@ -156,8 +150,6 @@ async def test_index_job_worker_marks_failure_when_opensearch_fails(monkeypatch)
         content=job.content,
         outlinks_count=0,
         published_at=None,
-        author=None,
-        organization=None,
     )
 
     async def fake_index_page(**kwargs):
@@ -225,8 +217,6 @@ async def test_index_job_worker_ignores_embedding_flag(monkeypatch):
         content="Body",
         outlinks_count=0,
         published_at=None,
-        author=None,
-        organization=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
@@ -234,8 +224,6 @@ async def test_index_job_worker_ignores_embedding_flag(monkeypatch):
         content=job.content,
         outlinks_count=0,
         published_at=None,
-        author=None,
-        organization=None,
     )
 
     async def fake_index_page(**kwargs):
@@ -305,8 +293,6 @@ async def test_index_job_worker_has_no_embedding_kwargs(monkeypatch):
         content="Body",
         outlinks_count=0,
         published_at=None,
-        author=None,
-        organization=None,
     )
     indexed_page = worker.IndexedPage(
         url=job.url,
@@ -314,8 +300,6 @@ async def test_index_job_worker_has_no_embedding_kwargs(monkeypatch):
         content=job.content,
         outlinks_count=0,
         published_at=None,
-        author=None,
-        organization=None,
     )
 
     async def fake_index_page(**kwargs):

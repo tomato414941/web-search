@@ -120,7 +120,6 @@ request-time reranking.
 | Field | Description |
 |-------|-------------|
 | `score` | Relevance score for this hit |
-| `author` / `organization` | Extracted from HTML metadata (JSON-LD, meta tags) |
 | `page_rank` / `domain_rank` | link-based prior signals |
 
 ## What We Don't Need (and Why)

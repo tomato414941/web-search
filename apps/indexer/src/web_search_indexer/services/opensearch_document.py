@@ -13,8 +13,6 @@ class OpenSearchPage(Protocol):
     title: str
     content: str
     published_at: str | None
-    author: str | None
-    organization: str | None
 
 
 def opensearch_url_metadata(url: str) -> tuple[str, str, bool]:
@@ -47,8 +45,6 @@ def build_opensearch_document(
         "page_rank": page_rank,
         "domain_rank": domain_rank,
         "published_at": page.published_at,
-        "author": page.author,
-        "organization": page.organization,
         "host": host,
         "path": path,
         "is_homepage": is_homepage,

@@ -88,8 +88,6 @@ def search_bm25(
             "published_at",
             "page_rank",
             "domain_rank",
-            "author",
-            "organization",
         ],
     }
 
@@ -109,8 +107,6 @@ def search_bm25(
                 "published_at": src.get("published_at"),
                 "page_rank": src.get("page_rank"),
                 "domain_rank": src.get("domain_rank"),
-                "author": src.get("author"),
-                "organization": src.get("organization"),
             }
         )
 

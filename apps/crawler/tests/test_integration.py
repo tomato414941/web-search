@@ -267,8 +267,6 @@ async def test_process_url_discovers_links(test_components):
             content="Content",
             published_at=None,
             updated_at=None,
-            author=None,
-            organization=None,
             outlinks=[
                 "http://example.com/link1",
                 "http://example.com/link2",

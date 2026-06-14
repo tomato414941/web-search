@@ -229,34 +229,6 @@ def test_parse_page_preserves_table_content():
     assert "Django" in doc.content
 
 
-def test_parse_page_handles_json_ld_author_name_list():
-    html = """
-    <html>
-    <head>
-        <title>Elastic BM25</title>
-        <script type="application/ld+json">
-        {
-            "@type": "BlogPosting",
-            "author": {
-                "name": ["Elastic", "Search Team"]
-            },
-            "publisher": {
-                "name": ["Elastic"]
-            }
-        }
-        </script>
-    </head>
-    <body>
-        <article><p>BM25 details.</p></article>
-    </body>
-    </html>
-    """
-    doc = parse_page(html, "https://www.elastic.co/blog/practical-bm25")
-
-    assert doc.author == "Elastic"
-    assert doc.organization == "Elastic"
-
-
 def test_parse_feed_extracts_rss_entries():
     xml = """
     <rss version="2.0">

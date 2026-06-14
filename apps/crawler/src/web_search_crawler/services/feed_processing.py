@@ -32,7 +32,6 @@ async def submit_feed_entry(
         entry.title,
         entry.content,
         published_at=entry.published_at,
-        organization=ctx.domain,
     )
 
 

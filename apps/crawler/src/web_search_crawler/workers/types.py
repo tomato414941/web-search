@@ -46,8 +46,6 @@ class ParseResult:
     feed_links: list[str]
     published_at: str | None = None
     updated_at: str | None = None
-    author: str | None = None
-    organization: str | None = None
 
 
 @dataclass

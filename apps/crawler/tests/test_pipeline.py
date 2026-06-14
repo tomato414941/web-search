@@ -202,8 +202,6 @@ class TestProcessFetchResult:
                     feed_links=["https://example.com/news/rss.xml"],
                     published_at=None,
                     updated_at=None,
-                    author=None,
-                    organization=None,
                 ),
             ),
             patch(

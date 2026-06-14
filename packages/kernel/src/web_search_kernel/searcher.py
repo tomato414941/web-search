@@ -21,8 +21,6 @@ class SearchHit:
     published_at: str | None = None
     page_rank: float | None = None
     domain_rank: float | None = None
-    author: str | None = None
-    organization: str | None = None
 
 
 @dataclass

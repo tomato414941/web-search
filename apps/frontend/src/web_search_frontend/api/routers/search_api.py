@@ -51,14 +51,6 @@ class SearchHit(BaseModel):
         default=None,
         description="Domain-level link-based rank signal",
     )
-    author: str | None = Field(
-        default=None,
-        description="Author name extracted from HTML metadata",
-    )
-    organization: str | None = Field(
-        default=None,
-        description="Publisher/organization extracted from HTML metadata",
-    )
     content: str | None = Field(
         default=None,
         description="Full page text (only when include_content=true)",

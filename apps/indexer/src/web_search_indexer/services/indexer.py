@@ -42,8 +42,6 @@ class IndexedPage:
     content: str
     outlinks_count: int
     published_at: str | None
-    author: str | None
-    organization: str | None
 
 
 class IndexerService:
@@ -57,8 +55,6 @@ class IndexerService:
         content: str,
         outlinks_count: int = 0,
         published_at: str | None = None,
-        author: str | None = None,
-        organization: str | None = None,
         *,
         skip_opensearch: bool = False,
     ) -> IndexedPage:
@@ -80,8 +76,6 @@ class IndexerService:
             content=safe_content,
             outlinks_count=max(0, outlinks_count),
             published_at=published_at,
-            author=author,
-            organization=organization,
         )
 
         if settings.OPENSEARCH_ENABLED and not skip_opensearch:
@@ -123,8 +117,6 @@ class IndexerService:
         content: str,
         published_at: str | None = None,
         outlinks_count: int = 0,
-        author: str | None = None,
-        organization: str | None = None,
     ) -> None:
         page = IndexedPage(
             url=url,
@@ -132,8 +124,6 @@ class IndexerService:
             content=content,
             outlinks_count=outlinks_count,
             published_at=published_at,
-            author=author,
-            organization=organization,
         )
         self._index_to_opensearch_page(page)
 

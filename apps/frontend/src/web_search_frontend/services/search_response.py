@@ -17,8 +17,6 @@ def build_search_hits(raw_hits: list[dict[str, Any]]) -> list[SearchHit]:
             published_at=hit.get("published_at"),
             page_rank=hit.get("page_rank"),
             domain_rank=hit.get("domain_rank"),
-            author=hit.get("author"),
-            organization=hit.get("organization"),
         )
         for hit in raw_hits
     ]
@@ -33,10 +31,6 @@ def append_hit_metadata(hit_dict: dict[str, Any], hit: SearchHit) -> None:
         hit_dict["page_rank"] = hit.page_rank
     if hit.domain_rank is not None:
         hit_dict["domain_rank"] = hit.domain_rank
-    if hit.author:
-        hit_dict["author"] = hit.author
-    if hit.organization:
-        hit_dict["organization"] = hit.organization
 
 
 def serialize_hit(

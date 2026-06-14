@@ -74,8 +74,6 @@ async def submit_page_to_indexer(
     outlinks_count: int = 0,
     published_at: str | None = None,
     updated_at: str | None = None,
-    author: str | None = None,
-    organization: str | None = None,
 ) -> IndexerSubmitResult:
     """
     Submit a page to the Indexer API
@@ -106,10 +104,6 @@ async def submit_page_to_indexer(
         payload["published_at"] = published_at
     if updated_at:
         payload["updated_at"] = updated_at
-    if author:
-        payload["author"] = author
-    if organization:
-        payload["organization"] = organization
 
     try:
         async with session.post(

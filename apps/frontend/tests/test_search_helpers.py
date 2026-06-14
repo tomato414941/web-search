@@ -68,8 +68,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         published_at="2026-02-28T00:00:00+00:00",
         page_rank=0.5,
         domain_rank=0.4,
-        author="Alice",
-        organization="Example Org",
     )
 
     payload = serialize_hit(hit, ["python"], include_content=True)

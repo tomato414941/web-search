@@ -213,99 +213,6 @@ def extract_published_at(soup: BeautifulSoup) -> str | None:
     return _parse_date(raw.strip())
 
 
-def extract_author(soup: BeautifulSoup) -> str | None:
-    """Extract author name from HTML metadata.
-
-    Priority:
-    1. <meta name="author">
-    2. JSON-LD author.name
-    3. <meta property="article:author">
-    4. <a rel="author">
-    """
-    tag = soup.find("meta", attrs={"name": "author"})
-    if tag and tag.get("content"):
-        name = tag["content"].strip()
-        if name:
-            return name
-
-    for script in soup.find_all("script", type="application/ld+json"):
-        try:
-            data = json.loads(script.string or "")
-            if isinstance(data, list):
-                data = data[0] if data else {}
-            if isinstance(data, dict):
-                author = data.get("author")
-                name = _extract_json_ld_name(author)
-                if name:
-                    return name
-        except (json.JSONDecodeError, TypeError):
-            continue
-
-    tag = soup.find("meta", attrs={"property": "article:author"})
-    if tag and tag.get("content"):
-        name = tag["content"].strip()
-        if name:
-            return name
-
-    tag = soup.find("a", attrs={"rel": "author"})
-    if tag and tag.get_text(strip=True):
-        return tag.get_text(strip=True)
-
-    return None
-
-
-def extract_organization(soup: BeautifulSoup) -> str | None:
-    """Extract organization/publisher from HTML metadata.
-
-    Priority:
-    1. JSON-LD publisher.name
-    2. <meta property="og:site_name">
-    3. <meta name="publisher">
-    """
-    for script in soup.find_all("script", type="application/ld+json"):
-        try:
-            data = json.loads(script.string or "")
-            if isinstance(data, list):
-                data = data[0] if data else {}
-            if isinstance(data, dict):
-                publisher = data.get("publisher")
-                name = _extract_json_ld_name(publisher)
-                if name:
-                    return name
-        except (json.JSONDecodeError, TypeError):
-            continue
-
-    tag = soup.find("meta", attrs={"property": "og:site_name"})
-    if tag and tag.get("content"):
-        name = tag["content"].strip()
-        if name:
-            return name
-
-    tag = soup.find("meta", attrs={"name": "publisher"})
-    if tag and tag.get("content"):
-        name = tag["content"].strip()
-        if name:
-            return name
-
-    return None
-
-
-def _extract_json_ld_name(value: object) -> str | None:
-    """Extract the first non-empty string from a JSON-LD name-like value."""
-    if isinstance(value, str):
-        name = value.strip()
-        return name or None
-    if isinstance(value, list):
-        for item in value:
-            name = _extract_json_ld_name(item)
-            if name:
-                return name
-        return None
-    if isinstance(value, dict):
-        return _extract_json_ld_name(value.get("name"))
-    return None
-
-
 def extract_updated_at(soup: BeautifulSoup) -> str | None:
     """Extract last modified date from HTML metadata.
 
@@ -349,8 +256,6 @@ class ParsedDocument:
     content: str
     published_at: str | None = None
     updated_at: str | None = None
-    author: str | None = None
-    organization: str | None = None
     outlinks: list[str] | None = None
     feed_links: list[str] | None = None
 
@@ -381,8 +286,6 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
     # Extract metadata BEFORE decomposing script tags
     published_at = extract_published_at(soup)
     updated_at = extract_updated_at(soup)
-    author = extract_author(soup)
-    organization = extract_organization(soup)
 
     # Main content via trafilatura (uses raw HTML, not soup)
     text = trafilatura.extract(
@@ -441,8 +344,6 @@ def parse_page(html: str, base_url: str, max_outlinks: int = 100) -> ParsedDocum
         content=text,
         published_at=published_at,
         updated_at=updated_at,
-        author=author,
-        organization=organization,
         outlinks=outlinks,
         feed_links=feed_links,
     )
