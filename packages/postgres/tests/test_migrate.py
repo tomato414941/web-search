@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "014"
+            assert rows[0][0] == "015"
             cur.close()
         finally:
             conn.close()
@@ -121,6 +121,7 @@ class TestMigrate:
             assert "content_hash" not in columns
             assert "dedupe_key" not in columns
             assert "outlinks_count" not in columns
+            assert "max_retries" not in columns
             cur.close()
         finally:
             conn.close()

@@ -23,7 +23,6 @@ class IndexJobRepository:
         title: str,
         content: str,
         status_pending: str,
-        max_retries: int,
         now_ts: int,
     ) -> tuple[str, bool]:
         ph = sql_placeholder()
@@ -35,12 +34,12 @@ class IndexJobRepository:
                 f"""
                 INSERT INTO index_jobs (
                     job_id, url, title, content,
-                    status, retry_count, max_retries,
+                    status, retry_count,
                     available_at, lease_until, worker_id, last_error,
                     created_at, updated_at
                 ) VALUES (
                     {ph}, {ph}, {ph}, {ph},
-                    {ph}, 0, {ph},
+                    {ph}, 0,
                     {ph}, NULL, NULL, NULL,
                     {ph}, {ph}
                 )
@@ -55,7 +54,6 @@ class IndexJobRepository:
                     title,
                     content,
                     status_pending,
-                    max_retries,
                     now_ts,
                     now_ts,
                     now_ts,
@@ -95,7 +93,7 @@ class IndexJobRepository:
             cur = con.cursor()
             cur.execute(
                 f"""
-                SELECT job_id, status, retry_count, max_retries, last_error,
+                SELECT job_id, status, retry_count, last_error,
                        available_at, created_at, updated_at
                 FROM index_jobs
                 WHERE job_id = {ph}
@@ -153,7 +151,7 @@ class IndexJobRepository:
                 WHERE j.job_id = c.job_id
                 RETURNING
                     j.job_id, j.url, j.title, j.content,
-                    j.status, j.retry_count, j.max_retries
+                    j.status, j.retry_count
                 """,
                 (
                     status_pending,
@@ -310,7 +308,7 @@ class IndexJobRepository:
         job_id: str,
         status_processing: str,
         worker_id: str | None = None,
-    ) -> tuple[int, int] | None:
+    ) -> int | None:
         ph = sql_placeholder()
         con = get_connection()
         try:
@@ -318,7 +316,7 @@ class IndexJobRepository:
             if worker_id:
                 cur.execute(
                     f"""
-                    SELECT retry_count, max_retries
+                    SELECT retry_count
                     FROM index_jobs
                     WHERE job_id = {ph} AND status = {ph} AND worker_id = {ph}
                     """,
@@ -327,7 +325,7 @@ class IndexJobRepository:
             else:
                 cur.execute(
                     f"""
-                    SELECT retry_count, max_retries
+                    SELECT retry_count
                     FROM index_jobs
                     WHERE job_id = {ph}
                     """,
@@ -339,7 +337,7 @@ class IndexJobRepository:
                 con.commit()
                 return None
             con.commit()
-            return int(row[0]), int(row[1])
+            return int(row[0])
         finally:
             con.close()
 
