@@ -86,27 +86,6 @@ class IndexJobRepository:
             con.close()
 
     @staticmethod
-    def fetch_status(job_id: str) -> tuple[Any, ...] | None:
-        ph = sql_placeholder()
-        con = get_connection()
-        try:
-            cur = con.cursor()
-            cur.execute(
-                f"""
-                SELECT job_id, status, retry_count, last_error,
-                       available_at, created_at, updated_at
-                FROM index_jobs
-                WHERE job_id = {ph}
-                """,
-                (job_id,),
-            )
-            row = cur.fetchone()
-            cur.close()
-            return row
-        finally:
-            con.close()
-
-    @staticmethod
     def claim_jobs(
         *,
         now_ts: int,

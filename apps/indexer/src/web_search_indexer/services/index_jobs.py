@@ -75,20 +75,6 @@ class IndexJobService:
             now_ts=self._now_ts(),
         )
 
-    def get_job_status(self, job_id: str) -> dict[str, Any] | None:
-        row = IndexJobRepository.fetch_status(job_id)
-        if row is None:
-            return None
-        return {
-            "job_id": str(row[0]),
-            "status": str(row[1]),
-            "retry_count": int(row[2]),
-            "last_error": row[3],
-            "available_at": int(row[4]) if row[4] is not None else None,
-            "created_at": int(row[5]) if row[5] is not None else None,
-            "updated_at": int(row[6]) if row[6] is not None else None,
-        }
-
     def claim_jobs(
         self,
         *,

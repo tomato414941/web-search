@@ -1,9 +1,35 @@
 """Tests for async indexing job queue service."""
 
 from web_search_indexer.services.index_jobs import IndexJobService
+from web_search_postgres.search import get_connection, sql_placeholder
 
 
-def test_enqueue_and_get_status():
+def _job_state(job_id: str) -> dict[str, object]:
+    ph = sql_placeholder()
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT job_id, status, retry_count
+            FROM index_jobs
+            WHERE job_id = {ph}
+            """,
+            (job_id,),
+        )
+        row = cur.fetchone()
+        cur.close()
+    finally:
+        conn.close()
+    assert row is not None
+    return {
+        "job_id": str(row[0]),
+        "status": str(row[1]),
+        "retry_count": int(row[2]),
+    }
+
+
+def test_enqueue_queues_pending_job():
     service = IndexJobService()
 
     job_id, created = service.enqueue(
@@ -15,8 +41,7 @@ def test_enqueue_and_get_status():
     assert created is True
     assert job_id
 
-    status = service.get_job_status(job_id)
-    assert status is not None
+    status = _job_state(job_id)
     assert status["job_id"] == job_id
     assert status["status"] == "pending"
     assert status["retry_count"] == 0
@@ -81,8 +106,7 @@ def test_enqueue_allows_same_url_after_permanent_failure():
     service.claim_jobs(limit=1, lease_seconds=60, worker_id="worker-1")
     assert service.mark_failure(job_id_1, "permanent", worker_id="worker-1") is True
 
-    status = service.get_job_status(job_id_1)
-    assert status is not None
+    status = _job_state(job_id_1)
     assert status["status"] == "failed_permanent"
 
     job_id_2, created_2 = service.enqueue(
@@ -109,8 +133,7 @@ def test_claim_and_mark_done():
     assert jobs[0].status == "processing"
 
     service.mark_done(job_id)
-    status = service.get_job_status(job_id)
-    assert status is not None
+    status = _job_state(job_id)
     assert status["status"] == "done"
 
 
@@ -130,8 +153,7 @@ def test_failure_retries_then_permanent_failure():
     assert first_claim
     service.mark_failure(job_id, "temp error")
 
-    status_after_first = service.get_job_status(job_id)
-    assert status_after_first is not None
+    status_after_first = _job_state(job_id)
     assert status_after_first["status"] == "failed_retry"
     assert status_after_first["retry_count"] == 1
 
@@ -139,8 +161,7 @@ def test_failure_retries_then_permanent_failure():
     assert second_claim
     service.mark_failure(job_id, "temp error again")
 
-    status_after_second = service.get_job_status(job_id)
-    assert status_after_second is not None
+    status_after_second = _job_state(job_id)
     assert status_after_second["status"] == "failed_permanent"
     assert status_after_second["retry_count"] == 2
 
@@ -159,14 +180,14 @@ def test_mark_done_cas_rejects_wrong_worker():
     result = service.mark_done(job_id, worker_id="worker-B")
     assert result is False
 
-    status = service.get_job_status(job_id)
+    status = _job_state(job_id)
     assert status["status"] == "processing"
 
     # Correct worker succeeds
     result = service.mark_done(job_id, worker_id="worker-A")
     assert result is True
 
-    status = service.get_job_status(job_id)
+    status = _job_state(job_id)
     assert status["status"] == "done"
 
 
@@ -184,12 +205,12 @@ def test_mark_failure_cas_rejects_wrong_worker():
     result = service.mark_failure(job_id, "error", worker_id="worker-B")
     assert result is False
 
-    status = service.get_job_status(job_id)
+    status = _job_state(job_id)
     assert status["status"] == "processing"
 
     # Correct worker succeeds
     result = service.mark_failure(job_id, "real error", worker_id="worker-A")
     assert result is True
 
-    status = service.get_job_status(job_id)
+    status = _job_state(job_id)
     assert status["status"] == "failed_retry"
