@@ -1,11 +1,11 @@
-"""Indexer API Router - for remote crawler to submit pages."""
+"""Indexer API router for crawler-submitted documents."""
 
 import logging
 import secrets
 from fastapi import APIRouter, HTTPException, Header
 from web_search_indexer.core.config import settings
-from web_search_indexer.services.index_job_container import index_job_service
-from web_search_contracts.indexer_api import IndexPageRequest
+from web_search_indexer.services.indexer import indexer_service
+from web_search_contracts.indexer_api import IndexDocumentRequest
 
 logger = logging.getLogger(__name__)
 
@@ -18,31 +18,24 @@ def verify_api_key(x_api_key: str) -> None:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
 
-@router.post("/indexing-jobs", status_code=202)
-async def submit_page(
-    page: IndexPageRequest, x_api_key: str = Header(..., alias="X-API-Key")
+@router.post("/documents")
+async def index_document(
+    page: IndexDocumentRequest, x_api_key: str = Header(..., alias="X-API-Key")
 ) -> dict:
-    """
-    Queue a crawled page for asynchronous indexing.
-
-    Requires X-API-Key header for authentication.
-    """
+    """Index a crawled page immediately."""
     verify_api_key(x_api_key)
 
     try:
-        job_id, created = index_job_service.enqueue(
+        indexed = await indexer_service.index_page(
             url=str(page.url),
             title=page.title,
             content=page.content,
         )
         return {
             "ok": True,
-            "queued": True,
-            "job_id": job_id,
-            "deduplicated": not created,
-            "message": "Page queued for indexing",
-            "url": str(page.url),
+            "indexed": True,
+            "url": indexed.url,
         }
     except Exception as e:
-        logger.error(f"Queueing failed for {page.url}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Queueing failed")
+        logger.error("Indexing failed for %s: %s", page.url, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Indexing failed")

@@ -7,19 +7,6 @@ from collections.abc import Mapping
 from enum import StrEnum
 
 
-class IndexJobStatus(StrEnum):
-    """Indexer async job queue statuses."""
-
-    PENDING = "pending"
-    PROCESSING = "processing"
-    DONE = "done"
-    FAILED_RETRY = "failed_retry"
-    FAILED_PERMANENT = "failed_permanent"
-
-
-CLAIMABLE_JOB_STATUSES = (IndexJobStatus.PENDING, IndexJobStatus.FAILED_RETRY)
-
-
 class CrawlUrlStatus(StrEnum):
     """Crawler URL lifecycle statuses."""
 
@@ -32,7 +19,7 @@ class CrawlUrlStatus(StrEnum):
 class CrawlAttemptStatus(StrEnum):
     """Crawl attempt outcome statuses logged in crawl_logs."""
 
-    QUEUED_FOR_INDEX = "queued_for_index"
+    INDEXED = "indexed"
     BLOCKED = "blocked"
     SKIPPED = "skipped"
     INDEXER_ERROR = "indexer_error"
@@ -68,8 +55,7 @@ CRAWL_ATTEMPT_SUMMARY_ORDER = (
 )
 
 _CRAWL_ATTEMPT_SUMMARY_MAP = {
-    str(CrawlAttemptStatus.QUEUED_FOR_INDEX): str(CrawlAttemptSummaryStatus.SUBMITTED),
-    "indexed": str(CrawlAttemptSummaryStatus.SUBMITTED),
+    str(CrawlAttemptStatus.INDEXED): str(CrawlAttemptSummaryStatus.SUBMITTED),
     str(CrawlAttemptStatus.BLOCKED): str(CrawlAttemptSummaryStatus.BLOCKED),
     str(CrawlAttemptStatus.SKIPPED): str(CrawlAttemptSummaryStatus.SKIPPED),
     str(CrawlAttemptStatus.RETRY_LATER): str(CrawlAttemptSummaryStatus.RETRYING),

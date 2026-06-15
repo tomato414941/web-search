@@ -44,5 +44,5 @@ uv run --package web-search-indexer web-search-rebuild-search-projection
 
 ## API Endpoints
 
-*   `POST /indexing-jobs`: Queue a page for asynchronous indexing (`202 Accepted` + `job_id`).
+*   `POST /documents`: Index a crawled page.
 *   `GET /health`: Health check.

@@ -190,7 +190,7 @@ class TestProcessFetchResult:
         assert mock_exec.await_count == 2
 
     @pytest.mark.asyncio
-    async def test_successful_html_returns_index_job_and_outlinks(self):
+    async def test_successful_html_indexes_page_and_returns_outlinks(self):
         ctx = _make_ctx()
         with (
             patch(
@@ -207,8 +207,7 @@ class TestProcessFetchResult:
                 new=AsyncMock(
                     return_value=IndexerSubmitResult(
                         ok=True,
-                        status_code=202,
-                        job_id="job-123",
+                        status_code=200,
                     )
                 ),
             ),
@@ -227,9 +226,8 @@ class TestProcessFetchResult:
                 max_outlinks=50,
             )
 
-        assert outcome.status == "queued_for_index"
-        assert outcome.message == "Page queued for indexing"
-        assert outcome.job_id == "job-123"
+        assert outcome.status == "indexed"
+        assert outcome.message == "Page indexed"
         assert outcome.outlinks_discovered == 2
         assert mock_admit.await_count == 2
         mock_admit.assert_any_await(
@@ -270,7 +268,7 @@ class TestProcessFetchResult:
         }
 
     @pytest.mark.asyncio
-    async def test_feed_xml_queues_synthetic_entries(self):
+    async def test_feed_xml_indexes_synthetic_entries(self):
         ctx = _make_ctx(url="https://openai.com/news/rss.xml")
         with (
             patch(
@@ -293,8 +291,7 @@ class TestProcessFetchResult:
                 new=AsyncMock(
                     return_value=IndexerSubmitResult(
                         ok=True,
-                        status_code=202,
-                        job_id="job-feed",
+                        status_code=200,
                     )
                 ),
             ) as mock_submit,
@@ -313,8 +310,8 @@ class TestProcessFetchResult:
                 max_outlinks=50,
             )
 
-        assert outcome.status == "queued_for_index"
-        assert outcome.message == "Feed entries queued for indexing"
+        assert outcome.status == "indexed"
+        assert outcome.message == "Feed entries indexed"
         assert outcome.outlinks_discovered == 2
         assert mock_submit.await_count == 2
         mock_db.assert_any_await(

@@ -15,13 +15,3 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets: ["indexer:8000"]
-
-  - job_name: indexer-worker
-    metrics_path: /metrics
-    static_configs:
-      - targets: ["indexer-worker:9000"]
-
-  - job_name: indexer-maintenance-worker
-    metrics_path: /metrics
-    static_configs:
-      - targets: ["indexer-maintenance-worker:9000"]

@@ -117,7 +117,7 @@ async def process_feed_result(
     await run_in_db_executor(
         history_log.log_crawl_attempt,
         ctx.url,
-        CrawlAttemptStatus.QUEUED_FOR_INDEX,
+        CrawlAttemptStatus.INDEXED,
         result.status,
         f"feed_entries={submitted}",
         **timing_kwargs(timings),
@@ -126,8 +126,8 @@ async def process_feed_result(
         ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.DONE
     )
     return PipelineProcessResult(
-        status="queued_for_index",
-        message="Feed entries queued for indexing",
+        status="indexed",
+        message="Feed entries indexed",
         outlinks_discovered=submitted,
         timings=timings,
     )

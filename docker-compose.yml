@@ -112,81 +112,6 @@ services:
       retries: 3
       start_period: 20s
 
-  indexer-worker:
-    build:
-      context: .
-      dockerfile: apps/indexer/Dockerfile
-    restart: unless-stopped
-    expose:
-      - "${WORKER_METRICS_PORT:-9000}"
-    environment:
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
-      - INDEXER_API_KEY=${INDEXER_API_KEY}
-      - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
-      - INDEXER_JOB_WORKERS=${INDEXER_JOB_WORKERS:-1}
-      - INDEXER_JOB_BATCH_SIZE=${INDEXER_JOB_BATCH_SIZE:-10}
-      - INDEXER_JOB_CONCURRENCY=${INDEXER_JOB_CONCURRENCY:-2}
-      - INDEXER_JOB_LEASE_SEC=${INDEXER_JOB_LEASE_SEC:-120}
-      - INDEXER_JOB_MAX_RETRIES=${INDEXER_JOB_MAX_RETRIES:-5}
-      - INDEXER_JOB_POLL_INTERVAL_MS=${INDEXER_JOB_POLL_INTERVAL_MS:-500}
-      - INDEXER_JOB_RETRY_BASE_SEC=${INDEXER_JOB_RETRY_BASE_SEC:-5}
-      - INDEXER_JOB_RETRY_MAX_SEC=${INDEXER_JOB_RETRY_MAX_SEC:-1800}
-      - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
-      - QUEUE_METRICS_INTERVAL_SEC=${QUEUE_METRICS_INTERVAL_SEC:-60}
-      - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_WORKER:-1}
-      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_WORKER:-8}
-    command: ["python", "-m", "web_search_indexer.worker", "jobs"]
-    depends_on:
-      db-migrate:
-        condition: service_completed_successfully
-    mem_limit: ${INDEXER_WORKER_MEM_LIMIT:-768m}
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "from web_search_postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
-  indexer-maintenance-worker:
-    build:
-      context: .
-      dockerfile: apps/indexer/Dockerfile
-    restart: unless-stopped
-    expose:
-      - "${WORKER_METRICS_PORT:-9000}"
-    environment:
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
-      - INDEXER_API_KEY=${INDEXER_API_KEY}
-      - WORKER_METRICS_PORT=${WORKER_METRICS_PORT:-9000}
-      - DB_POOL_MIN=${DB_POOL_MIN_INDEXER_MAINTENANCE:-1}
-      - DB_POOL_MAX=${DB_POOL_MAX_INDEXER_MAINTENANCE:-2}
-    command: ["python", "-m", "web_search_indexer.worker", "maintenance"]
-    depends_on:
-      db-migrate:
-        condition: service_completed_successfully
-    mem_limit: ${INDEXER_MAINTENANCE_MEM_LIMIT:-256m}
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "from web_search_postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
   web-model-maintenance-worker:
     build:
       context: .
@@ -228,7 +153,7 @@ services:
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
-      - INDEXER_API_URL=http://indexer:8000/indexing-jobs
+      - INDEXER_API_URL=http://indexer:8000/documents
       - INDEXER_API_KEY=${INDEXER_API_KEY}
       - CRAWL_CONCURRENCY=${CRAWL_CONCURRENCY_CRAWLER:-2}
       - DB_POOL_MIN=${DB_POOL_MIN_CRAWLER:-1}
@@ -298,10 +223,6 @@ services:
       frontend:
         condition: service_started
       indexer:
-        condition: service_started
-      indexer-worker:
-        condition: service_started
-      indexer-maintenance-worker:
         condition: service_started
       web-model-maintenance-worker:
         condition: service_started

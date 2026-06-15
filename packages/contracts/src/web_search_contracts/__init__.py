@@ -3,16 +3,17 @@
 from web_search_contracts.enums import (
     CrawlAttemptStatus,
     CrawlUrlStatus,
-    IndexJobStatus,
     SearchMode,
 )
-from web_search_contracts.indexer_api import IndexPageRequest, IndexPageResponse
+from web_search_contracts.indexer_api import (
+    IndexDocumentRequest,
+    IndexDocumentResponse,
+)
 
 __all__ = [
     "CrawlAttemptStatus",
     "CrawlUrlStatus",
-    "IndexJobStatus",
-    "IndexPageRequest",
-    "IndexPageResponse",
+    "IndexDocumentRequest",
+    "IndexDocumentResponse",
     "SearchMode",
 ]

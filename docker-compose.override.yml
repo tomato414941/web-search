@@ -22,16 +22,6 @@ services:
     environment:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
 
-  indexer-worker:
-    container_name: web-search-indexer-worker
-    environment:
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
-
-  indexer-maintenance-worker:
-    container_name: web-search-indexer-maintenance-worker
-    environment:
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD:-websearch_password}@postgres:5432/websearch
-
   web-model-maintenance-worker:
     container_name: web-search-web-model-maintenance-worker
     environment:

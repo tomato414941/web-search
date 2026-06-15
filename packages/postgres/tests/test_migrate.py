@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "015"
+            assert rows[0][0] == "016"
             cur.close()
         finally:
             conn.close()
@@ -36,8 +36,6 @@ class TestMigrate:
         try:
             cur = conn.cursor()
             cur.execute("SELECT COUNT(*) FROM documents")
-            assert cur.fetchone()[0] == 0
-            cur.execute("SELECT COUNT(*) FROM index_jobs")
             assert cur.fetchone()[0] == 0
             cur.execute("SELECT COUNT(*) FROM urls")
             assert cur.fetchone()[0] == 0
@@ -106,46 +104,18 @@ class TestMigrate:
         finally:
             conn.close()
 
-    def test_index_jobs_schema_does_not_store_payload_dedupe_fields(self):
+    def test_index_jobs_table_does_not_exist(self):
         conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
                 """
-                SELECT column_name
-                FROM information_schema.columns
+                SELECT table_name
+                FROM information_schema.tables
                 WHERE table_name = 'index_jobs'
                 """
             )
-            columns = {row[0] for row in cur.fetchall()}
-            assert "content_hash" not in columns
-            assert "dedupe_key" not in columns
-            assert "outlinks_count" not in columns
-            assert "max_retries" not in columns
-            cur.close()
-        finally:
-            conn.close()
-
-    def test_index_jobs_schema_has_active_url_uniqueness(self):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT indexdef
-                FROM pg_indexes
-                WHERE tablename = 'index_jobs'
-                  AND indexname = 'idx_index_jobs_active_url'
-                """
-            )
-            row = cur.fetchone()
-            assert row is not None
-            indexdef = row[0]
-            assert "UNIQUE" in indexdef
-            assert "url" in indexdef
-            assert "pending" in indexdef
-            assert "processing" in indexdef
-            assert "failed_retry" in indexdef
+            assert cur.fetchone() is None
             cur.close()
         finally:
             conn.close()

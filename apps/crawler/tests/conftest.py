@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("INDEXER_API_KEY", "test-api-key")
-os.environ.setdefault("INDEXER_API_URL", "http://test:8000/indexing-jobs")
+os.environ.setdefault("INDEXER_API_URL", "http://test:8000/documents")
 
 from web_search_core.testing import ensure_test_pg
 

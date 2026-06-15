@@ -21,16 +21,6 @@ class IndexerSettings(InfrastructureSettings):
     # Security (required - no default for security)
     INDEXER_API_KEY: str | None = None
 
-    # Async index job worker
-    INDEXER_JOB_WORKERS: int = 4
-    INDEXER_JOB_BATCH_SIZE: int = 20
-    INDEXER_JOB_LEASE_SEC: int = 120
-    INDEXER_JOB_MAX_RETRIES: int = 5
-    INDEXER_JOB_POLL_INTERVAL_MS: int = 200
-    INDEXER_JOB_RETRY_BASE_SEC: int = 5
-    INDEXER_JOB_RETRY_MAX_SEC: int = 1800
-    INDEXER_JOB_CONCURRENCY: int = 5
-
     # OpenSearch
     OPENSEARCH_URL: str = "http://opensearch:9200"
     OPENSEARCH_ENABLED: bool = False

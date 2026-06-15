@@ -22,7 +22,7 @@ can be rerun deliberately when needed.
 Web model worker maintenance loops.
 
 The project runs a `web-model-maintenance-worker` service for periodic PageRank
-and domain-rank work. `indexer-maintenance-worker` handles index job cleanup.
+and domain-rank work.
 
 ## Impact
 

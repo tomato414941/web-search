@@ -72,9 +72,9 @@ operator visibility.
 
 ## Indexer
 
-### `POST /indexing-jobs`
+### `POST /documents`
 
-Queues a crawled page for asynchronous indexing.
+Indexes a crawled page.
 
 This is the main crawler-to-indexer handoff boundary.
 

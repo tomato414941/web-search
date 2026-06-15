@@ -79,18 +79,17 @@ async def process_html_result(
             await run_in_db_executor(
                 history_log.log_crawl_attempt,
                 ctx.url,
-                CrawlAttemptStatus.QUEUED_FOR_INDEX,
-                index_result.status_code or 202,
-                f"job_id={index_result.job_id}" if index_result.job_id else None,
+                CrawlAttemptStatus.INDEXED,
+                index_result.status_code or 200,
+                None,
                 **timing_kwargs(timings),
             )
             await run_in_db_executor(
                 ctx.url_store.record_crawl_task_result, ctx.url, CrawlUrlStatus.DONE
             )
             return PipelineProcessResult(
-                status="queued_for_index",
-                message="Page queued for indexing",
-                job_id=index_result.job_id,
+                status="indexed",
+                message="Page indexed",
                 outlinks_discovered=outlinks_discovered,
                 timings=timings,
             )

@@ -13,7 +13,6 @@ import pytest
 ensure_test_pg()
 
 _TABLES = [
-    "index_jobs",
     "search_result_clicks",
     "search_result_impressions",
     "search_requests",

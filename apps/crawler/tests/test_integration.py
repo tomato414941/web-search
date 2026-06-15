@@ -118,7 +118,7 @@ async def test_process_url_success_flow(test_components):
                 "web_search_crawler.workers.tasks.history_log.log_crawl_attempt"
             ):
                 mock_indexer.return_value = IndexerSubmitResult(
-                    ok=True, status_code=202, job_id="job-1"
+                    ok=True, status_code=200
                 )
 
                 await process_url(
@@ -279,7 +279,7 @@ async def test_process_url_discovers_links(test_components):
                 "web_search_crawler.workers.tasks.history_log.log_crawl_attempt"
             ):
                 mock_indexer.return_value = IndexerSubmitResult(
-                    ok=True, status_code=202, job_id="job-2"
+                    ok=True, status_code=200
                 )
 
                 await process_url(

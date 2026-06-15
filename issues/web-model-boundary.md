@@ -59,8 +59,7 @@ Explicit non-ownership:
 
 - crawler runtime state such as fetch scheduling, leases, retries, robots, and
   crawl delay
-- document indexing state such as `documents`, `index_jobs`, and OpenSearch
-  writes
+- document indexing state such as `documents` and OpenSearch writes
 - search telemetry such as search requests, impressions, and clicks
 
 Target shape:

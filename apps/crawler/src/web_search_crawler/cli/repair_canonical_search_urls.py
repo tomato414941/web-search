@@ -96,7 +96,6 @@ async def repair_url(session: aiohttp.ClientSession, url: str) -> None:
                 "  submit="
                 f"ok={{submit_result.ok}} "
                 f"status={{submit_result.status_code}} "
-                f"job_id={{submit_result.job_id}} "
                 f"detail={{submit_result.detail}}"
             )
     except Exception as exc:

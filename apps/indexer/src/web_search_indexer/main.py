@@ -12,7 +12,6 @@ from web_search_indexer.metrics import router as metrics_router
 from web_search_postgres.migrate import migrate
 from web_search_indexer.api.routes import indexer
 from web_search_indexer.api.routes.health import root_router as health_root_router
-from web_search_indexer.services.index_job_container import configure_index_job_service
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,6 @@ async def lifespan(app: FastAPI):
     if settings.RUN_MIGRATIONS:
         migrate()
 
-    configure_index_job_service()
     yield
 
 

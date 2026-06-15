@@ -101,7 +101,7 @@ async def process_url(
             max_outlinks=settings.CRAWL_OUTLINKS_PER_PAGE,
             retryable_statuses=RETRYABLE_HTTP_STATUSES,
         )
-        if outcome.status == "queued_for_index":
+        if outcome.status == "indexed":
             state.retry_counts.pop(url, None)
             return
         if outcome.status == "retry":

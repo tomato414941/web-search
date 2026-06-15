@@ -61,7 +61,7 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_ROBOTS_BLOCK_MIN_COUNT: int = 3
 
     # Indexer API (for submitting crawled pages)
-    INDEXER_API_URL: str = "http://localhost:8000/indexing-jobs"
+    INDEXER_API_URL: str = "http://localhost:8000/documents"
     INDEXER_API_KEY: str | None = None  # Required outside tests
 
 

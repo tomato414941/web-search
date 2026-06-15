@@ -75,8 +75,6 @@ set_environment_config() {
       REQUIRED_SERVICES=(
         frontend
         indexer
-        indexer-worker
-        indexer-maintenance-worker
         web-model-maintenance-worker
         postgres
       )

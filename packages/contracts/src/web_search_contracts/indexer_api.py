@@ -3,20 +3,17 @@
 from pydantic import BaseModel, Field, HttpUrl
 
 
-class IndexPageRequest(BaseModel):
-    """Request payload for POST /indexing-jobs."""
+class IndexDocumentRequest(BaseModel):
+    """Request payload for POST /documents."""
 
     url: HttpUrl
     title: str = Field(max_length=1000)
     content: str = Field(max_length=1_000_000)
 
 
-class IndexPageResponse(BaseModel):
-    """Response from POST /indexing-jobs (202 Accepted)."""
+class IndexDocumentResponse(BaseModel):
+    """Response from POST /documents."""
 
     ok: bool
-    queued: bool
-    job_id: str
-    deduplicated: bool
-    message: str
+    indexed: bool
     url: str
