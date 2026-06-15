@@ -59,6 +59,25 @@ upload_remote_bundle() {
     | ssh "$SERVER" "tar -xf - -C '$bundle_dir'"
 }
 
+ensure_remote_git_excludes() {
+  ssh "$SERVER" bash -s -- "$REPO_PATH" <<'REMOTE'
+set -euo pipefail
+
+repo_path="$1"
+
+if [ ! -d "$repo_path/.git" ]; then
+  exit 0
+fi
+
+exclude_file="$repo_path/.git/info/exclude"
+mkdir -p "$(dirname "$exclude_file")"
+
+for pattern in ".compose-bundles/" ".deploy-state/" ".source-bundles/"; do
+  grep -qxF "$pattern" "$exclude_file" 2>/dev/null || printf "%s\n" "$pattern" >> "$exclude_file"
+done
+REMOTE
+}
+
 set_environment_config() {
   case "$ENVIRONMENT" in
     prd)
@@ -130,6 +149,7 @@ REMOTE_POSTGRES_VOLUME="${POSTGRES_VOLUME:-}"
 REMOTE_PROMETHEUS_VOLUME="${PROMETHEUS_VOLUME:-}"
 REMOTE_GRAFANA_VOLUME="${GRAFANA_VOLUME:-}"
 REMOTE_BUNDLE_DIR="${BUNDLE_ROOT}/${EXPECTED_COMMIT}"
+ensure_remote_git_excludes
 upload_remote_bundle "$REMOTE_BUNDLE_DIR"
 ssh -A "$SERVER" bash -s -- \
   "$REMOTE_BUNDLE_DIR" \

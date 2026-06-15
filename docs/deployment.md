@@ -21,6 +21,9 @@ For local development, use [setup.md](./setup.md).
 - Production secrets and host-specific settings live outside the repository.
 - Routine development lands directly on `main`; CI runs on pushes to `main`.
 - Production deployment is an explicit operator action after CI passes.
+- Deployment scripts ship a source bundle and record the deployed commit in an
+  operator state file. The server-side Git checkout is for operator inspection,
+  not the runtime source of truth.
 
 ## Compose Files
 
