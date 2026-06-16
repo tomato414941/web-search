@@ -18,13 +18,18 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.execute("""
         CREATE TABLE IF NOT EXISTS crawl_queue (
-            url_hash TEXT PRIMARY KEY REFERENCES urls(url_hash) ON DELETE CASCADE,
+            url_hash TEXT PRIMARY KEY,
+            url TEXT NOT NULL,
+            domain TEXT NOT NULL,
             created_at INTEGER NOT NULL
         )
     """)
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_crawl_queue_created "
         "ON crawl_queue(created_at, url_hash)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_crawl_queue_domain ON crawl_queue(domain)"
     )
 
 

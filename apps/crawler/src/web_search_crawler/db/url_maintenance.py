@@ -23,22 +23,20 @@ class UrlMaintenanceMixin:
             conditions = []
             params: list[str] = []
             for d in denylist:
-                conditions.append(f"u.domain = {sql_placeholder()}")
+                conditions.append(f"domain = {sql_placeholder()}")
                 params.append(d)
                 escaped = (
                     d.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
                 )
-                conditions.append(f"u.domain LIKE {sql_placeholder()} ESCAPE '\\'")
+                conditions.append(f"domain LIKE {sql_placeholder()} ESCAPE '\\'")
                 params.append(f"%.{escaped}")
 
             where = " OR ".join(conditions)
             cur.execute(
                 f"""
                 WITH deleted AS (
-                    DELETE FROM crawl_queue AS q
-                    USING urls AS u
-                    WHERE q.url_hash = u.url_hash
-                      AND ({where})
+                    DELETE FROM crawl_queue
+                    WHERE {where}
                     RETURNING 1
                 )
                 SELECT COUNT(*) AS cnt
@@ -88,15 +86,15 @@ class UrlMaintenanceMixin:
             crawl_queue_where = ["TRUE"]
             crawl_queue_params: list[object] = []
             if domain_filter:
-                crawl_queue_where.append(f"u.domain = ANY({ph})")
+                crawl_queue_where.append(f"domain = ANY({ph})")
                 crawl_queue_params.append(list(domain_filter))
             for row in _select_rows(
                 cur,
-                table="crawl_queue AS q JOIN urls AS u ON u.url_hash = q.url_hash",
-                columns="q.url_hash, u.url, u.domain, q.created_at",
+                table="crawl_queue",
+                columns="url_hash, url, domain, created_at",
                 where=crawl_queue_where,
                 params=crawl_queue_params,
-                order_column="q.created_at",
+                order_column="created_at",
             ):
                 decision = self.url_admission_policy.evaluate(row[1])
                 if decision.action == "allow":

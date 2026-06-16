@@ -57,12 +57,12 @@ class CrawlQueueMixin:
         result = execute_values(
             cur,
             """
-            INSERT INTO crawl_queue (url_hash, created_at)
+            INSERT INTO crawl_queue (url_hash, url, domain, created_at)
             VALUES %s
             ON CONFLICT (url_hash) DO NOTHING
             RETURNING url_hash
             """,
-            [(row["h"], now) for row in rows],
+            [(row["h"], row["url"], row["domain"], now) for row in rows],
             fetch=True,
         )
         if hasattr(self, "domain_scheduling_state"):
@@ -127,14 +127,13 @@ class CrawlQueueMixin:
             f"""
             SELECT
                 q.url_hash,
-                u.url,
-                u.domain,
+                q.url,
+                q.domain,
                 q.created_at,
                 COALESCE(ds.next_request_at, 0),
                 COALESCE(ds.backoff_until, 0)
             FROM crawl_queue AS q
-            JOIN urls AS u ON u.url_hash = q.url_hash
-            LEFT JOIN domain_state AS ds ON ds.domain = u.domain
+            LEFT JOIN domain_state AS ds ON ds.domain = q.domain
             WHERE COALESCE(ds.next_request_at, 0) <= {ph}
               AND COALESCE(ds.backoff_until, 0) <= {ph}
             ORDER BY q.created_at ASC, q.url_hash ASC

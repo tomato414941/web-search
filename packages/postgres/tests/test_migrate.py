@@ -115,6 +115,8 @@ class TestMigrate:
             columns = [row[0] for row in cur.fetchall()]
             assert columns == [
                 "url_hash",
+                "url",
+                "domain",
                 "created_at",
             ]
             cur.close()
