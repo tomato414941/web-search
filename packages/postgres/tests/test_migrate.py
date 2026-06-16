@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "017"
+            assert rows[0][0] == "019"
             cur.close()
         finally:
             conn.close()
@@ -38,8 +38,6 @@ class TestMigrate:
             cur.execute("SELECT COUNT(*) FROM documents")
             assert cur.fetchone()[0] == 0
             cur.execute("SELECT COUNT(*) FROM urls")
-            assert cur.fetchone()[0] == 0
-            cur.execute("SELECT COUNT(*) FROM crawl_schedule")
             assert cur.fetchone()[0] == 0
             cur.execute("SELECT COUNT(*) FROM crawl_queue")
             assert cur.fetchone()[0] == 0
@@ -70,38 +68,18 @@ class TestMigrate:
         finally:
             conn.close()
 
-    def test_crawl_schedule_schema_does_not_store_discovery_route(self):
+    def test_crawl_schedule_table_does_not_exist(self):
         conn = get_connection()
         try:
             cur = conn.cursor()
             cur.execute(
                 """
-                SELECT column_name
-                FROM information_schema.columns
+                SELECT table_name
+                FROM information_schema.tables
                 WHERE table_name = 'crawl_schedule'
                 """
             )
-            columns = {row[0] for row in cur.fetchall()}
-            assert "discovered_via" not in columns
-            cur.close()
-        finally:
-            conn.close()
-
-    def test_crawl_schedule_schema_does_not_store_unused_fetch_metadata(self):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'crawl_schedule'
-                """
-            )
-            columns = {row[0] for row in cur.fetchall()}
-            assert "etag" not in columns
-            assert "last_modified" not in columns
-            assert "content_hash" not in columns
+            assert cur.fetchone() is None
             cur.close()
         finally:
             conn.close()
@@ -118,57 +96,6 @@ class TestMigrate:
                 """
             )
             assert cur.fetchone() is None
-            cur.close()
-        finally:
-            conn.close()
-
-    def test_crawl_schedule_schema_does_not_store_redundant_normalized_url(self):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'crawl_schedule'
-                """
-            )
-            columns = {row[0] for row in cur.fetchall()}
-            assert "normalized_url" not in columns
-            cur.close()
-        finally:
-            conn.close()
-
-    def test_crawl_schedule_schema_does_not_store_discovery_depth(self):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'crawl_schedule'
-                """
-            )
-            columns = {row[0] for row in cur.fetchall()}
-            assert "discovery_depth" not in columns
-            cur.close()
-        finally:
-            conn.close()
-
-    def test_crawl_schedule_schema_does_not_store_priority_score(self):
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_name = 'crawl_schedule'
-                """
-            )
-            columns = {row[0] for row in cur.fetchall()}
-            assert "priority_score" not in columns
             cur.close()
         finally:
             conn.close()
@@ -190,6 +117,23 @@ class TestMigrate:
                 "url_hash",
                 "created_at",
             ]
+            cur.close()
+        finally:
+            conn.close()
+
+    def test_domain_state_schema_does_not_store_inflight_leases(self):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'domain_state'
+                """
+            )
+            columns = {row[0] for row in cur.fetchall()}
+            assert "inflight_leases" not in columns
             cur.close()
         finally:
             conn.close()

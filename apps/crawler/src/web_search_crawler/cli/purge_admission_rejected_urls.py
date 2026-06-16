@@ -65,7 +65,7 @@ summary = store.purge_admission_rejected_urls(
 )
 
 print(f"MATCHED {{summary['matched']}}")
-print(f"CRAWL_SCHEDULE_DELETED {{summary['crawl_schedule_deleted']}}")
+print(f"CRAWL_QUEUE_DELETED {{summary['crawl_queue_deleted']}}")
 for row in summary["candidates"]:
     print(
         "CANDIDATE "

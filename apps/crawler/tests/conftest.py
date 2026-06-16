@@ -21,7 +21,7 @@ from web_search_postgres.migrate import migrate  # noqa: E402
 _CRAWLER_TABLES = [
     "links",
     "domain_state",
-    "crawl_schedule",
+    "crawl_queue",
     "urls",
     "crawl_logs",
 ]

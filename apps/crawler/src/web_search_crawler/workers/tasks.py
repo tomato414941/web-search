@@ -38,12 +38,8 @@ from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
 
 logger = logging.getLogger(__name__)
 
-# Maximum retries for failed URLs
-MAX_RETRIES = 3
-
 # Robots block filter refresh interval (10 minutes)
 ROBOTS_BLOCK_REFRESH_SECS = 600
-RETRYABLE_HTTP_STATUSES = (429, 500, 502, 503, 504)
 
 
 DOMAIN_CACHE_MAX = 50000
@@ -52,7 +48,6 @@ DOMAIN_CACHE_TTL = 3600  # 1 hour
 
 @dataclass
 class WorkerRuntimeState:
-    retry_counts: dict[str, int] = field(default_factory=dict)
     domain_cache: TTLCache = field(
         default_factory=lambda: TTLCache(maxsize=DOMAIN_CACHE_MAX, ttl=DOMAIN_CACHE_TTL)
     )
@@ -99,27 +94,15 @@ async def process_url(
         outcome = await execute_crawl(
             ctx,
             max_outlinks=settings.CRAWL_OUTLINKS_PER_PAGE,
-            retryable_statuses=RETRYABLE_HTTP_STATUSES,
         )
         if outcome.status == "indexed":
-            state.retry_counts.pop(url, None)
-            return
-        if outcome.status == "retry":
-            logger.warning("Retryable error for %s: %s", url, outcome.message)
-            await _handle_retry(
-                url,
-                url_store,
-                outcome.message,
-                state,
-                timings=outcome.timings,
-            )
             return
         if outcome.status in {"skipped", "failed"}:
             return
 
     except (aiohttp.ClientError, asyncio.TimeoutError) as e:
         logger.warning("Network error for %s: %s", url, e)
-        await _handle_retry(url, url_store, str(e), state)
+        await _handle_fetch_failure(url, url_store, str(e))
 
     except Exception as e:
         logger.error("Unexpected error processing %s: %s", url, e, exc_info=True)
@@ -134,16 +117,13 @@ async def process_url(
         )
 
 
-async def _handle_retry(
+async def _handle_fetch_failure(
     url: str,
     url_store: CrawlerRuntimeStore,
     error: str,
-    runtime_state: WorkerRuntimeState,
     timings: CrawlStageTimings | None = None,
 ):
-    """Handle retry logic for failed URLs."""
-    retry_count = runtime_state.retry_counts.get(url, 0) + 1
-    runtime_state.retry_counts[url] = retry_count
+    """Record a failed fetch for a popped crawl task."""
     timing_kwargs = {
         "precheck_ms": timings.precheck_ms if timings else None,
         "robots_ms": timings.robots_ms if timings else None,
@@ -157,29 +137,16 @@ async def _handle_retry(
         "total_ms": timings.total_ms if timings else None,
     }
 
-    if retry_count >= MAX_RETRIES:
-        logger.warning("Moving to failed after %d retries: %s", retry_count, url)
-        await run_in_db_executor(
-            history_log.log_crawl_attempt,
-            url,
-            CrawlAttemptStatus.DEAD_LETTER,
-            error_message=f"Max retries ({MAX_RETRIES}) exceeded: {error}",
-            **timing_kwargs,
-        )
-        await run_in_db_executor(
-            url_store.record_crawl_task_result, url, CrawlUrlStatus.FAILED
-        )
-        runtime_state.retry_counts.pop(url, None)
-    else:
-        # Re-release the leased crawl task for retry
-        await run_in_db_executor(url_store.requeue, url)
-        await run_in_db_executor(
-            history_log.log_crawl_attempt,
-            url,
-            CrawlAttemptStatus.RETRY_LATER,
-            error_message=f"{error} (retry {retry_count}/{MAX_RETRIES})",
-            **timing_kwargs,
-        )
+    await run_in_db_executor(
+        history_log.log_crawl_attempt,
+        url,
+        CrawlAttemptStatus.HTTP_ERROR,
+        error_message=error,
+        **timing_kwargs,
+    )
+    await run_in_db_executor(
+        url_store.record_crawl_task_result, url, CrawlUrlStatus.FAILED
+    )
 
 
 async def worker_loop(concurrency: int = 1, active_counter=None):
@@ -206,9 +173,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     url_store = build_crawler_runtime_store()
     url_ledger = build_url_ledger_repository()
     link_graph = build_link_graph_repository()
-    planner = build_crawl_task_planner(
-        url_store, batch_size=settings.CRAWL_TASK_PLANNER_BATCH_SIZE
-    )
+    planner = build_crawl_task_planner(url_store)
     static_denylist, url_filter = load_static_crawl_config(planner)
     logger.info("Static crawler denylist: %d domains", len(static_denylist))
 
@@ -315,7 +280,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
 
                 # Batch-fetch ready URLs from different domains
                 ready_items = await run_in_db_executor(
-                    planner.lease_ready_urls, available_slots
+                    planner.pop_ready_urls, available_slots
                 )
 
                 if not ready_items:

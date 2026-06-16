@@ -66,7 +66,7 @@ class CrawlStageTimings:
 class PipelineProcessResult:
     """Normalized outcome for post-fetch crawl processing."""
 
-    status: Literal["indexed", "skipped", "failed", "retry"]
+    status: Literal["indexed", "skipped", "failed"]
     message: str
     outlinks_discovered: int = 0
     host_error: bool = False

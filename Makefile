@@ -102,7 +102,7 @@ collect-query-candidates:
 	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-collect-query-candidates $(QUERY_CANDIDATE_ARGS)
 
 repair-robots-prd:
-	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-requeue-blocked-robots-urls prd $(REPAIR_ARGS)
+	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-enqueue-blocked-robots-urls prd $(REPAIR_ARGS)
 
 repair-canonical-prd:
 	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-repair-canonical-search-urls prd $(REPAIR_ARGS)

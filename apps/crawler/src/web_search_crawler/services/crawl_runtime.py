@@ -31,15 +31,11 @@ def build_link_graph_repository() -> LinkGraphRepository:
     )
 
 
-def build_crawl_task_planner(
-    url_store: CrawlerRuntimeStore, *, batch_size: int
-) -> CrawlTaskPlanner:
+def build_crawl_task_planner(url_store: CrawlerRuntimeStore) -> CrawlTaskPlanner:
     return CrawlTaskPlanner(
         url_store,
         CrawlTaskPlannerConfig(
             domain_max_concurrent=settings.CRAWL_TASK_PLANNER_DOMAIN_MAX_CONCURRENT,
-            batch_size=batch_size,
-            lease_seconds=settings.CRAWL_TASK_PLANNER_LEASE_SECONDS,
         ),
     )
 

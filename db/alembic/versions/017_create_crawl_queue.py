@@ -26,6 +26,14 @@ def upgrade() -> None:
         "CREATE INDEX IF NOT EXISTS idx_crawl_queue_created "
         "ON crawl_queue(created_at, url_hash)"
     )
+    op.execute("""
+        INSERT INTO crawl_queue (url_hash, created_at)
+        SELECT schedule.url_hash, schedule.discovered_at
+        FROM crawl_schedule AS schedule
+        JOIN urls ON urls.url_hash = schedule.url_hash
+        WHERE schedule.status = 'pending'
+        ON CONFLICT (url_hash) DO NOTHING
+    """)
 
 
 def downgrade() -> None:

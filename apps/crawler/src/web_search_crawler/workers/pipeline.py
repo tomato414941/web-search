@@ -152,7 +152,6 @@ async def process_fetch_result(
     max_outlinks: int,
     timings: CrawlStageTimings | None = None,
     total_started_at: float | None = None,
-    retryable_statuses: tuple[int, ...] = (),
 ) -> PipelineProcessResult:
     """Handle fetch output and return a normalized crawl outcome."""
     timings = timings or CrawlStageTimings()
@@ -211,14 +210,6 @@ async def process_fetch_result(
 
     message = f"HTTP {result.status}"
     timings.total_ms = elapsed_ms(total_started_at)
-    if result.status in retryable_statuses:
-        return PipelineProcessResult(
-            status="retry",
-            message=message,
-            host_error=True,
-            timings=timings,
-        )
-
     await run_in_db_executor(
         history_log.log_crawl_attempt,
         ctx.url,
@@ -242,7 +233,6 @@ async def execute_crawl(
     ctx: PipelineContext,
     *,
     max_outlinks: int,
-    retryable_statuses: tuple[int, ...] = (),
 ) -> PipelineProcessResult:
     """Run precheck, fetch, and post-fetch processing for one URL."""
     total_started_at = time.perf_counter()
@@ -274,5 +264,4 @@ async def execute_crawl(
         max_outlinks=max_outlinks,
         timings=timings,
         total_started_at=total_started_at,
-        retryable_statuses=retryable_statuses,
     )

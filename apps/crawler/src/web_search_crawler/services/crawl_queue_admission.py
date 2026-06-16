@@ -1,4 +1,4 @@
-"""Discovered URL filtering and crawl schedule admission."""
+"""Discovered URL filtering and crawl queue admission."""
 
 import logging
 from typing import Literal
@@ -85,10 +85,9 @@ async def admit_discovered_urls(
     ctx: PipelineContext,
     discovered: list[str],
     *,
-    admission_intent: str = "normal",
     discovery_kind: DiscoveryKind = "html_outlink",
 ) -> None:
-    """Record discovered URLs and schedule only high-value crawl candidates."""
+    """Record discovered URLs and enqueue only high-value crawl candidates."""
     if not discovered:
         return
 
@@ -116,14 +115,12 @@ async def admit_discovered_urls(
         ]
         if schedulable_urls:
             await run_in_db_executor(
-                ctx.url_store.schedule_urls_for_crawl,
+                ctx.url_store.enqueue_urls_for_crawl,
                 schedulable_urls,
-                admission_intent=admission_intent,
             )
     logger.debug(
-        "Admitted discovered URLs from %s with %s intent and %s kind (%d discovered)",
+        "Admitted discovered URLs from %s with %s kind (%d discovered)",
         ctx.url,
-        admission_intent,
         discovery_kind,
         len(discovered),
     )

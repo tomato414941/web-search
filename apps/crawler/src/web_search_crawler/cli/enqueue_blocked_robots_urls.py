@@ -78,7 +78,7 @@ if scan_candidates:
         f"latest.status = {{ph}}",
         f"latest.error_message = {{ph}}",
         "d.url IS NULL",
-        "f.url_hash IS NULL",
+        "q.url_hash IS NULL",
     ]
     params = ["blocked", "Blocked by robots.txt"]
 
@@ -99,9 +99,7 @@ if scan_candidates:
     FROM latest
     JOIN urls u ON u.url = latest.url
     LEFT JOIN documents d ON d.url = u.url
-    LEFT JOIN crawl_schedule f
-        ON f.url_hash = u.url_hash
-       AND f.status IN ('pending', 'leased')
+    LEFT JOIN crawl_queue q ON q.url_hash = u.url_hash
     WHERE {{' AND '.join(where)}}
     ORDER BY latest.created_at DESC
     LIMIT {{ph}}
@@ -137,7 +135,7 @@ if force_urls:
 if dry_run:
     print("DRY_RUN")
 else:
-    requeued = 0
+    enqueued = 0
     skipped = 0
     conn = get_connection()
     try:
@@ -154,22 +152,20 @@ else:
     for url in ordered_urls:
         if url in force_urls and url not in existing_force_urls:
             url_ledger.record_discovered_url(url)
-            inserted = store.schedule_url_for_crawl(url)
-        else:
-            inserted = store.requeue(url)
+        inserted = store.enqueue_url_for_crawl(url)
         if inserted:
-            requeued += 1
-            print(f"REQUEUED {{url}}")
+            enqueued += 1
+            print(f"ENQUEUED {{url}}")
         else:
             skipped += 1
             print(f"SKIPPED {{url}}")
-    print(f"SUMMARY requeued={{requeued}} skipped={{skipped}}")
+    print(f"SUMMARY enqueued={{enqueued}} skipped={{skipped}}")
 """
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Requeue URLs previously blocked by robots.txt on the PRD crawler."
+        description="Enqueue URLs previously blocked by robots.txt on the PRD crawler."
     )
     parser.add_argument("environment", choices=ENVIRONMENTS)
     parser.add_argument(
@@ -195,7 +191,7 @@ def main() -> int:
         action="append",
         dest="force_urls",
         default=[],
-        help="Requeue an exact URL even if it is not in the blocked-url candidate set.",
+        help="Enqueue an exact URL even if it is not in the blocked-url candidate set.",
     )
     parser.add_argument(
         "--limit",
@@ -206,7 +202,7 @@ def main() -> int:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print matching URLs without requeueing them.",
+        help="Print matching URLs without enqueueing them.",
     )
     parser.add_argument(
         "--all-candidates",

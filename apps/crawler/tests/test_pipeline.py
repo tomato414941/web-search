@@ -155,22 +155,22 @@ class TestPrecheck:
 
 class TestProcessFetchResult:
     @pytest.mark.asyncio
-    async def test_retryable_http_status_returns_retry_without_side_effects(self):
+    async def test_http_error_is_logged_as_failed(self):
         ctx = _make_ctx()
         with patch(
             "web_search_crawler.workers.pipeline.run_in_db_executor",
             new_callable=AsyncMock,
-        ):
+        ) as mock_exec:
             outcome = await process_fetch_result(
                 ctx,
                 FetchResult(status=503, content_type="text/html"),
                 max_outlinks=50,
-                retryable_statuses=(503,),
             )
 
-        assert outcome.status == "retry"
+        assert outcome.status == "failed"
         assert outcome.message == "HTTP 503"
         assert outcome.host_error is True
+        assert mock_exec.await_count == 2
 
     @pytest.mark.asyncio
     async def test_non_html_200_is_logged_as_skipped(self):
@@ -245,10 +245,10 @@ class TestProcessFetchResult:
     async def test_feed_autodiscovery_schedules_feed_url(self):
         ctx = _make_ctx()
         with patch(
-            "web_search_crawler.services.crawl_schedule_admission.run_in_db_executor",
+            "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",
             new_callable=AsyncMock,
         ) as mock_db:
-            from web_search_crawler.services.crawl_schedule_admission import (
+            from web_search_crawler.services.crawl_queue_admission import (
                 admit_discovered_urls,
             )
 
@@ -263,21 +263,19 @@ class TestProcessFetchResult:
             ["https://example.com/news/rss.xml"],
         )
         assert mock_db.await_args_list[1].args == (
-            ctx.url_store.schedule_urls_for_crawl,
+            ctx.url_store.enqueue_urls_for_crawl,
             ["https://example.com/news/rss.xml"],
         )
-        assert mock_db.await_args_list[1].kwargs == {
-            "admission_intent": "normal",
-        }
+        assert mock_db.await_args_list[1].kwargs == {}
 
     @pytest.mark.asyncio
     async def test_html_outlink_records_without_scheduling_noisy_url(self):
         ctx = _make_ctx(url="https://blog.hatena.ne.jp/")
         with patch(
-            "web_search_crawler.services.crawl_schedule_admission.run_in_db_executor",
+            "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",
             new_callable=AsyncMock,
         ) as mock_db:
-            from web_search_crawler.services.crawl_schedule_admission import (
+            from web_search_crawler.services.crawl_queue_admission import (
                 admit_discovered_urls,
             )
 
@@ -297,10 +295,10 @@ class TestProcessFetchResult:
     async def test_html_outlink_schedules_same_domain_hub_url(self):
         ctx = _make_ctx(url="https://example.com/")
         with patch(
-            "web_search_crawler.services.crawl_schedule_admission.run_in_db_executor",
+            "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",
             new_callable=AsyncMock,
         ) as mock_db:
-            from web_search_crawler.services.crawl_schedule_admission import (
+            from web_search_crawler.services.crawl_queue_admission import (
                 admit_discovered_urls,
             )
 
@@ -315,7 +313,7 @@ class TestProcessFetchResult:
             ["https://example.com/news"],
         )
         assert mock_db.await_args_list[1].args == (
-            ctx.url_store.schedule_urls_for_crawl,
+            ctx.url_store.enqueue_urls_for_crawl,
             ["https://example.com/news"],
         )
 

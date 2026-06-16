@@ -9,7 +9,7 @@ from web_search_crawler.services.indexer import (
     IndexerSubmitResult,
     submit_page_to_indexer,
 )
-from web_search_crawler.services.crawl_schedule_admission import admit_discovered_urls
+from web_search_crawler.services.crawl_queue_admission import admit_discovered_urls
 from web_search_crawler.utils import history as history_log
 from web_search_crawler.utils.parser import parse_page
 from web_search_crawler.workers.timing import elapsed_ms, timing_kwargs

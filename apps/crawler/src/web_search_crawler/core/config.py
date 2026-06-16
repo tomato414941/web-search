@@ -24,8 +24,6 @@ class CrawlerSettings(InfrastructureSettings):
     # Database Path (for CrawlerRuntimeStore)
     CRAWLER_DB_PATH: str = "/data/crawler.db"
 
-    CRAWL_SCHEDULE_MAINTENANCE_REFRESH_SEC: int = 60
-
     # Recrawl settings
     CRAWL_RECRAWL_AFTER_DAYS: int = 30
 
@@ -38,9 +36,7 @@ class CrawlerSettings(InfrastructureSettings):
     CRAWL_CONCURRENCY: int = 10
 
     # Crawl task planner
-    CRAWL_TASK_PLANNER_BATCH_SIZE: int = 500
     CRAWL_TASK_PLANNER_DOMAIN_MAX_CONCURRENT: int = 2
-    CRAWL_TASK_PLANNER_LEASE_SECONDS: int = 300
 
     # TCP / networking
     CRAWL_TCP_LIMIT: int = 50

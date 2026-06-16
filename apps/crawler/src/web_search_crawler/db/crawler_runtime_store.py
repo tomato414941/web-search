@@ -4,11 +4,8 @@ import time
 
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.connection import db_transaction
-from web_search_crawler.db.crawl_schedule_admission import CrawlScheduleAdmissionMixin
+from web_search_crawler.db.crawl_queue import CrawlQueueMixin
 from web_search_crawler.db.url_domain_state import DomainSchedulingStateStore
-from web_search_crawler.db.crawl_schedule import CrawlScheduleMixin
-from web_search_crawler.db.url_queries import UrlQueriesMixin
-from web_search_crawler.db.url_retry import UrlRetryMixin
 from web_search_crawler.db.url_maintenance import UrlMaintenanceMixin
 from web_search_core.url_admission import (
     URLAdmissionPolicy,
@@ -18,16 +15,13 @@ from web_search_postgres.search import get_connection
 
 
 class CrawlerRuntimeStore(
-    CrawlScheduleAdmissionMixin,
-    CrawlScheduleMixin,
-    UrlRetryMixin,
-    UrlQueriesMixin,
+    CrawlQueueMixin,
     UrlMaintenanceMixin,
 ):
     """
-    Crawler runtime storage backed by a durable crawl schedule.
+    Crawler runtime storage backed by a pure crawl queue.
 
-    crawl_schedule: database table for scheduled crawl tasks.
+    crawl_queue: database table for unfinished crawl tasks.
     """
 
     def __init__(
@@ -52,21 +46,10 @@ class CrawlerRuntimeStore(
     def _bootstrap_runtime_state(self) -> None:
         now = int(time.time())
         with db_transaction(self.db_path) as cur:
-            self.domain_scheduling_state.reconcile_inflight_leases(cur, now=now)
+            self.domain_scheduling_state.ensure_domain_state_rows(cur, [], now=now)
 
     def get_domain_state(self, domain: str):
         return self.domain_scheduling_state.get_domain_state(domain)
 
     def set_domain_crawl_delay(self, domain: str, delay: float) -> None:
         self.domain_scheduling_state.set_domain_crawl_delay(domain, delay)
-
-    def record_domain_retry(self, domain: str, *, default_delay_sec: float) -> None:
-        self.domain_scheduling_state.record_domain_retry(
-            domain,
-            default_delay_sec=default_delay_sec,
-        )
-
-    def reconcile_domain_state_inflight_leases(self) -> int:
-        now = int(time.time())
-        with db_transaction(self.db_path) as cur:
-            return self.domain_scheduling_state.reconcile_inflight_leases(cur, now=now)
