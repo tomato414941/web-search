@@ -67,13 +67,21 @@ async def process_html_result(
         parsed.outlinks,
     )
     if parsed.feed_links:
-        await admit_discovered_urls(ctx, parsed.feed_links)
+        await admit_discovered_urls(
+            ctx,
+            parsed.feed_links,
+            discovery_kind="syndication_feed",
+        )
     if parsed.content:
         submit_started_at = time.perf_counter()
         index_result = await submit_html_page_to_indexer(ctx, parsed)
         timings.submit_ms = elapsed_ms(submit_started_at)
         if parsed.outlinks:
-            await admit_discovered_urls(ctx, parsed.outlinks)
+            await admit_discovered_urls(
+                ctx,
+                parsed.outlinks,
+                discovery_kind="html_outlink",
+            )
         timings.total_ms = elapsed_ms(total_started_at)
         if index_result.ok:
             await run_in_db_executor(
@@ -114,7 +122,11 @@ async def process_html_result(
         )
 
     if parsed.outlinks:
-        await admit_discovered_urls(ctx, parsed.outlinks)
+        await admit_discovered_urls(
+            ctx,
+            parsed.outlinks,
+            discovery_kind="html_outlink",
+        )
     timings.total_ms = elapsed_ms(total_started_at)
     await run_in_db_executor(
         history_log.log_crawl_attempt,

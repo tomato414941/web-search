@@ -233,10 +233,12 @@ class TestProcessFetchResult:
         mock_admit.assert_any_await(
             ctx,
             ["https://example.com/news/rss.xml"],
+            discovery_kind="syndication_feed",
         )
         mock_admit.assert_any_await(
             ctx,
             ["http://example.com/a", "http://example.com/b"],
+            discovery_kind="html_outlink",
         )
 
     @pytest.mark.asyncio
@@ -253,6 +255,7 @@ class TestProcessFetchResult:
             await admit_discovered_urls(
                 ctx,
                 ["https://example.com/news/rss.xml"],
+                discovery_kind="syndication_feed",
             )
 
         assert mock_db.await_args_list[0].args == (
@@ -266,6 +269,55 @@ class TestProcessFetchResult:
         assert mock_db.await_args_list[1].kwargs == {
             "admission_intent": "normal",
         }
+
+    @pytest.mark.asyncio
+    async def test_html_outlink_records_without_scheduling_noisy_url(self):
+        ctx = _make_ctx(url="https://blog.hatena.ne.jp/")
+        with patch(
+            "web_search_crawler.services.crawl_schedule_admission.run_in_db_executor",
+            new_callable=AsyncMock,
+        ) as mock_db:
+            from web_search_crawler.services.crawl_schedule_admission import (
+                admit_discovered_urls,
+            )
+
+            await admit_discovered_urls(
+                ctx,
+                ["https://blog.hatena.ne.jp/my/edit?fill_tag=Amazon+S3"],
+                discovery_kind="html_outlink",
+            )
+
+        assert mock_db.await_args_list[0].args == (
+            ctx.url_ledger.record_discovered_urls,
+            ["https://blog.hatena.ne.jp/my/edit?fill_tag=Amazon+S3"],
+        )
+        assert mock_db.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_html_outlink_schedules_same_domain_hub_url(self):
+        ctx = _make_ctx(url="https://example.com/")
+        with patch(
+            "web_search_crawler.services.crawl_schedule_admission.run_in_db_executor",
+            new_callable=AsyncMock,
+        ) as mock_db:
+            from web_search_crawler.services.crawl_schedule_admission import (
+                admit_discovered_urls,
+            )
+
+            await admit_discovered_urls(
+                ctx,
+                ["https://example.com/news"],
+                discovery_kind="html_outlink",
+            )
+
+        assert mock_db.await_args_list[0].args == (
+            ctx.url_ledger.record_discovered_urls,
+            ["https://example.com/news"],
+        )
+        assert mock_db.await_args_list[1].args == (
+            ctx.url_store.schedule_urls_for_crawl,
+            ["https://example.com/news"],
+        )
 
     @pytest.mark.asyncio
     async def test_feed_xml_indexes_synthetic_entries(self):
