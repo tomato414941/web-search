@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "016"
+            assert rows[0][0] == "017"
             cur.close()
         finally:
             conn.close()
@@ -40,6 +40,8 @@ class TestMigrate:
             cur.execute("SELECT COUNT(*) FROM urls")
             assert cur.fetchone()[0] == 0
             cur.execute("SELECT COUNT(*) FROM crawl_schedule")
+            assert cur.fetchone()[0] == 0
+            cur.execute("SELECT COUNT(*) FROM crawl_queue")
             assert cur.fetchone()[0] == 0
             cur.close()
         finally:
@@ -167,6 +169,27 @@ class TestMigrate:
             )
             columns = {row[0] for row in cur.fetchall()}
             assert "priority_score" not in columns
+            cur.close()
+        finally:
+            conn.close()
+
+    def test_crawl_queue_schema_is_unfinished_work_only(self):
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'crawl_queue'
+                ORDER BY ordinal_position
+                """
+            )
+            columns = [row[0] for row in cur.fetchall()]
+            assert columns == [
+                "url_hash",
+                "created_at",
+            ]
             cur.close()
         finally:
             conn.close()
