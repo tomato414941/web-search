@@ -143,7 +143,7 @@ class DomainSchedulingStateStore:
         is_success: bool,
         now: int,
     ) -> None:
-        """Persist domain-level scheduling state after a crawl attempt."""
+        """Persist domain-level pacing state after a crawl attempt."""
         if not domain:
             return
         ph = sql_placeholder()

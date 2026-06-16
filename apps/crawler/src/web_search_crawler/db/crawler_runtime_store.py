@@ -1,4 +1,4 @@
-"""Crawler runtime store for crawl scheduling state."""
+"""Crawler runtime store for crawl queue and domain pacing state."""
 
 import time
 
@@ -24,13 +24,8 @@ class CrawlerRuntimeStore(
     crawl_queue: database table for unfinished crawl tasks.
     """
 
-    def __init__(
-        self,
-        db_path: str,
-        recrawl_after_days: int = 30,
-    ):
+    def __init__(self, db_path: str):
         self.db_path = db_path
-        self.recrawl_threshold = recrawl_after_days * 86400
         self.url_admission_policy: URLAdmissionPolicy = load_url_admission_policy(
             settings.URL_ADMISSION_RULES_PATH
         )

@@ -242,7 +242,7 @@ class TestProcessFetchResult:
         )
 
     @pytest.mark.asyncio
-    async def test_feed_autodiscovery_schedules_feed_url(self):
+    async def test_feed_autodiscovery_enqueues_feed_url(self):
         ctx = _make_ctx()
         with patch(
             "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",
@@ -269,7 +269,7 @@ class TestProcessFetchResult:
         assert mock_db.await_args_list[1].kwargs == {}
 
     @pytest.mark.asyncio
-    async def test_html_outlink_records_without_scheduling_noisy_url(self):
+    async def test_html_outlink_records_without_enqueueing_noisy_url(self):
         ctx = _make_ctx(url="https://blog.hatena.ne.jp/")
         with patch(
             "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",
@@ -292,7 +292,7 @@ class TestProcessFetchResult:
         assert mock_db.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_html_outlink_schedules_same_domain_hub_url(self):
+    async def test_html_outlink_enqueues_same_domain_hub_url(self):
         ctx = _make_ctx(url="https://example.com/")
         with patch(
             "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",

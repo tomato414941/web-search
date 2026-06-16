@@ -24,9 +24,6 @@ class CrawlerSettings(InfrastructureSettings):
     # Database Path (for CrawlerRuntimeStore)
     CRAWLER_DB_PATH: str = "/data/crawler.db"
 
-    # Recrawl settings
-    CRAWL_RECRAWL_AFTER_DAYS: int = 30
-
     # Crawler Behavior
     CRAWL_USER_AGENT: str = (
         "PaleblueBot/1.0 (+https://palebluesearch.com/about; web crawler)"
@@ -52,7 +49,7 @@ class CrawlerSettings(InfrastructureSettings):
     URL_FILTERS_PATH: str = str(_DATA_DIR / "url_filters.yml")
     URL_ADMISSION_RULES_PATH: str = str(_DATA_DIR / "url_admission_rules.yml")
 
-    # Robots block filter (skip crawl scheduling for frequently blocked domains)
+    # Robots block filter (skip queue admission for frequently blocked domains)
     CRAWL_ROBOTS_BLOCK_WINDOW_HOURS: int = 24
     CRAWL_ROBOTS_BLOCK_MIN_COUNT: int = 3
 

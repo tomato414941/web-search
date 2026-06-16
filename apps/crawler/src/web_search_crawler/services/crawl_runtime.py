@@ -13,10 +13,7 @@ from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
 
 
 def build_crawler_runtime_store() -> CrawlerRuntimeStore:
-    return CrawlerRuntimeStore(
-        settings.CRAWLER_DB_PATH,
-        recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
-    )
+    return CrawlerRuntimeStore(settings.CRAWLER_DB_PATH)
 
 
 def build_url_ledger_repository() -> UrlLedgerRepository:

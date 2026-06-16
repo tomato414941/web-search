@@ -53,10 +53,7 @@ from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 
 payload = json.loads({payload_literal!r})
-store = CrawlerRuntimeStore(
-    settings.CRAWLER_DB_PATH,
-    recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
-)
+store = CrawlerRuntimeStore(settings.CRAWLER_DB_PATH)
 
 summary = store.purge_admission_rejected_urls(
     limit=int(payload["limit"]),
@@ -80,7 +77,7 @@ for row in summary["candidates"]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Purge scheduled crawl URLs rejected by URL admission policy."
+        description="Purge queued crawl URLs rejected by URL admission policy."
     )
     parser.add_argument("environment", choices=ENVIRONMENTS)
     parser.add_argument(

@@ -63,10 +63,7 @@ domains = payload["domains"]
 force_urls = payload["force_urls"]
 scan_candidates = bool(payload["scan_candidates"])
 
-store = CrawlerRuntimeStore(
-    settings.CRAWLER_DB_PATH,
-    recrawl_after_days=settings.CRAWL_RECRAWL_AFTER_DAYS,
-)
+store = CrawlerRuntimeStore(settings.CRAWLER_DB_PATH)
 url_ledger = UrlLedgerRepository(
     load_url_admission_policy(settings.URL_ADMISSION_RULES_PATH),
 )

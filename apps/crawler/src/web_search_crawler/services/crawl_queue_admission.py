@@ -56,7 +56,7 @@ def _path_segments(url: str) -> tuple[str, ...]:
     return tuple(segment.lower() for segment in parsed.path.split("/") if segment)
 
 
-def should_schedule_discovered_url(
+def should_enqueue_discovered_url(
     url: str,
     *,
     source_url: str,
@@ -104,19 +104,19 @@ async def admit_discovered_urls(
             ctx.url_ledger.record_discovered_urls,
             valid_urls,
         )
-        schedulable_urls = [
+        queueable_urls = [
             u
             for u in valid_urls
-            if should_schedule_discovered_url(
+            if should_enqueue_discovered_url(
                 u,
                 source_url=ctx.url,
                 discovery_kind=discovery_kind,
             )
         ]
-        if schedulable_urls:
+        if queueable_urls:
             await run_in_db_executor(
                 ctx.url_store.enqueue_urls_for_crawl,
-                schedulable_urls,
+                queueable_urls,
             )
     logger.debug(
         "Admitted discovered URLs from %s with %s kind (%d discovered)",

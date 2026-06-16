@@ -57,7 +57,7 @@ def _clean_crawler_tables():
 def test_url_store():
     from web_search_crawler.db import CrawlerRuntimeStore
 
-    store = CrawlerRuntimeStore("/unused", recrawl_after_days=30)
+    store = CrawlerRuntimeStore("/unused")
     return store
 
 

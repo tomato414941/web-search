@@ -22,7 +22,7 @@ from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
 @pytest.fixture
 def test_components(tmp_path):
     db_path = str(tmp_path / "test.db")
-    url_store = CrawlerRuntimeStore(db_path, recrawl_after_days=30)
+    url_store = CrawlerRuntimeStore(db_path)
     url_ledger = UrlLedgerRepository(url_store.url_admission_policy)
     link_graph = LinkGraphRepository(url_store.url_admission_policy)
     planner = CrawlTaskPlanner(url_store, CrawlTaskPlannerConfig())

@@ -55,7 +55,7 @@ class UrlMaintenanceMixin:
         limit: int = 100,
         domains: tuple[str, ...] = (),
     ) -> list[dict]:
-        """Collect scheduled crawl URLs rejected by the current admission policy."""
+        """Collect queued crawl URLs rejected by the current admission policy."""
         if limit <= 0:
             return []
 
