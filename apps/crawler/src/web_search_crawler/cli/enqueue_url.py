@@ -51,33 +51,51 @@ import json
 
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
+from web_search_core.url_admission import load_url_admission_policy
+from web_search_web_model import UrlLedgerRepository
 
 payload = json.loads({payload_literal!r})
-store = CrawlerRuntimeStore(settings.CRAWLER_DB_PATH)
+dry_run = bool(payload["dry_run"])
+urls = payload["urls"]
 
-summary = store.purge_admission_rejected_urls(
-    limit=int(payload["limit"]),
-    domains=tuple(payload["domains"]),
-    dry_run=bool(payload["dry_run"]),
-)
+ordered_urls = []
+seen = set()
+for url in urls:
+    if url in seen:
+        continue
+    ordered_urls.append(url)
+    seen.add(url)
 
-print(f"MATCHED {{summary['matched']}}")
-print(f"CRAWL_QUEUE_DELETED {{summary['crawl_queue_deleted']}}")
-for row in summary["candidates"]:
-    print(
-        "CANDIDATE "
-        + row["source"]
-        + " "
-        + row["reason_code"]
-        + " "
-        + row["url"]
+print(f"URLS {{len(ordered_urls)}}")
+for url in ordered_urls:
+    print(f"URL {{url}}")
+
+if dry_run:
+    print("DRY_RUN")
+else:
+    store = CrawlerRuntimeStore(settings.CRAWLER_DB_PATH)
+    url_ledger = UrlLedgerRepository(
+        load_url_admission_policy(settings.URL_ADMISSION_RULES_PATH),
     )
+
+    recorded = url_ledger.record_discovered_urls(ordered_urls)
+    enqueued = 0
+    skipped = 0
+    for url in ordered_urls:
+        inserted = store.enqueue_url_for_crawl(url)
+        if inserted:
+            enqueued += 1
+            print(f"ENQUEUED {{url}}")
+        else:
+            skipped += 1
+            print(f"SKIPPED {{url}}")
+    print(f"SUMMARY recorded={{recorded}} enqueued={{enqueued}} skipped={{skipped}}")
 """
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Purge queued crawl URLs rejected by URL admission policy."
+        description="Record URLs in the URL ledger and enqueue them for PRD crawling."
     )
     parser.add_argument("environment", choices=ENVIRONMENTS)
     parser.add_argument(
@@ -85,29 +103,19 @@ def main() -> int:
         help="SSH target. Defaults to the environment-specific host.",
     )
     parser.add_argument(
-        "--domain",
+        "--url",
         action="append",
-        dest="domains",
+        dest="urls",
         default=[],
-        help="Restrict purge to one or more domains. Repeatable.",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=200,
-        help="Maximum number of rejected URLs to inspect and purge (default: 200).",
+        required=True,
+        help="URL to record and enqueue. Repeatable.",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print matching URLs without deleting anything.",
+        help="Print URLs without recording or enqueueing them.",
     )
     args = parser.parse_args()
-
-    if args.limit <= 0:
-        parser.error("--limit must be greater than zero")
-    if not args.domains:
-        parser.error("Provide at least one --domain to keep the purge scoped")
 
     server = args.server or os.environ.get("WEB_SEARCH_PRD_SERVER")
     if not server:
@@ -115,13 +123,13 @@ def main() -> int:
     project_name = os.environ.get("WEB_SEARCH_PRD_PROJECT", DEFAULT_PROJECT)
     container = _resolve_crawler_container(server, project_name)
     payload = {
-        "domains": args.domains,
-        "limit": args.limit,
         "dry_run": args.dry_run,
+        "urls": args.urls,
     }
+    remote_script = _build_remote_script(payload)
     result = _run(
         ["ssh", server, "docker", "exec", "-i", container, "python", "-"],
-        input_text=_build_remote_script(payload),
+        input_text=remote_script,
     )
 
     if result.stdout:

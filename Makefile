@@ -13,7 +13,7 @@ SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 .PHONY: release-check-prd evaluate-search
 .PHONY: validate-search-eval
 .PHONY: collect-query-candidates
-.PHONY: repair-robots-prd repair-canonical-prd
+.PHONY: enqueue-url-prd
 .PHONY: deploy-prd
 .PHONY: verify-compose-prd
 .PHONY: sync sync-packages sync-frontend sync-indexer sync-crawler sync-mcp
@@ -101,8 +101,5 @@ validate-search-eval:
 collect-query-candidates:
 	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-collect-query-candidates $(QUERY_CANDIDATE_ARGS)
 
-repair-robots-prd:
-	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-enqueue-blocked-robots-urls prd $(REPAIR_ARGS)
-
-repair-canonical-prd:
-	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-repair-canonical-search-urls prd $(REPAIR_ARGS)
+enqueue-url-prd:
+	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-enqueue-url prd $(ENQUEUE_ARGS)

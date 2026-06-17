@@ -22,9 +22,7 @@ dependencies = [
 
 
 [project.scripts]
-web-search-purge-admission-rejected-urls = "web_search_crawler.cli.purge_admission_rejected_urls:main"
-web-search-enqueue-blocked-robots-urls = "web_search_crawler.cli.enqueue_blocked_robots_urls:main"
-web-search-repair-canonical-search-urls = "web_search_crawler.cli.repair_canonical_search_urls:main"
+web-search-enqueue-url = "web_search_crawler.cli.enqueue_url:main"
 
 [build-system]
 requires = ["setuptools>=61"]
