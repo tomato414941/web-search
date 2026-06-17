@@ -1,10 +1,11 @@
-"""Build OpenSearch document projections for indexed pages."""
+"""Build search index document projections for indexed pages."""
 
 from datetime import UTC, datetime
 from typing import Protocol
 from urllib.parse import urlparse
 
 from web_search_kernel.analyzer import analyzer
+from web_search_opensearch.document import SearchIndexDocument
 from web_search_search_config.index_exclusions import is_search_index_excluded
 
 
@@ -14,36 +15,34 @@ class OpenSearchPage(Protocol):
     content: str
 
 
-def opensearch_url_metadata(url: str) -> tuple[str, str, bool]:
+def search_index_url_metadata(url: str) -> tuple[str, str]:
     parsed = urlparse(url)
     host = parsed.netloc.lower()
     path = parsed.path or "/"
-    is_homepage = path in {"", "/"}
-    return host, path, is_homepage
+    return host, path
 
 
-def build_opensearch_document(
+def build_search_index_document(
     page: OpenSearchPage,
     *,
     page_rank: float,
     domain_rank: float,
     indexed_at: str | None = None,
-) -> dict[str, object] | None:
-    title_tokens = analyzer.tokenize(page.title) if page.title else ""
-    content_tokens = analyzer.tokenize(page.content) if page.content else ""
+) -> SearchIndexDocument | None:
+    search_title = analyzer.tokenize(page.title) if page.title else ""
+    search_content = analyzer.tokenize(page.content) if page.content else ""
 
-    host, path, is_homepage = opensearch_url_metadata(page.url)
+    host, path = search_index_url_metadata(page.url)
     if is_search_index_excluded(host, path):
         return None
 
     return {
         "url": page.url,
-        "title": title_tokens,
-        "content": content_tokens,
+        "title": search_title,
+        "content": search_content,
         "indexed_at": indexed_at or datetime.now(UTC).isoformat(),
         "page_rank": page_rank,
         "domain_rank": domain_rank,
         "host": host,
         "path": path,
-        "is_homepage": is_homepage,
     }

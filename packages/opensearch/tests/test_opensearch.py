@@ -29,8 +29,26 @@ class TestBulkIndex:
             ]
         }
         docs = [
-            {"url": "https://a.com", "title": "A", "content": "a"},
-            {"url": "https://b.com", "title": "B", "content": "b"},
+            {
+                "url": "https://a.com",
+                "title": "A",
+                "content": "a",
+                "indexed_at": "2026-06-17T00:00:00+00:00",
+                "page_rank": 0.0,
+                "domain_rank": 0.0,
+                "host": "a.com",
+                "path": "/",
+            },
+            {
+                "url": "https://b.com",
+                "title": "B",
+                "content": "b",
+                "indexed_at": "2026-06-17T00:00:00+00:00",
+                "page_rank": 0.0,
+                "domain_rank": 0.0,
+                "host": "b.com",
+                "path": "/",
+            },
         ]
         result = bulk_index(client, docs)
         assert result == 2
@@ -44,8 +62,26 @@ class TestBulkIndex:
             ]
         }
         docs = [
-            {"url": "https://a.com", "title": "A", "content": "a"},
-            {"url": "https://b.com", "title": "B", "content": "b"},
+            {
+                "url": "https://a.com",
+                "title": "A",
+                "content": "a",
+                "indexed_at": "2026-06-17T00:00:00+00:00",
+                "page_rank": 0.0,
+                "domain_rank": 0.0,
+                "host": "a.com",
+                "path": "/",
+            },
+            {
+                "url": "https://b.com",
+                "title": "B",
+                "content": "b",
+                "indexed_at": "2026-06-17T00:00:00+00:00",
+                "page_rank": 0.0,
+                "domain_rank": 0.0,
+                "host": "b.com",
+                "path": "/",
+            },
         ]
         result = bulk_index(client, docs)
         assert result == 1
@@ -57,7 +93,7 @@ def test_ensure_index_updates_missing_mappings():
     existing = {
         field: schema
         for field, schema in INDEX_SETTINGS["mappings"]["properties"].items()
-        if field not in {"host", "path", "is_homepage"}
+        if field not in {"host", "path"}
     }
     client.indices.get_mapping.return_value = {
         "documents": {"mappings": {"properties": existing}}
@@ -72,7 +108,6 @@ def test_ensure_index_updates_missing_mappings():
             "properties": {
                 "host": {"type": "keyword"},
                 "path": {"type": "keyword"},
-                "is_homepage": {"type": "boolean"},
             }
         },
     )
@@ -99,7 +134,7 @@ def test_build_bm25_bool_query_adds_canonical_retrieval_signals():
 
     assert {"term": {"host": {"value": "github.com", "boost": 3.0}}} in should
     assert {"term": {"host": {"value": "www.github.com", "boost": 3.0}}} in should
-    assert {"term": {"is_homepage": {"value": True, "boost": 6.0}}} in should
+    assert {"term": {"path": {"value": "/", "boost": 6.0}}} in should
     assert {"term": {"path": {"value": "/docs", "boost": 5.0}}} in should
     assert {"prefix": {"path": {"value": "/docs", "boost": 4.0}}} in should
     assert {

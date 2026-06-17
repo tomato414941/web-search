@@ -7,7 +7,8 @@ import logging
 from web_search_indexer.core.config import settings
 from web_search_postgres import get_connection
 from web_search_indexer.services.document_indexer import SearchIndexer
-from web_search_indexer.services.opensearch_document import build_opensearch_document
+from web_search_indexer.services.opensearch_document import build_search_index_document
+from web_search_opensearch.document import SearchIndexDocument
 from web_search_postgres.repositories import DocumentRepository
 
 logger = logging.getLogger(__name__)
@@ -117,13 +118,13 @@ class IndexerService:
         from web_search_opensearch.client import delete_document, index_document
 
         try:
-            doc = self._build_opensearch_document(page)
+            doc = self._build_search_index_document(page)
             client = _get_opensearch_client()
             if doc is None:
                 delete_document(client, page.url)
                 logger.info("Skipped OpenSearch index for excluded host: %s", page.url)
                 return
-            index_document(client, **doc)
+            index_document(client, doc)
         except Exception:
             logger.warning("OpenSearch index failed for %s", page.url, exc_info=True)
 
@@ -131,11 +132,11 @@ class IndexerService:
         from web_search_opensearch.client import bulk_index, delete_document
 
         client = _get_opensearch_client()
-        docs: list[dict[str, object]] = []
+        docs: list[SearchIndexDocument] = []
         build_failures: list[str] = []
         for page in pages:
             try:
-                doc = self._build_opensearch_document(page)
+                doc = self._build_search_index_document(page)
             except Exception:
                 build_failures.append(page.url)
                 logger.warning(
@@ -170,9 +171,11 @@ class IndexerService:
             logger.warning("OpenSearch bulk index failed", exc_info=True)
             raise
 
-    def _build_opensearch_document(self, page: IndexedPage) -> dict[str, object] | None:
+    def _build_search_index_document(
+        self, page: IndexedPage
+    ) -> SearchIndexDocument | None:
         page_rank, domain_rank = self._get_link_ranks(page.url)
-        return build_opensearch_document(
+        return build_search_index_document(
             page,
             page_rank=page_rank,
             domain_rank=domain_rank,

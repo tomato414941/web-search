@@ -81,7 +81,6 @@ def search_bm25(
             "url",
             "host",
             "path",
-            "is_homepage",
             "title",
             "content",
             "indexed_at",
@@ -218,21 +217,20 @@ def _build_host_path_should_clauses(
     for path in boosts.paths:
         if not path:
             continue
-        if path == "/":
-            clauses.append(
-                {
-                    "term": {
-                        "is_homepage": {
-                            "value": True,
-                            "boost": boosts.homepage_boost,
-                        }
+        clauses.append(
+            {
+                "term": {
+                    "path": {
+                        "value": path,
+                        "boost": boosts.homepage_boost
+                        if path == "/"
+                        else boosts.exact_path_boost,
                     }
                 }
-            )
-            continue
-        clauses.append(
-            {"term": {"path": {"value": path, "boost": boosts.exact_path_boost}}}
+            }
         )
+        if path == "/":
+            continue
         clauses.append(
             {"prefix": {"path": {"value": path, "boost": boosts.path_prefix_boost}}}
         )

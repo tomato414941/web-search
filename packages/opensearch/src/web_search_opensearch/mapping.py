@@ -34,7 +34,6 @@ INDEX_SETTINGS = {
             "url": {"type": "keyword"},
             "host": {"type": "keyword"},
             "path": {"type": "keyword"},
-            "is_homepage": {"type": "boolean"},
             "title": {
                 "type": "text",
                 "analyzer": "sudachi_whitespace",

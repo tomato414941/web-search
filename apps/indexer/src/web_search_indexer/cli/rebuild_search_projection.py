@@ -17,7 +17,7 @@ import time
 
 from web_search_opensearch.client import bulk_index, get_client
 from web_search_opensearch.mapping import ensure_index
-from web_search_indexer.services.opensearch_document import build_opensearch_document
+from web_search_indexer.services.opensearch_document import build_search_index_document
 from web_search_postgres.repositories import DocumentRepository
 
 logging.basicConfig(
@@ -76,7 +76,7 @@ def rebuild_search_projection(
             indexed_at,
         ) in rows:
             page_rank, domain_rank = link_rank_map.get(url, (0.0, 0.0))
-            doc = build_opensearch_document(
+            doc = build_search_index_document(
                 ProjectionPage(
                     url=url,
                     title=title,

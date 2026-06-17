@@ -2,9 +2,10 @@
 
 import hashlib
 import logging
-from typing import Any
 
 from opensearchpy import OpenSearch
+
+from web_search_opensearch.document import SearchIndexDocument
 
 logger = logging.getLogger(__name__)
 
@@ -42,32 +43,10 @@ def doc_id(url: str) -> str:
 
 def index_document(
     client: OpenSearch,
-    url: str,
-    title: str,
-    content: str,
-    indexed_at: str,
-    page_rank: float = 0.0,
-    domain_rank: float = 0.0,
-    host: str | None = None,
-    path: str | None = None,
-    is_homepage: bool | None = None,
+    document: SearchIndexDocument,
 ) -> None:
     """Index a single document into OpenSearch."""
-    body: dict[str, Any] = {
-        "url": url,
-        "title": title,
-        "content": content,
-        "indexed_at": indexed_at,
-        "page_rank": page_rank,
-        "domain_rank": domain_rank,
-    }
-    if host is not None:
-        body["host"] = host
-    if path is not None:
-        body["path"] = path
-    if is_homepage is not None:
-        body["is_homepage"] = is_homepage
-    client.index(index=INDEX_NAME, id=doc_id(url), body=body)
+    client.index(index=INDEX_NAME, id=doc_id(document["url"]), body=dict(document))
 
 
 def delete_document(client: OpenSearch, url: str) -> None:
@@ -80,13 +59,13 @@ def delete_document(client: OpenSearch, url: str) -> None:
 
 def bulk_index(
     client: OpenSearch,
-    documents: list[dict[str, Any]],
+    documents: list[SearchIndexDocument],
 ) -> int:
     """Bulk index documents into OpenSearch.
 
     Args:
         client: OpenSearch client
-        documents: List of document dicts with keys matching index_document args
+        documents: Search index documents
 
     Returns:
         Number of successfully indexed documents
@@ -94,7 +73,7 @@ def bulk_index(
     if not documents:
         return 0
 
-    actions: list[dict[str, Any]] = []
+    actions: list[dict[str, object]] = []
     for doc in documents:
         actions.append({"index": {"_index": INDEX_NAME, "_id": doc_id(doc["url"])}})
         actions.append(doc)

@@ -13,8 +13,8 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
     monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
-    def fake_index_document(*args, **kwargs):
-        captured.update(kwargs)
+    def fake_index_document(client, document):
+        captured.update(document)
 
     import web_search_opensearch.client as opensearch_client
 
@@ -29,17 +29,17 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     assert captured["page_rank"] == 0.5
     assert captured["domain_rank"] == 0.25
     assert captured["path"] == "/"
-    assert captured["is_homepage"] is True
+    assert "is_homepage" not in captured
 
 
-def test_build_opensearch_document_uses_search_field_names(monkeypatch):
+def test_build_search_index_document_uses_search_field_names(monkeypatch):
     page = indexer_module.IndexedPage(
         url="https://github.com/",
         title="GitHub",
         content="GitHub builds software together.",
     )
 
-    doc = opensearch_document.build_opensearch_document(
+    doc = opensearch_document.build_search_index_document(
         page,
         page_rank=0.5,
         domain_rank=0.25,
@@ -51,6 +51,7 @@ def test_build_opensearch_document_uses_search_field_names(monkeypatch):
     assert doc["content"] == "github builds software together."
     assert "title_tokens" not in doc
     assert "content_tokens" not in doc
+    assert "is_homepage" not in doc
 
 
 def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
@@ -118,7 +119,7 @@ def test_batch_opensearch_raises_on_partial_bulk(monkeypatch):
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
     monkeypatch.setattr(
         service,
-        "_build_opensearch_document",
+        "_build_search_index_document",
         lambda page: {"url": page.url},
     )
 
