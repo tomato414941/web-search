@@ -43,8 +43,8 @@ def doc_id(url: str) -> str:
 def index_document(
     client: OpenSearch,
     url: str,
-    title_tokens: str,
-    content_tokens: str,
+    title: str,
+    content: str,
     indexed_at: str,
     page_rank: float = 0.0,
     domain_rank: float = 0.0,
@@ -55,8 +55,8 @@ def index_document(
     """Index a single document into OpenSearch."""
     body: dict[str, Any] = {
         "url": url,
-        "title": title_tokens,
-        "content": content_tokens,
+        "title": title,
+        "content": content,
         "indexed_at": indexed_at,
         "page_rank": page_rank,
         "domain_rank": domain_rank,
