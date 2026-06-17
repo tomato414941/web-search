@@ -10,6 +10,7 @@ import aiohttp
 from web_search_crawler.core.config import settings
 
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024
+BODY_READ_CHUNK_SIZE = 64 * 1024
 
 
 @dataclass
@@ -42,6 +43,21 @@ def _is_feed_content_type(content_type: str) -> bool:
             "text/xml",
         )
     )
+
+
+async def _read_response_body(
+    content, *, max_size: int = MAX_RESPONSE_SIZE
+) -> tuple[bytes, bool]:
+    chunks = []
+    total = 0
+    async for chunk in content.iter_chunked(BODY_READ_CHUNK_SIZE):
+        if not chunk:
+            continue
+        total += len(chunk)
+        if total > max_size:
+            return b"".join(chunks), True
+        chunks.append(chunk)
+    return b"".join(chunks), False
 
 
 class AiohttpFetcher:
@@ -81,11 +97,11 @@ class AiohttpFetcher:
                 )
 
             body_read_started_at = time.perf_counter()
-            body = await resp.content.read(MAX_RESPONSE_SIZE)
+            body, truncated = await _read_response_body(resp.content)
             body_read_ms = max(
                 0, int((time.perf_counter() - body_read_started_at) * 1000)
             )
-            if len(body) >= MAX_RESPONSE_SIZE:
+            if truncated:
                 return FetchResult(
                     status=resp.status,
                     content_type=content_type,

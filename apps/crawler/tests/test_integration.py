@@ -52,6 +52,15 @@ def _url_ledger_contains(url_store: CrawlerRuntimeStore, url: str) -> bool:
         return cur.fetchone() is not None
 
 
+class _FakeContent:
+    def __init__(self, chunks: list[bytes]):
+        self.chunks = chunks
+
+    async def iter_chunked(self, _size: int):
+        for chunk in self.chunks:
+            yield chunk
+
+
 def test_enqueue_url_for_crawl_adds_known_url_to_queue(test_url_store):
     url = "https://example.com/news"
     _record_url(test_url_store, url)
@@ -145,14 +154,15 @@ async def test_process_url_success_flow(test_components):
     mock_response = AsyncMock()
     mock_response.status = 200
     mock_response.headers = {"Content-Type": "text/html"}
-    mock_response.content = AsyncMock()
-    mock_response.content.read = AsyncMock(
-        return_value=b"""
+    mock_response.content = _FakeContent(
+        [
+            b"""
         <html>
         <head><title>Test Page</title></head>
         <body><p>Test content</p><a href="/news">News</a></body>
         </html>
         """
+        ]
     )
     mock_session.get.return_value.__aenter__.return_value = mock_response
 
