@@ -1,6 +1,5 @@
 """Build search index document projections for indexed pages."""
 
-from datetime import UTC, datetime
 from typing import Protocol
 from urllib.parse import urlparse
 
@@ -27,7 +26,6 @@ def build_search_index_document(
     *,
     page_rank: float,
     domain_rank: float,
-    indexed_at: str | None = None,
 ) -> SearchIndexDocument | None:
     search_title = analyzer.tokenize(page.title) if page.title else ""
     search_content = analyzer.tokenize(page.content) if page.content else ""
@@ -40,7 +38,6 @@ def build_search_index_document(
         "url": page.url,
         "title": search_title,
         "content": search_content,
-        "indexed_at": indexed_at or datetime.now(UTC).isoformat(),
         "page_rank": page_rank,
         "domain_rank": domain_rank,
         "host": host,

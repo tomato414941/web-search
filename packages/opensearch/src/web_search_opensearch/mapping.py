@@ -44,7 +44,6 @@ INDEX_SETTINGS = {
                 "analyzer": "sudachi_whitespace",
                 "similarity": "custom_bm25",
             },
-            "indexed_at": {"type": "date"},
             "page_rank": {"type": "float"},
             "domain_rank": {"type": "float"},
         }

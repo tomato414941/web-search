@@ -46,16 +46,10 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
         title = hit.get("title") or "Untitled"
         url = hit.get("url", "")
         snip = hit.get("snip_plain", "")
-        indexed_at = hit.get("indexed_at", "")
 
         lines.append(f"### {i}. [{title}]({url})")
         if snip:
             lines.append(snip)
-        meta_parts = []
-        if indexed_at:
-            meta_parts.append(f"Indexed: {indexed_at}")
-        if meta_parts:
-            lines.append(f"*{' | '.join(meta_parts)}*")
 
         if include_content and hit.get("content"):
             lines.append("")
@@ -77,7 +71,7 @@ async def web_search(
 ) -> str:
     """Search Japanese and English web pages using PaleBlueSearch.
 
-    Returns fresh web search results with publication and indexing dates.
+    Returns fresh web search results.
     Set include_content=true to get full page text inline (useful for RAG).
 
     Args:

@@ -73,7 +73,6 @@ def rebuild_search_projection(
             url,
             title,
             content,
-            indexed_at,
         ) in rows:
             page_rank, domain_rank = link_rank_map.get(url, (0.0, 0.0))
             doc = build_search_index_document(
@@ -84,7 +83,6 @@ def rebuild_search_projection(
                 ),
                 page_rank=page_rank,
                 domain_rank=domain_rank,
-                indexed_at=indexed_at.isoformat() if indexed_at else None,
             )
             if doc is not None:
                 docs.append(doc)

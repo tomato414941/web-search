@@ -36,9 +36,6 @@ class SearchHit(BaseModel):
     snip: str = Field(description="HTML snippet with `<mark>` highlights")
     snip_plain: str = Field(description="Plain text snippet")
     score: float = Field(description="Relevance score")
-    indexed_at: str | None = Field(
-        default=None, description="When this page was last indexed (ISO 8601 UTC)"
-    )
     page_rank: float | None = Field(
         default=None,
         description="Page-level link-based rank signal",

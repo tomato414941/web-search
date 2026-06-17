@@ -17,14 +17,12 @@ MOCK_SEARCH_DATA = {
             "title": "FastAPI",
             "snip_plain": "Modern Python web framework",
             "rank": 15.0,
-            "indexed_at": "2026-03-01T00:00:00+00:00",
         },
         {
             "url": "https://flask.palletsprojects.com",
             "title": "Flask",
             "snip_plain": "Lightweight WSGI framework",
             "rank": 12.0,
-            "indexed_at": "2026-02-28T00:00:00+00:00",
         },
     ],
 }
@@ -36,7 +34,6 @@ def test_format_hits_markdown():
     assert "**2 results**" in result
     assert "[FastAPI](https://fastapi.tiangolo.com)" in result
     assert "Modern Python web framework" in result
-    assert "Indexed: 2026-03-01" in result
 
 
 def test_format_hits_empty():
@@ -65,7 +62,6 @@ def test_format_hits_untitled():
                 "title": None,
                 "snip_plain": "Some text",
                 "rank": 5.0,
-                "indexed_at": None,
             }
         ],
     }

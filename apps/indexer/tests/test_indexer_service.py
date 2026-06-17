@@ -43,7 +43,6 @@ def test_build_search_index_document_uses_search_field_names(monkeypatch):
         page,
         page_rank=0.5,
         domain_rank=0.25,
-        indexed_at="2026-05-20T00:00:00+00:00",
     )
 
     assert doc is not None
@@ -52,6 +51,7 @@ def test_build_search_index_document_uses_search_field_names(monkeypatch):
     assert "title_tokens" not in doc
     assert "content_tokens" not in doc
     assert "is_homepage" not in doc
+    assert "indexed_at" not in doc
 
 
 def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):

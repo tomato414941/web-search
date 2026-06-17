@@ -1,5 +1,3 @@
-from datetime import UTC, datetime
-
 from web_search_indexer.cli import rebuild_search_projection
 
 
@@ -33,7 +31,6 @@ def test_rebuild_search_projection_does_not_skip_when_counts_match(monkeypatch):
                         "https://example.com/post",
                         "Example Title",
                         "Example content with facts.",
-                        datetime(2026, 1, 1, tzinfo=UTC),
                     )
                 ]
                 if offset == 0

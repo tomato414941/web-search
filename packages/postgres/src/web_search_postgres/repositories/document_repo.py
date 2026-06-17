@@ -1,7 +1,6 @@
 """Repository for documents and related search metadata."""
 
 from collections.abc import Sequence
-from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -11,7 +10,6 @@ OpenSearchDocumentRow = tuple[
     str,
     str,
     str,
-    datetime | None,
 ]
 
 
@@ -133,8 +131,7 @@ class DocumentRepository:
         try:
             cur = conn.cursor()
             cur.execute(
-                "SELECT url, title, content, indexed_at "
-                "FROM documents ORDER BY url LIMIT %s OFFSET %s",
+                "SELECT url, title, content FROM documents ORDER BY url LIMIT %s OFFSET %s",
                 (limit, offset),
             )
             rows = [
@@ -142,13 +139,11 @@ class DocumentRepository:
                     str(url),
                     str(title or ""),
                     str(content or ""),
-                    indexed_at,
                 )
                 for (
                     url,
                     title,
                     content,
-                    indexed_at,
                 ) in cur.fetchall()
             ]
             cur.close()

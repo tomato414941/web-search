@@ -64,7 +64,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         title="Example",
         content="Python content",
         score=1.0,
-        indexed_at="2026-03-01T00:00:00+00:00",
         page_rank=0.5,
         domain_rank=0.4,
     )
