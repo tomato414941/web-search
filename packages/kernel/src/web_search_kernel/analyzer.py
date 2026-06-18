@@ -10,6 +10,8 @@ from sudachipy import Dictionary, SplitMode
 
 logger = logging.getLogger(__name__)
 
+_SUDACHI_SAFE_INPUT_BYTES = 32_000
+
 STOP_WORDS = frozenset(
     {
         # English
@@ -175,8 +177,12 @@ class JapaneseAnalyzer:
             return text.lower()
 
         try:
-            tokens = self.tokenizer.tokenize(text, self.mode)
-            surfaces = [t.surface().lower() for t in tokens if t.surface().strip()]
+            surfaces = []
+            for chunk in self._iter_tokenizer_chunks(text):
+                tokens = self.tokenizer.tokenize(chunk, self.mode)
+                surfaces.extend(
+                    t.surface().lower() for t in tokens if t.surface().strip()
+                )
             return " ".join(surfaces)
         except Exception as e:
             logger.error(
@@ -184,6 +190,20 @@ class JapaneseAnalyzer:
                 exc_info=True,
             )
             raise
+
+    def _iter_tokenizer_chunks(self, text: str):
+        chunk: list[str] = []
+        chunk_bytes = 0
+        for char in text:
+            char_bytes = len(char.encode("utf-8"))
+            if chunk and chunk_bytes + char_bytes > _SUDACHI_SAFE_INPUT_BYTES:
+                yield "".join(chunk)
+                chunk = []
+                chunk_bytes = 0
+            chunk.append(char)
+            chunk_bytes += char_bytes
+        if chunk:
+            yield "".join(chunk)
 
     def _is_japanese(self, text: str) -> bool:
         # Check for Hiragana, Katakana, or Common CJK Unified Ideographs
