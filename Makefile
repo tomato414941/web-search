@@ -14,7 +14,7 @@ SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 .PHONY: validate-search-eval
 .PHONY: collect-query-candidates
 .PHONY: enqueue-url-prd
-.PHONY: deploy-prd
+.PHONY: deploy-prd rebuild-projection-prd
 .PHONY: verify-compose-prd
 .PHONY: sync sync-packages sync-frontend sync-indexer sync-crawler sync-mcp
 
@@ -84,6 +84,9 @@ verify-prd:
 deploy-prd:
 	test "$(CONFIRM_PRD_DEPLOY)" = "1"
 	cd $(ROOT_DIR) && ./scripts/ops/deploy_compose.sh prd $(PRD_REF)
+
+rebuild-projection-prd:
+	cd $(ROOT_DIR) && ./scripts/ops/rebuild_search_projection_segments.sh prd $(PRD_REBUILD_ARGS)
 
 verify-compose-prd:
 	cd $(ROOT_DIR) && ./scripts/ops/verify_compose_deploy.sh prd $(PRD_REF)

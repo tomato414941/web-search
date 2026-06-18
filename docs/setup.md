@@ -55,6 +55,12 @@ rewritten with the current schema.
 The rebuild command defaults to `--batch-size 100`, which is the production-safe
 setting for the 512MiB indexer container. For long production rebuilds, run
 bounded segments with `--max-documents` and resume from the logged `last_url`.
+For production, use the stateful runner instead of manually copying `last_url`:
+
+```bash
+WEB_SEARCH_PRD_SERVER=root@5.223.74.201 \
+make rebuild-projection-prd PRD_REBUILD_ARGS="--segment-size 10000 --max-segments 1"
+```
 
 Monitoring only:
 

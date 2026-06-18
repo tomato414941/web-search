@@ -29,6 +29,16 @@ For local development, use [setup.md](./setup.md).
   new projection fields. The rebuild command defaults to `--batch-size 100`;
   keep that value for the production 512MiB indexer container and use
   `--max-documents` plus the logged `last_url` for segmented maintenance runs.
+  Prefer the stateful runner for production:
+
+  ```bash
+  WEB_SEARCH_PRD_SERVER=root@5.223.74.201 \
+  make rebuild-projection-prd PRD_REBUILD_ARGS="--segment-size 10000 --max-segments 1"
+  ```
+
+  The runner stores progress in
+  `/srv/web-search/.maintenance/search-projection-rebuild.env` by default and
+  resumes from the saved `LAST_URL` when `--start-after-url` is omitted.
 
 ## Compose Files
 
