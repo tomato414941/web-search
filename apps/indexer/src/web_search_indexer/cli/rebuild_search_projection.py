@@ -3,6 +3,7 @@
 
 Usage:
     web-search-rebuild-search-projection [--batch-size 500] [--dry-run]
+        [--start-after-url URL] [--max-documents N]
 
 Requires:
     DATABASE_URL and OPENSEARCH_URL environment variables.
@@ -38,6 +39,8 @@ def rebuild_search_projection(
     batch_size: int = 500,
     dry_run: bool = False,
     opensearch_url: str = "http://localhost:9200",
+    start_after_url: str | None = None,
+    max_documents: int | None = None,
 ) -> None:
     if not os.environ.get("DATABASE_URL", ""):
         logger.error("DATABASE_URL not set")
@@ -55,12 +58,14 @@ def rebuild_search_projection(
 
     indexed = 0
     scanned = 0
-    last_url: str | None = None
+    last_url = start_after_url
+    target = max_documents if max_documents is not None else total
     start = time.time()
 
-    while scanned < total:
+    while scanned < target:
+        limit = min(batch_size, target - scanned)
         rows = DocumentRepository.fetch_documents_for_opensearch_after_url(
-            limit=batch_size,
+            limit=limit,
             last_url=last_url,
         )
         if not rows:
@@ -95,21 +100,23 @@ def rebuild_search_projection(
         elapsed = time.time() - start
         rate = indexed / elapsed if elapsed > 0 else 0
         logger.info(
-            "Progress: %d/%d scanned, %d indexed (%.1f%%) - %.0f indexed docs/sec",
+            "Progress: %d/%d scanned, %d indexed (%.1f%%) - %.0f indexed docs/sec; last_url=%s",
             scanned,
-            total,
+            target,
             indexed,
-            scanned / total * 100,
+            scanned / target * 100 if target > 0 else 100,
             rate,
+            last_url,
         )
 
     elapsed = time.time() - start
     logger.info(
-        "Search projection rebuild complete: %d/%d documents in %.1fs (%.0f docs/sec)",
+        "Search projection rebuild complete: %d/%d documents in %.1fs (%.0f docs/sec); last_url=%s",
         indexed,
-        total,
+        target,
         elapsed,
         indexed / elapsed if elapsed > 0 else 0,
+        last_url,
     )
 
 
@@ -119,6 +126,8 @@ def main():
     )
     parser.add_argument("--batch-size", type=int, default=500)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--start-after-url")
+    parser.add_argument("--max-documents", type=int)
     parser.add_argument(
         "--opensearch-url",
         default=os.environ.get("OPENSEARCH_URL", "http://localhost:9200"),
@@ -129,6 +138,8 @@ def main():
         batch_size=args.batch_size,
         dry_run=args.dry_run,
         opensearch_url=args.opensearch_url,
+        start_after_url=args.start_after_url,
+        max_documents=args.max_documents,
     )
 
 
