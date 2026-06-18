@@ -26,7 +26,9 @@ For local development, use [setup.md](./setup.md).
   not the runtime source of truth.
 - OpenSearch search projection schema changes require an explicit
   `search-projection-rebuild` maintenance run so existing documents receive the
-  new projection fields.
+  new projection fields. The rebuild command defaults to `--batch-size 100`;
+  keep that value for the production 512MiB indexer container and use
+  `--max-documents` plus the logged `last_url` for segmented maintenance runs.
 
 ## Compose Files
 

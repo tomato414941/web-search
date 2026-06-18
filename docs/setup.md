@@ -52,6 +52,9 @@ COMPOSE_PROFILES=search,search-projection-rebuild docker compose up --build sear
 
 Run this after changing OpenSearch projection fields so existing documents are
 rewritten with the current schema.
+The rebuild command defaults to `--batch-size 100`, which is the production-safe
+setting for the 512MiB indexer container. For long production rebuilds, run
+bounded segments with `--max-documents` and resume from the logged `last_url`.
 
 Monitoring only:
 

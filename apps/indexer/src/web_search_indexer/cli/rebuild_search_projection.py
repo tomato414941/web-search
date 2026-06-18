@@ -2,7 +2,7 @@
 """Rebuild the OpenSearch search projection from PostgreSQL source data.
 
 Usage:
-    web-search-rebuild-search-projection [--batch-size 500] [--dry-run]
+    web-search-rebuild-search-projection [--batch-size 100] [--dry-run]
         [--start-after-url URL] [--max-documents N]
 
 Requires:
@@ -27,6 +27,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+DEFAULT_BATCH_SIZE = 100
+
 
 @dataclass(slots=True)
 class ProjectionPage:
@@ -36,7 +38,7 @@ class ProjectionPage:
 
 
 def rebuild_search_projection(
-    batch_size: int = 500,
+    batch_size: int = DEFAULT_BATCH_SIZE,
     dry_run: bool = False,
     opensearch_url: str = "http://localhost:9200",
     start_after_url: str | None = None,
@@ -124,7 +126,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Rebuild the OpenSearch search projection from PostgreSQL"
     )
-    parser.add_argument("--batch-size", type=int, default=500)
+    parser.add_argument("--batch-size", type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--start-after-url")
     parser.add_argument("--max-documents", type=int)

@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  refresh_link_authority.sh [--batch-size 500] [--opensearch-url URL]
+  refresh_link_authority.sh [--batch-size 100] [--opensearch-url URL]
 
 Runs the link authority refresh operation:
   1. calculate page-level and domain-level link authority
