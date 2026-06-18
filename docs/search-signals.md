@@ -106,6 +106,8 @@ into one large aggregate.
 The current ranking path is intentionally narrow:
 
 - retrieval uses OpenSearch BM25 over `title_terms^3` and `content_terms`
+- OpenSearch stores bounded page content for snippets and light reranking;
+  PostgreSQL remains the source of truth for full extracted content
 - `navigational`, `reference`, and a small part of `news` use a narrow source-aware policy
 - broad speculative reranking layers were removed
 - embedding enrichment is optional metadata for future semantic experiments, not
@@ -138,6 +140,10 @@ request-time reranking.
   document signals used for storage and ranking policy integration.
 - `packages/kernel/src/web_search_kernel/analyzer.py` holds the shared Sudachi-based
   tokenization logic for both indexing and query processing.
+- `apps/indexer/src/web_search_indexer/services/opensearch_document.py` builds
+  the OpenSearch projection. Its `content` field is capped for result snippets
+  and request-time reranking, and `content_terms` is tokenized from that same
+  bounded content.
 - Raw HTML storage is not part of the current runtime. If it becomes important
   again, treat it as a deferred project-plan item rather than current runtime
   behavior.

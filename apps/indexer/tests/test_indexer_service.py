@@ -56,6 +56,24 @@ def test_build_search_index_document_uses_search_field_names(monkeypatch):
     assert "indexed_at" not in doc
 
 
+def test_build_search_index_document_bounds_content_projection(monkeypatch):
+    page = indexer_module.IndexedPage(
+        url="https://example.com/",
+        title="Example",
+        content="a" * (opensearch_document.SEARCH_CONTENT_MAX_CHARS + 1),
+    )
+
+    doc = opensearch_document.build_search_index_document(
+        page,
+        page_rank=0.5,
+        domain_rank=0.25,
+    )
+
+    assert doc is not None
+    assert len(doc["content"]) == opensearch_document.SEARCH_CONTENT_MAX_CHARS
+    assert doc["content_terms"] == "a" * opensearch_document.SEARCH_CONTENT_MAX_CHARS
+
+
 def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
     service = indexer_module.IndexerService()
     client = MagicMock()
