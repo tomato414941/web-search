@@ -23,9 +23,9 @@ def test_rebuild_search_projection_does_not_skip_when_counts_match(monkeypatch):
     )
     monkeypatch.setattr(
         rebuild_search_projection.DocumentRepository,
-        "fetch_documents_for_opensearch",
+        "fetch_documents_for_opensearch_after_url",
         staticmethod(
-            lambda *, limit, offset: (
+            lambda *, limit, last_url: (
                 [
                     (
                         "https://example.com/post",
@@ -33,7 +33,7 @@ def test_rebuild_search_projection_does_not_skip_when_counts_match(monkeypatch):
                         "Example content with facts.",
                     )
                 ]
-                if offset == 0
+                if last_url is None
                 else []
             )
         ),

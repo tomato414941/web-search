@@ -152,6 +152,46 @@ class DocumentRepository:
             conn.close()
 
     @staticmethod
+    def fetch_documents_for_opensearch_after_url(
+        *, limit: int, last_url: str | None
+    ) -> list[OpenSearchDocumentRow]:
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            if last_url is None:
+                cur.execute(
+                    "SELECT url, title, content FROM documents ORDER BY url LIMIT %s",
+                    (limit,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT url, title, content
+                    FROM documents
+                    WHERE url > %s
+                    ORDER BY url
+                    LIMIT %s
+                    """,
+                    (last_url, limit),
+                )
+            rows = [
+                (
+                    str(url),
+                    str(title or ""),
+                    str(content or ""),
+                )
+                for (
+                    url,
+                    title,
+                    content,
+                ) in cur.fetchall()
+            ]
+            cur.close()
+            return rows
+        finally:
+            conn.close()
+
+    @staticmethod
     def sample_document_urls(limit: int) -> list[str]:
         conn = get_connection()
         try:

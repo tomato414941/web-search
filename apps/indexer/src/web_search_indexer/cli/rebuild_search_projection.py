@@ -54,16 +54,18 @@ def rebuild_search_projection(
     ensure_index(client)
 
     indexed = 0
-    offset = 0
+    scanned = 0
+    last_url: str | None = None
     start = time.time()
 
-    while offset < total:
-        rows = DocumentRepository.fetch_documents_for_opensearch(
+    while scanned < total:
+        rows = DocumentRepository.fetch_documents_for_opensearch_after_url(
             limit=batch_size,
-            offset=offset,
+            last_url=last_url,
         )
         if not rows:
             break
+        last_url = rows[-1][0]
 
         urls = [url for url, *_ in rows]
         link_rank_map = DocumentRepository.fetch_link_rank_map(urls)
@@ -88,15 +90,16 @@ def rebuild_search_projection(
                 docs.append(doc)
 
         indexed += bulk_index(client, docs)
-        offset += len(rows)
+        scanned += len(rows)
 
         elapsed = time.time() - start
         rate = indexed / elapsed if elapsed > 0 else 0
         logger.info(
-            "Progress: %d/%d (%.1f%%) - %.0f docs/sec",
-            indexed,
+            "Progress: %d/%d scanned, %d indexed (%.1f%%) - %.0f indexed docs/sec",
+            scanned,
             total,
-            indexed / total * 100,
+            indexed,
+            scanned / total * 100,
             rate,
         )
 
