@@ -105,7 +105,7 @@ into one large aggregate.
 
 The current ranking path is intentionally narrow:
 
-- retrieval uses OpenSearch BM25 over `title^3` and `content`
+- retrieval uses OpenSearch BM25 over `title_terms^3` and `content_terms`
 - `navigational`, `reference`, and a small part of `news` use a narrow source-aware policy
 - broad speculative reranking layers were removed
 - embedding enrichment is optional metadata for future semantic experiments, not

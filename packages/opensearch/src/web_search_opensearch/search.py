@@ -241,7 +241,7 @@ def _build_text_clause(
     clause = {
         "multi_match": {
             "query": query_tokens,
-            "fields": ["title^3", "content"],
+            "fields": ["title_terms^3", "content_terms"],
             "type": "cross_fields",
             "operator": "or",
             "minimum_should_match": _min_should_match(query_tokens),
@@ -258,7 +258,7 @@ def _build_phrase_clause(
     clause = {
         "multi_match": {
             "query": phrase_tokens,
-            "fields": ["title^3", "content"],
+            "fields": ["title_terms^3", "content_terms"],
             "type": "phrase",
         }
     }
@@ -291,7 +291,7 @@ def _build_subject_phrase_should_clauses(
         {
             "multi_match": {
                 "query": subject_query,
-                "fields": ["title^6", "content"],
+                "fields": ["title_terms^6", "content_terms"],
                 "type": "cross_fields",
                 "operator": "and",
                 "boost": boosts.title_boost,
@@ -300,7 +300,7 @@ def _build_subject_phrase_should_clauses(
         {
             "multi_match": {
                 "query": cue_query,
-                "fields": ["title^4"],
+                "fields": ["title_terms^4"],
                 "type": "cross_fields",
                 "operator": "or",
                 "minimum_should_match": "50%",

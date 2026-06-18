@@ -36,10 +36,18 @@ INDEX_SETTINGS = {
             "path": {"type": "keyword"},
             "title": {
                 "type": "text",
+                "index": False,
+            },
+            "content": {
+                "type": "text",
+                "index": False,
+            },
+            "title_terms": {
+                "type": "text",
                 "analyzer": "sudachi_whitespace",
                 "similarity": "custom_bm25",
             },
-            "content": {
+            "content_terms": {
                 "type": "text",
                 "analyzer": "sudachi_whitespace",
                 "similarity": "custom_bm25",

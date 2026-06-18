@@ -27,8 +27,10 @@ def build_search_index_document(
     page_rank: float,
     domain_rank: float,
 ) -> SearchIndexDocument | None:
-    search_title = analyzer.tokenize(page.title) if page.title else ""
-    search_content = analyzer.tokenize(page.content) if page.content else ""
+    title = page.title or ""
+    content = page.content or ""
+    title_terms = analyzer.tokenize(title) if title else ""
+    content_terms = analyzer.tokenize(content) if content else ""
 
     host, path = search_index_url_metadata(page.url)
     if is_search_index_excluded(host, path):
@@ -36,8 +38,10 @@ def build_search_index_document(
 
     return {
         "url": page.url,
-        "title": search_title,
-        "content": search_content,
+        "title": title,
+        "content": content,
+        "title_terms": title_terms,
+        "content_terms": content_terms,
         "page_rank": page_rank,
         "domain_rank": domain_rank,
         "host": host,

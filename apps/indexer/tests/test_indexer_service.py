@@ -46,8 +46,10 @@ def test_build_search_index_document_uses_search_field_names(monkeypatch):
     )
 
     assert doc is not None
-    assert doc["title"] == "github"
-    assert doc["content"] == "github builds software together."
+    assert doc["title"] == "GitHub"
+    assert doc["content"] == "GitHub builds software together."
+    assert doc["title_terms"] == "github"
+    assert doc["content_terms"] == "github builds software together."
     assert "title_tokens" not in doc
     assert "content_tokens" not in doc
     assert "is_homepage" not in doc

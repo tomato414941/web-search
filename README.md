@@ -31,8 +31,7 @@ The source-of-truth monorepo layout is:
 
 ## Features
 
-- **Source-Aware Ranking**: Navigational and reference queries use a small source-aware retrieval and reranking policy, while every hit can carry transparency metadata such as `temporal_anchor`, `authorship_clarity`, and `factual_density`.
-- **Factual Density**: Scores verifiable facts per unit of text (numbers, dates, citations, code, named entities) — replaces shallow word-count quality.
+- **Source-Aware Ranking**: Navigational and reference queries use a small source-aware retrieval and reranking policy, while hits can expose ranking signals such as `page_rank` and `domain_rank`.
 - **Clean Content Extraction**: [trafilatura](https://trafilatura.readthedocs.io/) strips navigation, footers, and sidebars — only main content is indexed.
 - **Crawler and Indexing Pipeline**: Own crawler with robots.txt compliance and authorship metadata extraction.
 - **Japanese NLP**: SudachiPy morphological analysis for high-quality Japanese search.
@@ -62,13 +61,13 @@ curl "https://palebluesearch.com/search-results?q=python+web+framework"
       "title": "FastAPI - Modern Python Web Framework",
       "snip": "A modern, fast web framework for building APIs with <mark>Python</mark>...",
       "snip_plain": "A modern, fast web framework for building APIs with Python...",
-      "indexed_at": "2026-03-01T12:00:00.000000+00:00",
-      "published_at": "2026-02-28T09:30:00+00:00",
-      "temporal_anchor": 1.0,
-      "factual_density": 0.72
+      "score": 12.4,
+      "page_rank": 0.42,
+      "domain_rank": 0.78
     }
   ],
   "mode": "bm25",
+  "requested_mode": "bm25",
   "request_id": "a1b2c3d4e5f6"
 }
 ```

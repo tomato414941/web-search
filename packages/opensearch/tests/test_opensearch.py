@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 from web_search_opensearch.client import (
     bulk_index,
 )
+from web_search_opensearch.document import SearchIndexDocument
 from web_search_opensearch.mapping import INDEX_SETTINGS, ensure_index
 from web_search_opensearch.search import (
     HostPathBoosts,
@@ -12,6 +13,12 @@ from web_search_opensearch.search import (
     SubjectPhraseBoosts,
     _build_bm25_bool_query,
 )
+
+
+def test_search_index_document_contract_matches_mapping():
+    assert set(SearchIndexDocument.__annotations__) == set(
+        INDEX_SETTINGS["mappings"]["properties"]
+    )
 
 
 class TestBulkIndex:
@@ -33,6 +40,8 @@ class TestBulkIndex:
                 "url": "https://a.com",
                 "title": "A",
                 "content": "a",
+                "title_terms": "a",
+                "content_terms": "a",
                 "page_rank": 0.0,
                 "domain_rank": 0.0,
                 "host": "a.com",
@@ -42,6 +51,8 @@ class TestBulkIndex:
                 "url": "https://b.com",
                 "title": "B",
                 "content": "b",
+                "title_terms": "b",
+                "content_terms": "b",
                 "page_rank": 0.0,
                 "domain_rank": 0.0,
                 "host": "b.com",
@@ -64,6 +75,8 @@ class TestBulkIndex:
                 "url": "https://a.com",
                 "title": "A",
                 "content": "a",
+                "title_terms": "a",
+                "content_terms": "a",
                 "page_rank": 0.0,
                 "domain_rank": 0.0,
                 "host": "a.com",
@@ -73,6 +86,8 @@ class TestBulkIndex:
                 "url": "https://b.com",
                 "title": "B",
                 "content": "b",
+                "title_terms": "b",
+                "content_terms": "b",
                 "page_rank": 0.0,
                 "domain_rank": 0.0,
                 "host": "b.com",
@@ -176,7 +191,7 @@ def test_build_bm25_bool_query_adds_comparison_retrieval_signals():
     assert {
         "multi_match": {
             "query": "fastapi django",
-            "fields": ["title^6", "content"],
+            "fields": ["title_terms^6", "content_terms"],
             "type": "cross_fields",
             "operator": "and",
             "boost": 6.0,
@@ -185,7 +200,7 @@ def test_build_bm25_bool_query_adds_comparison_retrieval_signals():
     assert {
         "multi_match": {
             "query": "fastapi django vs versus compare comparison",
-            "fields": ["title^4"],
+            "fields": ["title_terms^4"],
             "type": "cross_fields",
             "operator": "or",
             "minimum_should_match": "50%",
@@ -195,7 +210,7 @@ def test_build_bm25_bool_query_adds_comparison_retrieval_signals():
     assert {
         "multi_match": {
             "query": "fastapi vs django",
-            "fields": ["title^3", "content"],
+            "fields": ["title_terms^3", "content_terms"],
             "type": "phrase",
             "boost": 7.0,
         }

@@ -50,6 +50,9 @@ Rebuild the OpenSearch search projection only when you explicitly need it:
 COMPOSE_PROFILES=search,search-projection-rebuild docker compose up --build search-projection-rebuild
 ```
 
+Run this after changing OpenSearch projection fields so existing documents are
+rewritten with the current schema.
+
 Monitoring only:
 
 ```bash
