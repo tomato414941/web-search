@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+import os
 
 from opensearchpy import OpenSearch
 
@@ -41,18 +42,34 @@ def doc_id(url: str) -> str:
     return hashlib.sha256(url.encode("utf-8")).hexdigest()
 
 
+def index_name(name: str | None = None) -> str:
+    """Return the target OpenSearch index or alias name."""
+    return name or os.environ.get("OPENSEARCH_INDEX_NAME", INDEX_NAME)
+
+
 def index_document(
     client: OpenSearch,
     document: SearchIndexDocument,
+    *,
+    target_index: str | None = None,
 ) -> None:
     """Index a single document into OpenSearch."""
-    client.index(index=INDEX_NAME, id=doc_id(document["url"]), body=dict(document))
+    client.index(
+        index=index_name(target_index),
+        id=doc_id(document["url"]),
+        body=dict(document),
+    )
 
 
-def delete_document(client: OpenSearch, url: str) -> None:
+def delete_document(
+    client: OpenSearch,
+    url: str,
+    *,
+    target_index: str | None = None,
+) -> None:
     """Delete a document from OpenSearch by URL."""
     try:
-        client.delete(index=INDEX_NAME, id=doc_id(url), ignore=[404])
+        client.delete(index=index_name(target_index), id=doc_id(url), ignore=[404])
     except Exception:
         logger.warning("Failed to delete %s from OpenSearch", url, exc_info=True)
 
@@ -60,6 +77,8 @@ def delete_document(client: OpenSearch, url: str) -> None:
 def bulk_index(
     client: OpenSearch,
     documents: list[SearchIndexDocument],
+    *,
+    target_index: str | None = None,
 ) -> int:
     """Bulk index documents into OpenSearch.
 
@@ -74,8 +93,9 @@ def bulk_index(
         return 0
 
     actions: list[dict[str, object]] = []
+    resolved_index = index_name(target_index)
     for doc in documents:
-        actions.append({"index": {"_index": INDEX_NAME, "_id": doc_id(doc["url"])}})
+        actions.append({"index": {"_index": resolved_index, "_id": doc_id(doc["url"])}})
         actions.append(doc)
 
     resp = client.bulk(body=actions)

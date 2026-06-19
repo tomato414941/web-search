@@ -41,6 +41,7 @@ def rebuild_search_projection(
     batch_size: int = DEFAULT_BATCH_SIZE,
     dry_run: bool = False,
     opensearch_url: str = "http://localhost:9200",
+    index_name: str | None = None,
     start_after_url: str | None = None,
     max_documents: int | None = None,
 ) -> None:
@@ -56,7 +57,7 @@ def rebuild_search_projection(
         return
 
     client = get_client(opensearch_url)
-    ensure_index(client)
+    ensure_index(client, target_index=index_name)
 
     indexed = 0
     scanned = 0
@@ -96,7 +97,7 @@ def rebuild_search_projection(
             if doc is not None:
                 docs.append(doc)
 
-        indexed += bulk_index(client, docs)
+        indexed += bulk_index(client, docs, target_index=index_name)
         scanned += len(rows)
 
         elapsed = time.time() - start
@@ -134,12 +135,21 @@ def main():
         "--opensearch-url",
         default=os.environ.get("OPENSEARCH_URL", "http://localhost:9200"),
     )
+    parser.add_argument(
+        "--index-name",
+        default=os.environ.get("OPENSEARCH_INDEX_NAME"),
+        help=(
+            "OpenSearch index or alias name to rebuild. Defaults to "
+            "OPENSEARCH_INDEX_NAME or documents."
+        ),
+    )
     args = parser.parse_args()
 
     rebuild_search_projection(
         batch_size=args.batch_size,
         dry_run=args.dry_run,
         opensearch_url=args.opensearch_url,
+        index_name=args.index_name,
         start_after_url=args.start_after_url,
         max_documents=args.max_documents,
     )

@@ -57,6 +57,7 @@ services:
       - DB_POOL_MIN=${DB_POOL_MIN_FRONTEND:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-4}
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents}
       - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
     depends_on:
       db-migrate:
@@ -100,6 +101,7 @@ services:
       - DB_POOL_MIN=${DB_POOL_MIN_INDEXER:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-6}
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents}
       - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
     depends_on:
       db-migrate:
@@ -198,6 +200,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents}
     command: ["python", "-m", "web_search_indexer.cli.rebuild_search_projection"]
     depends_on:
       db-migrate:

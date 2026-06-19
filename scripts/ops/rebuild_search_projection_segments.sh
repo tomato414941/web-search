@@ -21,6 +21,7 @@ Options:
   --start-after-url URL  Override saved state and start after this URL.
   --state-file PATH      Remote state file. Default: /srv/web-search/.maintenance/search-projection-rebuild.env.
   --opensearch-url URL   OpenSearch URL inside the indexer container. Default: http://opensearch:9200.
+  --index-name NAME      OpenSearch index or alias name to rebuild.
 
 Environment:
   WEB_SEARCH_PRD_SERVER  Required for prd, for example root@5.223.74.201.
@@ -118,7 +119,8 @@ run_segment() {
     "$BATCH_SIZE" \
     "$SEGMENT_SIZE" \
     "$start_after_url_b64" \
-    "$OPENSEARCH_URL" <<'REMOTE' 2>&1 | tee "$output_file"
+    "$OPENSEARCH_URL" \
+    "$INDEX_NAME" <<'REMOTE' 2>&1 | tee "$output_file"
 set -euo pipefail
 project_name="$1"
 batch_size="$2"
@@ -129,6 +131,7 @@ else
   start_after_url="$(printf '%s' "$4" | base64 -d)"
 fi
 opensearch_url="$5"
+index_name="$6"
 
 container_id="$(docker ps -q \
   --filter "label=com.docker.compose.project=${project_name}" \
@@ -144,6 +147,9 @@ cmd=(
   --max-documents "$segment_size"
   --opensearch-url "$opensearch_url"
 )
+if [ -n "$index_name" ]; then
+  cmd+=(--index-name "$index_name")
+fi
 if [ -n "$start_after_url" ]; then
   cmd+=(--start-after-url "$start_after_url")
 fi
@@ -212,6 +218,7 @@ SEGMENT_SIZE="$DEFAULT_SEGMENT_SIZE"
 MAX_SEGMENTS=""
 START_AFTER_URL=""
 OPENSEARCH_URL="$DEFAULT_OPENSEARCH_URL"
+INDEX_NAME=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -237,6 +244,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --opensearch-url)
       OPENSEARCH_URL="${2:-}"
+      shift 2
+      ;;
+    --index-name)
+      INDEX_NAME="${2:-}"
       shift 2
       ;;
     *)
@@ -282,6 +293,7 @@ echo "Batch size         : ${BATCH_SIZE}"
 echo "Segment size       : ${SEGMENT_SIZE}"
 echo "Max segments       : ${MAX_SEGMENTS:-unbounded}"
 echo "Start after URL    : ${START_AFTER_URL:-<beginning>}"
+echo "OpenSearch index   : ${INDEX_NAME:-documents}"
 
 segments_run=0
 current_start="$START_AFTER_URL"

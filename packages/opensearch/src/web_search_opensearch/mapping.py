@@ -4,7 +4,7 @@ import logging
 
 from opensearchpy import OpenSearch
 
-from web_search_opensearch.client import INDEX_NAME
+from web_search_opensearch.client import index_name
 
 logger = logging.getLogger(__name__)
 
@@ -59,33 +59,39 @@ INDEX_SETTINGS = {
 }
 
 
-def _missing_properties(client: OpenSearch) -> dict[str, object]:
-    response = client.indices.get_mapping(index=INDEX_NAME)
-    properties = response.get(INDEX_NAME, {}).get("mappings", {}).get("properties", {})
+def _missing_properties(client: OpenSearch, *, target_index: str) -> dict[str, object]:
+    response = client.indices.get_mapping(index=target_index)
+    mapping = response.get(target_index)
+    if mapping is None and response:
+        mapping = next(iter(response.values()))
+    properties = (mapping or {}).get("mappings", {}).get("properties", {})
     expected = INDEX_SETTINGS["mappings"]["properties"]
     return {
         field: schema for field, schema in expected.items() if field not in properties
     }
 
 
-def ensure_index(client: OpenSearch) -> bool:
+def ensure_index(client: OpenSearch, *, target_index: str | None = None) -> bool:
     """Create the documents index if it doesn't exist.
 
     Returns:
         True if index was created, False if it already existed.
     """
-    if client.indices.exists(index=INDEX_NAME):
-        missing = _missing_properties(client)
+    resolved_index = index_name(target_index)
+    if client.indices.exists(index=resolved_index):
+        missing = _missing_properties(client, target_index=resolved_index)
         if missing:
-            client.indices.put_mapping(index=INDEX_NAME, body={"properties": missing})
+            client.indices.put_mapping(
+                index=resolved_index, body={"properties": missing}
+            )
             logger.info(
                 "Updated OpenSearch index '%s' with fields: %s",
-                INDEX_NAME,
+                resolved_index,
                 ", ".join(sorted(missing)),
             )
-        logger.info("OpenSearch index '%s' already exists", INDEX_NAME)
+        logger.info("OpenSearch index '%s' already exists", resolved_index)
         return False
 
-    client.indices.create(index=INDEX_NAME, body=INDEX_SETTINGS)
-    logger.info("Created OpenSearch index '%s'", INDEX_NAME)
+    client.indices.create(index=resolved_index, body=INDEX_SETTINGS)
+    logger.info("Created OpenSearch index '%s'", resolved_index)
     return True

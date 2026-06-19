@@ -124,6 +124,19 @@ def test_ensure_index_updates_missing_mappings():
     )
 
 
+def test_ensure_index_creates_target_index():
+    client = MagicMock()
+    client.indices.exists.return_value = False
+
+    created = ensure_index(client, target_index="documents_v2")
+
+    assert created is True
+    client.indices.create.assert_called_once_with(
+        index="documents_v2",
+        body=INDEX_SETTINGS,
+    )
+
+
 def test_build_bm25_bool_query_adds_canonical_retrieval_signals():
     query = _build_bm25_bool_query(
         "github",

@@ -50,20 +50,20 @@ Rebuild the OpenSearch search projection only when you explicitly need it:
 COMPOSE_PROFILES=search,search-projection-rebuild docker compose up --build search-projection-rebuild
 ```
 
-Run this after changing OpenSearch projection fields so existing documents are
-rewritten with the current schema.
-The rebuild command defaults to `--batch-size 100`, which is the production-safe
-setting for the 512MiB indexer container. For long production rebuilds, run
-bounded segments with `--max-documents` and resume from the logged `last_url`.
-For production, use the guarded auto runner instead of manually copying
-`last_url` or repeatedly starting one segment:
+Run this after changing OpenSearch projection values only. If the OpenSearch
+mapping changes, build a fresh index such as `documents_v2` and switch
+`OPENSEARCH_INDEX_NAME` after verification. The rebuild command defaults to
+`--batch-size 100`, which is the production-safe setting for the 512MiB indexer
+container. For production, use the guarded auto runner instead of manually
+copying `last_url` or repeatedly starting one segment:
 
 ```bash
 WEB_SEARCH_PRD_SERVER=root@5.223.74.201 \
-make rebuild-projection-prd-auto PRD_REBUILD_ARGS="--segment-size 10000 --max-segments 10"
+make rebuild-projection-prd-auto PRD_REBUILD_ARGS="--index-name documents_v2 --state-file /srv/web-search/.maintenance/search-projection-rebuild-documents-v2.env --segment-size 10000 --max-segments 10"
 ```
 
-Use `make rebuild-projection-prd` only for one-off bounded segments.
+Use a separate state file per target index. Use `make rebuild-projection-prd`
+only for one-off bounded segments.
 
 Monitoring only:
 

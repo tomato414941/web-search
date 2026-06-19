@@ -41,10 +41,10 @@ def _check_opensearch() -> dict:
     if not settings.OPENSEARCH_ENABLED:
         return {"status": "disabled"}
     try:
-        from web_search_opensearch.client import INDEX_NAME, get_client
+        from web_search_opensearch.client import get_client, index_name
 
         client = get_client(settings.OPENSEARCH_URL)
-        count = client.count(index=INDEX_NAME)["count"]
+        count = client.count(index=index_name())["count"]
         return {"status": "ok", "documents": count}
     except Exception as e:
         return {"status": "error", "error": str(e)}

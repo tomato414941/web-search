@@ -6,7 +6,7 @@ from typing import Any
 
 from opensearchpy import OpenSearch
 
-from web_search_opensearch.client import INDEX_NAME
+from web_search_opensearch.client import index_name
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +49,7 @@ def search_bm25(
     exclude_phrases: tuple[str, ...] = (),
     required_domains: tuple[str, ...] = (),
     retrieval_boosts: RetrievalBoosts | None = None,
+    target_index: str | None = None,
 ) -> dict[str, Any]:
     """BM25 search with operator-aware filtering.
 
@@ -88,7 +89,7 @@ def search_bm25(
         ],
     }
 
-    resp = client.search(index=INDEX_NAME, body=query)
+    resp = client.search(index=index_name(target_index), body=query)
 
     total = resp["hits"]["total"]["value"]
     hits = []

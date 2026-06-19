@@ -24,23 +24,20 @@ For local development, use [setup.md](./setup.md).
 - Deployment scripts ship a source bundle and record the deployed commit in an
   operator state file. The server-side Git checkout is for operator inspection,
   not the runtime source of truth.
-- OpenSearch search projection schema changes require an explicit
-  `search-projection-rebuild` maintenance run so existing documents receive the
-  new projection fields. The rebuild command defaults to `--batch-size 100`;
-  keep that value for the production 512MiB indexer container and use
-  `--max-documents` plus the logged `last_url` for segmented maintenance runs.
-  Prefer the guarded auto runner for production:
+- OpenSearch search projection schema changes should be applied by building a
+  fresh index with the new mapping, for example `documents_v2`, then switching
+  `OPENSEARCH_INDEX_NAME` after verification. The rebuild command defaults to
+  `--batch-size 100`; keep that value for the production 512MiB indexer
+  container. Prefer the guarded auto runner for production:
 
   ```bash
   WEB_SEARCH_PRD_SERVER=root@5.223.74.201 \
-  make rebuild-projection-prd-auto PRD_REBUILD_ARGS="--segment-size 10000 --max-segments 10"
+  make rebuild-projection-prd-auto PRD_REBUILD_ARGS="--index-name documents_v2 --state-file /srv/web-search/.maintenance/search-projection-rebuild-documents-v2.env --segment-size 10000 --max-segments 10"
   ```
 
-  The runner stores progress in
-  `/srv/web-search/.maintenance/search-projection-rebuild.env` by default and
-  resumes from the saved `LAST_URL`. It runs one segment at a time and waits
-  before the next segment when container memory crosses its configured guard.
-  Use `make rebuild-projection-prd` only for one-off bounded segments.
+  Use a separate state file per target index. The runner resumes from the saved
+  `LAST_URL`, runs one segment at a time, and waits before the next segment when
+  container memory crosses its configured guard.
 
 ## Compose Files
 

@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 
-from web_search_opensearch.client import INDEX_NAME, doc_id, get_client
+from web_search_opensearch.client import doc_id, get_client, index_name
 from web_search_postgres.repositories import DocumentRepository
 
 logging.basicConfig(
@@ -18,16 +18,18 @@ logger = logging.getLogger(__name__)
 def verify(
     sample_size: int = 100,
     opensearch_url: str = "http://localhost:9200",
+    target_index: str | None = None,
 ) -> bool:
     if not os.environ.get("DATABASE_URL", ""):
         logger.error("DATABASE_URL not set")
         sys.exit(1)
 
     client = get_client(opensearch_url)
+    resolved_index = index_name(target_index)
     ok = True
 
     pg_count = DocumentRepository.count_documents()
-    opensearch_count = client.count(index=INDEX_NAME)["count"]
+    opensearch_count = client.count(index=resolved_index)["count"]
 
     logger.info("PostgreSQL documents: %d", pg_count)
     logger.info("OpenSearch documents: %d", opensearch_count)
@@ -48,7 +50,7 @@ def verify(
     missing = 0
     for url in sample_urls:
         try:
-            response = client.get(index=INDEX_NAME, id=doc_id(url), ignore=[404])
+            response = client.get(index=resolved_index, id=doc_id(url), ignore=[404])
             if not response.get("found"):
                 missing += 1
                 logger.debug("Missing in OpenSearch: %s", url)
@@ -82,11 +84,20 @@ def main():
         "--opensearch-url",
         default=os.environ.get("OPENSEARCH_URL", "http://localhost:9200"),
     )
+    parser.add_argument(
+        "--index-name",
+        default=os.environ.get("OPENSEARCH_INDEX_NAME"),
+        help=(
+            "OpenSearch index or alias name to verify. Defaults to "
+            "OPENSEARCH_INDEX_NAME or documents."
+        ),
+    )
     args = parser.parse_args()
 
     success = verify(
         sample_size=args.sample_size,
         opensearch_url=args.opensearch_url,
+        target_index=args.index_name,
     )
     sys.exit(0 if success else 1)
 

@@ -26,6 +26,7 @@ Options:
   --indexer-mem-limit-pct N       Wait while indexer memory is >= N. Default: 80.
   --state-file PATH               Remote rebuild state file.
   --opensearch-url URL            OpenSearch URL inside the indexer container.
+  --index-name NAME               OpenSearch index or alias name to rebuild.
 
 Environment:
   WEB_SEARCH_PRD_SERVER           Required for prd.
@@ -150,6 +151,9 @@ run_one_segment() {
   if [ -n "$OPENSEARCH_URL" ]; then
     args+=(--opensearch-url "$OPENSEARCH_URL")
   fi
+  if [ -n "$INDEX_NAME" ]; then
+    args+=(--index-name "$INDEX_NAME")
+  fi
 
   "$SCRIPT_DIR/rebuild_search_projection_segments.sh" "${args[@]}"
 }
@@ -190,6 +194,7 @@ POSTGRES_MEM_LIMIT_PCT="$DEFAULT_POSTGRES_MEM_LIMIT_PCT"
 INDEXER_MEM_LIMIT_PCT="$DEFAULT_INDEXER_MEM_LIMIT_PCT"
 STATE_FILE_ARG=""
 OPENSEARCH_URL=""
+INDEX_NAME=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -234,6 +239,10 @@ while [ "$#" -gt 0 ]; do
       OPENSEARCH_URL="${2:-}"
       shift 2
       ;;
+    --index-name)
+      INDEX_NAME="${2:-}"
+      shift 2
+      ;;
     *)
       echo "Unknown option: $1" >&2
       usage
@@ -271,6 +280,7 @@ echo "Max wait seconds         : ${MAX_WAIT_SECONDS}"
 echo "OpenSearch memory limit  : ${OPENSEARCH_MEM_LIMIT_PCT}%"
 echo "PostgreSQL memory limit  : ${POSTGRES_MEM_LIMIT_PCT}%"
 echo "Indexer memory limit     : ${INDEXER_MEM_LIMIT_PCT}%"
+echo "OpenSearch index         : ${INDEX_NAME:-documents}"
 
 segments_run=0
 while true; do
