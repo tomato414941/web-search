@@ -13,18 +13,32 @@ targets over vague quality claims. The baseline expectation is that obvious
 navigational queries work and official or primary sources are not systematically
 buried.
 
-## Evaluation Data Source
+## Evaluation Data Sources
 
-The canonical evaluation set lives in:
+The evaluation runner merges two config sources:
 
+- [config/canonical_sources.json](../config/canonical_sources.json)
 - [config/search_eval_cases.json](../config/search_eval_cases.json)
 
-That file is the source of truth for:
+`canonical_sources.json` is the primary source for official-source and reference
+queries. It keeps source definitions, canonical domains, generated relevance
+judgments, and query-specific matching rules together. This is where obvious
+navigational and documentation-style queries should usually live.
+
+`search_eval_cases.json` is the extension set for broader search behavior that
+does not belong to one canonical source, such as comparison, overview, and
+conceptual queries. It may also define local keyword rules for those added
+cases.
+
+Together, the merged evaluation set defines:
 
 - query text
 - query type
 - target domain/source
 - query-specific matching rules
+
+When the same query appears in both sources, the canonical-source case wins and
+the later duplicate is ignored.
 
 In general, a matched case means the target canonical source appears in the top 3
 results and no explicitly bad result appears in the top 3. Use

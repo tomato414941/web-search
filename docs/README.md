@@ -31,4 +31,6 @@ design notes. Use this file as the entry point.
 
 - Runtime behavior wins over older design notes.
 - Config-driven search behavior lives in [`config/canonical_sources.json`](../config/canonical_sources.json) and [`config/search_eval_cases.json`](../config/search_eval_cases.json).
+  Canonical sources cover official/reference cases; search eval cases extend the
+  set with broader comparison and overview queries.
 - If a document describes future work, it should say so explicitly near the top.
