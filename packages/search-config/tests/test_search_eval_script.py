@@ -456,6 +456,7 @@ def test_main_writes_json_report(monkeypatch, tmp_path):
     assert exit_code == 0
     assert report["counts"]["pass"] == 1
     assert report["cases"][0]["metrics"]["hit_at_1"] == 1.0
+    assert report["cases"][0]["metrics"]["bad_at_3"] == 0.0
     assert report["cases"][0]["top_hits"][0]["relevance"] == 3
 
 

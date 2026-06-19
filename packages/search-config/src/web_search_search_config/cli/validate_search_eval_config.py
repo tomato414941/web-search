@@ -66,8 +66,12 @@ def _validate_query_cases(
                         errors.append(f"{prefix} must be an object")
                         continue
                     relevance = judgment.get("relevance")
-                    if not isinstance(relevance, int) or relevance < 1 or relevance > 3:
-                        errors.append(f"{prefix}.relevance must be an integer in 1..3")
+                    if (
+                        not isinstance(relevance, int)
+                        or relevance < -1
+                        or relevance > 3
+                    ):
+                        errors.append(f"{prefix}.relevance must be an integer in -1..3")
                     for field in ("url", "domain", "path_prefix", "notes"):
                         value = judgment.get(field)
                         if value is not None and (

@@ -5,7 +5,8 @@
 This document defines a small, explicit search evaluation set for PaleBlueSearch.
 
 The goal is not to prove that search quality is "good" in the abstract.
-The goal is to make quality regressions and obvious ranking failures visible.
+The goal is to make API-level quality regressions and obvious ranking failures
+visible.
 
 The set should stay small enough to inspect, and each case should prefer explicit
 expected outcomes over vague quality claims.
@@ -26,8 +27,17 @@ That file is the source of truth for:
 - query-specific pass/fail rules
 
 In general, a passing result means the expected canonical source appears in the
-top 3 results. Query-type-specific rules should be encoded in the evaluation
-case itself, not duplicated here.
+top 3 results and no explicitly bad result appears in the top 3. Use
+`judgments` with `relevance` values to keep this small and inspectable:
+
+- `3`: ideal result
+- `2`: useful result
+- `1`: weakly relevant result
+- `0`: unjudged or neutral result
+- `-1`: explicitly bad result
+
+The main E2E indicators are `hit@1`, `hit@3`, and `bad@3`. Query-type-specific
+rules should be encoded in the evaluation case itself, not duplicated here.
 
 Query-class semantics live in [search-ranking-policy.md](./search-ranking-policy.md).
 This document is intentionally not the primary data source anymore.

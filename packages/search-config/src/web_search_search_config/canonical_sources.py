@@ -189,8 +189,8 @@ def _validate_case(item: dict, *, source_key: str, case_index: int) -> None:
         if not isinstance(judgment, dict):
             raise ValueError(f"{judgment_prefix} must be an object")
         relevance = judgment.get("relevance")
-        if not isinstance(relevance, int) or relevance < 1 or relevance > 3:
-            raise ValueError(f"{judgment_prefix}.relevance must be an integer in 1..3")
+        if not isinstance(relevance, int) or relevance < -1 or relevance > 3:
+            raise ValueError(f"{judgment_prefix}.relevance must be an integer in -1..3")
         if judgment.get("url") is not None:
             _require_non_empty_string(judgment.get("url"), f"{judgment_prefix}.url")
         if judgment.get("domain") is not None:

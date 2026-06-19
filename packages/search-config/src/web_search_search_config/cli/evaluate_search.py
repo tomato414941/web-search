@@ -79,6 +79,7 @@ def _print_case(
         "  metrics="
         f"hit@1={metrics['hit_at_1']:.2f} "
         f"hit@3={metrics['hit_at_3']:.2f} "
+        f"bad@3={metrics['bad_at_3']:.2f} "
         f"mrr={metrics['mrr']:.3f} "
         f"ndcg@3={metrics['ndcg_at_3']:.3f}"
     )
@@ -189,7 +190,8 @@ def main() -> int:
             continue
         print(
             "  {group}: hit@1={hit_at_1:.3f} hit@3={hit_at_3:.3f} "
-            "mrr={mrr:.3f} ndcg@3={ndcg_at_3:.3f} ndcg@10={ndcg_at_10:.3f}".format(
+            "bad@3={bad_at_3:.3f} mrr={mrr:.3f} "
+            "ndcg@3={ndcg_at_3:.3f} ndcg@10={ndcg_at_10:.3f}".format(
                 group=group,
                 **metrics,
             )

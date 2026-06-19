@@ -194,26 +194,37 @@ def hit_relevance(
     keyword_rules: dict[str, dict],
     known_domains: list[str],
 ) -> int:
+    negative_judgments = [
+        judgment.relevance
+        for judgment in case.judgments
+        if judgment.relevance < 0 and judgment_matches_hit(judgment, hit)
+    ]
+    if negative_judgments:
+        return min(negative_judgments)
+
+    rule = _explicit_rule_payload(case, keyword_rules)
+    if rule:
+        if hit_matches_rule(
+            hit,
+            required_terms=tuple(rule.get("required_terms") or ()),
+            any_of_terms=tuple(rule.get("any_of_terms") or ()),
+            required_title_terms=tuple(rule.get("required_title_terms") or ()),
+            required_domains=tuple(rule.get("required_domains") or ()),
+            excluded_domains=tuple(rule.get("excluded_domains") or ()),
+            required_paths=tuple(rule.get("required_paths") or ()),
+            required_path_terms=tuple(rule.get("required_path_terms") or ()),
+        ):
+            return 3
+        return 0
+
     matched_judgments = [
         judgment.relevance
         for judgment in case.judgments
+        if judgment.relevance > 0
         if judgment_matches_hit(judgment, hit)
     ]
     if matched_judgments:
         return max(matched_judgments)
-
-    rule = _explicit_rule_payload(case, keyword_rules)
-    if rule and hit_matches_rule(
-        hit,
-        required_terms=tuple(rule.get("required_terms") or ()),
-        any_of_terms=tuple(rule.get("any_of_terms") or ()),
-        required_title_terms=tuple(rule.get("required_title_terms") or ()),
-        required_domains=tuple(rule.get("required_domains") or ()),
-        excluded_domains=tuple(rule.get("excluded_domains") or ()),
-        required_paths=tuple(rule.get("required_paths") or ()),
-        required_path_terms=tuple(rule.get("required_path_terms") or ()),
-    ):
-        return 3
 
     expected_domain = extract_domain(case.expected, known_domains)
     if not expected_domain:
@@ -297,6 +308,7 @@ def compute_case_metrics(
     metrics: dict[str, float | int | None] = {
         "hit_at_1": 1.0 if any(relevance > 0 for relevance in relevances[:1]) else 0.0,
         "hit_at_3": 1.0 if any(relevance > 0 for relevance in relevances[:3]) else 0.0,
+        "bad_at_3": 1.0 if any(relevance < 0 for relevance in relevances[:3]) else 0.0,
         "mrr": 0.0 if first_relevant_rank is None else 1.0 / first_relevant_rank,
         "ndcg_at_3": ndcg_at_3,
         "ndcg_at_10": ndcg_at_10,
@@ -322,6 +334,18 @@ def classify_case(
 
     if total == 0:
         return "fail", "0 hits"
+
+    top_relevances = [
+        hit_relevance(
+            case,
+            hit,
+            keyword_rules=keyword_rules,
+            known_domains=known_domains,
+        )
+        for hit in hits[:3]
+    ]
+    if any(relevance < 0 for relevance in top_relevances):
+        return "fail", "explicitly bad result in top 3"
 
     if keyword_rule:
         max_match_rank = int(keyword_rule.get("max_match_rank") or 3)
@@ -409,7 +433,14 @@ def aggregate_metrics(cases: list[CaseEvaluation]) -> dict[str, dict[str, float]
     def _group_rows(rows: list[CaseEvaluation]) -> dict[str, float]:
         if not rows:
             return {}
-        metric_names = ("hit_at_1", "hit_at_3", "mrr", "ndcg_at_3", "ndcg_at_10")
+        metric_names = (
+            "hit_at_1",
+            "hit_at_3",
+            "bad_at_3",
+            "mrr",
+            "ndcg_at_3",
+            "ndcg_at_10",
+        )
         return {
             metric_name: _avg(
                 [

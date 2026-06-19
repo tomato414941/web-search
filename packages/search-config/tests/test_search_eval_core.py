@@ -101,7 +101,7 @@ def test_validate_query_cases_rejects_invalid_judgments():
         errors,
     )
 
-    assert "query_cases[1].judgments[1].relevance must be an integer in 1..3" in errors
+    assert "query_cases[1].judgments[1].relevance must be an integer in -1..3" in errors
     assert (
         "query_cases[1].judgments[1] must define url, domain, path_prefix, or title_terms"
         in errors
@@ -151,6 +151,80 @@ def test_pattern_judgments_keep_ndcg_bounded():
     )
 
     assert float(metrics["ndcg_at_3"]) == 1.0
+
+
+def test_negative_judgment_sets_bad_at_3_and_fails_case():
+    case = CanonicalEvalCase(
+        query="Example docs",
+        query_type="reference",
+        expected="docs.example.com",
+        notes="Canonical docs should rank first",
+        judgments=(
+            EvalJudgment(relevance=3, domain="docs.example.com"),
+            EvalJudgment(relevance=-1, domain="spam.example.com"),
+        ),
+    )
+    payload = {
+        "total": 3,
+        "hits": [
+            {"url": "https://docs.example.com/", "title": "Docs"},
+            {"url": "https://spam.example.com/", "title": "Spam"},
+            {"url": "https://blog.example.com/", "title": "Blog"},
+        ],
+    }
+
+    metrics, relevances = compute_case_metrics(
+        case,
+        payload,
+        keyword_rules={},
+        known_domains=["docs.example.com", "spam.example.com"],
+    )
+    status, reason = classify_case(
+        case,
+        payload,
+        keyword_rules={},
+        known_domains=["docs.example.com", "spam.example.com"],
+    )
+
+    assert relevances == [3, -1, 0]
+    assert metrics["hit_at_1"] == 1.0
+    assert metrics["hit_at_3"] == 1.0
+    assert metrics["bad_at_3"] == 1.0
+    assert status == "fail"
+    assert reason == "explicitly bad result in top 3"
+
+
+def test_explicit_rule_controls_relevance_when_derived_judgments_are_broader():
+    case = CanonicalEvalCase(
+        query="Example API docs",
+        query_type="reference",
+        expected="docs.example.com",
+        notes="Specific API docs should rank",
+        required_domains=("docs.example.com",),
+        required_path_terms=("/api",),
+        pass_reason="top 3 include the API docs",
+        fail_reason="top 3 do not include the API docs",
+        judgments=(EvalJudgment(relevance=3, domain="docs.example.com"),),
+    )
+    payload = {
+        "total": 2,
+        "hits": [
+            {"url": "https://docs.example.com/tutorial", "title": "Tutorial"},
+            {"url": "https://docs.example.com/api/reference", "title": "API"},
+        ],
+    }
+
+    metrics, relevances = compute_case_metrics(
+        case,
+        payload,
+        keyword_rules={},
+        known_domains=["docs.example.com"],
+    )
+
+    assert relevances == [0, 3]
+    assert metrics["hit_at_1"] == 0.0
+    assert metrics["hit_at_3"] == 1.0
+    assert metrics["mrr"] == 0.5
 
 
 def test_classify_case_supports_case_level_explicit_rules_without_keyword_map():
