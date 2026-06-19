@@ -15,12 +15,12 @@ from web_search_search_config.canonical_sources import CanonicalEvalCase, EvalJu
 class CaseEvaluation:
     query: str
     query_type: str
-    status: str
-    reason: str
+    outcome: str
+    observation: str
     metrics: dict[str, float | int | None]
     total: int
     mode: str
-    expected: str
+    target: str
     notes: str
     top_hits: list[dict[str, object]]
 
@@ -31,6 +31,7 @@ class EvaluationReport:
     base_url: str
     limit: int
     counts: dict[str, int]
+    match_rate: float
     aggregate_metrics: dict[str, dict[str, float]]
     cases: list[CaseEvaluation]
     errors: int
@@ -41,6 +42,7 @@ class EvaluationReport:
             "base_url": self.base_url,
             "limit": self.limit,
             "counts": self.counts,
+            "match_rate": self.match_rate,
             "aggregate_metrics": self.aggregate_metrics,
             "cases": [asdict(case) for case in self.cases],
             "errors": self.errors,
@@ -471,11 +473,15 @@ def build_report(
     cases: list[CaseEvaluation],
     errors: int,
 ) -> EvaluationReport:
+    evaluated_total = counts.get("matched", 0) + counts.get("missed", 0)
     return EvaluationReport(
         generated_at=datetime.now(timezone.utc).isoformat(),
         base_url=base_url,
         limit=limit,
         counts=counts,
+        match_rate=counts.get("matched", 0) / evaluated_total
+        if evaluated_total
+        else 0.0,
         aggregate_metrics=aggregate_metrics(cases),
         cases=cases,
         errors=errors,

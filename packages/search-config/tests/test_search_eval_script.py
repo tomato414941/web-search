@@ -454,13 +454,16 @@ def test_main_writes_json_report(monkeypatch, tmp_path):
     report = json.loads(output_path.read_text(encoding="utf-8"))
 
     assert exit_code == 0
-    assert report["counts"]["pass"] == 1
+    assert report["counts"]["matched"] == 1
+    assert report["match_rate"] == 1.0
+    assert report["cases"][0]["outcome"] == "matched"
+    assert report["cases"][0]["target"] == "docs.example.com"
     assert report["cases"][0]["metrics"]["hit_at_1"] == 1.0
     assert report["cases"][0]["metrics"]["bad_at_3"] == 0.0
     assert report["cases"][0]["top_hits"][0]["relevance"] == 3
 
 
-def test_main_reports_case_failures_without_nonzero_exit(monkeypatch, tmp_path):
+def test_main_reports_case_misses_without_nonzero_exit(monkeypatch, tmp_path):
     case = CanonicalEvalCase(
         query="Example docs",
         query_type="reference",
@@ -491,7 +494,7 @@ def test_main_reports_case_failures_without_nonzero_exit(monkeypatch, tmp_path):
     assert module.main() == 0
 
 
-def test_main_includes_failures_in_full_report(monkeypatch, tmp_path):
+def test_main_includes_misses_in_full_report(monkeypatch, tmp_path):
     case = CanonicalEvalCase(
         query="Example comparison",
         query_type="comparison",
@@ -516,7 +519,15 @@ def test_main_includes_failures_in_full_report(monkeypatch, tmp_path):
             "https://example.test",
             "--config",
             str(tmp_path / "search_eval_cases.json"),
+            "--json-output",
+            str(tmp_path / "report.json"),
         ],
     )
 
     assert module.main() == 0
+    report = json.loads((tmp_path / "report.json").read_text(encoding="utf-8"))
+    assert report["counts"]["missed"] == 1
+    assert report["match_rate"] == 0.0
+    assert report["cases"][0]["outcome"] == "missed"
+    assert report["cases"][0]["observation"] == "0 hits"
+    assert report["cases"][0]["target"] == "a useful comparison"

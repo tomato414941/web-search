@@ -58,11 +58,17 @@ def _classify_case(
     )
 
 
+def _outcome_from_status(status: str) -> str:
+    if status == "pass":
+        return "matched"
+    return "missed"
+
+
 def _print_case(
     case: CanonicalEvalCase,
     payload: dict,
-    status: str,
-    reason: str,
+    outcome: str,
+    observation: str,
     *,
     metrics: dict[str, float | int | None],
     relevances: list[int],
@@ -70,11 +76,11 @@ def _print_case(
     hits = payload.get("hits") or []
     mode = payload.get("mode", "?")
     total = payload.get("total", 0)
-    print(f"[{status.upper()}] {case.query}")
+    print(f"[{outcome.upper()}] {case.query}")
     print(f"  type={case.query_type} total={total} mode={mode}")
-    print(f"  expected={case.expected}")
+    print(f"  target={case.expected}")
     print(f"  notes={case.notes}")
-    print(f"  reason={reason}")
+    print(f"  observation={observation}")
     print(
         "  metrics="
         f"hit@1={metrics['hit_at_1']:.2f} "
@@ -114,31 +120,32 @@ def main() -> int:
     config_path = Path(args.config)
     cases, keyword_rules, known_domains = _load_config(config_path)
 
-    counts = {"pass": 0, "fail": 0}
+    counts = {"matched": 0, "missed": 0}
     errors = 0
     evaluated_cases: list[CaseEvaluation] = []
 
     for case in cases:
         try:
             payload = _fetch_results(args.base_url, case.query, args.limit)
-            status, reason = _classify_case(
+            status, observation = _classify_case(
                 case,
                 payload,
                 keyword_rules=keyword_rules,
                 known_domains=known_domains,
             )
+            outcome = _outcome_from_status(status)
             metrics, relevances = compute_case_metrics(
                 case,
                 payload,
                 keyword_rules=keyword_rules,
                 known_domains=known_domains,
             )
-            counts[status] += 1
+            counts[outcome] += 1
             _print_case(
                 case,
                 payload,
-                status,
-                reason,
+                outcome,
+                observation,
                 metrics=metrics,
                 relevances=relevances,
             )
@@ -146,12 +153,12 @@ def main() -> int:
                 CaseEvaluation(
                     query=case.query,
                     query_type=case.query_type,
-                    status=status,
-                    reason=reason,
+                    outcome=outcome,
+                    observation=observation,
                     metrics=metrics,
                     total=int(payload.get("total") or 0),
                     mode=str(payload.get("mode", "?")),
-                    expected=case.expected,
+                    target=case.expected,
                     notes=case.notes,
                     top_hits=[
                         {
@@ -167,13 +174,17 @@ def main() -> int:
         except Exception as exc:
             errors += 1
             print(f"[ERROR] {case.query}")
-            print(f"  reason={exc}")
+            print(f"  observation={exc}")
         print()
 
+    evaluated_total = counts["matched"] + counts["missed"]
+    match_rate = counts["matched"] / evaluated_total if evaluated_total else 0.0
     print("Summary")
     print(
-        "  pass={pass} fail={fail} errors={errors}".format(
+        "  matched={matched} missed={missed} match_rate={match_rate:.3f} "
+        "errors={errors}".format(
             errors=errors,
+            match_rate=match_rate,
             **counts,
         )
     )
