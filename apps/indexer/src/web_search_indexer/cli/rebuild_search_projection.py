@@ -49,7 +49,11 @@ def rebuild_search_projection(
         logger.error("DATABASE_URL not set")
         sys.exit(1)
 
-    total = DocumentRepository.count_documents()
+    total = (
+        max_documents
+        if max_documents is not None
+        else DocumentRepository.count_documents()
+    )
     logger.info("Total documents to project: %d", total)
 
     if dry_run:

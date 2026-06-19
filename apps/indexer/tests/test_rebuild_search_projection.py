@@ -122,6 +122,40 @@ def test_rebuild_search_projection_can_run_segment(monkeypatch):
     ]
 
 
+def test_rebuild_search_projection_skips_count_for_bounded_segment(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://example")
+
+    class FakeClient:
+        pass
+
+    monkeypatch.setattr(
+        rebuild_search_projection, "get_client", lambda url: FakeClient()
+    )
+    monkeypatch.setattr(
+        rebuild_search_projection, "ensure_index", lambda client, **kwargs: None
+    )
+    monkeypatch.setattr(
+        rebuild_search_projection.DocumentRepository,
+        "count_documents",
+        staticmethod(
+            lambda: (_ for _ in ()).throw(
+                AssertionError("bounded rebuild should not count all documents")
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        rebuild_search_projection.DocumentRepository,
+        "fetch_documents_for_opensearch_after_url",
+        staticmethod(lambda *, limit, last_url: []),
+    )
+
+    rebuild_search_projection.rebuild_search_projection(
+        batch_size=100,
+        opensearch_url="http://opensearch",
+        max_documents=10,
+    )
+
+
 def test_rebuild_search_projection_accepts_index_name(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://example")
 
