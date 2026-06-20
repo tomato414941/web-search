@@ -82,6 +82,76 @@
       ],
       "pass_reason": "top 3 include an explicit Redis and Memcached comparison",
       "fail_reason": "top 3 do not include an explicit Redis and Memcached comparison"
+    },
+    "what is vector search": {
+      "required_terms": [
+        "vector",
+        "search"
+      ],
+      "required_title_terms": [
+        "vector"
+      ],
+      "pass_reason": "top 3 include an explicitly vector-search-focused result title",
+      "fail_reason": "top 3 do not include a clearly vector-search-focused result title"
+    },
+    "what is rate limiting": {
+      "required_terms": [
+        "rate",
+        "limiting"
+      ],
+      "required_title_terms": [
+        "rate"
+      ],
+      "pass_reason": "top 3 include an explicitly rate-limiting-focused result title",
+      "fail_reason": "top 3 do not include a clearly rate-limiting-focused result title"
+    },
+    "postgresql vs sqlite": {
+      "required_terms": [
+        "postgresql",
+        "sqlite"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "required_title_terms": [
+        "postgresql",
+        "sqlite"
+      ],
+      "pass_reason": "top 3 include an explicit PostgreSQL and SQLite comparison",
+      "fail_reason": "top 3 do not include an explicit PostgreSQL and SQLite comparison"
+    },
+    "docker vs kubernetes": {
+      "required_terms": [
+        "docker",
+        "kubernetes"
+      ],
+      "any_of_terms": [
+        " vs ",
+        "versus",
+        "compare",
+        "comparison"
+      ],
+      "required_title_terms": [
+        "docker",
+        "kubernetes"
+      ],
+      "pass_reason": "top 3 include an explicit Docker and Kubernetes comparison",
+      "fail_reason": "top 3 do not include an explicit Docker and Kubernetes comparison"
+    },
+    "python no module named error": {
+      "required_terms": [
+        "python"
+      ],
+      "any_of_terms": [
+        "no module named",
+        "modulenotfounderror",
+        "importerror"
+      ],
+      "pass_reason": "top 3 include a Python no-module-named troubleshooting result",
+      "fail_reason": "top 3 do not include a Python no-module-named troubleshooting result"
     }
   },
   "query_cases": [
@@ -114,6 +184,36 @@
       "query_type": "comparison",
       "expected": "a page that explicitly compares Redis and Memcached",
       "notes": "Top 3 should include a result with both names and a comparison cue"
+    },
+    {
+      "query": "What is vector search",
+      "query_type": "overview/reference",
+      "expected": "a vector-search-focused explanatory source",
+      "notes": "Top 3 should explicitly explain vector search"
+    },
+    {
+      "query": "What is rate limiting",
+      "query_type": "overview/reference",
+      "expected": "a rate-limiting-focused explanatory source",
+      "notes": "Top 3 should explicitly explain rate limiting"
+    },
+    {
+      "query": "PostgreSQL vs SQLite",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares PostgreSQL and SQLite",
+      "notes": "Top 3 should include a result with both names and a comparison cue"
+    },
+    {
+      "query": "Docker vs Kubernetes",
+      "query_type": "comparison",
+      "expected": "a page that explicitly compares Docker and Kubernetes",
+      "notes": "Top 3 should include a result with both names and a comparison cue"
+    },
+    {
+      "query": "Python no module named error",
+      "query_type": "troubleshooting",
+      "expected": "a Python no-module-named troubleshooting result",
+      "notes": "Top 3 should include a result explaining the Python import error"
     }
   ]
 }
