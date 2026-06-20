@@ -7,10 +7,12 @@ UV := $(if $(wildcard $(VENV_BIN)/uv),$(VENV_BIN)/uv,uv)
 WATCH_REF ?= HEAD
 PRD_REF ?= main
 SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
+SEARCH_EVAL_ARGS ?=
+SEARCH_EVAL_REPORT ?=
 
 .PHONY: ci ci-lint ci-legacy-paths ci-frontend ci-packages ci-crawler ci-indexer ci-mcp
 .PHONY: watch-ci verify-prd
-.PHONY: release-check-prd evaluate-search
+.PHONY: release-check-prd evaluate-search summarize-search-eval
 .PHONY: validate-search-eval
 .PHONY: collect-query-candidates
 .PHONY: enqueue-url-prd
@@ -93,7 +95,10 @@ release-check-prd:
 	$(MAKE) verify-prd PRD_REF=$(PRD_REF)
 
 evaluate-search:
-	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-evaluate-search --base-url "$(SEARCH_EVAL_BASE_URL)"
+	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-evaluate-search --base-url "$(SEARCH_EVAL_BASE_URL)" $(SEARCH_EVAL_ARGS)
+
+summarize-search-eval:
+	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-summarize-search-eval $(if $(SEARCH_EVAL_REPORT),--report "$(SEARCH_EVAL_REPORT)")
 
 validate-search-eval:
 	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-validate-search-eval-config

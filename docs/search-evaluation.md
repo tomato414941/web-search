@@ -77,6 +77,20 @@ Validate the config before changing it:
 make validate-search-eval
 ```
 
+Summarize the evaluation-set distribution without calling the search API:
+
+```bash
+make summarize-search-eval
+```
+
+To summarize outcomes by query type, first write a JSON report and then pass it
+to the summarizer:
+
+```bash
+make evaluate-search SEARCH_EVAL_ARGS="--json-output /tmp/search-eval-report.json"
+make summarize-search-eval SEARCH_EVAL_REPORT=/tmp/search-eval-report.json
+```
+
 ## Miss Triage
 
 When an evaluation case is missed, first decide whether the likely cause is
