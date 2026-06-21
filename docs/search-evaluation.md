@@ -91,6 +91,12 @@ make evaluate-search SEARCH_EVAL_ARGS="--json-output /tmp/search-eval-report.jso
 make summarize-search-eval SEARCH_EVAL_REPORT=/tmp/search-eval-report.json
 ```
 
+Print missed cases with top hits for manual coverage/ranking/eval-rule triage:
+
+```bash
+make summarize-search-eval SEARCH_EVAL_REPORT=/tmp/search-eval-report.json SEARCH_EVAL_SUMMARY_ARGS="--show-misses"
+```
+
 ## Miss Triage
 
 When an evaluation case is missed, first decide whether the likely cause is

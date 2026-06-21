@@ -93,6 +93,48 @@ def _print_report_summary(report: dict[str, Any]) -> None:
     print()
 
 
+def _print_missed_cases(report: dict[str, Any]) -> None:
+    cases = report.get("cases")
+    if not isinstance(cases, list):
+        raise ValueError("report.cases must be a list")
+
+    missed_cases = [
+        case
+        for case in cases
+        if isinstance(case, dict) and case.get("outcome") == "missed"
+    ]
+    if not missed_cases:
+        print("Missed Cases")
+        print("  none")
+        print()
+        return
+
+    print("Missed Cases")
+    for index, case in enumerate(missed_cases, start=1):
+        print(f"{index}. {case.get('query', '')}")
+        print(f"   type={case.get('query_type', '')}")
+        print(f"   target={case.get('target', '')}")
+        print(f"   observation={case.get('observation', '')}")
+        print("   triage=coverage | ranking | eval-rule")
+        top_hits = case.get("top_hits") or []
+        if not isinstance(top_hits, list) or not top_hits:
+            print("   top_hits=none")
+            continue
+        print("   top_hits:")
+        for hit in top_hits:
+            if not isinstance(hit, dict):
+                continue
+            print(
+                "     {rank}. [{relevance}] {title} <{url}>".format(
+                    rank=hit.get("rank", "?"),
+                    relevance=hit.get("relevance", "?"),
+                    title=hit.get("title") or "",
+                    url=hit.get("url") or "",
+                )
+            )
+    print()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Summarize search evaluation set distribution and optional outcomes."
@@ -106,11 +148,19 @@ def main() -> int:
         "--report",
         help="Optional JSON report from web-search-evaluate-search --json-output",
     )
+    parser.add_argument(
+        "--show-misses",
+        action="store_true",
+        help="Print missed cases with top hits for manual triage.",
+    )
     args = parser.parse_args()
 
     _print_config_summary(Path(args.config))
     if args.report:
-        _print_report_summary(_load_report(Path(args.report)))
+        report = _load_report(Path(args.report))
+        _print_report_summary(report)
+        if args.show_misses:
+            _print_missed_cases(report)
     return 0
 
 

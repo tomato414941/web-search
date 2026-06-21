@@ -9,6 +9,7 @@ PRD_REF ?= main
 SEARCH_EVAL_BASE_URL ?= https://palebluesearch.com
 SEARCH_EVAL_ARGS ?=
 SEARCH_EVAL_REPORT ?=
+SEARCH_EVAL_SUMMARY_ARGS ?=
 
 .PHONY: ci ci-lint ci-legacy-paths ci-frontend ci-packages ci-crawler ci-indexer ci-mcp
 .PHONY: watch-ci verify-prd
@@ -98,7 +99,7 @@ evaluate-search:
 	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-evaluate-search --base-url "$(SEARCH_EVAL_BASE_URL)" $(SEARCH_EVAL_ARGS)
 
 summarize-search-eval:
-	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-summarize-search-eval $(if $(SEARCH_EVAL_REPORT),--report "$(SEARCH_EVAL_REPORT)")
+	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-summarize-search-eval $(if $(SEARCH_EVAL_REPORT),--report "$(SEARCH_EVAL_REPORT)") $(SEARCH_EVAL_SUMMARY_ARGS)
 
 validate-search-eval:
 	cd $(ROOT_DIR) && uv run --package web-search-search-config web-search-validate-search-eval-config
