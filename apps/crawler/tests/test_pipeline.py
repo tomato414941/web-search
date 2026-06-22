@@ -292,8 +292,9 @@ class TestProcessFetchResult:
         assert mock_db.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_html_outlink_enqueues_same_domain_hub_url(self):
-        ctx = _make_ctx(url="https://example.com/")
+    @pytest.mark.asyncio
+    async def test_html_outlink_enqueues_same_domain_clean_url(self):
+        ctx = _make_ctx(url="https://docs.pytest.org/")
         with patch(
             "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",
             new_callable=AsyncMock,
@@ -304,17 +305,57 @@ class TestProcessFetchResult:
 
             await admit_discovered_urls(
                 ctx,
-                ["https://example.com/news"],
+                ["https://docs.pytest.org/how-to/mark.html"],
                 discovery_kind="html_outlink",
             )
 
         assert mock_db.await_args_list[0].args == (
             ctx.url_ledger.record_discovered_urls,
-            ["https://example.com/news"],
+            ["https://docs.pytest.org/how-to/mark.html"],
         )
         assert mock_db.await_args_list[1].args == (
             ctx.url_store.enqueue_urls_for_crawl,
-            ["https://example.com/news"],
+            ["https://docs.pytest.org/how-to/mark.html"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_html_outlink_enqueues_one_random_candidate(self):
+        ctx = _make_ctx(url="https://example.com/")
+        discovered = [
+            "https://example.com/a",
+            "https://example.com/b",
+            "https://example.org/c",
+        ]
+        with (
+            patch(
+                "web_search_crawler.services.crawl_queue_admission.run_in_db_executor",
+                new_callable=AsyncMock,
+            ) as mock_db,
+            patch(
+                "web_search_crawler.services.crawl_queue_admission.random.choice",
+                return_value="https://example.com/b",
+            ) as mock_choice,
+        ):
+            from web_search_crawler.services.crawl_queue_admission import (
+                admit_discovered_urls,
+            )
+
+            await admit_discovered_urls(
+                ctx,
+                discovered,
+                discovery_kind="html_outlink",
+            )
+
+        assert mock_db.await_args_list[0].args == (
+            ctx.url_ledger.record_discovered_urls,
+            discovered,
+        )
+        mock_choice.assert_called_once_with(
+            ["https://example.com/a", "https://example.com/b"]
+        )
+        assert mock_db.await_args_list[1].args == (
+            ctx.url_store.enqueue_urls_for_crawl,
+            ["https://example.com/b"],
         )
 
     @pytest.mark.asyncio

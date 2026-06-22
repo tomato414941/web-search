@@ -1,6 +1,7 @@
 """Discovered URL filtering and crawl queue admission."""
 
 import logging
+import random
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -13,47 +14,6 @@ from web_search_core.utils import MAX_URL_LENGTH
 logger = logging.getLogger(__name__)
 
 DiscoveryKind = Literal["html_outlink", "syndication_feed"]
-
-_SCHEDULABLE_HUB_SEGMENTS = frozenset(
-    {
-        "announcements",
-        "api",
-        "blog",
-        "blogs",
-        "changelog",
-        "docs",
-        "documentation",
-        "news",
-        "reference",
-        "release",
-        "releases",
-        "release-notes",
-        "whatsnew",
-    }
-)
-_UNSCHEDULABLE_SEGMENTS = frozenset(
-    {
-        "account",
-        "admin",
-        "cart",
-        "edit",
-        "filter",
-        "login",
-        "logout",
-        "my",
-        "search",
-        "signin",
-        "signup",
-        "sort",
-        "tag",
-        "tags",
-    }
-)
-
-
-def _path_segments(url: str) -> tuple[str, ...]:
-    parsed = urlparse(url)
-    return tuple(segment.lower() for segment in parsed.path.split("/") if segment)
 
 
 def should_enqueue_discovered_url(
@@ -70,15 +30,20 @@ def should_enqueue_discovered_url(
     if parsed.query or parsed.fragment or "*" in parsed.path:
         return False
 
-    if get_domain(url) != get_domain(source_url):
-        return False
+    return get_domain(url) == get_domain(source_url)
 
-    segments = _path_segments(url)
-    if not segments or len(segments) > 2:
-        return False
-    if any(segment in _UNSCHEDULABLE_SEGMENTS for segment in segments):
-        return False
-    return any(segment in _SCHEDULABLE_HUB_SEGMENTS for segment in segments)
+
+def select_urls_to_enqueue(
+    urls: list[str],
+    *,
+    discovery_kind: DiscoveryKind,
+) -> list[str]:
+    """Limit HTML outlink expansion while preserving feed discovery."""
+    if discovery_kind == "syndication_feed":
+        return urls
+    if not urls:
+        return []
+    return [random.choice(urls)]
 
 
 async def admit_discovered_urls(
@@ -113,6 +78,10 @@ async def admit_discovered_urls(
                 discovery_kind=discovery_kind,
             )
         ]
+        queueable_urls = select_urls_to_enqueue(
+            queueable_urls,
+            discovery_kind=discovery_kind,
+        )
         if queueable_urls:
             await run_in_db_executor(
                 ctx.url_store.enqueue_urls_for_crawl,
