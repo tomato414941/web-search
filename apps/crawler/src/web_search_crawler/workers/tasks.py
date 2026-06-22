@@ -8,7 +8,6 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 import aiohttp
 from cachetools import TTLCache
@@ -53,7 +52,6 @@ class WorkerRuntimeState:
     )
     robots_blocked_domains: set[str] = field(default_factory=set)
     blocked_domains: frozenset[str] = field(default_factory=frozenset)
-    url_filter: Any = None
 
 
 async def process_url(
@@ -82,7 +80,6 @@ async def process_url(
         planner=planner,
         url=url,
         blocked_domains=state.blocked_domains,
-        url_filter=state.url_filter,
         domain_cache=state.domain_cache,
     )
 
@@ -174,7 +171,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
     url_ledger = build_url_ledger_repository()
     link_graph = build_link_graph_repository()
     planner = build_crawl_task_planner(url_store)
-    static_denylist, url_filter = load_static_crawl_config(planner)
+    static_denylist = load_static_crawl_config(planner)
     logger.info("Static crawler denylist: %d domains", len(static_denylist))
 
     # Layer 3: Purge existing pending URLs from blocked domains
@@ -185,9 +182,7 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
         if purged:
             logger.info("Purged %d pending URLs from denied domains", purged)
 
-    runtime_state = WorkerRuntimeState(
-        blocked_domains=static_denylist, url_filter=url_filter
-    )
+    runtime_state = WorkerRuntimeState(blocked_domains=static_denylist)
     robots_block_refreshed_at = 0.0  # Force immediate first load
     in_flight_tasks: set[asyncio.Task[None]] = set()
 

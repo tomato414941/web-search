@@ -61,7 +61,6 @@ async def admit_discovered_urls(
         for u in discovered
         if len(u) <= MAX_URL_LENGTH
         and not is_domain_denied(get_domain(u), ctx.blocked_domains)
-        and not (ctx.url_filter and ctx.url_filter.is_filtered(u))
     ]
 
     if valid_urls:

@@ -2,7 +2,6 @@
 
 from web_search_crawler.core.config import settings
 from web_search_crawler.core.crawl_denylist import load_crawl_denylist
-from web_search_crawler.core.url_filters import UrlFilter, load_url_filters
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_crawler.crawl_task_planner import (
     CrawlTaskPlanner,
@@ -39,8 +38,7 @@ def build_crawl_task_planner(url_store: CrawlerRuntimeStore) -> CrawlTaskPlanner
 
 def load_static_crawl_config(
     planner: CrawlTaskPlanner,
-) -> tuple[frozenset[str], UrlFilter]:
+) -> frozenset[str]:
     blocked_domains = load_crawl_denylist(settings.CRAWL_DENYLIST_PATH)
     planner.set_denied_domains(blocked_domains)
-    url_filter = load_url_filters(settings.URL_FILTERS_PATH)
-    return blocked_domains, url_filter
+    return blocked_domains

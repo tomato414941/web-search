@@ -5,7 +5,6 @@ from typing import Literal
 
 import aiohttp
 
-from web_search_crawler.core.url_filters import UrlFilter
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_crawler.crawl_task_planner import CrawlTaskPlanner
 from web_search_crawler.services.fetchers import AiohttpFetcher, Fetcher
@@ -27,7 +26,6 @@ class PipelineContext:
     url: str
     domain: str = field(init=False)
     blocked_domains: frozenset[str] = field(default_factory=frozenset)
-    url_filter: UrlFilter | None = None
     domain_cache: dict = field(default_factory=dict)
     indexer_session: aiohttp.ClientSession | None = None
     fetcher: Fetcher = field(default_factory=AiohttpFetcher)
