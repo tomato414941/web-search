@@ -22,6 +22,7 @@ def test_db_creation():
 
     # Link graph tables
     assert "links" in tables
+    assert "url_referring_hosts" in tables
     assert "page_ranks" in tables
 
     # Analytics tables

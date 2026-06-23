@@ -26,7 +26,7 @@ class TestMigrate:
             cur.execute("SELECT version_num FROM alembic_version")
             rows = cur.fetchall()
             assert len(rows) == 1
-            assert rows[0][0] == "019"
+            assert rows[0][0] == "020"
             cur.close()
         finally:
             conn.close()

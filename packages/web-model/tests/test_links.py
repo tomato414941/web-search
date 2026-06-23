@@ -21,6 +21,7 @@ def _clean_links():
     conn = get_connection()
     try:
         cur = conn.cursor()
+        cur.execute("TRUNCATE url_referring_hosts")
         cur.execute("TRUNCATE links")
         conn.commit()
         cur.close()
@@ -53,6 +54,27 @@ def _fetch_links() -> list[tuple[str, str]]:
         conn.close()
 
 
+def _fetch_url_referring_hosts() -> list[tuple[str, str, bool]]:
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT dst_url, referring_host, first_observed_at <= last_observed_at
+            FROM url_referring_hosts
+            ORDER BY dst_url, referring_host
+            """
+        )
+        rows = [
+            (str(dst_url), str(referring_host), bool(observed_ordered))
+            for dst_url, referring_host, observed_ordered in cur.fetchall()
+        ]
+        cur.close()
+        return rows
+    finally:
+        conn.close()
+
+
 def test_replace_observed_links_normalizes_and_dedupes(link_graph):
     count = link_graph.replace_observed_links(
         "https://Example.com/page",
@@ -67,6 +89,9 @@ def test_replace_observed_links_normalizes_and_dedupes(link_graph):
     assert count == 1
     assert _fetch_links() == [
         ("https://example.com/page", "https://example.com/a"),
+    ]
+    assert _fetch_url_referring_hosts() == [
+        ("https://example.com/a", "example.com", True),
     ]
 
 
@@ -84,4 +109,8 @@ def test_replace_observed_links_replaces_existing_rows(link_graph):
     assert count == 1
     assert _fetch_links() == [
         ("https://example.com/page", "https://example.com/new"),
+    ]
+    assert _fetch_url_referring_hosts() == [
+        ("https://example.com/new", "example.com", True),
+        ("https://example.com/old", "example.com", True),
     ]

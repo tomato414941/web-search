@@ -1,6 +1,7 @@
 """Observed link graph persistence."""
 
 from typing import Any
+from urllib.parse import urlparse
 
 from psycopg2.extras import execute_values
 
@@ -48,6 +49,32 @@ class LinkGraphRepository:
                 pairs,
             )
 
+    @staticmethod
+    def _referring_host(src_url: str) -> str | None:
+        try:
+            return urlparse(src_url).hostname
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _upsert_url_referring_hosts(
+        cur: Any, src_url: str, pairs: list[tuple[str, str]]
+    ) -> None:
+        referring_host = LinkGraphRepository._referring_host(src_url)
+        if not referring_host or not pairs:
+            return
+        rows = sorted({(dst, referring_host) for _, dst in pairs})
+        execute_values(
+            cur,
+            """
+            INSERT INTO url_referring_hosts (dst_url, referring_host)
+            VALUES %s
+            ON CONFLICT (dst_url, referring_host)
+            DO UPDATE SET last_observed_at = NOW()
+            """,
+            rows,
+        )
+
     def replace_observed_links(self, src_url: str, dst_urls: list[str]) -> int:
         """Replace observed outlinks for a parsed source URL."""
         pairs = self._normalize_pairs(src_url, dst_urls)
@@ -60,6 +87,7 @@ class LinkGraphRepository:
             cur = con.cursor()
             try:
                 self._replace_links(cur, src, pairs)
+                self._upsert_url_referring_hosts(cur, src, pairs)
                 con.commit()
             finally:
                 cur.close()

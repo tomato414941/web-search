@@ -20,6 +20,7 @@ _TABLES = [
     "page_ranks",
     "documents",
     "domain_ranks",
+    "url_referring_hosts",
     "links",
     "urls",
     "crawl_logs",
