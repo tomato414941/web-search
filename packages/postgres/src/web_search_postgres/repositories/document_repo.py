@@ -112,6 +112,28 @@ class DocumentRepository:
             conn.close()
 
     @staticmethod
+    def fetch_referring_host_count_map(urls: Sequence[str]) -> dict[str, int]:
+        if not urls:
+            return {}
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT dst_url, COUNT(*) AS referring_host_count
+                FROM url_referring_hosts
+                WHERE dst_url = ANY(%s)
+                GROUP BY dst_url
+                """,
+                (list(urls),),
+            )
+            counts = {str(url): int(count) for url, count in cur.fetchall()}
+            cur.close()
+            return {url: counts.get(url, 0) for url in urls}
+        finally:
+            conn.close()
+
+    @staticmethod
     def count_documents() -> int:
         conn = get_connection()
         try:
