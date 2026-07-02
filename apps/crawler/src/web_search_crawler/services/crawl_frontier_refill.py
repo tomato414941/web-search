@@ -76,6 +76,13 @@ def fetch_link_frontier_candidates(
                             )
                         ) AS host
                     FROM sampled
+                    WHERE (
+                        lower(dst) LIKE 'http://%%'
+                        OR lower(dst) LIKE 'https://%%'
+                    )
+                      AND position('?' IN dst) = 0
+                      AND position('#' IN dst) = 0
+                      AND position('*' IN dst) = 0
                 ), per_host AS (
                     SELECT DISTINCT ON (host)
                         dst,

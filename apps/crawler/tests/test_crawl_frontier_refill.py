@@ -69,6 +69,34 @@ def test_fetch_link_frontier_candidates_excludes_indexed_and_queued_urls(
     )
 
 
+def test_fetch_link_frontier_candidates_excludes_non_document_like_urls():
+    keep = "https://keep.example.com/articles/one"
+    _insert_links(
+        [
+            ("https://source-a.example.com/page", keep),
+            (
+                "https://source-b.example.com/page",
+                "https://query.example.com/share?u=1",
+            ),
+            (
+                "https://source-c.example.com/page",
+                "https://fragment.example.com/page#top",
+            ),
+            ("https://source-d.example.com/page", "https://wild.example.com/archive/*"),
+            ("https://source-e.example.com/page", "mailto:hello@example.com"),
+        ]
+    )
+
+    candidates = fetch_link_frontier_candidates(
+        limit=10,
+        sample_percent=100,
+        sample_limit=100,
+        statement_timeout_ms=5_000,
+    )
+
+    assert candidates == [keep]
+
+
 def test_refill_crawl_frontier_from_links_enqueues_candidates(test_url_store):
     first = "https://first.example.com/a"
     second = "https://second.example.com/a"
