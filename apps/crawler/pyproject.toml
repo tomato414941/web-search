@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 web-search-enqueue-url = "web_search_crawler.cli.enqueue_url:main"
+web-search-refill-crawl-frontier = "web_search_crawler.cli.refill_crawl_frontier:main"
 
 [build-system]
 requires = ["setuptools>=61"]

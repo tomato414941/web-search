@@ -17,6 +17,7 @@ SEARCH_EVAL_SUMMARY_ARGS ?=
 .PHONY: validate-search-eval
 .PHONY: collect-query-candidates
 .PHONY: enqueue-url-prd
+.PHONY: refill-crawl-frontier-prd
 .PHONY: deploy-prd
 .PHONY: verify-compose-prd
 .PHONY: sync sync-packages sync-frontend sync-indexer sync-crawler sync-mcp
@@ -109,3 +110,6 @@ collect-query-candidates:
 
 enqueue-url-prd:
 	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-enqueue-url prd $(ENQUEUE_ARGS)
+
+refill-crawl-frontier-prd:
+	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-refill-crawl-frontier prd $(REFILL_ARGS)
