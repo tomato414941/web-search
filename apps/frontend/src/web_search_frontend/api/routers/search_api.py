@@ -10,10 +10,7 @@ from pydantic import BaseModel, Field
 from web_search_frontend.core.config import settings
 from web_search_frontend.services.search import search_service
 from web_search_frontend.services.analytics import (
-    get_or_create_anon_session_id,
-    hash_session_id,
     record_search_telemetry,
-    set_anon_session_cookie,
 )
 from web_search_frontend.api.middleware.rate_limiter import limiter
 from web_search_contracts.enums import SearchMode
@@ -47,10 +44,6 @@ class SearchHit(BaseModel):
     content: str | None = Field(
         default=None,
         description="Full page text (only when include_content=true)",
-    )
-    impression_id: str | None = Field(
-        default=None,
-        description="Search telemetry impression ID for UI click telemetry",
     )
 
 
@@ -109,29 +102,21 @@ async def api_search(
 
     want_content = include_content == "true"
 
-    data = (
-        await asyncio.to_thread(
-            search_service.search,
-            query,
-            per_page,
-            page_number,
-            search_mode,
-            include_content=want_content,
-        )
-        if query
-        else search_service._empty_result(per_page)
+    data = await asyncio.to_thread(
+        search_service.search,
+        query,
+        per_page,
+        page_number,
+        search_mode,
+        include_content=want_content,
     )
     data["requested_mode"] = search_mode
     if "mode" not in data:
         data["mode"] = SearchMode.BM25
 
-    should_set_cookie = False
-    session_id: str | None = None
     if query:
         latency_ms = int((time.perf_counter() - started_at) * 1000)
         user_agent = request.headers.get("user-agent")
-        session_id, should_set_cookie = get_or_create_anon_session_id(request)
-        session_hash = hash_session_id(session_id)
         request_id = record_search_telemetry(
             query=query,
             source="public_api",
@@ -140,15 +125,10 @@ async def api_search(
             limit=data["per_page"],
             result_count=data["total"],
             latency_ms=latency_ms,
-            session_hash=session_hash,
+            session_hash=None,
             user_agent=user_agent,
-            hits=data["hits"],
         )
         if request_id is not None:
             data["request_id"] = request_id
 
-    response = JSONResponse(data)
-    if session_id is not None and should_set_cookie:
-        set_anon_session_cookie(response, session_id)
-
-    return response
+    return JSONResponse(data)

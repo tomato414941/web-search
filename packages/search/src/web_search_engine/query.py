@@ -2,12 +2,12 @@ from dataclasses import dataclass
 import re
 
 from web_search_kernel.analyzer import analyzer
-from web_search_kernel.searcher import SearchResult, parse_query
+from web_search_kernel.searcher import ParsedQuery, SearchResult, parse_query
 
 
 @dataclass(frozen=True)
 class PreparedSearchQuery:
-    parsed: object
+    parsed: ParsedQuery
     tokens: str
     positive_query: str
     exact_phrases: tuple[str, ...]

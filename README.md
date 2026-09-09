@@ -24,6 +24,7 @@ The source-of-truth monorepo layout is:
 - `packages/core/`: runtime helpers, config, logging, retries, and test helpers
 - `packages/postgres/`: PostgreSQL access, migrations, and repositories
 - `packages/kernel/`: search analyzer, query parsing, snippets, and scoring helpers
+- `packages/search/`: search execution and ranking independent of the Web UI/API
 - `packages/opensearch/`: OpenSearch client, mapping, and retrieval helpers
 - `packages/indexing/`: experimental embedding backfill image and helpers
 - `packages/search-config/`: canonical-source and search-eval policy data

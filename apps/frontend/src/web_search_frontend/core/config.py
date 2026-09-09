@@ -5,7 +5,7 @@ Service-specific configuration for the Frontend service.
 Inherits infrastructure settings from the shared core package.
 """
 
-from web_search_core.infrastructure_config import Environment, InfrastructureSettings
+from web_search_core.infrastructure_config import InfrastructureSettings
 
 
 class Settings(InfrastructureSettings):
@@ -22,9 +22,6 @@ class Settings(InfrastructureSettings):
     HYBRID_SEARCH_TIMEOUT_SEC: float = 3.0
     MAX_PER_DOMAIN: int = 5
     DIVERSITY_OVERSCAN: int = 5
-
-    # Indexer API (required - no default for security)
-    INDEXER_API_KEY: str | None = None
 
     # Analytics
     ANALYTICS_SALT: str = ""
@@ -50,21 +47,3 @@ class Settings(InfrastructureSettings):
 
 
 settings = Settings()
-
-
-def _validate_required(settings: Settings) -> None:
-    """Validate required settings outside of tests."""
-    if settings.ENVIRONMENT == Environment.TEST:
-        return
-
-    required_fields = [
-        "INDEXER_API_KEY",
-    ]
-    missing = [name for name in required_fields if not getattr(settings, name)]
-    if missing:
-        raise RuntimeError(
-            "Missing required environment variables: " + ", ".join(missing)
-        )
-
-
-_validate_required(settings)

@@ -1,23 +1,9 @@
 from typing import Any
 
-from web_search_kernel.searcher import SearchHit
+from web_search_kernel.searcher import SearchHit, SearchResult
 from web_search_kernel.snippet import generate_snippet
 
-from web_search_frontend.services.search_query import build_snippet_terms
-
-
-def build_search_hits(raw_hits: list[dict[str, Any]]) -> list[SearchHit]:
-    return [
-        SearchHit(
-            url=hit["url"],
-            title=hit["title"],
-            content=hit["content"],
-            score=hit["score"],
-            page_rank=hit.get("page_rank"),
-            domain_rank=hit.get("domain_rank"),
-        )
-        for hit in raw_hits
-    ]
+from web_search_engine.query import build_snippet_terms
 
 
 def append_hit_metadata(hit_dict: dict[str, Any], hit: SearchHit) -> None:
@@ -45,7 +31,7 @@ def serialize_hit(
 
 
 def build_result_payload(
-    q: str, result: Any, hits: list[dict[str, Any]]
+    q: str, result: SearchResult, hits: list[dict[str, Any]]
 ) -> dict[str, Any]:
     data: dict[str, Any] = {
         "query": q,
@@ -59,7 +45,7 @@ def build_result_payload(
 
 
 def format_result(
-    q: str, result: Any, *, include_content: bool = False
+    q: str, result: SearchResult, *, include_content: bool = False
 ) -> dict[str, Any]:
     search_terms = build_snippet_terms(q)
     hits = [

@@ -23,7 +23,7 @@ The system consists of three independent services managed in a monorepo:
     -   **Stack**: FastAPI + Jinja2 + PostgreSQL.
     -   **Port**: `8083`.
     -   **Scaling**: Can scale horizontally; shared DB in production.
-    -   **Dependencies**: Depends on `web_search_contracts`, `web_search_core`, `web_search_search_config`, `web_search_postgres`, `web_search_kernel`, and `web_search_opensearch` for runtime policy, contracts, storage, and search access.
+    -   **Dependencies**: Calls `web_search_engine` for query preparation, retrieval, and ranking. The HTTP host owns runtime setup, presentation, telemetry, and PostgreSQL access for stored content.
 2.  **Indexer Service (Write Cluster)**:
     -   **Role**: Ingestion, Tokenization (Japanese via SudachiPy), document signal computation, and dual-write to OpenSearch.
     -   **Stack**: FastAPI + PostgreSQL + SudachiPy + OpenSearch (optional).
@@ -54,7 +54,7 @@ graph TD
         Indexer[Indexer Service :8081]
     end
 
-    Frontend -- Read Search --> DB
+    Frontend -- Read Stored Content --> DB
     Frontend -- Read Search --> OS
     Indexer -- Write Index --> DB
     Indexer -- Dual-write --> OS
@@ -68,13 +68,14 @@ The project uses a **Folder-Separated Monorepo** pattern:
 
 | Directory | Package Name | Purpose | Key Components |
 | :--- | :--- | :--- | :--- |
-| `apps/frontend/` | `web_search_frontend` | **Search Cluster**. UI & Search Logic. | `api/routers/search_api.py`, `services/search.py` |
+| `apps/frontend/` | `web_search_frontend` | **HTTP Host**. UI, API, presentation, telemetry, and runtime wiring. | `api/routers/search_api.py`, `services/search.py` |
 | `apps/indexer/` | `web_search_indexer` | **Write Cluster**. Indexing & Optional Enrichment. | `api/routes/indexer.py`, `services/indexer.py`, `worker.py` |
 | `apps/crawler/` | `web_search_crawler` | **Worker Node**. Fetching & URL Management. | `workers/pipeline.py`, `db/crawler_runtime_store.py`, `db/url_domain_state.py`, `frontier_planner.py` |
 | `packages/contracts/` | `web_search_contracts` | **Contracts**. Typed APIs shared across services. | `indexer_api.py`, `enums.py` |
 | `packages/core/` | `web_search_core` | **Core Runtime**. Shared config, logging, retry, and utility helpers. | `logging_config.py`, `retry.py`, `utils.py` |
 | `packages/postgres/` | `web_search_postgres` | **Database Layer**. PostgreSQL connections, migrations, and repositories. | `search.py`, `migrate.py`, `repositories/document_repo.py` |
 | `packages/kernel/` | `web_search_kernel` | **Search Kernel**. Analyzer, query parsing, snippets, and scoring helpers. | `analyzer.py`, `searcher.py`, `snippet.py` |
+| `packages/search/` | `web_search_engine` | **Search Execution**. Query preparation, candidate retrieval, and ranking; independent of the HTTP host. | `engine.py`, `query.py`, `opensearch.py`, `ranking_policy.py` |
 | `packages/opensearch/` | `web_search_opensearch` | **Retrieval Adapter**. OpenSearch client, mapping, and BM25 query builder. | `client.py`, `mapping.py`, `search.py` |
 | `packages/indexing/` | `web_search_indexing` | **Experimental Enrichment Adapter**. OpenAI embedding client, schema bootstrap, and backfill image. | `embedding.py`, `backfill_embeddings.py` |
 | `packages/web-model/` | `web_search_web_model` | **Web Model**. Known URLs, observed links, and graph-derived rank maintenance. | `urls.py`, `links.py`, `rankings.py` |
@@ -88,7 +89,7 @@ The project uses a **Folder-Separated Monorepo** pattern:
 ### 1. CQRS-lite (Separated Read/Write)
 We separate the "Write" path (Indexer) from the "Read" path (Frontend).
 *   **Indexer**: Heavy processing (Tokenization, OpenSearch sync, optional enrichment).
-*   **Frontend**: Fast reads via PostgreSQL BM25 or OpenSearch.
+*   **Frontend**: Search via OpenSearch; stored full content via PostgreSQL.
 *   Both services share the same PostgreSQL database.
 
 ### 2. URL Lifecycle (`urls` + `frontier_entries`)
@@ -116,9 +117,18 @@ The old `shared` monolith has been split into smaller packages with clearer owne
 *   **`packages/search-config/` (`web_search_search_config`)**: canonical-source manifests, search evaluation datasets, and evaluator logic.
 
 ### 4. Search Path
-Frontend retrieves candidates from OpenSearch and applies a small source-aware
-policy layer for selected query classes. Detailed ranking and signal behavior is
-documented in [search-ranking-policy.md](./search-ranking-policy.md) and
+HTML and JSON routes call the same Web adapter, which supplies the OpenSearch
+client and index to `SearchEngine`. The engine retrieves and ranks candidates
+and returns typed search results. The adapter owns metrics, error responses,
+and snippet serialization. Browser sessions and click impressions belong to
+the HTML route; the public JSON API records request telemetry only.
+
+The engine has no dependency on frontend settings, HTTP, PostgreSQL, or
+Prometheus. Runtime wiring and stored-content APIs remain in the HTTP host;
+this is a code boundary within the existing deployment. See
+[`packages/search/README.md`](../packages/search/README.md) for ownership and
+standalone use. Detailed ranking and signal behavior is documented in
+[search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md).
 
 ### 5. Data Flow

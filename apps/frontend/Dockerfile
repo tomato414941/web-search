@@ -21,6 +21,7 @@ COPY packages/postgres/pyproject.toml ./packages/postgres/pyproject.toml
 COPY packages/kernel/pyproject.toml ./packages/kernel/pyproject.toml
 COPY packages/opensearch/pyproject.toml ./packages/opensearch/pyproject.toml
 COPY packages/search-config/pyproject.toml ./packages/search-config/pyproject.toml
+COPY packages/search/pyproject.toml ./packages/search/pyproject.toml
 COPY packages/search-telemetry/pyproject.toml ./packages/search-telemetry/pyproject.toml
 COPY apps/frontend/src/ ./apps/frontend/src/
 COPY packages/contracts/src/ ./packages/contracts/src/
@@ -29,6 +30,7 @@ COPY packages/postgres/src/ ./packages/postgres/src/
 COPY packages/kernel/src/ ./packages/kernel/src/
 COPY packages/opensearch/src/ ./packages/opensearch/src/
 COPY packages/search-config/src/ ./packages/search-config/src/
+COPY packages/search/src/ ./packages/search/src/
 COPY packages/search-telemetry/src/ ./packages/search-telemetry/src/
 
 # Build a production venv for the frontend package

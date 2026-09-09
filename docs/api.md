@@ -35,6 +35,11 @@ Current behavior:
 - query operators such as `site:`, quoted phrases, and negation are supported
 - successful responses may include transparency metadata such as
   `page_rank` and `domain_rank` when available
+- request telemetry may add a `request_id`; the JSON API does not set browser
+  session cookies or attach UI-only `impression_id` fields
+
+Browser impression and click tracking belongs to the HTML search page and
+`POST /events/search-result-clicked`.
 
 Use [search-ranking-policy.md](./search-ranking-policy.md) and
 [search-signals.md](./search-signals.md) for ranking and signal semantics.

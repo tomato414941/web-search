@@ -26,8 +26,8 @@ ci: ci-lint ci-packages ci-frontend ci-crawler ci-indexer ci-mcp
 
 ci-lint:
 	$(MAKE) ci-legacy-paths
-	$(RUFF) check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
-	$(RUFF) format --check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
+	$(RUFF) check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ packages/search/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
+	$(RUFF) format --check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ packages/search/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
 
 ci-legacy-paths:
 	cd $(ROOT_DIR) && $(PYTHON) scripts/ci/check_no_legacy_paths.py
@@ -36,12 +36,11 @@ ci-frontend:
 	$(RUFF) check apps/frontend/src/
 	$(RUFF) format --check apps/frontend/src/
 	cd $(ROOT_DIR) && \
-		INDEXER_API_KEY="$${INDEXER_API_KEY:-test}" \
 		$(UV) run --package web-search-frontend pytest apps/frontend/tests -v --tb=short --cov=web_search_frontend --cov-report=term-missing
 
 ci-packages:
 	cd $(ROOT_DIR) && \
-		$(UV) run --all-packages pytest packages/core/tests packages/search-config/tests packages/postgres/tests packages/web-model/tests packages/kernel/tests packages/opensearch/tests packages/indexing/tests -v --tb=short --cov=web_search_core --cov=web_search_search_config --cov=web_search_postgres --cov=web_search_web_model --cov=web_search_kernel --cov=web_search_opensearch --cov=web_search_indexing --cov-report=term-missing
+		$(UV) run --all-packages pytest packages/core/tests packages/search-config/tests packages/search/tests packages/postgres/tests packages/web-model/tests packages/kernel/tests packages/opensearch/tests packages/indexing/tests -v --tb=short --cov=web_search_core --cov=web_search_search_config --cov=web_search_engine --cov=web_search_postgres --cov=web_search_web_model --cov=web_search_kernel --cov=web_search_opensearch --cov=web_search_indexing --cov-report=term-missing
 
 ci-crawler:
 	cd $(ROOT_DIR) && \

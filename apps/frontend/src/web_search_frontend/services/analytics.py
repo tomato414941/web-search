@@ -79,8 +79,13 @@ def record_search_telemetry(
     latency_ms: int | None,
     session_hash: str | None,
     user_agent: str | None,
-    hits: list[dict[str, Any]],
+    hits: list[dict[str, Any]] | None = None,
 ) -> str | None:
+    """Record a request, adding browser impressions only when hits are supplied.
+
+    API requests have no browser session or visible-result impressions. The
+    HTML adapter supplies its displayed hits and attaches their click IDs.
+    """
     try:
         with db_cursor() as (conn, _):
             request_id, impression_ids = _telemetry_repo.record_search(
@@ -94,9 +99,9 @@ def record_search_telemetry(
                 latency_ms=latency_ms,
                 session_hash=session_hash,
                 user_agent=user_agent,
-                impressions=_build_impressions(hits, page, limit),
+                impressions=_build_impressions(hits or [], page, limit),
             )
-        for hit, impression_id in zip(hits, impression_ids):
+        for hit, impression_id in zip(hits or [], impression_ids):
             hit["impression_id"] = impression_id
         return request_id
     except Exception as exc:

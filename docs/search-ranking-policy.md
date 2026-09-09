@@ -148,7 +148,7 @@ Current ranking behavior:
 
 - OpenSearch produces the initial BM25 score and may apply canonical host/path
   boosts.
-- The frontend builds search hits from OpenSearch candidates.
+- The search engine package builds search hits from OpenSearch candidates.
 - A post-retrieval rerank may use link ranks, canonical source/path matches,
   title/path intent matches, comparison intent, and recruiting-page demotion.
 
@@ -156,6 +156,9 @@ This means ranking is currently split across OpenSearch query scoring and
 Python post-rerank logic.
 That is acceptable as the current implementation, but it should not grow into a
 hidden second ranking system.
+
+Both steps are orchestrated by `packages/search`. The Web UI and API share that
+engine; their adapters handle input validation, presentation, and telemetry.
 
 The post-retrieval rerank should keep signals explicit:
 

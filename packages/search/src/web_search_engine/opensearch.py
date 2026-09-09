@@ -2,20 +2,19 @@ import logging
 from dataclasses import replace
 from typing import Any
 
-from web_search_frontend.services.search_query import (
+from web_search_engine.query import (
     OpenSearchExecutionPlan,
     PreparedSearchQuery,
     build_opensearch_plan,
     empty_search_result,
 )
-from web_search_frontend.services.search_ranking_policy import (
+from web_search_engine.ranking_policy import (
     SearchRankingPolicy,
     candidate_window_size,
     canonical_paths_for_policy,
     classify_query_policy,
     rerank_hits,
 )
-from web_search_frontend.services.search_response import build_search_hits
 from web_search_kernel.analyzer import analyzer
 from web_search_kernel.searcher import SearchHit, SearchResult
 
@@ -29,6 +28,20 @@ COMPARISON_SUBJECTS_BOOST = 4.0
 COMPARISON_TITLE_BOOST = 6.0
 COMPARISON_PHRASE_BOOST = 7.0
 COMPARISON_CUE_BOOST = 3.0
+
+
+def build_search_hits(raw_hits: list[dict[str, Any]]) -> list[SearchHit]:
+    return [
+        SearchHit(
+            url=hit["url"],
+            title=hit["title"],
+            content=hit["content"],
+            score=hit["score"],
+            page_rank=hit.get("page_rank"),
+            domain_rank=hit.get("domain_rank"),
+        )
+        for hit in raw_hits
+    ]
 
 
 def _rewrite_search_query_for_policy(
@@ -66,6 +79,7 @@ def execute_opensearch_search(
     plan: OpenSearchExecutionPlan,
     required_domains: tuple[str, ...] = (),
     retrieval_boosts: Any = None,
+    target_index: str | None = None,
 ) -> dict[str, Any]:
     from web_search_opensearch.search import search_bm25
 
@@ -80,6 +94,7 @@ def execute_opensearch_search(
         "exclude_phrases": search_query.tokenized_exclude_phrases,
         "required_domains": required_domains,
         "retrieval_boosts": retrieval_boosts,
+        "target_index": target_index,
     }
     return search_bm25(**search_args)
 
@@ -138,6 +153,7 @@ def run_opensearch_query(
     *,
     client: Any,
     search_query: PreparedSearchQuery,
+    target_index: str | None = None,
 ) -> SearchResult:
     from web_search_opensearch.search import CANDIDATE_LIMIT
 
@@ -161,6 +177,7 @@ def run_opensearch_query(
         plan,
         required_domains=required_domains,
         retrieval_boosts=_retrieval_boosts_for_policy(policy),
+        target_index=target_index,
     )
     hits = rerank_hits(build_search_hits(os_result["hits"]), policy, limit=k)
     total = os_result["total"]

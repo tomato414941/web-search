@@ -44,6 +44,7 @@ jobs:
               - 'packages/opensearch/**'
               - 'packages/indexing/**'
               - 'packages/search-config/**'
+              - 'packages/search/**'
             frontend:
               - 'apps/frontend/**'
             crawler:
@@ -67,6 +68,7 @@ jobs:
               - 'packages/opensearch/**'
               - 'packages/indexing/**'
               - 'packages/search-config/**'
+              - 'packages/search/**'
               - 'apps/crawler/**'
               - 'apps/indexer/**'
               - 'apps/mcp/**'
@@ -81,6 +83,7 @@ jobs:
               - 'packages/opensearch/pyproject.toml'
               - 'packages/indexing/pyproject.toml'
               - 'packages/search-config/pyproject.toml'
+              - 'packages/search/pyproject.toml'
               - 'apps/frontend/pyproject.toml'
               - 'apps/crawler/pyproject.toml'
               - 'apps/indexer/pyproject.toml'
@@ -155,7 +158,6 @@ jobs:
       - name: Run frontend tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
-          INDEXER_API_KEY: test
         run: make ci-frontend
 
   test-crawler:

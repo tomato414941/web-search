@@ -1,4 +1,4 @@
-"""Search Service - Frontend search functionality."""
+"""Web adapter: client lifecycle, metrics, errors, and result presentation."""
 
 import logging
 import time
@@ -10,11 +10,8 @@ from web_search_frontend.metrics import (
     SEARCH_SCORING_DURATION,
 )
 from web_search_frontend.core.config import settings
-from web_search_frontend.services.search_opensearch import run_opensearch_query
-from web_search_frontend.services.search_query import (
-    PreparedSearchQuery,
-    prepare_search_query,
-)
+from web_search_engine import SearchEngine
+from web_search_kernel.searcher import SearchResult
 from web_search_frontend.services.search_response import format_result
 from web_search_contracts.enums import SearchMode
 
@@ -22,10 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 class SearchService:
-    def __init__(self):
+    def __init__(self, engine: SearchEngine | None = None):
+        self._engine = engine
         self._os_client = None
         self._os_enabled = settings.OPENSEARCH_ENABLED
-        if self._os_enabled:
+        if self._os_enabled and engine is None:
             self._init_opensearch()
 
     def _init_opensearch(self) -> None:
@@ -65,7 +63,7 @@ class SearchService:
     def _finalize_search_response(
         self,
         q: str,
-        result: Any,
+        result: SearchResult,
         *,
         mode: str,
         include_content: bool,
@@ -77,16 +75,13 @@ class SearchService:
         payload["mode"] = mode
         return payload
 
-    def _run_bm25_opensearch(self, q: str, k: int, page: int) -> Any:
-        return self._run_opensearch_query(q, k, page)
-
     def _bm25_search(
         self, q: str, k: int = 10, page: int = 1, *, include_content: bool = False
     ) -> dict[str, Any]:
         SEARCH_QUERY_TOTAL.labels(mode="bm25").inc()
         started_at = time.monotonic()
         try:
-            result = self._run_bm25_opensearch(q, k, page)
+            result = self._get_search_engine().search(q, k, page)
         except Exception as error:
             logger.warning(
                 "OpenSearch BM25 failed",
@@ -104,25 +99,16 @@ class SearchService:
             started_at=started_at,
         )
 
-    def _parse_search_query(self, q: str) -> PreparedSearchQuery:
-        return prepare_search_query(q)
+    def _get_search_engine(self) -> SearchEngine:
+        from web_search_opensearch.client import index_name
 
-    def _run_opensearch_query(self, q: str, k: int, page: int) -> Any:
+        if self._engine is not None:
+            return self._engine
         client = self._get_os_client()
         if client is None:
             raise RuntimeError("OpenSearch client unavailable")
-        return run_opensearch_query(
-            q,
-            k,
-            page,
-            client=client,
-            search_query=self._parse_search_query(q),
-        )
-
-    def _format_result(
-        self, q: str, result: Any, *, include_content: bool = False
-    ) -> dict[str, Any]:
-        return format_result(q, result, include_content=include_content)
+        self._engine = SearchEngine(client, index=index_name())
+        return self._engine
 
     def _empty_result(
         self,

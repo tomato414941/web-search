@@ -109,6 +109,7 @@ The current ranking path is intentionally narrow:
 - OpenSearch stores bounded page content for snippets and light reranking;
   PostgreSQL remains the source of truth for full extracted content
 - `navigational`, `reference`, and a small part of `news` use a narrow source-aware policy
+- query preparation, retrieval orchestration, and reranking live in `packages/search`; frontend adapters format the results
 - broad speculative reranking layers were removed
 - embedding enrichment is optional metadata for future semantic experiments, not
   part of the baseline retrieval path

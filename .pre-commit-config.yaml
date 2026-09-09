@@ -56,7 +56,7 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: false
-        files: ^packages/(contracts|core|postgres|kernel|opensearch|indexing|search-config)/
+        files: ^packages/(contracts|core|postgres|kernel|opensearch|indexing|search-config|search)/
       - id: pytest-mcp
         name: pytest (mcp)
         entry: make ci-mcp

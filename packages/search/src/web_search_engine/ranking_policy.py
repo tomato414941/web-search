@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-from web_search_frontend.services.search_query import PreparedSearchQuery
+from web_search_engine.query import PreparedSearchQuery
 from web_search_search_config.canonical_sources import (
     CanonicalQueryClass,
     CanonicalSourceConfig,

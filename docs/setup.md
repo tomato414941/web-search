@@ -95,7 +95,7 @@ set +a
 
 Required variables for local runs:
 - `ENVIRONMENT=development`
-- `INDEXER_API_KEY`
+- `INDEXER_API_KEY` for indexer and crawler; the frontend does not require it
 - `CRAWLER_SERVICE_URL` and `INDEXER_API_URL` when running multiple services locally
 
 Optional:

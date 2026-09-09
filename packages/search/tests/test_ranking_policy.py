@@ -1,5 +1,5 @@
-from web_search_frontend.services.search_query import prepare_search_query
-from web_search_frontend.services.search_ranking_policy import (
+from web_search_engine.query import prepare_search_query
+from web_search_engine.ranking_policy import (
     candidate_window_size,
     canonical_paths_for_policy,
     classify_query_policy,
