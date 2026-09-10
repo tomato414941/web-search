@@ -15,8 +15,8 @@ Set these values in `.env` before starting services:
 ENVIRONMENT=development
 POSTGRES_PASSWORD=local-development-password
 INDEXER_API_KEY=local-development-key
-COMPOSE_PROFILES=search
-OPENSEARCH_ENABLED=true
+COMPOSE_PROFILES=
+OPENAI_API_KEY=your-api-key
 FRONTEND_PORT=8083
 ```
 
@@ -32,11 +32,9 @@ The host overlay publishes only the frontend, on localhost. The search UI is at
 `http://localhost:8083/`, and OpenAPI is at `http://localhost:8083/docs`.
 PostgreSQL, OpenSearch, and the indexer remain inside the Compose network.
 
-The `search` profile starts OpenSearch; `OPENSEARCH_ENABLED=true` makes the
-frontend and indexer use it. Both are required. Initial startup can race with
-OpenSearch initialization; the frontend retries its client setup on subsequent
-search requests. Inspect `docker compose ps` and `/readyz` if search is degraded.
-Readiness HTTP 200 alone does not establish that OpenSearch is available.
+OpenSearch 2.19.6 is a required Compose service. Set a valid `OPENAI_API_KEY`
+for both indexing and query embeddings. Sample indexing and searches make paid
+embedding requests. The service does not have a keyword-only fallback.
 
 ## Put sample documents into a fresh local database
 
@@ -50,14 +48,14 @@ docker compose -f docker-compose.yml -f deploy/compose.host.yml \
   run --rm search-projection-rebuild
 ```
 
-The injection command writes PostgreSQL only. The second command makes those
-pages searchable. OpenSearch visibility can lag briefly after a bulk write.
+The injection command writes PostgreSQL only. The second command generates
+embeddings and makes those pages searchable. OpenSearch visibility can lag briefly after a bulk write.
 
 ```bash
 curl --get 'http://localhost:8083/search-results' --data-urlencode 'q=Python'
 ```
 
-Check that the response has hits and is not marked `degraded`. Index consistency
+Check that the response has hits and `mode: "hybrid"`. Index consistency
 can also be sampled with:
 
 ```bash
@@ -69,7 +67,7 @@ The verifier compares all stored-document counts with OpenSearch. On a real
 corpus, intentional index exclusions can cause a mismatch; it is a diagnostic,
 not proof of search quality.
 
-To enable crawling, set `COMPOSE_PROFILES=search,crawler` and run the same `up`
+To enable crawling, set `COMPOSE_PROFILES=crawler` and run the same `up`
 command. An empty frontier does not fetch anything by itself. URL admission and
 frontier refill are separate operator operations.
 
@@ -86,11 +84,10 @@ and local service addresses are:
 export ENVIRONMENT=development
 export DATABASE_URL='postgresql://websearch:local-development-password@localhost:5432/websearch'
 export INDEXER_API_KEY='local-development-key'
-export OPENSEARCH_ENABLED=true
+export OPENAI_API_KEY=your-api-key
 export OPENSEARCH_URL='http://localhost:9200'
-export OPENSEARCH_INDEX_NAME=documents
+export OPENSEARCH_INDEX_NAME=documents-hybrid-v1
 export INDEXER_API_URL='http://localhost:8081/documents'
-export CRAWLER_SERVICE_URL='http://localhost:8082'
 ```
 
 `DATABASE_URL` is required, not optional. `INDEXER_API_KEY` is required by the
@@ -119,5 +116,5 @@ uv run pre-commit install
 ```
 
 Use `make ci-frontend`, `make ci-indexer`, `make ci-crawler`, `make ci-packages`,
-or `make ci-mcp` for a focused change. `docs/deployment.md` covers production
+`make ci-mcp`, or `make ci-hybrid` for a focused change. `docs/deployment.md` covers production
 verification and index replacement; neither is an implicit part of local setup.

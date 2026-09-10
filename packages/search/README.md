@@ -1,54 +1,40 @@
 # Search execution boundary
 
-`web_search_engine.SearchEngine` owns query preparation, candidate retrieval,
-and ranking. It returns `SearchResult` / `SearchHit` objects from
-`web_search_kernel`. It depends on the analyzer, OpenSearch adapter, and search
-policy data, and has no dependency on the Web app, PostgreSQL, cookies, HTML,
-FastAPI, or Prometheus.
+`SearchEngine` prepares operator-aware queries and returns OpenSearch's native
+hybrid ranking as `SearchResult` / `SearchHit`. It has no dependency on the Web
+app, PostgreSQL, browser sessions, telemetry, or source-policy configuration.
 
-The caller supplies an OpenSearch client and the index to search:
+The host supplies the index, OpenSearch client, and query embedding callable:
 
 ```python
 from opensearchpy import OpenSearch
 from web_search_engine import SearchEngine
+from web_search_opensearch.embeddings import get_embeddings
 
 client = OpenSearch(hosts=["http://localhost:9200"])
-engine = SearchEngine(client, index="evaluation-documents")
-result = engine.search("GitHub", limit=10, page=1)
+engine = SearchEngine(
+    client,
+    get_embeddings().query,
+    index="documents-hybrid-v1",
+)
+result = engine.search("Python", limit=10, page=1)
 ```
 
-The index must already exist. The current source-aware policy still uses
-`config/canonical_sources.json`, resolved by `web_search_search_config`.
-Run from the repository root, or provide that config directory in the working
-directory of an installed application.
+The hybrid index and RRF pipeline must already be provisioned. The callable must
+use the same model and vector representation as the document projection.
+Retrieval/provider errors propagate; the HTTP host translates them to HTTP 503.
+There is no source-aware reranker or alternative search mode.
 
-## Ownership
+`packages/opensearch` owns mappings, native queries, and projection embeddings.
+`packages/kernel` owns analysis, operators, result types, and snippets.
+`apps/frontend` owns runtime wiring, serialization, HTTP, and telemetry. HTML
+and JSON use the same adapter; MCP calls the JSON API.
 
-| Layer | Responsibilities |
-|---|---|
-| `packages/search` | Query preparation, retrieval planning, source policy, reranking, typed results; retrieval exceptions propagate |
-| `packages/kernel` | Shared analyzer, query operators, result types, snippet helpers |
-| `packages/opensearch` | OpenSearch requests, mappings, client utilities |
-| `apps/frontend/services/search.py` | Runtime client setup, metrics, degraded-response behavior, response serialization |
-| HTML and JSON routes | Input limits, HTTP responses, presentation, request telemetry |
-| HTML route and click endpoint | Browser sessions, displayed-result impressions, click tracking |
-
-The Web UI and public API use the same Web adapter. MCP uses the public API.
-The JSON API records requests but does not create browser sessions or result
-impressions. Neither presentation format is part of the engine contract.
-
-`apps/frontend` remains the HTTP host for search and stored-content APIs. Its
-database access for content and telemetry, and its operational dependency
-checks, remain host concerns. There is no new service or network hop.
-
-## Verification
+Unit tests inject both external dependencies:
 
 ```bash
 uv run --package web-search-engine pytest packages/search/tests
 ```
 
-These tests use a supplied fake OpenSearch client and need no Web server,
-PostgreSQL, indexer credentials, or live OpenSearch. They cover the existing
-ranking behavior and guard against importing Web runtime dependencies into the
-engine. The Web tests separately cover response formatting, failure handling,
-and the difference between API request logging and browser click tracking.
+`make ci-hybrid` additionally verifies real OpenSearch fusion, operator filters,
+pagination, ingestion, rebuilds, and public responses with deterministic vectors.

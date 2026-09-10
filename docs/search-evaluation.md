@@ -8,9 +8,8 @@ benchmark of general Web search quality or a mandatory deployment gate.
 
 The runner merges `config/canonical_sources.json` and
 `config/search_eval_cases.json`. Canonical-source cases win duplicate query
-names. The first file is also used by ranking, so evaluation and implementation
-are not independent: improving this score can reflect better agreement with
-hand-written source expectations rather than better answers for users.
+names. These are hand-written source expectations, not independent judgments
+for general Web search. They no longer influence the serving ranking.
 
 Cases use URL/domain/path/title rules and relevance judgments. Values are:
 
@@ -56,12 +55,9 @@ outcomes do not. A zero exit status is not a quality pass.
   from those judgments. Otherwise, the implementation derives it by sorting
   the relevances of the returned hits. In the latter case, a high NDCG does not
   demonstrate that missing relevant pages were retrieved.
-- The API can return HTTP 200 with `degraded: true`. The evaluator currently
-  does not classify that flag as a transport/runtime failure and can record it
-  as a missed case. Check the API response and dependency health when many cases
-  suddenly miss.
-- Coverage, index state, and query rewriting affect the outcome before
-  reranking. A missing indexed page and a poorly ordered candidate are different
+- Search dependency failures return HTTP 503 and cause the evaluator to fail.
+- Coverage, index state, and query preparation affect the candidate set before
+  fusion. A missing indexed page and a poorly ordered candidate are different
   problems.
 
 ## Compare a proposed retrieval method
