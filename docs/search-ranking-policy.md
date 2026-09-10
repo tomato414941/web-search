@@ -5,8 +5,6 @@
 Current design policy.
 
 This document describes the current retrieval and ranking policy for search.
-It uses the vocabulary defined in [search-concepts.md](./search-concepts.md)
-and stays below that conceptual layer.
 
 ## Purpose
 
