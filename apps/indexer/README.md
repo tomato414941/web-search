@@ -6,7 +6,6 @@ This document is intentionally service-specific.
 For project-wide product goals and system structure, start with:
 
 - `../../README.md`
-- `../../docs/architecture.md`
 
 ## Responsibilities
 

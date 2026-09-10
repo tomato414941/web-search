@@ -100,10 +100,8 @@ curl "https://palebluesearch.com/search-results?q=python&limit=20&page=2"
 Key entry points:
 
 - **[Issues](./issues/)**: file-based engineering issue tracking
-- **[Architecture](./docs/architecture.md)**: current system architecture, service boundaries, and crawler runtime state model
 - **[Search Ranking Policy](./docs/search-ranking-policy.md)**: current ranking behavior
 - **[Search Evaluation](./docs/search-evaluation.md)**: golden set policy and evaluation workflow
-- **[API Reference](./docs/api.md)**: current API surface
 - **[Setup Guide](./docs/setup.md)**: local development and environment setup
 
 ## Quick Start

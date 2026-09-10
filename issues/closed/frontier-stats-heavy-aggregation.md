@@ -6,7 +6,7 @@ Crawler/admin stats still run large `COUNT` and `GROUP BY` queries against
 `frontier_entries`.
 
 This conflicts with the read-model direction described in
-`docs/architecture.md` and `docs/crawler-concepts.md`: public stats and admin
+`docs/crawler-concepts.md`: public stats and admin
 views should depend on explicit crawler summaries and read models, not rebuild
 large state inline.
 

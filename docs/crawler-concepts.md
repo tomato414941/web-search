@@ -136,7 +136,6 @@ This implies a preference for:
 
 ## Relationship To Other Documents
 
-- [architecture.md](./architecture.md): current crawler runtime and state layout
 - [../issues/](../issues/): current crawler implementation issues
 - [deployment.md](./deployment.md): deployment and operations flow
 

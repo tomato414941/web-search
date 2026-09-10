@@ -6,7 +6,6 @@ Current local development reference.
 
 ## Related Docs
 
-- [Architecture](./architecture.md)
 - [Deployment Guide](./deployment.md)
 
 ## Scope
