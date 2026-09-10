@@ -20,8 +20,7 @@ result = engine.search("GitHub", limit=10, page=1)
 The index must already exist. The current source-aware policy still uses
 `config/canonical_sources.json`, resolved by `web_search_search_config`.
 Run from the repository root, or provide that config directory in the working
-directory of an installed application. This refactor does not change the
-ranking policy or its weights.
+directory of an installed application.
 
 ## Ownership
 

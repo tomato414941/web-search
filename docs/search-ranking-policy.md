@@ -1,208 +1,80 @@
-# Search Ranking Policy
-
-## Status
-
-Current design policy.
-
-This document describes the current retrieval and ranking policy for search.
-
-## Purpose
-
-The goal of this policy is to preserve a small, explainable ranking path while
-improving baseline search quality.
-
-The current priority is not broad semantic ranking.
-The current priority is that navigational, reference, and narrow
-news/reference queries can surface official or primary sources without hiding
-the user's concrete query intent.
-
-## Non-Goals
-
-- Do not introduce broad speculative reranking.
-- Do not turn news handling into a general freshness ranking system.
-- Do not use the canonical source registry as a per-query winner table.
-- Do not add query-specific hacks across multiple layers.
-- Do not change crawler frontier planning, indexing, or document-signal
-  extraction in this policy.
-
-## Query Classes
-
-This policy currently uses five small query classes:
-
-- `navigational`
-- `reference`
-- `news`
-- `comparison`
-- `other`
-
-The classifier should stay rule-based and small.
-If a query cannot be classified confidently, it should fall back to `other`.
-
-### Navigational
-
-Queries that primarily seek an official site or canonical destination.
-
-Examples:
-
-- `Google`
-- `GitHub`
-- `FastAPI docs`
-- `OpenAI API`
-
-### Reference
-
-Queries that primarily seek canonical technical documentation or a precise
-technical source.
-
-Examples:
-
-- `Python documentation`
-- `PostgreSQL jsonb`
-- `FastAPI background tasks`
-
-### News
-
-Only narrow source-aware handling is allowed here.
-
-Examples:
-
-- `OpenAI news`
-- `Python 3.13 release`
-
-This is limited to lightweight official-source handling.
-It is not a general recency or freshness framework.
-
-Known exception:
-
-- `OpenAI news`
-- `OpenAI announcements`
-
-These are evaluated as visibility checks because direct article fetches on
-`openai.com` can hit Cloudflare challenge responses on the crawler's non-browser
-fetch path. Misses here may therefore be source fetchability failures rather
-than pure ranking failures.
-
-### Comparison
-
-Only a narrow intent-aware rerank is allowed here.
-
-Examples:
-
-- `FastAPI vs Django`
-- `OpenSearch vs Elasticsearch`
-
-The policy may promote pages that explicitly compare both subjects and reduce
-same-domain duplication when it crowds out useful alternatives.
-
-### Other
-
-Everything else.
-
-This class should keep the simplest ranking behavior.
-
-## Canonical Source Registry
-
-The canonical source registry maps products or ecosystems to canonical domains
-and optional preferred paths.
-
-It is a source policy table, not a per-query winner table.
-
-Rules:
-
-- prefer source-level domains and path prefixes over individual query winners
-- keep entries explicit in config
-- keep the registry small enough to reason about
-- use preferred paths only when they describe stable source structure
-
-## Retrieval Policy
-
-Retrieval creates the candidate set.
-Ranking and reranking can only order candidates that retrieval returns.
-
-Current retrieval behavior:
-
-- BM25 through OpenSearch is the default retrieval path.
-- Query parsing supports `site:`, exact phrases, and exclude terms.
-- Source-aware queries may pass canonical domain/path hints to OpenSearch.
-- Source-restricted queries may filter retrieval to known canonical domains.
-- Comparison queries may add subject and comparison-cue boosts to OpenSearch
-  retrieval so explicit comparison pages are more likely to enter the candidate
-  set.
-
-`retrieval_query` is allowed only as a narrow retrieval aid.
-It must not erase concrete user intent.
-
-For example, a broad docs-home query may use a stable source-oriented retrieval
-query. A precise reference query should preserve its concrete feature or API
-terms. Rewriting a precise query into a generic docs query is a retrieval
-failure risk.
-
-## Ranking And Reranking Policy
-
-The current implementation is intentionally narrow but not yet the ideal final
-shape.
-
-Current ranking behavior:
-
-- OpenSearch produces the initial BM25 score and may apply canonical host/path
-  boosts.
-- The search engine package builds search hits from OpenSearch candidates.
-- A post-retrieval rerank may use link ranks, canonical source/path matches,
-  title/path intent matches, comparison intent, and recruiting-page demotion.
-
-This means ranking is currently split across OpenSearch query scoring and
-Python post-rerank logic.
-That is acceptable as the current implementation, but it should not grow into a
-hidden second ranking system.
-
-Both steps are orchestrated by `packages/search`. The Web UI and API share that
-engine; their adapters handle input validation, presentation, and telemetry.
-
-The post-retrieval rerank should keep signals explicit:
-
-- `canonical_source_match`: official or primary source fit
-- `title_intent_match`: concrete query terms matched in the title
-- `path_intent_match`: concrete query terms matched in the URL path
-- `comparison_intent_match`: explicit fit for comparison queries
-- `is_recruiting_page`: demotion flag for non-recruiting queries
-
-Future ranking work should preserve this shape:
-
-- expose the signals used for ranking
-- combine signals in one understandable policy layer
-- avoid hidden aggregate scores whose inputs are hard to explain
-- keep retrieval failures separate from ranking failures
-
-## Guardrails
-
-- Do not solve retrieval failures by adding more ranking rules.
-- Do not use generic `retrieval_query` values for precise reference queries.
-- Do not add broad freshness ranking under the `news` class.
-- Do not let comparison reranking affect non-comparison queries.
-- Do not treat source authority as a single opaque aggregate when underlying
-  link signals can remain separate.
-- Keep evaluation acceptance criteria in
-  [search-evaluation.md](./search-evaluation.md).
-
-## Relationship To Evaluation
-
-This policy describes how search should retrieve and rank candidates.
-It does not define the golden set.
-
-The evaluation set and evaluator output behavior live in
-[search-evaluation.md](./search-evaluation.md).
-
-When a search case fails, classify it before changing this policy:
-
-- expected target missing from the index or candidate set: coverage or retrieval
-  failure
-- expected target present but ranked too low: scoring or ranking failure
-- expectation disagrees with current query class: policy mismatch
-
-## Follow-Up Direction
-
-The next substantial ranking improvement should be a small, explicit scoring
-model for reranking candidates.
-
-That work should make individual signals visible and tunable before adding new
-signals or heavier semantic methods.
+# Current retrieval and ranking
+
+This describes the serving implementation, not a requirement that future search
+must use the same rules. The product remains general-purpose Web search.
+`search-concepts.md` separates that objective from particular retrieval methods.
+
+## Retrieval
+
+`packages/search` prepares the query, retrieves through OpenSearch, and reranks
+candidates. Japanese tokenization uses the shared Sudachi analyzer. Operators
+include `site:`, quoted phrases, and excluded terms or phrases.
+
+The rule-based classifier selects `navigational`, `reference`, `news`,
+`comparison`, or `other`. It consults `config/canonical_sources.json` for known
+sources, aliases, preferred paths, candidate windows, and optional restrictions.
+A `site:` query bypasses source-policy classification and uses `other`.
+
+Depending on the classification:
+
+- Source matches can boost canonical hosts and preferred paths. A source with
+  `restrict_to_source` can filter the candidates to its configured domains.
+- A configured `retrieval_query` can replace the positive query terms while
+  retaining operators. Check this rewrite when a precise query loses its topic.
+- Comparison queries can retrieve using the compared subjects and boost explicit
+  comparison wording.
+- `news` changes source/path handling. There is no general publication-date or
+  freshness ordering, and news classification is not a recency guarantee.
+
+These rules can change which candidates are retrieved, not just their order.
+Source fit is a policy heuristic, not a relevance judgment for every query.
+
+## Candidate windows and pagination
+
+The first page can retrieve a larger candidate window before returning the
+requested number of hits. Comparison queries use at least 100 candidates;
+source-oriented queries use class- and source-dependent windows. Recruiting
+page demotion can also expand the window. OpenSearch's candidate limit caps it.
+
+For later pages the engine retrieves only the requested page size at the
+corresponding OpenSearch offset, then reranks that page. It does not maintain a
+single globally reranked result list across pages. Pages can therefore overlap
+or differ from a slice of a globally consistent ranking. Do not treat pagination
+as a stable export of the index.
+
+## Reranking
+
+The current Python policy uses ordered sort keys, not a weighted sum of all
+signals. Earlier keys take precedence over later keys:
+
+| Class | Ordering after retrieval |
+|---|---|
+| Navigational, reference, news | Recruiting-page demotion; canonical source fit; title fit; path fit; PageRank; domain rank; original OpenSearch order |
+| Comparison | Recruiting-page demotion; comparison fit; title fit; path fit; PageRank; domain rank; original order, followed by domain-diversity promotion |
+| Other | Recruiting-page demotion when enabled, then original OpenSearch order |
+
+`score` in the response remains the OpenSearch score. It does not encode these
+sort keys. Link ranks are late tie-breakers in selected classes; their presence
+in a response does not demonstrate that they improved that result.
+
+## Diagnosing a poor result
+
+1. Check for a degraded API response before interpreting an empty result set.
+2. Check whether the page is stored, projected into OpenSearch, and represented
+   by searchable text. Content truncation can hide a relevant passage.
+3. Check source restrictions, query rewriting, and candidate-window size before
+   changing reranking.
+4. If the useful page is in the candidate set, inspect the ordering keys and
+   comparison diversity behavior.
+5. Check whether the evaluation's expectation is appropriate for the query.
+
+`search-signals.md` covers extraction and projection limits.
+`search-evaluation.md` explains the limits of the current quality measurements.
+
+## Undecided changes
+
+There is no measured conclusion here that more manual rules, a new weighted
+reranker, or vector retrieval should be the next improvement. Compare proposed
+methods on controlled inputs and assess quality, latency, and operating cost.
+Do not treat the existing source registry or ranking tests as independent proof
+of general Web search quality.

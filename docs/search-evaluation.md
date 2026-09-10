@@ -1,104 +1,77 @@
-# Search Evaluation
+# Search evaluation
 
-## Purpose
+The current evaluator observes a small configured set of search cases. It is
+useful for diagnosing changes to those cases, but is not an independent
+benchmark of general Web search quality or a mandatory deployment gate.
 
-This document defines a small, explicit search evaluation set for PaleBlueSearch.
+## Cases and judgments
 
-The goal is not to prove that search quality is "good" in the abstract, and it
-is not to build a must-pass golden test set. The goal is to sample a diverse set
-of real search intents and make API-level quality changes visible.
+The runner merges `config/canonical_sources.json` and
+`config/search_eval_cases.json`. Canonical-source cases win duplicate query
+names. The first file is also used by ranking, so evaluation and implementation
+are not independent: improving this score can reflect better agreement with
+hand-written source expectations rather than better answers for users.
 
-The set should stay small enough to inspect, and each case should prefer explicit
-targets over vague quality claims. The baseline expectation is that obvious
-navigational queries work and official or primary sources are not systematically
-buried.
+Cases use URL/domain/path/title rules and relevance judgments. Values are:
 
-## Evaluation Data Sources
+| Value | Meaning |
+|---|---|
+| 3 | Ideal result |
+| 2 | Useful result |
+| 1 | Weakly relevant result |
+| 0 | Unjudged or neutral result |
+| -1 | Explicitly bad result |
 
-The evaluation runner merges two config sources:
+A zero label does not establish that a result is irrelevant. `matched` uses
+case-specific expectations; inspect the case before treating a miss as a ranking
+bug. Some source-fetchability cases are observations rather than ordinary
+ranking requirements.
 
-- [config/canonical_sources.json](../config/canonical_sources.json)
-- [config/search_eval_cases.json](../config/search_eval_cases.json)
+## Run and inspect
 
-`canonical_sources.json` is the primary source for official-source and reference
-queries. It keeps source definitions, canonical domains, generated relevance
-judgments, and query-specific matching rules together. This is where obvious
-navigational and documentation-style queries should usually live.
-
-`search_eval_cases.json` is the extension set for broader search behavior that
-does not belong to one canonical source, such as comparison, overview, and
-conceptual queries. It may also define local keyword rules for those added
-cases.
-
-Together, the merged evaluation set defines:
-
-- query text
-- query type
-- target domain/source
-- query-specific matching rules
-
-When the same query appears in both sources, the canonical-source case wins and
-the later duplicate is ignored.
-
-In general, a matched case means the target canonical source appears in the top 3
-results and no explicitly bad result appears in the top 3. Use
-`judgments` with `relevance` values to keep this small and inspectable:
-
-- `3`: ideal result
-- `2`: useful result
-- `1`: weakly relevant result
-- `0`: unjudged or neutral result
-- `-1`: explicitly bad result
-
-The main E2E indicators are `match_rate`, `hit@1`, `hit@3`, and `bad@3`.
-Query-type-specific rules should be encoded in the evaluation case itself, not
-duplicated here.
-
-Query-class semantics live in [search-ranking-policy.md](./search-ranking-policy.md).
-This document is intentionally not the primary data source anymore.
-It exists to explain the evaluation policy and how the set is used.
-
-## Evaluation Commands
-
-Run the evaluation set with:
-
-```bash
-make evaluate-search
-```
-
-Evaluation exit behavior:
-
-- any evaluator runtime error exits non-zero
-- case `matched` / `missed` outcomes are observations, not deployment gates
-
-Validate the config before changing it:
+Run from the repository root after `make sync`:
 
 ```bash
 make validate-search-eval
-```
-
-Summarize the evaluation-set distribution without calling the search API:
-
-```bash
 make summarize-search-eval
+make evaluate-search SEARCH_EVAL_BASE_URL=http://localhost:8083 \
+  SEARCH_EVAL_ARGS="--limit 10 --json-output /tmp/search-eval-report.json"
+make summarize-search-eval SEARCH_EVAL_REPORT=/tmp/search-eval-report.json \
+  SEARCH_EVAL_SUMMARY_ARGS="--show-misses"
 ```
 
-To summarize outcomes by query type, first write a JSON report and then pass it
-to the summarizer:
+Without `SEARCH_EVAL_BASE_URL`, the Makefile targets the public service.
+The CLI fetches only three results by default. Request at least ten before
+interpreting `ndcg@10`; the JSON report's displayed `top_hits` still contains
+only the first three results.
 
-```bash
-make evaluate-search SEARCH_EVAL_ARGS="--json-output /tmp/search-eval-report.json"
-make summarize-search-eval SEARCH_EVAL_REPORT=/tmp/search-eval-report.json
-```
+Runtime exceptions make the evaluator exit nonzero. `matched` and `missed`
+outcomes do not. A zero exit status is not a quality pass.
 
-Print missed cases with top hits for manual coverage/ranking/eval-rule triage:
+## Metric limitations
 
-```bash
-make summarize-search-eval SEARCH_EVAL_REPORT=/tmp/search-eval-report.json SEARCH_EVAL_SUMMARY_ARGS="--show-misses"
-```
+- `hit@1`, `hit@3`, MRR, and NDCG use the configured relevance rules; they do not
+  provide independent judgments of arbitrary pages.
+- For cases whose judgments are all exact URLs, NDCG's ideal ordering comes
+  from those judgments. Otherwise, the implementation derives it by sorting
+  the relevances of the returned hits. In the latter case, a high NDCG does not
+  demonstrate that missing relevant pages were retrieved.
+- The API can return HTTP 200 with `degraded: true`. The evaluator currently
+  does not classify that flag as a transport/runtime failure and can record it
+  as a missed case. Check the API response and dependency health when many cases
+  suddenly miss.
+- Coverage, index state, and query rewriting affect the outcome before
+  reranking. A missing indexed page and a poorly ordered candidate are different
+  problems.
 
-## Miss Triage
+## Compare a proposed retrieval method
 
-When an evaluation case is missed, first decide whether the likely cause is
-missing coverage, ranking behavior, or a mismatch between the case target and the
-assigned query class.
+Keep the corpus/index snapshot, query set, judgments, result depth, and request
+configuration fixed, and record which code/config revisions were used. Compare
+quality together with latency and operating cost. If judgments or the corpus
+change between runs, the score difference cannot be attributed to the algorithm
+alone.
+
+The current source-oriented cases can reveal regressions in those behaviors.
+They cannot, by themselves, settle whether BM25, dense retrieval, or a hybrid is
+best for the intended general-purpose search product.

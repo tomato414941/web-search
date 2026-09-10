@@ -1,167 +1,60 @@
-# Search Signals
+# Indexed content and ranking signals
 
-## Status
+This document records what information reaches search and what can be lost
+between fetching a page and returning a result.
 
-Current signal reference.
+## Extraction
 
-This document describes the current extraction and document-signal strategy
-used by search. It focuses on which signals exist, where they come from, and
-how they fit into the current ranking path.
+The crawler uses trafilatura for main text, with comments and tables enabled,
+deduplication enabled, and recall favored. If extraction returns no text, it
+uses BeautifulSoup text after removing scripts, styles, and noscript elements.
+The fallback can retain navigation or other boilerplate.
 
-## Related Docs
+Raw HTML is not stored by the current pipeline. Changing extraction cannot be
+applied to historical HTML locally; affected pages must be fetched again.
+Publication dates, author identity, `temporal_anchor`, and `factual_density` are
+not current search-result signals. Do not infer those guarantees from older
+product descriptions.
 
-- [Search Ranking Policy](./search-ranking-policy.md)
+## Document store and search projection
 
-## Problem
+PostgreSQL stores the full extracted text. OpenSearch stores:
 
-Previously, PaleBlueSearch indexed full page text including navigation, footers, and sidebars via `soup.get_text()`. This caused:
+- title, URL, host, and path;
+- the first 20,000 characters of extracted content;
+- `title_terms` and `content_terms`, tokenized with the shared Sudachi analyzer;
+- the link-rank values available when the document is projected.
 
-1. **Low search relevance** — BM25 matches on boilerplate keywords (nav links, footer text)
-2. **Inflated content size** — includes non-content text, making content-shape checks unreliable
-3. **Noisy snippets** — search results contain boilerplate fragments
-4. **Aggregation pages rank too high** — link-heavy pages (e.g. bookmark listings) have high keyword density
+`content_terms` is built from the same truncated content. A passage beyond the
+limit cannot match through body terms even if it exists in PostgreSQL. The
+search API's inline content is also bounded; the by-URL content API reads the
+full stored text.
 
-Example: searching "python" returns hatena bookmark listing pages (link collections with high keyword density) instead of docs.python.org.
+The analyzer is shared between indexing and querying. There are no current
+custom inverted-index tables in PostgreSQL. OpenSearch handles BM25 retrieval.
+Some hosts and account/login paths are excluded from the projection by
+`packages/search-config/src/web_search_search_config/index_exclusions.py`.
+A stored document therefore need not be a searchable document.
 
-## Architecture: 3-Layer Signal Stack
+## Link-rank freshness
 
-```
-Layer 3: Search Ranking
-         OpenSearch BM25 retrieval
-         → source-aware reranking for narrow query classes
-         ↑
-Layer 2: Signal Scoring (indexer)
-         link authority signals
-         ↑
-Layer 1: Main Content Extraction (crawler)
-         trafilatura for boilerplate removal → clean main text + metadata extraction
-```
+The Web model maintenance worker computes PageRank and domain rank from stored
+links and writes PostgreSQL rank tables. Indexing or rebuilding the projection
+copies those values into OpenSearch.
 
-### Layer 1: Main Content Extraction (trafilatura)
+Recalculating ranks alone does not update existing search documents. When a
+rank change should affect search, project it and then verify the returned
+ordering. The quality and refresh questions remain open in
+`issues/link-authority-signal-design.md`.
 
-Replace `soup.get_text()` with trafilatura (F1=0.958, ACL 2021) for main content extraction.
+## Request-time signals
 
-**Tool selection rationale** (based on SIGIR 2023 benchmark by Bevendorff et al.):
+Source fit, title/path fit, comparison fit, and recruiting-page detection are
+computed from the query and retrieved candidates. They are internal policy
+inputs, not independently validated measures of relevance. Their precedence is
+specified in `search-ranking-policy.md`.
 
-| Tool | F1 | Speed | Japanese | Maintained |
-|------|-----|-------|----------|------------|
-| **trafilatura** | **0.958** | fast | yes | active |
-| readability-lxml | 0.922 | fastest | yes | stable |
-| newspaper3k | 0.912 | slow | yes | stale |
-
-**Configuration:**
-- `include_comments=True` — forum comments are valuable content (Reddit, HN, SO, 5ch)
-- `include_tables=True` — preserve specification tables, comparison data
-- `deduplicate=True` — remove repeated navigation text
-- `favor_recall=True` — for search, missing content is worse than some boilerplate leaking through
-
-**Fallback:** BeautifulSoup `get_text()` when trafilatura returns None (API docs, SPAs, minimal HTML).
-
-**Impact:** Improves everything downstream — BM25 relevance, snippet quality,
-and signal quality.
-
-### Japanese Tokenization
-
-Japanese text is tokenized with SudachiPy before indexing and searching so that
-the same analyzer is used at index time and query time.
-
-- implementation lives in `packages/kernel/src/web_search_kernel/analyzer.py`
-- the default dictionary is `sudachidict_core`
-- tokens are stored in the custom inverted-index tables rather than delegated
-  to SQLite FTS or opaque database analyzers
-- frontend query parsing and indexer writes both use the same shared logic
-
-### Layer 2: Current Signals
-
-Signals are computed at index time and stored independently rather than pushed
-into one large aggregate.
-
-**Current structured signals**
-
-| Signal | Source | Role |
-|--------|--------|------|
-| `score` | OpenSearch BM25 | lexical relevance score for the returned hit |
-| `page_rank` | link graph | page-level link prior |
-| `domain_rank` | link graph | domain-level link prior |
-
-**Request-time ranking signals**
-
-| Signal | Source | Role |
-|--------|--------|------|
-| `canonical_source_match` | URL host/path + canonical source registry | source/domain/path fit |
-| `title_intent_match` | query intent terms + result title | precise page-intent fit |
-| `path_intent_match` | query intent terms + URL path | precise page-intent fit |
-| `comparison_intent_match` | comparison query subjects + title/path/content | comparison-page fit |
-| `is_recruiting_page` | URL host/path + title | demotion flag for non-recruiting queries |
-
-**Notes**
-
-- Domain normalization used for result diversity is a grouping key, not a
-  ranking signal.
-
-### Layer 3: Search Ranking Integration
-
-The current ranking path is intentionally narrow:
-
-- retrieval uses OpenSearch BM25 over `title_terms^3` and `content_terms`
-- OpenSearch stores bounded page content for snippets and light reranking;
-  PostgreSQL remains the source of truth for full extracted content
-- `navigational`, `reference`, and a small part of `news` use a narrow source-aware policy
-- query preparation, retrieval orchestration, and reranking live in `packages/search`; frontend adapters format the results
-- broad speculative reranking layers were removed
-- embedding enrichment is optional metadata for future semantic experiments, not
-  part of the baseline retrieval path
-
-This means most document signals are currently exposed as metadata and kept for
-index-time analysis, transparency, and future tuning rather than heavy
-request-time reranking.
-
-**Metadata passed to API consumers**
-
-| Field | Description |
-|-------|-------------|
-| `score` | Relevance score for this hit |
-| `page_rank` / `domain_rank` | link-based prior signals |
-
-## What We Don't Need (and Why)
-
-| Technique | Why not / Status |
-|-----------|-----------------|
-| User behavior signals (Navboost) | No user traffic yet |
-| SpamBrain-level ML | Overkill for 600K page corpus |
-| E-E-A-T evaluation | Not represented by a dedicated ranking signal |
-| BrowseRank | Requires browser instrumentation data |
-
-## Current Runtime Notes
-
-- `apps/crawler/src/web_search_crawler/utils/parser.py` uses trafilatura with BS4 fallback.
-- `apps/indexer/src/web_search_indexer/services/indexer.py` computes current
-  document signals used for storage and ranking policy integration.
-- `packages/kernel/src/web_search_kernel/analyzer.py` holds the shared Sudachi-based
-  tokenization logic for both indexing and query processing.
-- `apps/indexer/src/web_search_indexer/services/opensearch_document.py` builds
-  the OpenSearch projection. Its `content` field is capped for result snippets
-  and request-time reranking, and `content_terms` is tokenized from that same
-  bounded content.
-- Raw HTML storage is not part of the current runtime. If it becomes important
-  again, treat it as a deferred project-plan item rather than current runtime
-  behavior.
-- The baseline OpenSearch mapping does not contain embedding vectors. If
-  semantic retrieval becomes a primary path, split it into an explicit semantic
-  index or versioned index design instead of hiding it inside BM25.
-
-### Future
-
-- content_ratio signal (trafilatura text / BS4 full text) — requires crawler-side computation
-- Weight tuning based on click-through data
-- Re-index existing 600K pages for full effect
-
-## References
-
-- Barbaresi, A. (2021). "Trafilatura: A Web Scraping Library and Command-Line Tool for Text Discovery and Extraction." ACL-IJCNLP 2021 System Demonstrations.
-- Kohlschütter, C. et al. (2010). "Boilerplate Detection using Shallow Text Features." WSDM '10.
-- Weninger, T. et al. (2010). "CETR: Content Extraction via Tag Ratios." WWW '10.
-- Bevendorff, J. et al. (2023). "An Empirical Comparison of Web Content Extraction Algorithms." SIGIR '23.
-- Liu, Y. et al. (2008). "BrowseRank: Letting Web Users Vote for Page Importance." SIGIR '08.
-- Liu, N.F. et al. (2024). "Lost in the Middle: How Language Models Use Long Contexts." TACL 2024.
-- Salemi, A. & Zamani, H. (2024). "Evaluating Retrieval Quality in Retrieval-Augmented Generation." SIGIR '24.
+The public `score` is an OpenSearch score; `page_rank` and `domain_rank` are
+stored link priors. None is a probability that the page answers the query.
+Optional embedding backfill is separate from this projection and does not make
+vector retrieval available in the serving API.
