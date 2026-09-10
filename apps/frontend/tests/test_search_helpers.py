@@ -21,8 +21,6 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
         title="Example",
         content="Python content",
         score=1.0,
-        page_rank=0.5,
-        domain_rank=0.4,
     )
 
     payload = serialize_hit(hit, ["python"], include_content=True)
@@ -32,5 +30,3 @@ def test_serialize_hit_preserves_optional_fields(monkeypatch):
     assert payload["score"] == 1.0
     assert "rank" not in payload
     assert payload["content"] == "Python content"
-    assert payload["page_rank"] == 0.5
-    assert payload["domain_rank"] == 0.4

@@ -36,19 +36,17 @@ stdio; its logs go to stderr.
 
 | Tool | Use |
 |---|---|
-| `web_search(query, limit=10, mode="bm25", page=1, include_content=false)` | Search and return Markdown results. Limit is clamped to 1–50; BM25 is the only serving mode. |
+| `web_search(query, limit=10, page=1, include_content=false)` | Search and return Markdown results. Limit is clamped to 1–50; retrieval is hybrid with a 200-result window. |
 | `fetch_content(url)` | Read the full extracted text of an indexed URL from the document store, without re-fetching the live page. |
 
-`include_content=true` returns the bounded search projection, currently at most
-20,000 characters per page. For complete stored text, call `fetch_content`.
+`include_content=true` returns the bounded search projection, at most 20,000
+characters per page. For complete stored text, call `fetch_content`.
 The latter can display `indexed_at`; this is an indexing time, not a publication
 date or assurance that the page is up to date.
 
-The adapter currently formats a degraded API search with no hits as “No results
-found.” It does not expose the API's `degraded` flag in that text. Diagnose an
-unexpected empty search through the JSON API before treating it as a coverage
-failure. Transport errors are returned as tool text beginning with `Search
-failed:` or `Content fetch failed:`.
+Search failures, including HTTP 503 dependency errors, are returned as tool
+text beginning with `Search failed:`. Content errors use `Content fetch failed:`.
+An empty successful search is displayed as “No results found.”
 
 Search behavior and HTTP failure semantics are in `docs/api.md` at the
 repository root.

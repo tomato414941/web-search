@@ -1,40 +1,18 @@
-from web_search_engine.query import build_opensearch_plan, prepare_search_query
+from web_search_engine.query import prepare_search_query
 
 
-def test_build_opensearch_plan_disables_diversity_without_site_filter():
-    search_query = prepare_search_query("python")
+def test_question_text_is_preserved():
+    query = prepare_search_query("What is BM25")
+    assert query.positive_query == "What is BM25"
+    assert query.tokens == "what is bm25"
 
-    plan = build_opensearch_plan(
-        search_query,
-        10,
-        3,
-        overscan=4,
-        candidate_limit=200,
+
+def test_operators_are_separate_from_semantic_text():
+    query = prepare_search_query(
+        'Python "type hints" site:docs.python.org -snake -"old version"'
     )
-
-    assert plan.use_diversity is False
-    assert plan.fetch_size == 10
-    assert plan.fetch_offset == 20
-
-
-def test_build_opensearch_plan_disables_overscan_for_site_filter():
-    search_query = prepare_search_query("site:github.com python")
-
-    plan = build_opensearch_plan(
-        search_query,
-        10,
-        3,
-        overscan=4,
-        candidate_limit=200,
-    )
-
-    assert plan.use_diversity is False
-    assert plan.fetch_size == 10
-    assert plan.fetch_offset == 20
-
-
-def test_prepare_search_query_strips_english_question_prefix():
-    search_query = prepare_search_query("What is BM25")
-
-    assert search_query.tokens == "bm25"
-    assert search_query.positive_query == "BM25"
+    assert query.positive_query == "Python type hints"
+    assert query.parsed.site_filter == "docs.python.org"
+    assert query.tokenized_exact_phrases == ("type hints",)
+    assert query.tokenized_exclude_terms == ("snake",)
+    assert query.tokenized_exclude_phrases == ("old version",)

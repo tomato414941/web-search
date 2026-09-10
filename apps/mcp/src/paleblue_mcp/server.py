@@ -11,10 +11,7 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP(
     "PaleBlueSearch",
     instructions=(
-        "Japanese Web search and content retrieval for AI agents. "
-        "Search 1M+ Japanese and English web pages, then fetch full page text "
-        "for grounding LLM responses with fresh, sourced information. "
-        "Specializes in Japanese tech, news, government, and reference content."
+        "Search Japanese and English web pages and retrieve stored page content."
     ),
 )
 
@@ -65,21 +62,19 @@ def _format_hits(data: dict, include_content: bool = False) -> str:
 async def web_search(
     query: str,
     limit: int = 10,
-    mode: str = "bm25",
     page: int = 1,
     include_content: bool = False,
 ) -> str:
     """Search Japanese and English web pages using PaleBlueSearch.
 
-    Returns fresh web search results.
-    Set include_content=true to get full page text inline (useful for RAG).
+    Returns hybrid web search results, with up to 200 accessible results.
+    Set include_content=true to get the stored search excerpt inline (up to 20,000 characters).
 
     Args:
         query: Search query string.
         limit: Number of results (1-50, default 10).
-        mode: Search mode - "bm25".
         page: Page number for pagination (default 1).
-        include_content: Include full page text in results (default false).
+        include_content: Include the stored search excerpt (default false).
     """
     limit = max(1, min(limit, 50))
     page = max(1, page)
@@ -89,7 +84,6 @@ async def web_search(
             query=query,
             limit=limit,
             page=page,
-            mode=mode,
             include_content=include_content,
         )
         return _format_hits(data, include_content=include_content)

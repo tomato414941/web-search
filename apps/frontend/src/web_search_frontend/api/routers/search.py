@@ -9,7 +9,8 @@ from fastapi.responses import HTMLResponse
 
 from web_search_frontend.core.config import settings
 from web_search_frontend.i18n.messages import MESSAGES
-from web_search_frontend.services.search import search_service
+from web_search_frontend.services.search import search_service, SearchUnavailable
+from web_search_opensearch.search import RESULT_WINDOW
 from web_search_frontend.services.analytics import (
     get_or_create_anon_session_id,
     hash_session_id,
@@ -18,7 +19,6 @@ from web_search_frontend.services.analytics import (
 )
 from web_search_frontend.api.templates import templates
 from web_search_frontend.api.middleware.rate_limiter import limiter
-from web_search_contracts.enums import SearchMode
 
 router = APIRouter()
 
@@ -91,20 +91,21 @@ async def search_page(
     if query is not None and len(query) > settings.MAX_QUERY_LEN:
         query = query[: settings.MAX_QUERY_LEN]
 
-    page_number = min(_parse_pos_int(page, 1), settings.MAX_PAGE)
     per_page = min(settings.RESULTS_LIMIT, settings.MAX_PER_PAGE)
+    page_number = min(_parse_pos_int(page, 1), RESULT_WINDOW // per_page)
     request_id = None
 
-    effective_search_mode = SearchMode.BM25
     current_page = page_number
 
-    result = (
-        await asyncio.to_thread(
-            search_service.search, query, per_page, page_number, effective_search_mode
-        )
-        if query
-        else None
-    )
+    result = None
+    search_error = False
+    if query:
+        try:
+            result = await asyncio.to_thread(
+                search_service.search, query, per_page, page_number
+            )
+        except SearchUnavailable:
+            search_error = True
     if result is not None:
         current_page = result["page"]
 
@@ -115,10 +116,11 @@ async def search_page(
         latency_ms = int((time.perf_counter() - started_at) * 1000)
         session_id, should_set_session_cookie = get_or_create_anon_session_id(request)
         session_hash = hash_session_id(session_id)
-        request_id = record_search_telemetry(
+        request_id = await asyncio.to_thread(
+            record_search_telemetry,
             query=query,
             source="web_ui",
-            mode=effective_search_mode,
+            mode="hybrid",
             page=result["page"],
             limit=result["per_page"],
             result_count=result["total"],
@@ -135,6 +137,7 @@ async def search_page(
             "request": request,
             "q": query,
             "result": result,
+            "search_error": search_error,
             "mode": current_mode,
             "lang": current_lang,
             "msg": msg,
@@ -189,6 +192,9 @@ async def search_page(
             ),
         },
     )
+
+    if search_error:
+        resp.status_code = 503
 
     if session_id is not None and should_set_session_cookie:
         set_anon_session_cookie(resp, session_id)

@@ -11,7 +11,6 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     captured = {}
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     def fake_index_document(client, document):
         captured.update(document)
@@ -19,15 +18,16 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     import web_search_opensearch.client as opensearch_client
 
     monkeypatch.setattr(opensearch_client, "index_document", fake_index_document)
-    service._index_to_opensearch(
-        url="https://github.com/",
-        title="GitHub",
-        content="GitHub builds software together.",
+    service._index_to_opensearch_page(
+        indexer_module.IndexedPage(
+            url="https://github.com/",
+            title="GitHub",
+            content="GitHub builds software together.",
+        )
     )
 
     assert captured["host"] == "github.com"
-    assert captured["page_rank"] == 0.5
-    assert captured["domain_rank"] == 0.25
+    assert len(captured["embedding"]) == 1536
     assert captured["path"] == "/"
     assert "is_homepage" not in captured
 
@@ -41,8 +41,6 @@ def test_build_search_index_document_uses_search_field_names(monkeypatch):
 
     doc = opensearch_document.build_search_index_document(
         page,
-        page_rank=0.5,
-        domain_rank=0.25,
     )
 
     assert doc is not None
@@ -65,8 +63,6 @@ def test_build_search_index_document_bounds_content_projection(monkeypatch):
 
     doc = opensearch_document.build_search_index_document(
         page,
-        page_rank=0.5,
-        domain_rank=0.25,
     )
 
     assert doc is not None
@@ -79,7 +75,6 @@ def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
     client = MagicMock()
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     called = {"indexed": False, "deleted": False}
 
@@ -93,10 +88,12 @@ def test_index_to_opensearch_skips_excluded_hosts(monkeypatch):
 
     monkeypatch.setattr(opensearch_client, "index_document", fake_index_document)
     monkeypatch.setattr(opensearch_client, "delete_document", fake_delete_document)
-    service._index_to_opensearch(
-        url="https://accounts.hatena.ne.jp/login",
-        title="Login",
-        content="Login page",
+    service._index_to_opensearch_page(
+        indexer_module.IndexedPage(
+            url="https://accounts.hatena.ne.jp/login",
+            title="Login",
+            content="Login page",
+        )
     )
 
     assert called["deleted"] is True
@@ -108,7 +105,6 @@ def test_index_to_opensearch_skips_excluded_paths(monkeypatch):
     client = MagicMock()
 
     monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
-    monkeypatch.setattr(service, "_get_link_ranks", lambda url: (0.5, 0.25))
 
     called = {"indexed": False, "deleted": False}
 
@@ -122,36 +118,35 @@ def test_index_to_opensearch_skips_excluded_paths(monkeypatch):
 
     monkeypatch.setattr(opensearch_client, "index_document", fake_index_document)
     monkeypatch.setattr(opensearch_client, "delete_document", fake_delete_document)
-    service._index_to_opensearch(
-        url="https://example.com/login/reset",
-        title="Login",
-        content="Login page",
+    service._index_to_opensearch_page(
+        indexer_module.IndexedPage(
+            url="https://example.com/login/reset",
+            title="Login",
+            content="Login page",
+        )
     )
 
     assert called["deleted"] is True
     assert called["indexed"] is False
 
 
-def test_batch_opensearch_raises_on_partial_bulk(monkeypatch):
+def test_single_document_projection_failure_is_not_success(monkeypatch):
     service = indexer_module.IndexerService()
-    client = MagicMock()
-
-    monkeypatch.setattr(indexer_module, "_get_opensearch_client", lambda: client)
     monkeypatch.setattr(
         service,
         "_build_search_index_document",
-        lambda page: {"url": page.url},
+        lambda page: (_ for _ in ()).throw(RuntimeError("embed failed")),
     )
-
-    import web_search_opensearch.client as opensearch_client
-
-    monkeypatch.setattr(opensearch_client, "bulk_index", lambda client, docs: 0)
-
-    page = indexer_module.IndexedPage(
-        url="https://example.com/missing",
-        title="Title",
-        content="Body",
-    )
-
     with pytest.raises(indexer_module.OpenSearchIndexingError):
-        service._index_pages_to_opensearch_sync([page])
+        service._index_to_opensearch_page(
+            indexer_module.IndexedPage("https://example.com/", "Example", "Content")
+        )
+
+
+def test_excluded_document_does_not_generate_embeddings(monkeypatch):
+    def unexpected():
+        raise AssertionError("Excluded documents must not call embeddings API")
+
+    monkeypatch.setattr(opensearch_document, "get_embeddings", unexpected)
+    page = indexer_module.IndexedPage("https://example.com/login", "Login", "Sign in")
+    assert opensearch_document.build_search_index_document(page) is None

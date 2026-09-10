@@ -58,8 +58,7 @@ def test_rebuild_search_projection_does_not_skip_when_counts_match(monkeypatch):
     assert len(indexed_docs) == 1
     doc = indexed_docs[0]
     assert doc["url"] == "https://example.com/post"
-    assert doc["page_rank"] == 0.7
-    assert doc["domain_rank"] == 0.3
+    assert len(doc["embedding"]) == 1536
 
 
 def test_rebuild_search_projection_can_run_segment(monkeypatch):

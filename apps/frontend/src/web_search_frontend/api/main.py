@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
 
 # --- OpenAPI Metadata ---
 API_DESCRIPTION = """\
-Web search API powered by a custom crawler with BM25 ranking and PageRank boosting.
+Web search API powered by a custom crawler with native OpenSearch hybrid retrieval.
 
 ## Rate Limits
 

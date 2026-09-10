@@ -5,12 +5,22 @@ import logging
 from opensearchpy import OpenSearch
 
 from web_search_opensearch.client import index_name
+from web_search_opensearch.embeddings import DIMENSIONS, MODEL
 
 logger = logging.getLogger(__name__)
+
+SEARCH_PIPELINE = "web-search-hybrid-rrf"
+SCHEMA = {"search_schema": "hybrid-v1", "embedding_model": MODEL}
+PIPELINE_SETTINGS = {
+    "phase_results_processors": [
+        {"score-ranker-processor": {"combination": {"technique": "rrf"}}}
+    ]
+}
 
 INDEX_SETTINGS = {
     "settings": {
         "number_of_shards": 1,
+        "index.knn": True,
         "number_of_replicas": 0,
         "analysis": {
             "analyzer": {
@@ -30,6 +40,8 @@ INDEX_SETTINGS = {
         },
     },
     "mappings": {
+        "_meta": SCHEMA,
+        "dynamic": "strict",
         "properties": {
             "url": {"type": "keyword"},
             "host": {"type": "keyword"},
@@ -52,46 +64,55 @@ INDEX_SETTINGS = {
                 "analyzer": "sudachi_whitespace",
                 "similarity": "custom_bm25",
             },
-            "page_rank": {"type": "float"},
-            "domain_rank": {"type": "float"},
-        }
+            "embedding": {
+                "type": "knn_vector",
+                "dimension": DIMENSIONS,
+                "method": {
+                    "name": "hnsw",
+                    "engine": "lucene",
+                    "space_type": "cosinesimil",
+                    "parameters": {},
+                },
+            },
+        },
     },
 }
 
 
-def _missing_properties(client: OpenSearch, *, target_index: str) -> dict[str, object]:
-    response = client.indices.get_mapping(index=target_index)
-    mapping = response.get(target_index)
-    if mapping is None and response:
-        mapping = next(iter(response.values()))
-    properties = (mapping or {}).get("mappings", {}).get("properties", {})
-    expected = INDEX_SETTINGS["mappings"]["properties"]
-    return {
-        field: schema for field, schema in expected.items() if field not in properties
-    }
+def validate_index(client: OpenSearch, *, target_index: str | None = None) -> None:
+    """Reject old or mismatched projections; never patch an existing schema."""
+    resolved = index_name(target_index)
+    mappings = client.indices.get_mapping(index=resolved)
+    if len(mappings) != 1:
+        raise RuntimeError("Search must resolve to exactly one hybrid index")
+    mapping = next(iter(mappings.values()))["mappings"]
+    if (
+        mapping.get("_meta") != SCHEMA
+        or mapping.get("properties") != INDEX_SETTINGS["mappings"]["properties"]
+        or mapping.get("dynamic") != "strict"
+    ):
+        raise RuntimeError(
+            "Search index schema mismatch; rebuild into a new hybrid index"
+        )
+    settings = client.indices.get_settings(index=resolved)
+    if any(
+        str(value["settings"]["index"].get("knn")).lower() != "true"
+        for value in settings.values()
+    ):
+        raise RuntimeError("Hybrid search requires index.knn=true")
 
 
 def ensure_index(client: OpenSearch, *, target_index: str | None = None) -> bool:
-    """Create the documents index if it doesn't exist.
-
-    Returns:
-        True if index was created, False if it already existed.
-    """
-    resolved_index = index_name(target_index)
-    if client.indices.exists(index=resolved_index):
-        missing = _missing_properties(client, target_index=resolved_index)
-        if missing:
-            client.indices.put_mapping(
-                index=resolved_index, body={"properties": missing}
-            )
-            logger.info(
-                "Updated OpenSearch index '%s' with fields: %s",
-                resolved_index,
-                ", ".join(sorted(missing)),
-            )
-        logger.info("OpenSearch index '%s' already exists", resolved_index)
-        return False
-
-    client.indices.create(index=resolved_index, body=INDEX_SETTINGS)
-    logger.info("Created OpenSearch index '%s'", resolved_index)
-    return True
+    """Provision the native search pipeline and create or validate its index."""
+    resolved = index_name(target_index)
+    created = not client.indices.exists(index=resolved)
+    if created:
+        client.indices.create(index=resolved, body=INDEX_SETTINGS)
+    else:
+        validate_index(client, target_index=resolved)
+    client.transport.perform_request(
+        "PUT",
+        f"/_search/pipeline/{SEARCH_PIPELINE}",
+        body=PIPELINE_SETTINGS,
+    )
+    return created

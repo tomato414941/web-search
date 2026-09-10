@@ -23,7 +23,6 @@ class IndexerSettings(InfrastructureSettings):
 
     # OpenSearch
     OPENSEARCH_URL: str = "http://opensearch:9200"
-    OPENSEARCH_ENABLED: bool = False
 
 
 settings = IndexerSettings()

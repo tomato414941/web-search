@@ -35,6 +35,8 @@ jobs:
               - 'pyproject.toml'
               - 'uv.lock'
               - 'requirements-dev.txt'
+              - 'tests/integration/**'
+              - 'docker-compose.yml'
             packages:
               - 'packages/contracts/**'
               - 'packages/core/**'
@@ -42,7 +44,6 @@ jobs:
               - 'packages/web-model/**'
               - 'packages/kernel/**'
               - 'packages/opensearch/**'
-              - 'packages/indexing/**'
               - 'packages/search-config/**'
               - 'packages/search/**'
             frontend:
@@ -66,7 +67,6 @@ jobs:
               - 'packages/web-model/**'
               - 'packages/kernel/**'
               - 'packages/opensearch/**'
-              - 'packages/indexing/**'
               - 'packages/search-config/**'
               - 'packages/search/**'
               - 'apps/crawler/**'
@@ -81,7 +81,6 @@ jobs:
               - 'packages/web-model/pyproject.toml'
               - 'packages/kernel/pyproject.toml'
               - 'packages/opensearch/pyproject.toml'
-              - 'packages/indexing/pyproject.toml'
               - 'packages/search-config/pyproject.toml'
               - 'packages/search/pyproject.toml'
               - 'apps/frontend/pyproject.toml'
@@ -92,7 +91,7 @@ jobs:
 
   test-packages:
     needs: changes
-    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.packages == 'true'
+    if: needs.changes.outputs.force-all == 'true' || needs.changes.outputs.packages == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.indexer == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -124,6 +123,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
         run: make ci-packages
+      - name: Run native hybrid integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/testdb
+        run: make ci-hybrid
 
   test-frontend:
     needs: changes

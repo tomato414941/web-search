@@ -23,7 +23,7 @@ PostgreSQL stores the full extracted text. OpenSearch stores:
 - title, URL, host, and path;
 - the first 20,000 characters of extracted content;
 - `title_terms` and `content_terms`, tokenized with the shared Sudachi analyzer;
-- the link-rank values available when the document is projected.
+- a 1,536-dimensional embedding of title and bounded content.
 
 `content_terms` is built from the same truncated content. A passage beyond the
 limit cannot match through body terms even if it exists in PostgreSQL. The
@@ -36,25 +36,17 @@ Some hosts and account/login paths are excluded from the projection by
 `packages/search-config/src/web_search_search_config/index_exclusions.py`.
 A stored document therefore need not be a searchable document.
 
-## Link-rank freshness
+## Semantic representation
 
-The Web model maintenance worker computes PageRank and domain rank from stored
-links and writes PostgreSQL rank tables. Indexing or rebuilding the projection
-copies those values into OpenSearch.
+Document and query embeddings use `text-embedding-3-small`. The document input
+is title plus the bounded content above, truncated to 8,191 tokens using
+`cl100k_base`. Long pages currently have one vector; later passages can therefore
+be absent from both lexical and semantic retrieval. This is a representation
+limit, not something RRF can repair.
 
-Recalculating ranks alone does not update existing search documents. When a
-rank change should affect search, project it and then verify the returned
-ordering. The quality and refresh questions remain open in
-`issues/link-authority-signal-design.md`.
+Vectors are stored only in OpenSearch. There is no separate PostgreSQL embedding
+table in the active implementation. Embedding errors fail indexing/search rather
+than silently selecting another retrieval path.
 
-## Request-time signals
-
-Source fit, title/path fit, comparison fit, and recruiting-page detection are
-computed from the query and retrieved candidates. They are internal policy
-inputs, not independently validated measures of relevance. Their precedence is
-specified in `search-ranking-policy.md`.
-
-The public `score` is an OpenSearch score; `page_rank` and `domain_rank` are
-stored link priors. None is a probability that the page answers the query.
-Optional embedding backfill is separate from this projection and does not make
-vector retrieval available in the serving API.
+The public score is OpenSearch's RRF score. Source-specific ranking rules and
+link-rank projection have been removed. See `search-ranking-policy.md`.

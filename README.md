@@ -3,9 +3,9 @@
 PaleBlueSearch is a Web search project with its own crawler, extracted-document
 store, OpenSearch retrieval, browser UI, JSON API, and MCP adapter.
 
-The goal is general-purpose Web search. The current baseline is BM25 with
-Japanese tokenization and source-aware reranking; search quality and corpus
-coverage remain work in progress. Vector retrieval is not in the serving path.
+The goal is general-purpose Web search. Retrieval combines Japanese-tokenized
+BM25 and dense vectors using OpenSearch’s native reciprocal rank fusion (RRF).
+Search quality and corpus coverage remain work in progress.
 
 ## Try the API
 
@@ -21,9 +21,8 @@ See `docs/api.md` for failure behavior, content limits, and readiness semantics.
 ## Run locally
 
 Follow `docs/setup.md` for a working local search stack and sample data.
-A plain `docker compose up` does not publish the frontend port and does not
-start OpenSearch by default. Search needs both the `search` profile and
-`OPENSEARCH_ENABLED=true`.
+OpenSearch is a required service. Set `OPENAI_API_KEY` for document and query
+embeddings. A plain `docker compose up` does not publish the frontend port.
 
 For Python development:
 

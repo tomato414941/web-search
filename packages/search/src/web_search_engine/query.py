@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-import re
 
 from web_search_kernel.analyzer import analyzer
 from web_search_kernel.searcher import ParsedQuery, SearchResult, parse_query
@@ -22,29 +21,15 @@ class PreparedSearchQuery:
         return bool(self.tokens.strip() or self.tokenized_exact_phrases)
 
 
-@dataclass(frozen=True)
-class OpenSearchExecutionPlan:
-    use_diversity: bool
-    fetch_size: int
-    fetch_offset: int
-
-
-_QUESTION_PREFIX_RE = re.compile(r"^(what\s+(?:is|are))\s+", re.IGNORECASE)
-
-
 def _tokenize_search_values(values: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(
         tokenized for value in values if (tokenized := analyzer.tokenize(value).strip())
     )
 
 
-def _normalize_search_text(text: str) -> str:
-    return _QUESTION_PREFIX_RE.sub("", text).strip()
-
-
 def prepare_search_query(q: str) -> PreparedSearchQuery:
     parsed = parse_query(q)
-    normalized_text = _normalize_search_text(parsed.text)
+    normalized_text = parsed.text.strip()
     tokens = analyzer.tokenize(normalized_text) if normalized_text else ""
     exact_phrases = tuple(phrase for phrase in parsed.exact_phrases if phrase)
     exclude_terms = tuple(term for term in parsed.exclude_terms if term)
@@ -72,21 +57,6 @@ def build_snippet_terms(q: str) -> list[str]:
     if analyzed_q.strip():
         return analyzed_q.split()
     return [snippet_query]
-
-
-def build_opensearch_plan(
-    search_query: PreparedSearchQuery,
-    k: int,
-    page: int,
-    *,
-    overscan: int,
-    candidate_limit: int,
-) -> OpenSearchExecutionPlan:
-    return OpenSearchExecutionPlan(
-        use_diversity=False,
-        fetch_size=k,
-        fetch_offset=(page - 1) * k,
-    )
 
 
 def empty_search_result(q: str, k: int) -> SearchResult:

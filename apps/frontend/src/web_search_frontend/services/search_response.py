@@ -6,13 +6,6 @@ from web_search_kernel.snippet import generate_snippet
 from web_search_engine.query import build_snippet_terms
 
 
-def append_hit_metadata(hit_dict: dict[str, Any], hit: SearchHit) -> None:
-    if hit.page_rank is not None:
-        hit_dict["page_rank"] = hit.page_rank
-    if hit.domain_rank is not None:
-        hit_dict["domain_rank"] = hit.domain_rank
-
-
 def serialize_hit(
     hit: SearchHit, search_terms: list[str], *, include_content: bool = False
 ) -> dict[str, Any]:
@@ -26,7 +19,6 @@ def serialize_hit(
     }
     if include_content and hit.content:
         hit_dict["content"] = hit.content
-    append_hit_metadata(hit_dict, hit)
     return hit_dict
 
 

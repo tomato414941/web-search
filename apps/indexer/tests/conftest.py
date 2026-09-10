@@ -52,9 +52,26 @@ def _clean_tables():
 
 
 @pytest.fixture
-def test_client():
+def test_client(monkeypatch):
+    from unittest.mock import MagicMock
+    from web_search_indexer.services import indexer
+
+    monkeypatch.setattr(indexer, "_get_opensearch_client", lambda: MagicMock())
     """Create FastAPI TestClient for the Indexer app."""
     from fastapi.testclient import TestClient
     from web_search_indexer.main import app
 
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def fake_embedding_service(monkeypatch):
+    from types import SimpleNamespace
+    from web_search_indexer.services import opensearch_document
+    from web_search_opensearch.embeddings import DIMENSIONS
+
+    monkeypatch.setattr(
+        opensearch_document,
+        "get_embeddings",
+        lambda: SimpleNamespace(query=lambda text: [1.0] + [0.0] * (DIMENSIONS - 1)),
+    )

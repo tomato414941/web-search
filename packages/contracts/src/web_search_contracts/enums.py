@@ -85,9 +85,3 @@ def summarize_crawl_attempt_counts(
             count
         )
     return summary_counts
-
-
-class SearchMode(StrEnum):
-    """Search mode for query execution."""
-
-    BM25 = "bm25"

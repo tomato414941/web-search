@@ -8,10 +8,10 @@ changing the system. Service configuration lives in `docker-compose.yml`.
 | Component | Owns |
 |---|---|
 | Frontend | Public HTML/API, request validation, serialization, telemetry, and runtime wiring |
-| Search engine package | Query preparation, OpenSearch retrieval, and candidate ranking |
+| Search engine package | Query preparation and native OpenSearch hybrid retrieval |
 | Crawler | Queue admission/dispatch, host pacing, HTTP fetches, extraction, and observed links |
-| Indexer | Stored documents and their OpenSearch projection |
-| Web model | Known URLs, observed links, and graph-derived rank maintenance |
+| Indexer | Stored documents, embeddings, and their OpenSearch projection |
+| Web model | Known URLs and observed links |
 | MCP adapter | Search/content tools that call the public API |
 
 The frontend and indexer share PostgreSQL. Separating services does not give
@@ -20,13 +20,12 @@ writes search telemetry, so “read service” does not mean it performs no writ
 
 The search engine is a code boundary inside the frontend deployment, not a
 separate network service. It has no dependency on HTTP, PostgreSQL, cookies, or
-Prometheus. The host supplies its OpenSearch client and handles retrieval
-exceptions. `packages/search/README.md` records the interface and dependency
+Prometheus. The host supplies its OpenSearch client and query embedding function, and
+handles retrieval exceptions. `packages/search/README.md` records the interface and dependency
 contract to preserve when adding retrieval methods.
 
 The public read path and private ingestion path remain separate. There is no
-admin UI. The frontend's crawler HTTP call is a health observation, not a
-control API.
+admin UI. Search readiness does not depend on crawler availability.
 
 ## Data flow and consistency
 
@@ -36,27 +35,28 @@ flowchart LR
     MCP[MCP adapter] --> Frontend
     Frontend --> Search[Search engine]
     Search --> OS[(OpenSearch)]
+    Search -->|Query embedding| Embeddings[OpenAI embeddings]
+    Indexer -->|Document embedding| Embeddings
     Frontend --> PG[(PostgreSQL)]
     Crawler -->|POST /documents| Indexer
     Crawler -->|URL/link observations and queue/host state| PG
     Indexer -->|Stored text| PG
     Indexer -->|Search projection| OS
-    Maintenance[Web model maintenance] -->|Read links / write ranks| PG
 ```
 
 PostgreSQL holds full extracted content. OpenSearch holds analyzed search
-fields and a bounded content copy. The projection can be rebuilt from stored
-documents and rank tables; the two stores are not an atomic dual write.
+fields, a bounded content copy, and a 1,536-dimensional embedding. The projection
+can be rebuilt from stored documents; the two stores are not an atomic dual write.
 
-`POST /documents` writes PostgreSQL and attempts OpenSearch indexing within
-the request. There is no current indexer job queue or background indexing
-worker. The single-document path can return success after an OpenSearch failure.
-The crawler's successful handoff therefore does not prove search visibility.
-See `api.md` for observable failure behavior.
+`POST /documents` commits PostgreSQL and generates the embedding and OpenSearch
+projection within the request. Projection failure returns an error after the
+stored document has committed, allowing the caller to retry. Excluded or empty
+pages are stored but omitted from search. OpenSearch refresh still determines
+when an accepted projection becomes visible. There is no background indexing queue.
 
-PageRank and domain-rank maintenance update PostgreSQL rank tables. Existing
-OpenSearch documents keep their old values until projected again. Rank
-recalculation and search projection freshness are distinct states.
+OpenSearch combines BM25 and k-NN with its native RRF search pipeline. The
+application preserves that order; canonical-source and graph-rank overrides
+are not used. The default Compose stack no longer runs rank maintenance.
 
 ## URL knowledge and crawl state
 
@@ -75,10 +75,11 @@ a durable per-URL recrawl schedule. The old `crawl_schedule` table is removed.
 
 ## Operational implications
 
-Search requires a reachable, populated OpenSearch index even though the Compose
-search profile and `OPENSEARCH_ENABLED` flag can disable it. Readiness currently
-gates on PostgreSQL only. Successful startup or HTTP 200 from readiness is not
-a substitute for checking search.
+Search requires PostgreSQL, the current hybrid index and RRF pipeline, and an
+embedding API key. Readiness checks those local requirements. It does not make a
+paid embedding request, so it cannot establish provider availability or quota.
+Search dependency failures return HTTP 503. A populated index and a successful
+search are still necessary to establish useful service behavior.
 
 Deployment identity, projection rebuilds, and physical-index changes are
 covered in `deployment.md`; a healthy process alone does not establish that its

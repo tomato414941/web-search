@@ -24,17 +24,15 @@ Verification should establish:
 1. The deployed state identifies the intended commit.
 2. Required Compose services are running and healthy.
 3. Frontend readiness reports the expected dependencies, including OpenSearch.
-4. A known search query returns a non-degraded response and expected content.
+4. A known search query returns HTTP 200, `mode: "hybrid"`, and expected content.
 
-Readiness currently gates only on PostgreSQL. The verification script can skip
-its public search check when OpenSearch is not reported healthy; inspect that
-outcome rather than treating process health as evidence of working search.
+Frontend readiness checks the configured hybrid index and pipeline. The public
+search check is mandatory and also exercises query embedding generation.
 
 ## Projection refresh versus schema replacement
 
-`search-projection-rebuild` projects stored PostgreSQL documents and current
-link ranks into OpenSearch. It does not re-fetch raw HTML or recalculate ranks.
-Recalculation alone also does not refresh existing search documents.
+`search-projection-rebuild` projects stored PostgreSQL documents into the hybrid
+OpenSearch schema, generating embeddings. It does not re-fetch raw HTML.
 
 The rebuild CLI upserts eligible documents. Rebuilding an existing index is not
 an exact replacement of its contents: documents no longer eligible for projection
@@ -53,9 +51,22 @@ For a physical-index change:
 `ensure_index` does not migrate an existing mapping. Host-specific rebuild,
 cutover, and rollback commands belong in the private operator runbook.
 
+## Hybrid cutover
+
+The new default index is `documents-hybrid-v1`; an old lexical mapping is rejected
+rather than upgraded in place. Provision OpenSearch 2.19.6 and an embedding API
+key, rebuild into a fresh index, then deploy the matching application and MCP
+client together. Old `mode` query parameters are rejected. There is no old-schema
+reader, dual-write path, or automatic lexical fallback. A rollback requires
+restoring the corresponding application release and its index together.
+
+Full-corpus embedding generation is a separate, potentially costly operation;
+check document count, provider quota, storage capacity, and estimated token
+volume before running it. The Compose memory defaults are development settings,
+not a capacity guarantee for a full Web corpus.
+
 ## Local profiles
 
-`docs/setup.md` contains the local startup procedure. Compose's `search` profile
-starts OpenSearch; `OPENSEARCH_ENABLED` separately controls its use by services.
-`crawler`, `monitoring`, and `embedding` enable their optional services.
-Embedding backfill does not enable a vector search API.
+OpenSearch is mandatory. `crawler` and `monitoring` remain optional profiles.
+The separate embedding-backfill service and periodic link-rank worker have been
+removed from the serving stack. `docs/setup.md` contains the local procedure.

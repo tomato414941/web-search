@@ -75,12 +75,11 @@ set_environment_config() {
       REQUIRED_SERVICES=(
         frontend
         indexer
-        web-model-maintenance-worker
+        opensearch
         postgres
       )
       OPTIONAL_IF_PRESENT_SERVICES=(
         crawler
-        opensearch
         prometheus
         grafana
       )
@@ -219,18 +218,13 @@ run_checks_once() {
   fi
 
   echo "Checking readiness: ${FRONTEND_URL}/readyz"
-  if ! readyz_body="$(check_http_json "${FRONTEND_URL}/readyz" '.status == "ok"')"; then
+  if ! check_http_json "${FRONTEND_URL}/readyz" '.status == "ok" and .checks.opensearch.status == "ok"' >/dev/null; then
     failures=1
-  else
-    opensearch_status="$(echo "$readyz_body" | jq -r '.checks.opensearch.status // .checks.opensearch // "unknown"')"
-    if [ "$opensearch_status" = "ok" ]; then
-      echo "Checking public search API"
-      if ! check_http_json "${FRONTEND_URL}/search-results?q=test&limit=3" '.total >= 0 and (.mode | type == "string") and (.degraded != true) and (.error_type == null)' >/dev/null; then
-        failures=1
-      fi
-    else
-      echo "Skipping public search check because opensearch status is ${opensearch_status}"
-    fi
+  fi
+
+  echo "Checking public hybrid search API"
+  if ! check_http_json "${FRONTEND_URL}/search-results?q=test&limit=3" '.total >= 0 and .mode == "hybrid"' >/dev/null; then
+    failures=1
   fi
 
   return "$failures"
