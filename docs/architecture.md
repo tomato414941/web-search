@@ -6,7 +6,6 @@ Current runtime reference.
 
 ## Related Docs
 
-- [Documentation Guide](./README.md)
 - [Search Ranking Policy](./search-ranking-policy.md)
 - [Search Evaluation](./search-evaluation.md)
 - [Setup Guide](./setup.md)

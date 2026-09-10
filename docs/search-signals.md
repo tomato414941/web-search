@@ -10,7 +10,6 @@ how they fit into the current ranking path.
 
 ## Related Docs
 
-- [Documentation Guide](./README.md)
 - [Architecture](./architecture.md)
 - [Search Ranking Policy](./search-ranking-policy.md)
 

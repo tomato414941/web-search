@@ -6,7 +6,6 @@ Current local development reference.
 
 ## Related Docs
 
-- [Documentation Guide](./README.md)
 - [Architecture](./architecture.md)
 - [Deployment Guide](./deployment.md)
 

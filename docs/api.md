@@ -10,7 +10,6 @@ should be read from the implementation when needed.
 
 ## Related Docs
 
-- [Documentation Guide](./README.md)
 - [Architecture](./architecture.md)
 - [Setup Guide](./setup.md)
 - [Deployment Guide](./deployment.md)

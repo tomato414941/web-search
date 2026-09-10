@@ -97,8 +97,6 @@ curl "https://palebluesearch.com/search-results?q=python&limit=20&page=2"
 
 ## Documentation
 
-Start with **[Documentation Guide](./docs/README.md)**.
-
 Key entry points:
 
 - **[Issues](./issues/)**: file-based engineering issue tracking
