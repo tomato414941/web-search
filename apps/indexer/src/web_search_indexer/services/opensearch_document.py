@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from web_search_kernel.analyzer import analyzer
 from web_search_opensearch.document import SearchIndexDocument
+from web_search_opensearch.embeddings import get_embeddings
 from web_search_search_config.index_exclusions import is_search_index_excluded
 
 SEARCH_CONTENT_MAX_CHARS = 20_000
@@ -30,9 +31,6 @@ def search_projection_content(content: str) -> str:
 
 def build_search_index_document(
     page: OpenSearchPage,
-    *,
-    page_rank: float,
-    domain_rank: float,
 ) -> SearchIndexDocument | None:
     title = page.title or ""
     content = search_projection_content(page.content or "")
@@ -40,7 +38,7 @@ def build_search_index_document(
     content_terms = analyzer.tokenize(content) if content else ""
 
     host, path = search_index_url_metadata(page.url)
-    if is_search_index_excluded(host, path):
+    if is_search_index_excluded(host, path) or not (title.strip() or content.strip()):
         return None
 
     return {
@@ -49,8 +47,7 @@ def build_search_index_document(
         "content": content,
         "title_terms": title_terms,
         "content_terms": content_terms,
-        "page_rank": page_rank,
-        "domain_rank": domain_rank,
+        "embedding": get_embeddings().query(f"{title}\n{content}"),
         "host": host,
         "path": path,
     }

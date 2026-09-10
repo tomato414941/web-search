@@ -52,12 +52,11 @@ services:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - ALLOWED_HOSTS=${ALLOWED_HOSTS},frontend,localhost,127.0.0.1
       - ANALYTICS_SALT=${ANALYTICS_SALT}
-      - CRAWLER_SERVICE_URL=http://crawler:8000
       - DB_POOL_MIN=${DB_POOL_MIN_FRONTEND:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-4}
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents}
-      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:?Set OPENAI_API_KEY for hybrid search}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -68,21 +67,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  embedding-backfill:
-    build:
-      context: .
-      dockerfile: packages/indexing/Dockerfile
-    restart: "no"
-    profiles: ["embedding"]
-    environment:
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - EMBEDDING_ENRICHMENT_ENABLED=${EMBEDDING_ENRICHMENT_ENABLED:-false}
-    command: ["python", "-m", "web_search_indexing.backfill_embeddings"]
-    depends_on:
-      db-migrate:
-        condition: service_completed_successfully
 
   indexer:
     build:
@@ -100,44 +84,14 @@ services:
       - DB_POOL_MIN=${DB_POOL_MIN_INDEXER:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-6}
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents}
-      - OPENSEARCH_ENABLED=${OPENSEARCH_ENABLED:-false}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v1}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:?Set OPENAI_API_KEY for hybrid search}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
     mem_limit: ${INDEXER_MEM_LIMIT:-384m}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
-  web-model-maintenance-worker:
-    build:
-      context: .
-      dockerfile: packages/web-model/Dockerfile
-    restart: unless-stopped
-    environment:
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
-      - PAGERANK_INTERVAL_HOURS=${PAGERANK_INTERVAL_HOURS:-24}
-      - DOMAIN_RANK_INTERVAL_HOURS=${DOMAIN_RANK_INTERVAL_HOURS:-12}
-      - DB_POOL_MIN=${DB_POOL_MIN_WEB_MODEL_MAINTENANCE:-1}
-      - DB_POOL_MAX=${DB_POOL_MAX_WEB_MODEL_MAINTENANCE:-2}
-    command: ["python", "-m", "web_search_web_model.worker"]
-    depends_on:
-      db-migrate:
-        condition: service_completed_successfully
-    mem_limit: ${WEB_MODEL_MAINTENANCE_MEM_LIMIT:-256m}
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "from web_search_postgres.search import get_connection; c=get_connection(); cur=c.cursor(); cur.execute('SELECT 1'); cur.close(); c.close()",
-        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -172,9 +126,8 @@ services:
       start_period: 30s
 
   opensearch:
-    image: opensearchproject/opensearch:2.17.1
+    image: opensearchproject/opensearch:2.19.6
     restart: unless-stopped
-    profiles: ["search"]
     environment:
       - discovery.type=single-node
       - OPENSEARCH_JAVA_OPTS=${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
@@ -197,9 +150,10 @@ services:
     restart: "no"
     profiles: ["search-projection-rebuild"]
     environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:?Set OPENAI_API_KEY for hybrid search}
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v1}
     command: ["python", "-m", "web_search_indexer.cli.rebuild_search_projection"]
     depends_on:
       db-migrate:
@@ -225,8 +179,6 @@ services:
       frontend:
         condition: service_started
       indexer:
-        condition: service_started
-      web-model-maintenance-worker:
         condition: service_started
     mem_limit: ${PROMETHEUS_MEM_LIMIT:-256m}
     healthcheck:

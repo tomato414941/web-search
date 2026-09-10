@@ -3,7 +3,6 @@
 from web_search_contracts.enums import (
     CrawlAttemptStatus,
     CrawlUrlStatus,
-    SearchMode,
 )
 from web_search_contracts.indexer_api import (
     IndexDocumentRequest,
@@ -15,5 +14,4 @@ __all__ = [
     "CrawlUrlStatus",
     "IndexDocumentRequest",
     "IndexDocumentResponse",
-    "SearchMode",
 ]

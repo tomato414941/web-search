@@ -56,3 +56,18 @@ def _clean_tables():
 def client():
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture(autouse=True)
+def fake_search_backend(monkeypatch):
+    from types import SimpleNamespace
+    from web_search_frontend.services.search import search_service
+    from web_search_kernel.searcher import SearchResult
+
+    monkeypatch.setattr(
+        search_service,
+        "_engine",
+        SimpleNamespace(
+            search=lambda q, k, page: SearchResult(q, 0, [], page, k, 1),
+        ),
+    )

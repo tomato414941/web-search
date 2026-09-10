@@ -4,10 +4,6 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-import numpy as np
-
-EmbeddingFunc = Callable[[str], np.ndarray]
-
 
 @dataclass
 class SearchHit:
@@ -17,8 +13,6 @@ class SearchHit:
     title: str
     content: str
     score: float
-    page_rank: float | None = None
-    domain_rank: float | None = None
 
 
 @dataclass

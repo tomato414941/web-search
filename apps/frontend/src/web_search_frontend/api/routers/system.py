@@ -6,7 +6,8 @@ Provides canonical health check endpoints:
 - /readyz: Readiness probe (dependencies healthy)
 """
 
-import httpx
+import asyncio
+import os
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
@@ -26,24 +27,16 @@ def _check_database() -> bool:
         return False
 
 
-async def _check_crawler() -> bool:
-    """Check Crawler service connectivity (non-blocking)."""
-    try:
-        async with httpx.AsyncClient(timeout=3.0) as client:
-            resp = await client.get(f"{settings.CRAWLER_SERVICE_URL}/health")
-            return resp.status_code == 200
-    except Exception:
-        return False
-
-
 def _check_opensearch() -> dict:
     """Check OpenSearch connectivity and document count."""
-    if not settings.OPENSEARCH_ENABLED:
-        return {"status": "disabled"}
     try:
         from web_search_opensearch.client import get_client, index_name
 
+        from web_search_opensearch.mapping import validate_index, SEARCH_PIPELINE
+
         client = get_client(settings.OPENSEARCH_URL)
+        validate_index(client)
+        client.transport.perform_request("GET", f"/_search/pipeline/{SEARCH_PIPELINE}")
         count = client.count(index=index_name())["count"]
         return {"status": "ok", "documents": count}
     except Exception as e:
@@ -51,26 +44,24 @@ def _check_opensearch() -> dict:
 
 
 async def _get_readiness_response():
-    """Get readiness status with dependency checks.
-
-    Only database health determines readiness (200 vs 503).
-    Crawler status is informational — reported but not gating.
-    """
-    db_ok = _check_database()
-    crawler_ok = await _check_crawler()
-    opensearch = _check_opensearch()
-
-    checks = {
-        "database": "ok" if db_ok else "unhealthy",
-        "crawler": "ok" if crawler_ok else "degraded",
-        "opensearch": opensearch,
-    }
-
-    status = "ok" if db_ok else "unhealthy"
-
+    db_ok, opensearch = await asyncio.gather(
+        asyncio.to_thread(_check_database),
+        asyncio.to_thread(_check_opensearch),
+    )
+    embeddings_configured = bool(os.environ.get("OPENAI_API_KEY"))
+    ok = db_ok and opensearch["status"] == "ok" and embeddings_configured
     return JSONResponse(
-        status_code=200 if db_ok else 503,
-        content={"status": status, "checks": checks},
+        status_code=200 if ok else 503,
+        content={
+            "status": "ok" if ok else "unhealthy",
+            "checks": {
+                "database": "ok" if db_ok else "unhealthy",
+                "opensearch": opensearch,
+                "embeddings": "configured"
+                if embeddings_configured
+                else "missing_api_key",
+            },
+        },
     )
 
 

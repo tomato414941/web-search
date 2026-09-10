@@ -11,6 +11,7 @@ SEARCH_EVAL_ARGS ?=
 SEARCH_EVAL_REPORT ?=
 SEARCH_EVAL_SUMMARY_ARGS ?=
 
+.PHONY: ci-hybrid
 .PHONY: ci ci-lint ci-legacy-paths ci-frontend ci-packages ci-crawler ci-indexer ci-mcp
 .PHONY: watch-ci verify-prd
 .PHONY: release-check-prd evaluate-search summarize-search-eval
@@ -22,12 +23,12 @@ SEARCH_EVAL_SUMMARY_ARGS ?=
 .PHONY: verify-compose-prd
 .PHONY: sync sync-packages sync-frontend sync-indexer sync-crawler sync-mcp
 
-ci: ci-lint ci-packages ci-frontend ci-crawler ci-indexer ci-mcp
+ci: ci-lint ci-packages ci-frontend ci-crawler ci-indexer ci-mcp ci-hybrid
 
 ci-lint:
 	$(MAKE) ci-legacy-paths
-	$(RUFF) check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ packages/search/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
-	$(RUFF) format --check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/indexing/src/ packages/search-config/src/ packages/search/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
+	$(RUFF) check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/search-config/src/ packages/search/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
+	$(RUFF) format --check apps/frontend/src/ packages/contracts/src/ packages/core/src/ packages/postgres/src/ packages/web-model/src/ packages/kernel/src/ packages/opensearch/src/ packages/search-config/src/ packages/search/src/ apps/crawler/src/ apps/indexer/src/ apps/mcp/src/
 
 ci-legacy-paths:
 	cd $(ROOT_DIR) && $(PYTHON) scripts/ci/check_no_legacy_paths.py
@@ -40,7 +41,7 @@ ci-frontend:
 
 ci-packages:
 	cd $(ROOT_DIR) && \
-		$(UV) run --all-packages pytest packages/core/tests packages/search-config/tests packages/search/tests packages/postgres/tests packages/web-model/tests packages/kernel/tests packages/opensearch/tests packages/indexing/tests -v --tb=short --cov=web_search_core --cov=web_search_search_config --cov=web_search_engine --cov=web_search_postgres --cov=web_search_web_model --cov=web_search_kernel --cov=web_search_opensearch --cov=web_search_indexing --cov-report=term-missing
+		$(UV) run --all-packages pytest packages/core/tests packages/search-config/tests packages/search/tests packages/postgres/tests packages/web-model/tests packages/kernel/tests packages/opensearch/tests -v --tb=short --cov=web_search_core --cov=web_search_search_config --cov=web_search_engine --cov=web_search_postgres --cov=web_search_web_model --cov=web_search_kernel --cov=web_search_opensearch --cov-report=term-missing
 
 ci-crawler:
 	cd $(ROOT_DIR) && \
@@ -112,3 +113,6 @@ enqueue-url-prd:
 
 refill-crawl-frontier-prd:
 	cd $(ROOT_DIR) && uv run --package web-search-crawler web-search-refill-crawl-frontier prd $(REFILL_ARGS)
+
+ci-hybrid:
+	cd $(ROOT_DIR) && $(UV) run --all-packages pytest tests/integration -v --tb=short

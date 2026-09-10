@@ -79,7 +79,9 @@
         {% if q is not none %}
         <div class="meta-info">
             <span>
-                {% if result and result.hits %}
+                {% if search_error %}
+                {{ msg.search_unavailable }}
+                {% elif result and result.hits %}
                 {{ msg.result_count.format(result.total) }}
                 {% else %}
                 {{ msg.no_results }}

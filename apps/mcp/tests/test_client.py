@@ -20,8 +20,7 @@ MOCK_SEARCH_RESPONSE = {
             "rank": 10.5,
         }
     ],
-    "mode": "bm25",
-    "requested_mode": "bm25",
+    "mode": "hybrid",
     "request_id": "abc123",
 }
 
@@ -38,11 +37,11 @@ async def test_search_sends_correct_params():
     with patch(
         "httpx.AsyncClient.get", new_callable=AsyncMock, return_value=mock_resp
     ) as mock_get:
-        await client.search("python", limit=5, mode="bm25")
+        await client.search("python", limit=5)
         call_kwargs = mock_get.call_args
         assert call_kwargs.kwargs["params"]["q"] == "python"
         assert call_kwargs.kwargs["params"]["limit"] == 5
-        assert call_kwargs.kwargs["params"]["mode"] == "bm25"
+        assert "mode" not in call_kwargs.kwargs["params"]
         assert call_kwargs.kwargs["headers"] == {"User-Agent": "paleblue-mcp/1.0"}
 
 

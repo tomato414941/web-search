@@ -18,10 +18,9 @@ class PaleBlueClient:
         query: str,
         limit: int = 10,
         page: int = 1,
-        mode: str = "bm25",
         include_content: bool = False,
     ) -> dict:
-        params: dict = {"q": query, "limit": limit, "page": page, "mode": mode}
+        params: dict = {"q": query, "limit": limit, "page": page}
         if include_content:
             params["include_content"] = "true"
         async with httpx.AsyncClient(timeout=self.timeout) as client:

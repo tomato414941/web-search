@@ -11,8 +11,7 @@ def test_index_document_accepts_search_document_fields():
         "content": "example content",
         "title_terms": "example title",
         "content_terms": "example content",
-        "page_rank": 0.5,
-        "domain_rank": 0.25,
+        "embedding": [1.0],
         "host": "example.com",
         "path": "/page",
     }
@@ -35,8 +34,7 @@ def test_bulk_index_accepts_target_index():
         "content": "example content",
         "title_terms": "example title",
         "content_terms": "example content",
-        "page_rank": 0.5,
-        "domain_rank": 0.25,
+        "embedding": [1.0],
         "host": "example.com",
         "path": "/page",
     }

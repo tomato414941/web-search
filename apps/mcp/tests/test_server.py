@@ -10,7 +10,7 @@ MOCK_SEARCH_DATA = {
     "page": 1,
     "per_page": 10,
     "last_page": 1,
-    "mode": "bm25",
+    "mode": "hybrid",
     "hits": [
         {
             "url": "https://fastapi.tiangolo.com",
@@ -42,7 +42,7 @@ def test_format_hits_empty():
         "total": 0,
         "page": 1,
         "last_page": 1,
-        "mode": "bm25",
+        "mode": "hybrid",
         "hits": [],
     }
     result = _format_hits(data)
@@ -55,7 +55,7 @@ def test_format_hits_untitled():
         "total": 1,
         "page": 1,
         "last_page": 1,
-        "mode": "bm25",
+        "mode": "hybrid",
         "hits": [
             {
                 "url": "https://example.com",

@@ -6,7 +6,6 @@ requires-python = ">=3.11"
 dependencies = [
     "web-search-kernel",
     "web-search-opensearch",
-    "web-search-search-config",
 ]
 
 [build-system]

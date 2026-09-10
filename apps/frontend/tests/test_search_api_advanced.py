@@ -1,67 +1,53 @@
-from web_search_frontend.core.config import settings
-
-MAX_QUERY_LEN = settings.MAX_QUERY_LEN
-MAX_PER_PAGE = settings.MAX_PER_PAGE
-MAX_PAGE = settings.MAX_PAGE
+import pytest
+from web_search_frontend.services.search import search_service, SearchUnavailable
 
 
-def test_search_api_pagination_params(client):
-    # Valid page - with no results, page is clamped to last_page (1)
-    response = client.get("/search-results?q=test&page=2")
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"page": 0},
+        {"page": -5},
+        {"page": "invalid"},
+        {"limit": 51},
+        {"page": 5, "limit": 50},
+        {"q": "a" * 201},
+        {"mode": "bm25"},
+    ],
+)
+def test_search_api_rejects_invalid_or_removed_parameters(client, params):
+    assert (
+        client.get("/search-results", params={"q": "test", **params}).status_code == 422
+    )
+
+
+def test_search_api_accepts_valid_page(client):
+    response = client.get(
+        "/search-results", params={"q": "test", "page": 2, "limit": 5}
+    )
     assert response.status_code == 200
-    data = response.json()
-    assert data["page"] >= 1
-
-    # Invalid page (0 or negative) -> should default to 1
-    response = client.get("/search-results?q=test&page=0")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["page"] == 1
-
-    response = client.get("/search-results?q=test&page=-5")
-    assert response.status_code == 200
-    assert response.json()["page"] == 1
+    assert response.json()["page"] == 2
+    assert response.json()["per_page"] == 5
+    assert response.json()["mode"] == "hybrid"
+    assert "requested_mode" not in response.json()
 
 
-def test_search_api_page_limit(client):
-    # Requesting a page beyond MAX_PAGE - with no results, page is clamped to last_page
-    response = client.get(f"/search-results?q=test&page={MAX_PAGE + 10}")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["page"] >= 1
+def test_search_failure_is_503_for_api_and_browser(client, monkeypatch):
+    def fail(*args, **kwargs):
+        raise SearchUnavailable("unavailable")
+
+    monkeypatch.setattr(search_service, "search", fail)
+    api = client.get("/search-results?q=test")
+    assert api.status_code == 503
+    assert "hits" not in api.json()
+    page = client.get("/?q=test&lang=ja")
+    assert page.status_code == 503
+    assert "現在検索を利用できません" in page.text
+    assert "結果なし" not in page.text
 
 
-def test_search_api_invalid_page_type(client):
-    # Non-integer page -> should default to 1
-    response = client.get("/search-results?q=test&page=invalid")
-    assert response.status_code == 200
-    assert response.json()["page"] == 1
+def test_readiness_requires_hybrid_index(client, monkeypatch):
+    from web_search_frontend.api.routers import system
 
-
-def test_search_api_limit_param(client):
-    # Valid limit
-    response = client.get("/search-results?q=test&limit=5")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["per_page"] == 5
-
-    # Exceeding MAX_PER_PAGE
-    response = client.get(f"/search-results?q=test&limit={MAX_PER_PAGE + 100}")
-    assert response.status_code == 200
-    assert response.json()["per_page"] == MAX_PER_PAGE
-
-
-def test_search_api_query_length_truncation(client):
-    # Construct a query longer than MAX_QUERY_LEN
-    long_query = "a" * (MAX_QUERY_LEN + 50)
-    response = client.get(f"/search-results?q={long_query}")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["query"]) == MAX_QUERY_LEN
-    assert data["query"] == long_query[:MAX_QUERY_LEN]
-
-
-def test_search_special_characters(client):
-    # Just ensure it doesn't crash 500
-    response = client.get("/search-results?q=%22%27%3Cscript%3E")
-    assert response.status_code == 200
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(system, "_check_opensearch", lambda: {"status": "error"})
+    assert client.get("/readyz").status_code == 503

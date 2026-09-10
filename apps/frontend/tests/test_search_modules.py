@@ -1,25 +1,22 @@
 from types import SimpleNamespace
+import pytest
 
-from web_search_frontend.services.search import SearchService
+from web_search_frontend.services.search import SearchService, SearchUnavailable
 from web_search_kernel.searcher import SearchHit, SearchResult
 
 
-def test_search_service_returns_empty_result_when_opensearch_fails():
+@pytest.mark.parametrize("error", [RuntimeError, ValueError])
+def test_search_service_reports_dependency_failure(error):
     def fail(*args, **kwargs):
-        raise RuntimeError("boom")
+        raise error("boom")
 
     service = SearchService(engine=SimpleNamespace(search=fail))
 
-    result = service.search("test", 5, 1)
-
-    assert result["query"] == "test"
-    assert result["total"] == 0
-    assert result["hits"] == []
-    assert result["degraded"] is True
-    assert result["error_type"] == "retrieval_failed"
+    with pytest.raises(SearchUnavailable):
+        service.search("test", 5, 1)
 
 
-def test_search_service_formats_bm25_result():
+def test_search_service_formats_hybrid_result():
     service = SearchService()
     expected = SearchResult(
         query="test",
@@ -45,5 +42,5 @@ def test_search_service_formats_bm25_result():
 
     assert result["query"] == "test"
     assert result["total"] == 1
-    assert result["mode"] == "bm25"
+    assert result["mode"] == "hybrid"
     assert "fallback" not in result

@@ -6,14 +6,14 @@ from web_search_postgres.search import get_connection
 
 @pytest.fixture
 def search_hit(monkeypatch):
-    def search(query, limit=10, page=1, mode="bm25", *, include_content=False):
+    def search(query, limit=10, page=1, *, include_content=False):
         return {
             "query": query,
             "total": 1,
             "page": page,
             "per_page": limit,
             "last_page": 1,
-            "mode": mode,
+            "mode": "hybrid",
             "hits": [
                 {
                     "url": "https://example.com/",

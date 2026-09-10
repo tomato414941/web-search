@@ -10,7 +10,7 @@ from web_search_opensearch.document import SearchIndexDocument
 
 logger = logging.getLogger(__name__)
 
-INDEX_NAME = "documents"
+INDEX_NAME = "documents-hybrid-v1"
 _MAX_ID_BYTES = 512
 
 _client: OpenSearch | None = None
@@ -43,7 +43,7 @@ def doc_id(url: str) -> str:
 
 
 def index_name(name: str | None = None) -> str:
-    """Return the target OpenSearch index or alias name."""
+    """Return the target OpenSearch index name."""
     return name or os.environ.get("OPENSEARCH_INDEX_NAME", INDEX_NAME)
 
 
@@ -68,10 +68,7 @@ def delete_document(
     target_index: str | None = None,
 ) -> None:
     """Delete a document from OpenSearch by URL."""
-    try:
-        client.delete(index=index_name(target_index), id=doc_id(url), ignore=[404])
-    except Exception:
-        logger.warning("Failed to delete %s from OpenSearch", url, exc_info=True)
+    client.delete(index=index_name(target_index), id=doc_id(url), ignore=[404])
 
 
 def bulk_index(

@@ -9,7 +9,6 @@ class SearchIndexDocument(TypedDict):
     content: str
     title_terms: str
     content_terms: str
-    page_rank: float
-    domain_rank: float
+    embedding: list[float]
     host: str
     path: str

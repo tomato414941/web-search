@@ -6,7 +6,7 @@ Usage:
         [--start-after-url URL] [--max-documents N]
 
 Requires:
-    DATABASE_URL and OPENSEARCH_URL environment variables.
+    DATABASE_URL, OPENSEARCH_URL, and OPENAI_API_KEY environment variables.
 """
 
 import argparse
@@ -45,6 +45,8 @@ def rebuild_search_projection(
     start_after_url: str | None = None,
     max_documents: int | None = None,
 ) -> None:
+    if batch_size < 1 or (max_documents is not None and max_documents < 1):
+        raise ValueError("Batch size and maximum document count must be positive")
     if not os.environ.get("DATABASE_URL", ""):
         logger.error("DATABASE_URL not set")
         sys.exit(1)
@@ -79,29 +81,28 @@ def rebuild_search_projection(
             break
         last_url = rows[-1][0]
 
-        urls = [url for url, *_ in rows]
-        link_rank_map = DocumentRepository.fetch_link_rank_map(urls)
-
         docs = []
         for (
             url,
             title,
             content,
         ) in rows:
-            page_rank, domain_rank = link_rank_map.get(url, (0.0, 0.0))
             doc = build_search_index_document(
                 ProjectionPage(
                     url=url,
                     title=title,
                     content=content,
                 ),
-                page_rank=page_rank,
-                domain_rank=domain_rank,
             )
             if doc is not None:
                 docs.append(doc)
 
-        indexed += bulk_index(client, docs, target_index=index_name)
+        count = bulk_index(client, docs, target_index=index_name)
+        if count != len(docs):
+            raise RuntimeError(
+                f"Hybrid projection failed: {count}/{len(docs)} documents indexed"
+            )
+        indexed += count
         scanned += len(rows)
 
         elapsed = time.time() - start
@@ -143,8 +144,8 @@ def main():
         "--index-name",
         default=os.environ.get("OPENSEARCH_INDEX_NAME"),
         help=(
-            "OpenSearch index or alias name to rebuild. Defaults to "
-            "OPENSEARCH_INDEX_NAME or documents."
+            "OpenSearch hybrid index to rebuild. Defaults to "
+            "OPENSEARCH_INDEX_NAME or documents-hybrid-v1."
         ),
     )
     args = parser.parse_args()

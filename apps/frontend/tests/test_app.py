@@ -8,7 +8,11 @@ def test_health(client):
     assert data["status"] == "ok"
 
 
-def test_readyz(client):
+def test_readyz(client, monkeypatch):
+    from web_search_frontend.api.routers import system
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(system, "_check_opensearch", lambda: {"status": "ok"})
     response = client.get("/readyz")
     assert response.status_code == 200
     data = response.json()
@@ -61,7 +65,6 @@ def test_search_page_pagination_links_encode_query_and_preserve_state(
         q: str | None,
         k: int = 10,
         page: int = 1,
-        mode: str = "bm25",
         *,
         include_content: bool = False,
     ) -> dict:
@@ -80,7 +83,7 @@ def test_search_page_pagination_links_encode_query_and_preserve_state(
                     "score": 1.0,
                 }
             ],
-            "mode": mode,
+            "mode": "hybrid",
         }
 
     monkeypatch.setattr(search_service, "search", fake_search)
@@ -109,7 +112,6 @@ def test_search_page_form_preserves_lang(client, monkeypatch):
         q: str | None,
         k: int = 10,
         page: int = 1,
-        mode: str = "bm25",
         *,
         include_content: bool = False,
     ) -> dict:
@@ -128,7 +130,7 @@ def test_search_page_form_preserves_lang(client, monkeypatch):
                     "score": 1.0,
                 }
             ],
-            "mode": mode,
+            "mode": "hybrid",
         }
 
     monkeypatch.setattr(search_service, "search", fake_search)

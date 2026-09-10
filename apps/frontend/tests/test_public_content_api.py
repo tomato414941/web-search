@@ -24,7 +24,6 @@ class TestAPISearchPublicContent:
             q: str | None,
             k: int = 10,
             page: int = 1,
-            mode: str = "bm25",
             *,
             include_content: bool = False,
         ) -> dict:
@@ -45,7 +44,7 @@ class TestAPISearchPublicContent:
                         "content": "full page text",
                     }
                 ],
-                "mode": mode,
+                "mode": "hybrid",
             }
 
         monkeypatch.setattr(search_service, "search", fake_search)
