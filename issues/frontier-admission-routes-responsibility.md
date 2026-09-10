@@ -1,51 +1,31 @@
-# Frontier Admission Routes Responsibility
+# Crawl Queue Admission Policy
 
-## Problem
+## Current behavior
 
-`frontier_entries` admission is implemented through a small number of code
-paths, but the product-level reasons for admission are not clearly separated.
+URL registration and queue insertion are separate. The current routes are:
 
-Most new frontier rows flow through `discover_and_admit_urls()` or
-`discover_and_admit_url()`, which ultimately call `_upsert_frontier_batch()`.
-That shared path is good mechanically, but it currently mixes distinct
-admission intents such as ordinary crawler discovery, operator priority
-admission, and CLI requeue recovery.
+| Route | Effect |
+|---|---|
+| HTML discovery | Records valid URLs; enqueues at most one eligible same-domain outlink |
+| Syndication-feed discovery | Records and requests enqueueing of feed URLs |
+| Feed entries | Records URLs without automatically enqueueing them |
+| Operator enqueue CLI | Records supplied URLs and requests ordinary queue insertion |
+| Link-graph refill CLI | Samples diverse unindexed, unqueued targets and requests insertion |
 
-This makes it harder to reason about what should happen when admission rules
-change.
+`CrawlQueueMixin` applies URL admission rules and deduplicates pending URL hashes.
+The obsolete `discover_and_admit_urls`, recent-fetch schedule, and recovery-API
+paths are not the current implementation.
 
-## Evidence
+## Remaining decisions
 
-Observed frontier admission routes:
+- Is the current same-domain, one-outlink expansion sufficient for desired
+  coverage, alongside graph refill?
+- Which eligibility rules should be shared by operator input and automatic
+  discovery, and which differences are intentional?
+- Should feed entries become crawl candidates, and on what bounded policy?
+- If recovery or priority admission is added, what checks may it bypass?
 
-- HTML outlinks via `admit_discovered_urls(...)`
-- robots-blocked recovery CLI when a URL has no existing frontier entry
-
-Observed non-admission route:
-
-- feed entry URLs are recorded with `record_discovered_urls(...)` and are not
-  admitted to the frontier
-
-## Impact
-
-- It is not obvious which routes should respect recent-crawl suppression and
-  which should force admission.
-- Recent-crawl suppression now uses frontier runtime state, but admission intent
-  is still not clearly represented at the product level.
-- Manual/operator intent and crawler-discovered intent currently share much of
-  the same path, so policy differences are implicit.
-- Future feed-specific changes may accidentally admit feed entry URLs if the
-  distinction between discovery ledger writes and frontier admission is not kept
-  explicit.
-
-## Direction
-
-Define admission intent explicitly before changing suppression rules.
-
-Likely target shape:
-
-- keep one low-level frontier upsert implementation
-- make higher-level admission intents explicit, for example normal admission,
-  operator priority admission, and recovery requeue
-- document which intents can bypass recent-crawl suppression
-- keep ledger-only URL recording separate from frontier admission
+Resolve these as explicit product policies before adding another admission
+path. Preserve independent URL registration. Operator urgency is tracked in
+`issues/operator-priority-crawl-request.md`; delivery after a queue pop is in
+`issues/crawl-queue-delivery-semantics.md`.

@@ -1,47 +1,23 @@
 # Operator Priority Crawl Request
 
-## Problem
+## Current behavior
 
-Operators sometimes need to tell the system that a specific URL should be
-crawled soon, but the intended product requirement is not "run the full crawler
-pipeline synchronously inside an HTTP request."
+`web-search-enqueue-url` records URL knowledge and inserts eligible URLs into
+`crawl_queue`. It does not fetch synchronously or promise priority. Queue
+selection is ordered by creation time and URL hash among host-eligible tasks.
+The current schema has no priority bucket or operator-provenance field.
 
-A previous `POST /crawl-requests` path satisfied the request by immediately
-fetching the URL and submitting it to the indexer. That mixed operator intent,
-URL registration, frontier leasing, fetching, parsing, and indexer submission in
-one synchronous API path.
+## Decision needed
 
-## Desired Capability
+Determine whether operators need an explicit “crawl this soon” capability beyond
+ordinary enqueueing. If so, define:
 
-The system should support an operator action equivalent to:
+- how urgency changes ordering without starving normal work;
+- which host pacing and admission rules still apply;
+- how duplicate, already-running, or failed requests are reported;
+- whether an audit trail is required, separately from scheduling priority.
 
-"Make this URL a high-priority crawl target."
-
-That capability should be explicit about whether it only registers a known URL,
-adds or updates frontier scheduling state, or forces priority over ordinary
-crawler-discovered URLs.
-
-## Impact
-
-Without a clearer model:
-
-- direct crawl APIs can bypass the normal worker execution model
-- URL registry ownership becomes harder to reason about
-- frontier scheduling and API request handling stay coupled
-- retry, timeout, lease, and indexing behavior depend on an operator HTTP call
-  rather than the normal crawler runtime
-
-## Direction
-
-Separate the operator request from synchronous crawl execution.
-
-Likely target shape:
-
-- URL registration remains separate from crawl scheduling
-- operator priority is represented as frontier scheduling intent
-- workers perform fetch/parse/index handoff through the normal crawler pipeline
-- if a one-off diagnostic fetch is still needed later, implement it as a
-  separate CLI/debug tool rather than as the primary crawl request API
-
-This issue does not require restoring the previous `POST /crawl-requests`
-implementation.
+Any implementation should use the normal worker path rather than synchronously
+fetching inside an operator HTTP request. This issue incorporates the former
+operator-intent and priority-policy issues; it does not require restoring the
+old crawler APIs or creating a management UI.

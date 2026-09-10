@@ -1,18 +1,9 @@
 # Issues
 
-This directory tracks project issues as one Markdown file per issue.
+Open files describe unresolved problems or decisions. `closed/` contains resolved,
+merged, superseded, or declined items with their outcomes.
 
-## Open Issues
-
-Open issues live directly in this directory.
-
-## Closed Issues
-
-Closed or no-longer-relevant issues live in `closed/`.
-
-## Rules
-
-- Use one Markdown file per issue.
-- Use descriptive filenames, not numbers.
-- Keep each issue focused on one concrete problem.
-- Move files to `closed/` when they are resolved or no longer relevant.
+Closed files preserve historical evidence and reasoning. Their old endpoints,
+tables, and production measurements are not a current runtime specification.
+Move an issue to `closed/` when its remaining work is resolved or tracked elsewhere;
+keep the reason and any concrete evidence that would be costly to reconstruct.

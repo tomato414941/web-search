@@ -40,5 +40,5 @@ boundary concern.
 ## Related
 
 - `issues/web-model-boundary.md`
-- `issues/indexer-manual-ranking-recalculation-api.md`
-- `issues/links-physical-schema-drift.md`
+- `issues/closed/indexer-manual-ranking-recalculation-api.md`
+- `issues/closed/links-physical-schema-drift.md`

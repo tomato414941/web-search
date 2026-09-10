@@ -1,90 +1,26 @@
-# Web Model Boundary
+# Observed Web Model Semantics
 
-## Problem
+## Implemented ownership
 
-The project has started to separate the internal model of the known Web from
-crawler runtime and document indexing, but the boundary is not complete yet.
+`packages/web-model` owns known URLs, observed links, referring-host observations,
+and graph-derived rank storage/calculation. The crawler observes pages and writes
+through these repositories; the indexer writes documents, not the link graph.
 
-`urls`, `links`, and graph-derived attributes belong to the same broad
-conceptual area:
+`process_html_result()` replaces observed links before submitting page text to
+the indexer. Thus an edge's source is a parsed URL, not necessarily a successfully
+indexed document. Destinations can be unindexed URLs.
 
-- `urls` are known URL nodes
-- `links` are observed URL-to-URL edges
-- rank-like values are attributes derived from the URL/link graph
+## Remaining decisions
 
-The current package name and write path are moving in the right direction. The
-remaining open questions are about the exact invariants of `links` and how broad
-the Web model boundary should become.
+- `links` replaces a source's edges on each observation, while
+  `url_referring_hosts` upserts historical host observations without deleting
+  missing ones. What retention/freshness should consumers assume?
+- Should feed-entry relations remain implicit or become a distinct graph relation
+  when a concrete consumer needs that distinction?
+- Should link-rank computation use all observed nodes or only indexed documents?
+  Decide alongside its memory cost and search use in
+  `issues/link-authority-signal-design.md`.
 
-## Evidence
-
-Current behavior:
-
-- the crawler fetches and parses pages
-- the crawler observes outlinks
-- the crawler records discovered URLs for URL registration and crawl admission
-- the crawler writes observed links through the Web model repository
-- the indexer no longer writes `links`
-- PageRank and domain-rank computation live in the Web model boundary
-
-The current top-level package boundaries also hide the issue:
-
-- `packages/web-model` owns URL/link writes and graph-derived rank calculation
-- indexer reads computed rank outputs when building searchable documents
-
-## Impact
-
-- The intended invariants for `links` are unclear, including whether `src`
-  means crawled-and-parsed URL or indexed document URL.
-- It is still unclear whether rank outputs are permanent Web model attributes
-  or temporary search-ranking signals.
-
-## Direction
-
-Use `web-model` as the boundary for the search engine's internal representation
-of the known Web.
-
-Ownership:
-
-- known URLs
-- observed links between URLs
-- feed URL observations
-- sitemap URL observations
-- canonical URL relations
-- observed domain-level facts that are not crawler runtime state
-- graph-derived attributes if they are part of the Web model used by search or
-  crawl policy
-
-Explicit non-ownership:
-
-- crawler runtime state such as fetch scheduling, leases, retries, robots, and
-  crawl delay
-- document indexing state such as `documents` and OpenSearch writes
-- search telemetry such as search requests, impressions, and clicks
-
-Target shape:
-
-- crawler observes the Web and writes URL/link observations into web model
-- indexer writes searchable documents and does not write the link graph
-- `urls` and `links` are managed through the same conceptual boundary
-- `links` represents observed URL references, not indexing side effects
-- graph-derived maintenance is implemented as Web model logic
-
-## Open Questions
-
-- Should `src` be defined as any successfully parsed URL, or only URLs accepted
-  as crawl targets?
-- Should `dst` include every normalized discovered URL, including URLs not yet
-  crawled or indexed?
-- Should feed entry relationships be stored in the same `links` table or as a
-  typed relation later?
-- Should `page_ranks` and `domain_ranks` live in the Web model boundary, or
-  should only their input graph live there?
-
-## Notes
-
-Do not combine this ownership move with physical `links` schema repair.
-
-The production `links` table is large. Deduplication, `UNIQUE(src, dst)`, and
-`dst` indexing should be planned separately after the ownership boundary is
-clear.
+Physical uniqueness/index repair is historical work recorded in
+`issues/closed/links-physical-schema-drift.md`. Do not treat the old schema drift
+as an unresolved ownership move without new evidence.
