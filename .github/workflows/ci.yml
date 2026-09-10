@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
 
@@ -27,7 +27,7 @@ jobs:
       - uses: dorny/paths-filter@v4.0.1
         id: filter
         with:
-          base: ${{ github.ref }}
+          base: main
           filters: |
             force-all:
               - '.github/workflows/**'

@@ -43,6 +43,8 @@ Run commands from the repo root unless noted:
 - `main` is the source of truth for active development, compose definitions, and release promotion.
 - Routine personal-development changes are committed and pushed directly to `main`.
 - Use a feature branch only when a change is large, risky, or explicitly needs external review.
+- Create a pull request only when the user explicitly requests one. Existing pull requests are not a reason to adopt a PR workflow.
+- For feature-branch work, verify the changes and branch CI, then merge directly into `main` unless the user explicitly requests a PR.
 - STG has been decommissioned; do not add new staging deploy dependencies.
 - Production deployment is an explicit operator action after CI passes.
 
@@ -57,7 +59,7 @@ Put contracts, runtime utilities, and policy/config data in the smaller `package
 ## Testing Guidelines
 Tests use `pytest` and live under each service’s `tests/` directory. Name tests `test_*.py` with functions `test_*`. Add tests for new behavior and update fixtures when you change outputs or API contracts.
 
-## Commit & Pull Request Guidelines
+## Commit Guidelines
 Commit messages follow a conventional prefix pattern: `feat: ...`, `fix: ...`, `refactor: ...`, `docs: ...`. Keep commits scoped and descriptive. For changes pushed directly to `main`, verify the relevant tests before pushing and watch CI after pushing.
 
 ## Security & Configuration Tips
