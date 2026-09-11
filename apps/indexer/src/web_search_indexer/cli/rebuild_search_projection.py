@@ -6,7 +6,7 @@ Usage:
         [--start-after-url URL] [--max-documents N]
 
 Requires:
-    DATABASE_URL, OPENSEARCH_URL, and OPENAI_API_KEY environment variables.
+    DATABASE_URL, OPENSEARCH_URL, and OPENROUTER_API_KEY environment variables.
 """
 
 import argparse
@@ -145,7 +145,7 @@ def main():
         default=os.environ.get("OPENSEARCH_INDEX_NAME"),
         help=(
             "OpenSearch hybrid index to rebuild. Defaults to "
-            "OPENSEARCH_INDEX_NAME or documents-hybrid-v1."
+            "OPENSEARCH_INDEX_NAME or documents-hybrid-v2."
         ),
     )
     args = parser.parse_args()

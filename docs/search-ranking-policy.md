@@ -7,10 +7,16 @@ The product remains general-purpose Web search.
 ## Representation and retrieval
 
 The shared Sudachi analyzer prepares title/body terms and lexical queries.
-`text-embedding-3-small` generates 1,536-dimensional vectors for document title
-plus bounded content, and for the user's positive query text. Both use the same
-model and tokenizer. Input is capped at 8,191 tokens. Model or representation
-changes require a new index and regeneration of all document vectors.
+OpenRouter's `perplexity/pplx-embed-v1-0.6b` generates 1,024-dimensional vectors
+for document title plus bounded content, and for the user's positive query text.
+Both use the same model and pinned Perplexity tokenizer. Raw text is sent to the
+API after truncation to at most 31,999 tokens, preserving Unicode characters.
+Requests contain at most 32 inputs and 120,000 tokens in total. Model or
+representation changes require a new index and regeneration of all document vectors.
+
+The API is requested to return float vectors, which OpenSearch stores as float
+vectors and compares with cosine similarity. This mapping does not use byte or
+binary vector storage.
 
 OpenSearch retrieves BM25 matches and cosine HNSW neighbors, then its
 `score-ranker-processor` combines their ranks using RRF. The application returns

@@ -5,12 +5,22 @@ import logging
 from opensearchpy import OpenSearch
 
 from web_search_opensearch.client import index_name
-from web_search_opensearch.embeddings import DIMENSIONS, MODEL
+from web_search_opensearch.embeddings import (
+    DIMENSIONS,
+    MODEL,
+    MAX_INPUT_TOKENS,
+    TOKENIZER_REVISION,
+)
 
 logger = logging.getLogger(__name__)
 
 SEARCH_PIPELINE = "web-search-hybrid-rrf"
-SCHEMA = {"search_schema": "hybrid-v1", "embedding_model": MODEL}
+SCHEMA = {
+    "search_schema": "hybrid-v2",
+    "embedding_model": MODEL,
+    "tokenizer_revision": TOKENIZER_REVISION,
+    "max_input_tokens": MAX_INPUT_TOKENS,
+}
 PIPELINE_SETTINGS = {
     "phase_results_processors": [
         {"score-ranker-processor": {"combination": {"technique": "rrf"}}}

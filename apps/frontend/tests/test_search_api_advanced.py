@@ -48,6 +48,6 @@ def test_search_failure_is_503_for_api_and_browser(client, monkeypatch):
 def test_readiness_requires_hybrid_index(client, monkeypatch):
     from web_search_frontend.api.routers import system
 
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setattr(system, "_check_opensearch", lambda: {"status": "error"})
     assert client.get("/readyz").status_code == 503

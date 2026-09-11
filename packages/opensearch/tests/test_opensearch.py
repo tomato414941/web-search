@@ -114,3 +114,23 @@ def test_ensure_index_creates_native_pipeline_and_target_index():
         f"/_search/pipeline/{SEARCH_PIPELINE}",
         body=PIPELINE_SETTINGS,
     )
+
+
+def test_previous_embedding_model_is_rejected_without_reusing_vectors():
+    from copy import deepcopy
+    import pytest
+
+    client = MagicMock()
+    client.indices.exists.return_value = True
+    mapping = deepcopy(INDEX_SETTINGS["mappings"])
+    mapping["_meta"] = {
+        "search_schema": "hybrid-v1",
+        "embedding_model": "text-embedding-3-small",
+    }
+    mapping["properties"]["embedding"]["dimension"] = 1536
+    client.indices.get_mapping.return_value = {"old-hybrid": {"mappings": mapping}}
+    with pytest.raises(RuntimeError, match="rebuild"):
+        ensure_index(client)
+    client.indices.create.assert_not_called()
+    client.indices.put_mapping.assert_not_called()
+    client.transport.perform_request.assert_not_called()

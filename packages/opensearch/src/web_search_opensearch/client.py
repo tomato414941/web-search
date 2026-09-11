@@ -10,7 +10,7 @@ from web_search_opensearch.document import SearchIndexDocument
 
 logger = logging.getLogger(__name__)
 
-INDEX_NAME = "documents-hybrid-v1"
+INDEX_NAME = "documents-hybrid-v2"
 _MAX_ID_BYTES = 512
 
 _client: OpenSearch | None = None

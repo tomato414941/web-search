@@ -53,10 +53,12 @@ cutover, and rollback commands belong in the private operator runbook.
 
 ## Hybrid cutover
 
-The new default index is `documents-hybrid-v1`; an old lexical mapping is rejected
-rather than upgraded in place. Provision OpenSearch 2.19.6 and an embedding API
-key, rebuild into a fresh index, then deploy the matching application and MCP
-client together. Old `mode` query parameters are rejected. There is no old-schema
+The default index is `documents-hybrid-v2`, using 1,024-dimensional Perplexity
+embeddings through OpenRouter. Existing lexical indexes and the previous
+1,536-dimensional OpenAI hybrid index are rejected rather than upgraded in place.
+Provision OpenSearch 2.19.6 and `OPENROUTER_API_KEY`, rebuild into a fresh index,
+then deploy the matching application and MCP client together. Old `mode` query
+parameters are rejected. There is no old-schema
 reader, dual-write path, or automatic lexical fallback. A rollback requires
 restoring the corresponding application release and its index together.
 

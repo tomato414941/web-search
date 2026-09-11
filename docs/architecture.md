@@ -35,7 +35,7 @@ flowchart LR
     MCP[MCP adapter] --> Frontend
     Frontend --> Search[Search engine]
     Search --> OS[(OpenSearch)]
-    Search -->|Query embedding| Embeddings[OpenAI embeddings]
+    Search -->|Query embedding| Embeddings[Perplexity embeddings via OpenRouter]
     Indexer -->|Document embedding| Embeddings
     Frontend --> PG[(PostgreSQL)]
     Crawler -->|POST /documents| Indexer
@@ -45,7 +45,7 @@ flowchart LR
 ```
 
 PostgreSQL holds full extracted content. OpenSearch holds analyzed search
-fields, a bounded content copy, and a 1,536-dimensional embedding. The projection
+fields, a bounded content copy, and a 1,024-dimensional embedding. The projection
 can be rebuilt from stored documents; the two stores are not an atomic dual write.
 
 `POST /documents` commits PostgreSQL and generates the embedding and OpenSearch

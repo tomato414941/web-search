@@ -23,7 +23,7 @@ PostgreSQL stores the full extracted text. OpenSearch stores:
 - title, URL, host, and path;
 - the first 20,000 characters of extracted content;
 - `title_terms` and `content_terms`, tokenized with the shared Sudachi analyzer;
-- a 1,536-dimensional embedding of title and bounded content.
+- a 1,024-dimensional embedding of title and bounded content.
 
 `content_terms` is built from the same truncated content. A passage beyond the
 limit cannot match through body terms even if it exists in PostgreSQL. The
@@ -38,11 +38,12 @@ A stored document therefore need not be a searchable document.
 
 ## Semantic representation
 
-Document and query embeddings use `text-embedding-3-small`. The document input
-is title plus the bounded content above, truncated to 8,191 tokens using
-`cl100k_base`. Long pages currently have one vector; later passages can therefore
-be absent from both lexical and semantic retrieval. This is a representation
-limit, not something RRF can repair.
+Document and query embeddings use `perplexity/pplx-embed-v1-0.6b` via OpenRouter.
+The document input is title plus the bounded content above, truncated to 31,999
+tokens using the pinned Perplexity tokenizer. The API receives text strings, not
+token IDs from another model. Long pages currently have one vector; later passages
+can therefore be absent from both lexical and semantic retrieval. This is a
+representation limit, not something RRF can repair.
 
 Vectors are stored only in OpenSearch. There is no separate PostgreSQL embedding
 table in the active implementation. Embedding errors fail indexing/search rather

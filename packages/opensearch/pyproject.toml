@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
     "opensearch-py>=2.4",
     "openai>=2.0",
-    "tiktoken>=0.12",
+    "tokenizers>=0.22",
 ]
 
 [build-system]

@@ -27,7 +27,7 @@ def test_index_to_opensearch_includes_url_metadata(monkeypatch):
     )
 
     assert captured["host"] == "github.com"
-    assert len(captured["embedding"]) == 1536
+    assert len(captured["embedding"]) == 1024
     assert captured["path"] == "/"
     assert "is_homepage" not in captured
 

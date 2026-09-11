@@ -15,7 +15,7 @@ client = OpenSearch(hosts=["http://localhost:9200"])
 engine = SearchEngine(
     client,
     get_embeddings().query,
-    index="documents-hybrid-v1",
+    index="documents-hybrid-v2",
 )
 result = engine.search("Python", limit=10, page=1)
 ```

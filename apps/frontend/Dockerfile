@@ -36,7 +36,7 @@ COPY packages/search-telemetry/src/ ./packages/search-telemetry/src/
 # Build a production venv for the frontend package
 RUN uv sync --frozen --package web-search-frontend --no-dev --no-editable
 # Ship the tokenizer data so search never downloads it on the request path.
-RUN TIKTOKEN_CACHE_DIR=/app/tiktoken-cache .venv/bin/python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
+RUN HF_HUB_CACHE=/app/huggingface-cache .venv/bin/python -c "from web_search_opensearch.embeddings import get_tokenizer; get_tokenizer()"
 
 # Stage 2: Production image
 FROM python:3.11-slim
@@ -54,7 +54,7 @@ WORKDIR /app
 
 # Copy the prebuilt virtualenv from the builder
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/tiktoken-cache /app/tiktoken-cache
+COPY --from=builder /app/huggingface-cache /app/huggingface-cache
 
 # Copy application code
 COPY apps/frontend/gunicorn.conf.py .
@@ -63,7 +63,7 @@ COPY db/ ./db/
 
 ENV PATH=/app/.venv/bin:$PATH \
     VIRTUAL_ENV=/app/.venv \
-    TIKTOKEN_CACHE_DIR=/app/tiktoken-cache \
+    HF_HUB_CACHE=/app/huggingface-cache HF_HUB_OFFLINE=1 \
     PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 ENV PORT=8000 HOST=0.0.0.0
 

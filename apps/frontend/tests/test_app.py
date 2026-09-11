@@ -11,13 +11,24 @@ def test_health(client):
 def test_readyz(client, monkeypatch):
     from web_search_frontend.api.routers import system
 
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.setattr(system, "_check_opensearch", lambda: {"status": "ok"})
     response = client.get("/readyz")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
     assert "checks" in data
+
+
+def test_readyz_requires_openrouter_key(client, monkeypatch):
+    from web_search_frontend.api.routers import system
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "unrelated-openai-key")
+    monkeypatch.setattr(system, "_check_opensearch", lambda: {"status": "ok"})
+    response = client.get("/readyz")
+    assert response.status_code == 503
+    assert response.json()["checks"]["embeddings"] == "missing_api_key"
 
 
 def test_search_page_loads_default(client):

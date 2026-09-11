@@ -16,7 +16,7 @@ ENVIRONMENT=development
 POSTGRES_PASSWORD=local-development-password
 INDEXER_API_KEY=local-development-key
 COMPOSE_PROFILES=
-OPENAI_API_KEY=your-api-key
+OPENROUTER_API_KEY=your-api-key
 FRONTEND_PORT=8083
 ```
 
@@ -32,9 +32,14 @@ The host overlay publishes only the frontend, on localhost. The search UI is at
 `http://localhost:8083/`, and OpenAPI is at `http://localhost:8083/docs`.
 PostgreSQL, OpenSearch, and the indexer remain inside the Compose network.
 
-OpenSearch 2.19.6 is a required Compose service. Set a valid `OPENAI_API_KEY`
-for both indexing and query embeddings. Sample indexing and searches make paid
+OpenSearch 2.19.6 is a required Compose service. Set a valid `OPENROUTER_API_KEY`
+for both indexing and query embeddings. Both call OpenRouter's embeddings endpoint
+with `perplexity/pplx-embed-v1-0.6b`. Sample indexing and searches make paid
 embedding requests. The service does not have a keyword-only fallback.
+
+Container images include the pinned Perplexity tokenizer and load it offline.
+Direct Python runs download that tokenizer from Hugging Face on first use;
+the embedding model itself runs at the API provider.
 
 ## Put sample documents into a fresh local database
 
@@ -84,9 +89,9 @@ and local service addresses are:
 export ENVIRONMENT=development
 export DATABASE_URL='postgresql://websearch:local-development-password@localhost:5432/websearch'
 export INDEXER_API_KEY='local-development-key'
-export OPENAI_API_KEY=your-api-key
+export OPENROUTER_API_KEY=your-api-key
 export OPENSEARCH_URL='http://localhost:9200'
-export OPENSEARCH_INDEX_NAME=documents-hybrid-v1
+export OPENSEARCH_INDEX_NAME=documents-hybrid-v2
 export INDEXER_API_URL='http://localhost:8081/documents'
 ```
 

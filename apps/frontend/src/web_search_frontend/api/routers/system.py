@@ -48,7 +48,7 @@ async def _get_readiness_response():
         asyncio.to_thread(_check_database),
         asyncio.to_thread(_check_opensearch),
     )
-    embeddings_configured = bool(os.environ.get("OPENAI_API_KEY"))
+    embeddings_configured = bool(os.environ.get("OPENROUTER_API_KEY", "").strip())
     ok = db_ok and opensearch["status"] == "ok" and embeddings_configured
     return JSONResponse(
         status_code=200 if ok else 503,

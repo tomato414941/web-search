@@ -55,8 +55,8 @@ services:
       - DB_POOL_MIN=${DB_POOL_MIN_FRONTEND:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_FRONTEND:-4}
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v1}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:?Set OPENAI_API_KEY for hybrid search}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v2}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY for hybrid search}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -84,8 +84,8 @@ services:
       - DB_POOL_MIN=${DB_POOL_MIN_INDEXER:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_INDEXER:-6}
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v1}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:?Set OPENAI_API_KEY for hybrid search}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v2}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY for hybrid search}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -150,10 +150,10 @@ services:
     restart: "no"
     profiles: ["search-projection-rebuild"]
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY:?Set OPENAI_API_KEY for hybrid search}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:?Set OPENROUTER_API_KEY for hybrid search}
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - OPENSEARCH_URL=${OPENSEARCH_URL:-http://opensearch:9200}
-      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v1}
+      - OPENSEARCH_INDEX_NAME=${OPENSEARCH_INDEX_NAME:-documents-hybrid-v2}
     command: ["python", "-m", "web_search_indexer.cli.rebuild_search_projection"]
     depends_on:
       db-migrate:

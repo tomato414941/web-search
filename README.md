@@ -21,8 +21,9 @@ See `docs/api.md` for failure behavior, content limits, and readiness semantics.
 ## Run locally
 
 Follow `docs/setup.md` for a working local search stack and sample data.
-OpenSearch is a required service. Set `OPENAI_API_KEY` for document and query
-embeddings. A plain `docker compose up` does not publish the frontend port.
+OpenSearch is a required service. Set `OPENROUTER_API_KEY` for document and query
+embeddings using `perplexity/pplx-embed-v1-0.6b` through OpenRouter. A plain
+`docker compose up` does not publish the frontend port.
 
 For Python development:
 
