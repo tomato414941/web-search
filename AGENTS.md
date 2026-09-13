@@ -22,8 +22,6 @@ The source-of-truth layout is:
 - `apps/mcp/` MCP server for AI agent integration (Claude Code, Claude Desktop)
 - `docs/` architecture and setup guides, plus API references
 - `scripts/` operational scripts (`ops/`), one-shot migrations (`migrations/`), dev tools (`dev/`)
-Each service has its own `src/` and `tests/` directories (e.g., `apps/frontend/src/`, `apps/frontend/tests/`).
-Use `apps/` and `packages/` paths directly for all new work.
 
 ## Build, Test, and Development Commands
 Run commands from the repo root unless noted:
