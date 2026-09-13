@@ -76,5 +76,7 @@ def fake_embedding_service(monkeypatch):
     monkeypatch.setattr(
         opensearch_document,
         "get_embeddings",
-        lambda: SimpleNamespace(query=lambda text: [1.0] + [0.0] * (DIMENSIONS - 1)),
+        lambda: SimpleNamespace(
+            embed=lambda texts: [[1.0] + [0.0] * (DIMENSIONS - 1) for _ in texts]
+        ),
     )

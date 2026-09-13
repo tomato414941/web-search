@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 import pytest
 
 from web_search_indexer.services import indexer as indexer_module
@@ -150,3 +151,29 @@ def test_excluded_document_does_not_generate_embeddings(monkeypatch):
     monkeypatch.setattr(opensearch_document, "get_embeddings", unexpected)
     page = indexer_module.IndexedPage("https://example.com/login", "Login", "Sign in")
     assert opensearch_document.build_search_index_document(page) is None
+
+
+def test_batch_projection_preserves_document_vector_alignment(monkeypatch):
+    inputs = []
+
+    def embed(texts):
+        inputs.append(texts)
+        return [[1.0], [2.0]]
+
+    monkeypatch.setattr(
+        opensearch_document, "get_embeddings", lambda: SimpleNamespace(embed=embed)
+    )
+    pages = [
+        indexer_module.IndexedPage("https://example.com/a", "A", "First"),
+        indexer_module.IndexedPage("https://example.com/login", "Login", "Sign in"),
+        indexer_module.IndexedPage("https://example.com/empty", "", " "),
+        indexer_module.IndexedPage("https://example.com/b", "B", "Second"),
+    ]
+
+    documents = opensearch_document.build_search_index_documents(pages)
+
+    assert inputs == [["A\nFirst", "B\nSecond"]]
+    assert [(doc["url"], doc["embedding"]) for doc in documents] == [
+        ("https://example.com/a", [1.0]),
+        ("https://example.com/b", [2.0]),
+    ]

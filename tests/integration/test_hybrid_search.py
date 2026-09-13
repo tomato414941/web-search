@@ -1,5 +1,6 @@
 """Native RRF integration, using deterministic vectors rather than a quality benchmark."""
 
+import json
 import os
 import random
 import time
@@ -128,7 +129,9 @@ def test_operators_constrain_both_branches(opensearch, hybrid_index):
     }
 
 
-def test_ingestion_rebuild_and_public_api(opensearch, hybrid_index, monkeypatch):
+def test_ingestion_rebuild_and_public_api(
+    opensearch, hybrid_index, monkeypatch, tmp_path
+):
     monkeypatch.setenv("ENVIRONMENT", "test")
     monkeypatch.setenv("INDEXER_API_KEY", "test-api-key")
     from web_search_core.testing import ensure_test_pg
@@ -149,7 +152,7 @@ def test_ingestion_rebuild_and_public_api(opensearch, hybrid_index, monkeypatch)
     monkeypatch.setattr(
         opensearch_document,
         "get_embeddings",
-        lambda: SimpleNamespace(query=lambda text: vector(1)),
+        lambda: SimpleNamespace(embed=lambda texts: [vector(1) for _ in texts]),
     )
     monkeypatch.setattr(rebuild_search_projection, "get_client", lambda url: opensearch)
     monkeypatch.setattr(
@@ -191,7 +194,11 @@ def test_ingestion_rebuild_and_public_api(opensearch, hybrid_index, monkeypatch)
             == 422
         )
         opensearch.delete(index=hybrid_index, id=url, refresh=True)
-        rebuild_search_projection.rebuild_search_projection(index_name=hybrid_index)
+        checkpoint = tmp_path / "projection.json"
+        rebuild_search_projection.rebuild_search_projection(
+            index_name=hybrid_index, checkpoint_file=checkpoint
+        )
+        assert json.loads(checkpoint.read_text())["progress"]["complete"] is True
         opensearch.indices.refresh(index=hybrid_index)
         assert reader.get("/search-results?q=needle").json()["hits"][0]["url"] == url
 
