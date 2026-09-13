@@ -43,7 +43,7 @@ and operating documentation belongs in `docs/`; maintained tools belong in
 `scripts/`. Environment-specific operating notes belong in the ignored
 `AGENTS.override.md`, with credentials kept outside version control.
 
-The planned R2 link storage format and operating policy are recorded in
+The planned R2 link storage format and automatic processing are described in
 [docs/r2-link-storage.md](docs/r2-link-storage.md).
 
 ## License
