@@ -7,6 +7,8 @@ dependencies = [
     "web-search-core",
     "web-search-postgres",
     "psycopg2-binary>=2.9.0",
+    "boto3>=1.40,<2",
+    "duckdb>=1.5,<2",
 ]
 
 [build-system]
@@ -21,3 +23,4 @@ where = ["src"]
 
 [project.scripts]
 web-search-calc-pagerank = "web_search_web_model.cli.calc_pagerank:main"
+web-search-link-archive = "web_search_web_model.archive.cli:main"
