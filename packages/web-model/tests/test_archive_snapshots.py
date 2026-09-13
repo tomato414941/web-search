@@ -70,6 +70,19 @@ def test_missing_or_corrupt_update_never_publishes_snapshot(object_store):
     assert read_current(object_store) == (None, None)
 
 
+def test_incorrect_update_counts_never_publish_partial_partitions(object_store):
+    manifest = publish(object_store, [record(), record("https://b.example/")])
+    key = f"{PREFIX}commits/{manifest['batch_id']}.json"
+    _, etag = object_store.get(key)
+    object_store.put_json(key, {**manifest, "pages": manifest["pages"] + 1}, etag=etag)
+    with pytest.raises(ArchiveConflict, match="record counts"):
+        compact(object_store, now=START)
+    assert read_current(object_store) == (None, None)
+    assert not any(
+        key.startswith(f"{PREFIX}snapshots/") for key in object_store.client.objects
+    )
+
+
 def test_pointer_compare_and_swap_rejects_stale_publication(object_store):
     compact(object_store, now=START)
     current, etag = read_current(object_store)

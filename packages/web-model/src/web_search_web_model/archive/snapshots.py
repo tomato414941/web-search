@@ -1,6 +1,6 @@
 """Bounded-memory Parquet snapshots, latest-state reads, and safe collection."""
 
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import UTC, datetime, timedelta
 import gzip
 from pathlib import Path
@@ -29,6 +29,8 @@ from web_search_web_model.archive.store import (
 
 COLUMNS = "src VARCHAR, src_host VARCHAR, revision BIGINT, observed_at TIMESTAMPTZ, outlinks VARCHAR[]"
 FIELDS = "src, src_host, revision, observed_at, outlinks"
+JSON_COLUMNS = """{src: 'VARCHAR', src_host: 'VARCHAR', revision: 'BIGINT',
+    observed_at: 'TIMESTAMPTZ', outlinks: 'VARCHAR[]'}"""
 RETENTION_GRACE = timedelta(hours=24)
 
 
@@ -37,42 +39,56 @@ def workspace() -> Iterator[tuple[Any, Path]]:
     with TemporaryDirectory(prefix="link-archive-") as directory:
         root = Path(directory)
         con = duckdb.connect(
-            str(root / "work.duckdb"), config={"memory_limit": "256MB", "threads": "1"}
+            config={
+                "memory_limit": "256MB",
+                "threads": "1",
+                "temp_directory": str(root / "spill"),
+                "preserve_insertion_order": "false",
+            }
         )
         try:
+            # Large list columns can outgrow the memory budget before a default
+            # 122,880-row group is flushed. Keep the temporary database groups small.
+            path = str(root / "work.duckdb").replace("'", "''")
+            con.execute(f"ATTACH '{path}' AS archive_work (ROW_GROUP_SIZE 2048)")
+            con.execute("USE archive_work")
             con.execute("SET TimeZone = 'UTC'")
-            con.execute(f"CREATE TABLE incoming ({COLUMNS}, shard VARCHAR)")
             yield con, root
         finally:
             con.close()
 
 
 def load_updates(
-    con: Any, root: Path, store: ObjectStore, batches: dict[str, dict[str, Any]]
+    root: Path, store: ObjectStore, batches: dict[str, dict[str, Any]]
 ) -> None:
     path = root / "update.jsonl.gz"
-    for manifest in batches.values():
-        store.download(manifest["data_key"], path, sha256=manifest["sha256"])
-        pages = edges = 0
-        # Validate before importing; malformed/partial batches never become a snapshot.
-        with gzip.open(path, "rb") as source:
-            for line in source:
-                record = Observation.decode(line)
-                pages += 1
-                edges += len(record.outlinks)
-        if pages != manifest["pages"] or edges != manifest["edges"]:
-            raise ArchiveConflict(
-                "Update batch record counts do not match its manifest"
-            )
-        con.execute(
-            """INSERT INTO incoming
-            SELECT src, src_host, revision, observed_at, outlinks, substr(sha256(src), 1, 2)
-            FROM read_json(?, format='newline_delimited', columns={
-                src: 'VARCHAR', src_host: 'VARCHAR', revision: 'BIGINT',
-                observed_at: 'TIMESTAMPTZ', outlinks: 'VARCHAR[]'})""",
-            [str(path)],
-        )
-        path.unlink()
+    # Partition in one streaming pass. Each SQL operation then reads only its
+    # shard, without sorting or scanning the full graph 256 times.
+    with ExitStack() as streams:
+        writers = {}
+        for manifest in batches.values():
+            store.download(manifest["data_key"], path, sha256=manifest["sha256"])
+            pages = edges = 0
+            with gzip.open(path, "rb") as source:
+                for line in source:
+                    record = Observation.decode(line)
+                    pages += 1
+                    edges += len(record.outlinks)
+                    shard = shard_for(record.src)
+                    if shard not in writers:
+                        writers[shard] = streams.enter_context(
+                            gzip.open(
+                                root / f"updates-{shard}.jsonl.gz",
+                                "wb",
+                                compresslevel=1,
+                            )
+                        )
+                    writers[shard].write(line)
+            if pages != manifest["pages"] or edges != manifest["edges"]:
+                raise ArchiveConflict(
+                    "Update batch record counts do not match its manifest"
+                )
+            path.unlink()
 
 
 def snapshot_manifest(store: ObjectStore, key: str) -> dict[str, Any]:
@@ -98,7 +114,7 @@ def prepare_shard(
     shard: str,
     previous: dict[str, Any] | None,
 ) -> None:
-    con.execute(f"CREATE OR REPLACE TEMP TABLE candidates ({COLUMNS})")
+    con.execute(f"CREATE OR REPLACE TABLE candidates ({COLUMNS})")
     if previous is not None:
         path = root / "previous.parquet"
         store.download(previous["key"], path, sha256=previous["sha256"])
@@ -106,9 +122,12 @@ def prepare_shard(
             f"INSERT INTO candidates SELECT {FIELDS} FROM read_parquet(?)", [str(path)]
         )
         path.unlink()
-    con.execute(
-        f"INSERT INTO candidates SELECT {FIELDS} FROM incoming WHERE shard = ?", [shard]
-    )
+    path = root / f"updates-{shard}.jsonl.gz"
+    if path.exists():
+        con.execute(
+            f"INSERT INTO candidates SELECT {FIELDS} FROM read_json(?, format='newline_delimited', columns={JSON_COLUMNS})",
+            [str(path)],
+        )
     conflict = con.execute("""SELECT 1 FROM candidates GROUP BY src, revision
         HAVING count(DISTINCT (src_host, observed_at, outlinks)) > 1 LIMIT 1""").fetchone()
     if conflict:
@@ -116,8 +135,9 @@ def prepare_shard(
             "The same source and revision have different observations"
         )
     # Select the page version BEFORE expanding outlinks. Empty lists must survive.
-    con.execute(f"""CREATE OR REPLACE TEMP TABLE latest AS SELECT {FIELDS}
+    con.execute(f"""CREATE OR REPLACE TABLE latest AS SELECT {FIELDS}
         FROM candidates QUALIFY row_number() OVER (PARTITION BY src ORDER BY revision DESC) = 1""")
+    con.execute("CHECKPOINT")
 
 
 def compact(store: ObjectStore, *, now: datetime | None = None) -> dict[str, Any]:
@@ -130,7 +150,7 @@ def compact(store: ObjectStore, *, now: datetime | None = None) -> dict[str, Any
         batches = committed_batches(store)
         covered = set(previous["included_batches"]) if previous else set()
         updates = {key: value for key, value in batches.items() if key not in covered}
-        load_updates(con, root, store, updates)
+        load_updates(root, store, updates)
         generation = str(uuid4())
         files, pages, edges = [], 0, 0
         previous_files = (
@@ -196,7 +216,7 @@ def iter_latest(
                 for key, value in committed_batches(store).items()
                 if key not in covered
             }
-            load_updates(con, root, store, batches)
+            load_updates(root, store, batches)
         files = {item["shard"]: item for item in snapshot["files"]} if snapshot else {}
         shards = (
             [shard_for(src)]
