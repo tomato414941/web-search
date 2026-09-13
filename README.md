@@ -37,6 +37,15 @@ shared libraries. The search execution boundary is implemented in
 `packages/search`. Current ownership and consistency constraints are described
 in `docs/architecture.md`.
 
+The root `data/` directory holds Git-ignored local datasets and generated
+artifacts, including audit samples, measurements, and caches. Reusable design
+and operating documentation belongs in `docs/`; maintained tools belong in
+`scripts/`. Environment-specific operating notes belong in the ignored
+`AGENTS.override.md`, with credentials kept outside version control.
+
+The planned R2 link storage format and operating policy are recorded in
+[docs/r2-link-storage.md](docs/r2-link-storage.md).
+
 ## License
 
 MIT
