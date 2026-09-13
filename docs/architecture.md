@@ -60,8 +60,8 @@ are not used. The default Compose stack no longer runs rank maintenance.
 
 ## URL knowledge and crawl state
 
-- `urls` and `links` represent known URLs and observed references, including
-  targets that have not been indexed.
+- `urls` records known URLs, including targets that have not been indexed.
+- R2 holds observed references; `link_outbox` temporarily holds pending uploads.
 - `crawl_queue` holds pending work. A task is atomically removed when popped,
   before the HTTP fetch; there is no persisted in-progress lease.
 - `domain_state` holds host pacing and backoff. The former persisted inflight
@@ -73,11 +73,17 @@ that pending attempt; recording the result updates domain state and logs, not
 a durable per-URL recrawl schedule. The old `crawl_schedule` table is removed.
 `crawler-concepts.md` explains dispatch and handoff semantics.
 
-The planned link archive (not yet implemented) stores one page's outgoing
-links per record in R2: batched JSONL+gzip updates and daily Parquet+Zstd
-snapshots. A PostgreSQL outbox feeds automatic upload and retry; pending rows
-are removed only after R2 storage is verified. Snapshots retain the latest
-observation per page, including empty link lists.
+The crawler records each page's outgoing links, URL discoveries, and referring
+hosts in one PostgreSQL transaction. The archive worker sends JSONL+gzip batches
+at 5,000 pages, 16 MiB, or five minutes. It verifies the payload and commit marker
+before removing those exact outbox rows; retries reuse the same batch identity.
+The bounded outbox pauses crawling when uploads cannot keep up.
+
+Daily Parquet+Zstd snapshots use 256 URL hash partitions and retain each page's
+highest revision, including empty link lists. Archive readers combine the snapshot
+with subsequent committed batches. PostgreSQL advisory locks protect active reads
+and uploads from collection, which keeps two snapshots and a 24-hour grace period.
+The frozen `legacy_links` table is only an export source during initial migration.
 
 ## Operational implications
 

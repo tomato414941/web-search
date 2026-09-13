@@ -70,5 +70,21 @@ not a capacity guarantee for a full Web corpus.
 ## Local profiles
 
 OpenSearch is mandatory. `crawler` and `monitoring` remain optional profiles.
+The `crawler` profile also starts the R2 link archive worker.
 The separate embedding-backfill service and periodic link-rank worker have been
 removed from the serving stack. `docs/setup.md` contains the local procedure.
+
+## Link archive cutover
+
+Before migration `021`, stop and drain all old crawler/link writers and stop any
+old rank worker. The migration renames `links` to the write-protected
+`legacy_links` without copying or deleting it. New observations use the outbox.
+Set the `R2_*` values from `.env.example` in the production environment file,
+then deploy the crawler and archive worker together.
+
+Run `web-search-link-archive export-legacy` in the archive container once. It
+resumes from its verified checkpoint, registers old discoveries in the URL ledger,
+and assigns revision zero with unknown observation timestamps. Run `compact` and
+inspect `status` and representative `get URL` results before separately retiring
+the frozen table. Export does not delete PostgreSQL data. Upload, retry, daily
+snapshots, and collection run automatically afterward.

@@ -9,7 +9,7 @@ commands.
 | State | Meaning |
 |---|---|
 | `urls` | URLs known to the Web model; registration alone does not schedule work |
-| `links` | Observed references, including targets not yet crawled or indexed |
+| R2 link archive / `link_outbox` | Observed references and pending uploads, including targets not yet crawled or indexed |
 | `crawl_queue` | Pending tasks, removed when selected for processing |
 | `domain_state` | Host pacing and backoff, separate from per-URL queue entries |
 
@@ -35,8 +35,8 @@ The current paths are:
   are recorded as knowledge without automatic enqueueing.
 - The operator enqueue CLI records URL knowledge and requests normal queue
   insertion; it does not synchronously fetch or promise priority.
-- Frontier refill samples observed links, selects diverse unindexed and
-  unqueued targets, records them, and requests queue insertion.
+- Frontier refill samples the URL ledger, selects diverse unindexed and
+  unqueued targets, and requests queue insertion.
 
 The queue applies URL admission rules and deduplicates pending rows by URL hash.
 Selection considers host pacing/backoff and queue age. A URL that has already

@@ -43,7 +43,7 @@ the embedding model itself runs at the API provider.
 
 ## Put sample documents into a fresh local database
 
-The following writes synthetic documents and links into the local database.
+The following writes synthetic documents into the local database.
 Run it only against a disposable development dataset.
 
 ```bash
@@ -72,9 +72,13 @@ The verifier compares all stored-document counts with OpenSearch. On a real
 corpus, intentional index exclusions can cause a mismatch; it is a diagnostic,
 not proof of search quality.
 
-To enable crawling, set `COMPOSE_PROFILES=crawler` and run the same `up`
-command. An empty frontier does not fetch anything by itself. URL admission and
-frontier refill are separate operator operations.
+To enable crawling, set `COMPOSE_PROFILES=crawler` and the `R2_*` settings listed
+in `.env.example`, using a development bucket and its own credentials. The same
+`up` command starts both the crawler and the automatic `link-archive` worker.
+The R2 key needs object read/write access to that private bucket. An empty frontier
+does not fetch anything by itself; URL admission and frontier refill are separate
+operator operations. `web-search-link-archive status` in the archive container
+reports pending uploads and the current snapshot; its logs report retries.
 
 ## Run Python services outside containers
 

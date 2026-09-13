@@ -80,6 +80,7 @@ set_environment_config() {
       )
       OPTIONAL_IF_PRESENT_SERVICES=(
         crawler
+        link-archive
         prometheus
         grafana
       )
