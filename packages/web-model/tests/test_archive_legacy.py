@@ -1,6 +1,7 @@
 import pytest
 from psycopg2.errors import RaiseException
 
+from web_search_core.urls import url_hash
 from web_search_web_model.archive import legacy
 from web_search_web_model.archive.outbox import append_observation, transaction
 from web_search_web_model.archive.snapshots import iter_latest
@@ -65,3 +66,36 @@ def test_legacy_table_rejects_new_writes():
     with pytest.raises(RaiseException, match="frozen"):
         with transaction() as cur:
             cur.execute("INSERT INTO legacy_links VALUES ('a', 'b')")
+
+
+def test_export_preserves_existing_discoveries_and_registers_missing_urls(object_store):
+    seed()
+    with transaction() as cur:
+        cur.execute(
+            "INSERT INTO urls (url_hash, url, domain, created_at) VALUES (%s, %s, %s, %s)",
+            (
+                url_hash("https://old.example/"),
+                "https://old.example/",
+                "old.example",
+                123,
+            ),
+        )
+
+    assert legacy.export_legacy(object_store) == {
+        "complete": True,
+        "pages": 2,
+        "edges": 2,
+    }
+    with transaction() as cur:
+        cur.execute("SELECT url, created_at FROM urls ORDER BY url")
+        rows = dict(cur.fetchall())
+    assert set(rows) == {
+        "https://a.example/",
+        "https://b.example/",
+        "https://old.example/",
+        "https://keep.example/",
+    }
+    assert rows["https://old.example/"] == 123
+    assert all(
+        created > 123 for url, created in rows.items() if url != "https://old.example/"
+    )

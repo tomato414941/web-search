@@ -38,9 +38,14 @@ def _save_batch(
         execute_values(
             cur,
             """INSERT INTO urls (url_hash, url, domain, created_at)
-            VALUES %s ON CONFLICT (url_hash) DO NOTHING""",
+            SELECT incoming.* FROM (VALUES %s)
+                AS incoming (url_hash, url, domain, created_at)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM urls WHERE urls.url_hash = incoming.url_hash
+            )
+            ON CONFLICT (url_hash) DO NOTHING""",
             rows,
-            page_size=100,
+            page_size=1_000,
         )
         cur.execute(
             """UPDATE link_archive_state SET legacy_last_src = %s,
