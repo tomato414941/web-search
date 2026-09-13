@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -8,6 +8,7 @@ from web_search_web_model.archive.records import PREFIX, Observation
 from web_search_web_model.archive.snapshots import collect, compact, iter_latest
 from web_search_web_model.archive.store import (
     ArchiveConflict,
+    committed_batches,
     publish_batch,
     read_current,
 )
@@ -76,6 +77,15 @@ def test_pointer_compare_and_swap_rejects_stale_publication(object_store):
     with pytest.raises(ArchiveConflict):
         object_store.put_json(f"{PREFIX}current.json", current, etag=etag)
     assert read_current(object_store)[0] != current
+
+
+def test_batch_date_uses_utc_even_when_database_session_uses_another_timezone(
+    object_store,
+):
+    created = datetime(2026, 1, 2, 1, tzinfo=timezone(timedelta(hours=9)))
+    result = publish(object_store, [record()], now=created)
+    assert "/updates/2026/01/01/" in result["data_key"]
+    assert len(committed_batches(object_store)) == 1
 
 
 def test_collection_requires_both_snapshots_and_respects_pending_batches(object_store):

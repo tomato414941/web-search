@@ -1,7 +1,7 @@
 """Verified immutable R2 objects and conditional publication of archive manifests."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 import hashlib
 import json
 import os
@@ -193,7 +193,8 @@ class ObjectStore:
 
 def publish_batch(store: ObjectStore, batch: Batch) -> dict[str, Any]:
     data = encode_batch(batch.records)
-    key = f"{PREFIX}updates/{batch.created_at:%Y/%m/%d}/{batch.batch_id}.jsonl.gz"
+    created_at = batch.created_at.astimezone(UTC)
+    key = f"{PREFIX}updates/{created_at:%Y/%m/%d}/{batch.batch_id}.jsonl.gz"
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "batch_id": batch.batch_id,

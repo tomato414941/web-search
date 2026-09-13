@@ -3,7 +3,6 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 import gzip
-import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Iterator
@@ -35,9 +34,7 @@ RETENTION_GRACE = timedelta(hours=24)
 
 @contextmanager
 def workspace() -> Iterator[tuple[Any, Path]]:
-    with TemporaryDirectory(
-        prefix="link-archive-", dir=os.getenv("LINK_ARCHIVE_WORK_DIR")
-    ) as directory:
+    with TemporaryDirectory(prefix="link-archive-") as directory:
         root = Path(directory)
         con = duckdb.connect(
             str(root / "work.duckdb"), config={"memory_limit": "256MB", "threads": "1"}
