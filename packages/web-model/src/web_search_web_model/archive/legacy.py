@@ -1,5 +1,7 @@
 """Resumable export of the frozen pre-cutover graph, without deleting it."""
 
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from itertools import groupby
 
@@ -17,12 +19,15 @@ from web_search_web_model.archive.store import ObjectStore, publish_batch
 from psycopg2.extras import execute_values
 
 
-def _save_batch(
+def _publish_batch(
     store: ObjectStore, records: list[Observation], started: datetime
 ) -> None:
     # Content-derived identity makes interrupted export retries idempotent.
     batch_id = "baseline-" + digest(b"".join(record.encode() for record in records))
     publish_batch(store, Batch(batch_id, started, records))
+
+
+def _register_batch(records: list[Observation], started: datetime) -> None:
     with transaction() as cur:
         # Match the live writer's lock order: archive state, then URL ledger.
         cur.execute(
@@ -70,7 +75,32 @@ def export_legacy(store: ObjectStore) -> dict[str, int | bool]:
         if not complete:
             con = get_connection()
             try:
-                with con.cursor(name="legacy_link_export") as cur:
+                with (
+                    ThreadPoolExecutor(max_workers=2) as publisher,
+                    con.cursor(name="legacy_link_export") as cur,
+                ):
+                    pending = deque()
+
+                    def finish_oldest() -> None:
+                        records, publication = pending[0]
+                        publication.result()
+                        _register_batch(records, started)
+                        pending.popleft()
+
+                    def enqueue(records: list[Observation]) -> None:
+                        pending.append(
+                            (
+                                records,
+                                publisher.submit(
+                                    _publish_batch, store, records, started
+                                ),
+                            )
+                        )
+                        # Publications may finish out of order. Advance the source
+                        # cursor only in order, keeping at most two batches in flight.
+                        if len(pending) == 2:
+                            finish_oldest()
+
                     cur.itersize = 10_000
                     cur.execute(
                         "SELECT src, dst FROM legacy_links WHERE (%s::text IS NULL OR src > %s) ORDER BY src, dst",
@@ -89,12 +119,14 @@ def export_legacy(store: ObjectStore) -> dict[str, int | bool]:
                         if records and (
                             len(records) >= BATCH_PAGES or size + length > BATCH_BYTES
                         ):
-                            _save_batch(store, records, started)
+                            enqueue(records)
                             records, size = [], 0
                         records.append(record)
                         size += length
                     if records:
-                        _save_batch(store, records, started)
+                        enqueue(records)
+                    while pending:
+                        finish_oldest()
                 con.rollback()
             finally:
                 con.close()
