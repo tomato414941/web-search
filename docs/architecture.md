@@ -73,6 +73,12 @@ that pending attempt; recording the result updates domain state and logs, not
 a durable per-URL recrawl schedule. The old `crawl_schedule` table is removed.
 `crawler-concepts.md` explains dispatch and handoff semantics.
 
+The planned link archive (not yet implemented) stores one page's outgoing
+links per record in R2: batched JSONL+gzip updates and daily Parquet+Zstd
+snapshots. A PostgreSQL outbox feeds automatic upload and retry; pending rows
+are removed only after R2 storage is verified. Snapshots retain the latest
+observation per page, including empty link lists.
+
 ## Operational implications
 
 Search requires PostgreSQL, the current hybrid index and RRF pipeline, and an
