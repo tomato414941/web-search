@@ -39,6 +39,13 @@ an exact replacement of its contents: documents no longer eligible for projectio
 can remain there. Use a fresh physical index when an exact replacement or a
 mapping change is required.
 
+For a full rebuild, pause document ingestion until validation and cutover finish.
+The URL cursor does not capture changes to rows already scanned. Use
+`--checkpoint-file /state/projection.json` on a persistent mount to resume after
+an interruption. Progress advances only after an entire bulk request succeeds;
+the checkpoint rejects a different source database or physical index. A bounded
+run with `--max-documents` can be resumed with the same checkpoint.
+
 For a physical-index change:
 
 1. Create/populate a new target with the intended mapping and projection.
@@ -66,6 +73,8 @@ Full-corpus embedding generation is a separate, potentially costly operation;
 check document count, provider quota, storage capacity, and estimated token
 volume before running it. The Compose memory defaults are development settings,
 not a capacity guarantee for a full Web corpus.
+Compose defaults to one frontend worker via `FRONTEND_WORKERS`; size its memory
+limit before increasing that count because each worker loads tokenizer data.
 
 ## Local profiles
 

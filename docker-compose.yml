@@ -49,6 +49,7 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - PORT=8000
       - HOST=0.0.0.0
+      - GUNICORN_WORKERS=${FRONTEND_WORKERS:-1}
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
       - ALLOWED_HOSTS=${ALLOWED_HOSTS},frontend,localhost,127.0.0.1
       - ANALYTICS_SALT=${ANALYTICS_SALT}
