@@ -6,7 +6,9 @@ from urllib.parse import urlparse
 from psycopg2.extras import execute_values
 
 from web_search_core.url_admission import URLAdmissionPolicy
-from web_search_postgres.search import get_connection
+from web_search_core.urls import get_domain
+from web_search_web_model.archive.outbox import append_observation, transaction
+from web_search_web_model.urls import UrlLedgerRepository
 
 
 class LinkGraphRepository:
@@ -34,20 +36,6 @@ class LinkGraphRepository:
                 continue
             pairs.setdefault((src, dst), None)
         return sorted(pairs)
-
-    @staticmethod
-    def _replace_links(cur: Any, src_url: str, pairs: list[tuple[str, str]]) -> None:
-        cur.execute("DELETE FROM links WHERE src = %s", (src_url,))
-        if pairs:
-            execute_values(
-                cur,
-                """
-                INSERT INTO links (src, dst)
-                VALUES %s
-                ON CONFLICT DO NOTHING
-                """,
-                pairs,
-            )
 
     @staticmethod
     def _referring_host(src_url: str) -> str | None:
@@ -82,18 +70,11 @@ class LinkGraphRepository:
         if not src:
             return 0
 
-        con = get_connection()
-        try:
-            cur = con.cursor()
-            try:
-                self._replace_links(cur, src, pairs)
-                self._upsert_url_referring_hosts(cur, src, pairs)
-                con.commit()
-            finally:
-                cur.close()
-            return len(pairs)
-        except BaseException:
-            con.rollback()
-            raise
-        finally:
-            con.close()
+        with transaction() as cur:
+            append_observation(cur, src, get_domain(src), [dst for _, dst in pairs])
+            self._upsert_url_referring_hosts(cur, src, pairs)
+            # Frontier refill uses the ledger, including cross-host discoveries.
+            UrlLedgerRepository(self.url_admission_policy).record_in_transaction(
+                cur, [src, *(dst for _, dst in pairs)]
+            )
+        return len(pairs)

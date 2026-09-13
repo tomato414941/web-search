@@ -108,6 +108,16 @@ class UrlLedgerRepository:
             > 0
         )
 
+    def record_in_transaction(self, cur: Any, urls: list[str]) -> int:
+        """Record normalized discoveries within the caller's transaction."""
+        now = int(time.time())
+        return sum(
+            self._insert_urls_batch(cur, chunk, now)
+            for chunk in self._chunked(
+                self._normalize_known_urls(urls), max(1, _URL_LEDGER_CHUNK_SIZE)
+            )
+        )
+
     def record_discovered_urls(
         self,
         urls: list[str],

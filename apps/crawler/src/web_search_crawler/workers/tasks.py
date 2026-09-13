@@ -34,6 +34,7 @@ from web_search_crawler.workers.types import (
 )
 from web_search_contracts.enums import CrawlAttemptStatus, CrawlUrlStatus
 from web_search_web_model import LinkGraphRepository, UrlLedgerRepository
+from web_search_web_model.archive.outbox import has_capacity
 
 logger = logging.getLogger(__name__)
 
@@ -274,6 +275,9 @@ async def worker_loop(concurrency: int = 1, active_counter=None):
                     continue
 
                 # Batch-fetch ready URLs from different domains
+                if not await run_in_db_executor(has_capacity):
+                    await asyncio.sleep(10)
+                    continue
                 ready_items = await run_in_db_executor(
                     planner.pop_ready_urls, available_slots
                 )

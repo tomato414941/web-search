@@ -19,7 +19,8 @@ from web_search_postgres.migrate import migrate  # noqa: E402
 
 # Crawler tables to truncate
 _CRAWLER_TABLES = [
-    "links",
+    "link_outbox",
+    "link_archive_batches",
     "documents",
     "domain_state",
     "crawl_queue",
@@ -49,6 +50,8 @@ def _clean_crawler_tables():
                 conn.commit()
             except Exception:
                 conn.rollback()
+        cur.execute("UPDATE link_archive_state SET pending_bytes = 0 WHERE singleton")
+        conn.commit()
         cur.close()
     finally:
         conn.close()

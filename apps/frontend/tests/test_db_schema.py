@@ -21,7 +21,9 @@ def test_db_creation():
     assert "documents" in tables
 
     # Link graph tables
-    assert "links" in tables
+    assert "link_outbox" in tables
+    assert "link_archive_batches" in tables
+    assert "links" not in tables
     assert "url_referring_hosts" in tables
     assert "page_ranks" in tables
 

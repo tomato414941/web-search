@@ -50,7 +50,6 @@ def inject_data(count: int = 50) -> None:
 
     indexer = SearchIndexer()
     con = open_db()
-    cur = con.cursor()
 
     try:
         for i in range(count):
@@ -68,21 +67,6 @@ def inject_data(count: int = 50) -> None:
             url = f"http://example.com/page/{i}"
             indexer.index_document(url, title, content, con)
 
-            if i > 0 and random.random() < 0.5:
-                cur.execute(
-                    "INSERT INTO links (src, dst) VALUES (%s, %s)",
-                    (url, "http://example.com/page/0"),
-                )
-
-            for _ in range(random.randint(0, 3)):
-                target_id = random.randint(0, count - 1)
-                target_url = f"http://example.com/page/{target_id}"
-                if target_url != url:
-                    cur.execute(
-                        "INSERT INTO links (src, dst) VALUES (%s, %s)",
-                        (url, target_url),
-                    )
-
         indexer.index_document(
             "http://example.com/page/0",
             "The Popular Hub Page",
@@ -93,7 +77,6 @@ def inject_data(count: int = 50) -> None:
         con.commit()
         print("Injection complete.")
     finally:
-        cur.close()
         con.close()
 
 

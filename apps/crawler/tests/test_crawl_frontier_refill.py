@@ -2,17 +2,17 @@ from urllib.parse import urlparse
 
 from web_search_crawler.db.connection import db_connection, db_transaction
 from web_search_crawler.services.crawl_frontier_refill import (
-    fetch_link_frontier_candidates,
-    refill_crawl_frontier_from_links,
+    fetch_url_frontier_candidates,
+    refill_crawl_frontier_from_urls,
 )
-from web_search_web_model import UrlLedgerRepository
+from web_search_core.urls import get_domain, url_hash
 
 
-def _insert_links(rows: list[tuple[str, str]]) -> None:
+def _insert_known_urls(rows: list[tuple[str, str]]) -> None:
     with db_transaction("/unused") as cur:
         cur.executemany(
-            "INSERT INTO links (src, dst) VALUES (%s, %s)",
-            rows,
+            "INSERT INTO urls (url_hash, url, domain, created_at) VALUES (%s, %s, %s, 0) ON CONFLICT DO NOTHING",
+            [(url_hash(url), url, get_domain(url)) for _, url in rows],
         )
 
 
@@ -33,7 +33,7 @@ def _queue_contains(url: str) -> bool:
         return cur.fetchone() is not None
 
 
-def test_fetch_link_frontier_candidates_excludes_indexed_and_queued_urls(
+def test_fetch_url_frontier_candidates_excludes_indexed_and_queued_urls(
     test_url_store,
 ):
     indexed = "https://indexed.example.com/page"
@@ -43,7 +43,7 @@ def test_fetch_link_frontier_candidates_excludes_indexed_and_queued_urls(
     other = "https://other.example.com/a"
     _insert_document(indexed)
     test_url_store.enqueue_url_for_crawl(queued)
-    _insert_links(
+    _insert_known_urls(
         [
             ("https://source-a.example.com/page", indexed),
             ("https://source-b.example.com/page", queued),
@@ -53,7 +53,7 @@ def test_fetch_link_frontier_candidates_excludes_indexed_and_queued_urls(
         ]
     )
 
-    candidates = fetch_link_frontier_candidates(
+    candidates = fetch_url_frontier_candidates(
         limit=10,
         sample_percent=100,
         sample_limit=100,
@@ -69,9 +69,9 @@ def test_fetch_link_frontier_candidates_excludes_indexed_and_queued_urls(
     )
 
 
-def test_fetch_link_frontier_candidates_excludes_non_document_like_urls():
+def test_fetch_url_frontier_candidates_excludes_non_document_like_urls():
     keep = "https://keep.example.com/articles/one"
-    _insert_links(
+    _insert_known_urls(
         [
             ("https://source-a.example.com/page", keep),
             (
@@ -87,7 +87,7 @@ def test_fetch_link_frontier_candidates_excludes_non_document_like_urls():
         ]
     )
 
-    candidates = fetch_link_frontier_candidates(
+    candidates = fetch_url_frontier_candidates(
         limit=10,
         sample_percent=100,
         sample_limit=100,
@@ -97,20 +97,18 @@ def test_fetch_link_frontier_candidates_excludes_non_document_like_urls():
     assert candidates == [keep]
 
 
-def test_refill_crawl_frontier_from_links_enqueues_candidates(test_url_store):
+def test_refill_crawl_frontier_from_urls_enqueues_candidates(test_url_store):
     first = "https://first.example.com/a"
     second = "https://second.example.com/a"
-    _insert_links(
+    _insert_known_urls(
         [
             ("https://source-a.example.com/page", first),
             ("https://source-b.example.com/page", second),
         ]
     )
-    url_ledger = UrlLedgerRepository(test_url_store.url_admission_policy)
 
-    result = refill_crawl_frontier_from_links(
+    result = refill_crawl_frontier_from_urls(
         store=test_url_store,
-        url_ledger=url_ledger,
         limit=10,
         sample_percent=100,
         sample_limit=100,
@@ -118,6 +116,5 @@ def test_refill_crawl_frontier_from_links_enqueues_candidates(test_url_store):
     )
 
     assert result.candidates == 2
-    assert result.recorded == 2
     assert result.enqueued == 2
     assert all(_queue_contains(url) for url in result.urls)

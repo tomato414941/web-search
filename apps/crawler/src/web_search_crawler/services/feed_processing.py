@@ -5,6 +5,7 @@ import time
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.executor import run_in_db_executor
 from web_search_crawler.services.fetchers import FetchResult
+from web_search_crawler.services.link_observation import record_links
 from web_search_crawler.services.indexer import (
     IndexerSubmitResult,
     submit_page_to_indexer,
@@ -62,6 +63,7 @@ async def process_feed_result(
         return PipelineProcessResult(status="failed", message=message, timings=timings)
 
     if not entries:
+        await record_links(ctx, [])
         message = "No feed entries found"
         timings.total_ms = elapsed_ms(total_started_at)
         await run_in_db_executor(
@@ -78,11 +80,7 @@ async def process_feed_result(
         return PipelineProcessResult(status="skipped", message=message, timings=timings)
 
     entry_urls = [entry.url for entry in entries]
-    await run_in_db_executor(
-        ctx.link_graph.replace_observed_links,
-        ctx.url,
-        entry_urls,
-    )
+    await record_links(ctx, entry_urls)
     if entry_urls:
         await run_in_db_executor(
             ctx.url_ledger.record_discovered_urls,

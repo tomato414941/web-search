@@ -1,4 +1,4 @@
-# Web model maintenance image.
+# Link archive worker image.
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
@@ -40,4 +40,4 @@ ENV PATH=/app/.venv/bin:$PATH \
 
 USER appuser
 
-CMD ["python", "-m", "web_search_web_model.worker"]
+CMD ["web-search-link-archive", "run"]

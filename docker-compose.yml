@@ -114,9 +114,12 @@ services:
       - DB_POOL_MIN=${DB_POOL_MIN_CRAWLER:-1}
       - DB_POOL_MAX=${DB_POOL_MAX_CRAWLER:-4}
       - DB_EXECUTOR_MAX=${DB_EXECUTOR_MAX_CRAWLER:-6}
+      - LINK_ARCHIVE_MAX_PENDING_BYTES=${LINK_ARCHIVE_MAX_PENDING_BYTES:-536870912}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
+      link-archive:
+        condition: service_healthy
     mem_limit: ${CRAWLER_MEM_LIMIT:-384m}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -124,6 +127,33 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  link-archive:
+    build:
+      context: .
+      dockerfile: packages/web-model/Dockerfile
+    restart: unless-stopped
+    profiles: ["crawler"]
+    environment:
+      - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
+      - R2_BUCKET=${R2_BUCKET:-}
+      - R2_ENDPOINT_URL=${R2_ENDPOINT_URL:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_REGION=${R2_REGION:-auto}
+      - DB_POOL_MIN=1
+      - DB_POOL_MAX=2
+    command: ["web-search-link-archive", "run"]
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    mem_limit: ${LINK_ARCHIVE_MEM_LIMIT:-768m}
+    healthcheck:
+      test: ["CMD", "web-search-link-archive", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   opensearch:
     image: opensearchproject/opensearch:2.19.6

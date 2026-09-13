@@ -10,6 +10,7 @@ from web_search_crawler.services.indexer import (
     submit_page_to_indexer,
 )
 from web_search_crawler.services.crawl_queue_admission import admit_discovered_urls
+from web_search_crawler.services.link_observation import record_links
 from web_search_crawler.utils import history as history_log
 from web_search_crawler.utils.parser import parse_page
 from web_search_crawler.workers.timing import elapsed_ms, timing_kwargs
@@ -61,11 +62,7 @@ async def process_html_result(
     timings.parse_ms = elapsed_ms(parse_started_at)
 
     outlinks_discovered = len(parsed.outlinks)
-    await run_in_db_executor(
-        ctx.link_graph.replace_observed_links,
-        ctx.url,
-        parsed.outlinks,
-    )
+    await record_links(ctx, parsed.outlinks)
     if parsed.feed_links:
         await admit_discovered_urls(
             ctx,

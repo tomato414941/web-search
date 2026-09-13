@@ -1,5 +1,7 @@
 """Repository helpers for graph-derived ranking data."""
 
+from collections.abc import Iterator
+
 from web_search_postgres.search import open_db, sql_placeholder
 
 _SAVE_BATCH_SIZE = 5000
@@ -21,16 +23,13 @@ class RankingRepository:
             con.close()
 
     @staticmethod
-    def fetch_links() -> list[tuple[str, str]]:
-        con = open_db()
-        try:
-            cur = con.cursor()
-            cur.execute("SELECT src, dst FROM links")
-            rows = [(str(src), str(dst)) for src, dst in cur]
-            cur.close()
-            return rows
-        finally:
-            con.close()
+    def fetch_links() -> Iterator[tuple[str, str]]:
+        from web_search_web_model.archive.snapshots import iter_latest
+        from web_search_web_model.archive.store import ObjectStore
+
+        for record in iter_latest(ObjectStore.from_env()):
+            for dst in record.outlinks:
+                yield record.src, dst
 
     @staticmethod
     def replace_page_ranks(scores: dict[str, float]) -> None:

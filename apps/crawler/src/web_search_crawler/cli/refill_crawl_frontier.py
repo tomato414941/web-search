@@ -52,20 +52,14 @@ import json
 from web_search_crawler.core.config import settings
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_crawler.services.crawl_frontier_refill import (
-    refill_crawl_frontier_from_links,
+    refill_crawl_frontier_from_urls,
 )
-from web_search_core.url_admission import load_url_admission_policy
-from web_search_web_model import UrlLedgerRepository
 
 payload = json.loads({payload_literal!r})
 
 store = CrawlerRuntimeStore(settings.CRAWLER_DB_PATH)
-url_ledger = UrlLedgerRepository(
-    load_url_admission_policy(settings.URL_ADMISSION_RULES_PATH),
-)
-result = refill_crawl_frontier_from_links(
+result = refill_crawl_frontier_from_urls(
     store=store,
-    url_ledger=url_ledger,
     limit=int(payload["limit"]),
     sample_percent=float(payload["sample_percent"]),
     sample_limit=int(payload["sample_limit"]),
@@ -81,14 +75,14 @@ if bool(payload["dry_run"]):
     print("DRY_RUN")
 print(
     f"SUMMARY candidates={{result.candidates}} "
-    f"recorded={{result.recorded}} enqueued={{result.enqueued}}"
+    f"enqueued={{result.enqueued}}"
 )
 """
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Refill PRD crawl queue with diverse unindexed URLs sampled from links."
+        description="Refill PRD crawl queue with diverse unindexed URLs sampled from the URL ledger."
     )
     parser.add_argument("environment", choices=ENVIRONMENTS)
     parser.add_argument(
@@ -105,13 +99,13 @@ def main() -> int:
         "--sample-percent",
         type=float,
         default=0.01,
-        help="PostgreSQL TABLESAMPLE SYSTEM percentage for links.",
+        help="PostgreSQL TABLESAMPLE SYSTEM percentage for the URL ledger.",
     )
     parser.add_argument(
         "--sample-limit",
         type=int,
         default=10_000,
-        help="Maximum sampled links to inspect before host diversity.",
+        help="Maximum sampled URLs to inspect before host diversity.",
     )
     parser.add_argument(
         "--statement-timeout-ms",

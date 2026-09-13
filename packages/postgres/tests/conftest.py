@@ -19,7 +19,8 @@ _TABLES = [
     "documents",
     "domain_ranks",
     "url_referring_hosts",
-    "links",
+    "link_outbox",
+    "link_archive_batches",
     "urls",
     "crawl_logs",
 ]
@@ -43,6 +44,8 @@ def _clean_tables():
                 conn.commit()
             except Exception:
                 conn.rollback()
+        cur.execute("UPDATE link_archive_state SET pending_bytes = 0 WHERE singleton")
+        conn.commit()
         cur.close()
     except Exception:
         conn.rollback()

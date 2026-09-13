@@ -1,17 +1,15 @@
-"""Refill crawl frontier from the observed link graph."""
+"""Refill crawl frontier from the known URL ledger."""
 
 from dataclasses import dataclass
 import math
 
 from web_search_crawler.db.crawler_runtime_store import CrawlerRuntimeStore
 from web_search_postgres.search import get_connection
-from web_search_web_model import UrlLedgerRepository
 
 
 @dataclass(frozen=True)
 class CrawlFrontierRefillResult:
     candidates: int
-    recorded: int
     enqueued: int
     urls: list[str]
 
@@ -33,14 +31,14 @@ def _validate_refill_args(
         raise ValueError("statement_timeout_ms must be positive")
 
 
-def fetch_link_frontier_candidates(
+def fetch_url_frontier_candidates(
     *,
     limit: int,
     sample_percent: float = 0.01,
     sample_limit: int = 10_000,
     statement_timeout_ms: int = 30_000,
 ) -> list[str]:
-    """Return diverse unindexed URLs sampled from observed links."""
+    """Return diverse unindexed URLs sampled from the URL ledger."""
     _validate_refill_args(
         limit=limit,
         sample_percent=sample_percent,
@@ -55,9 +53,9 @@ def fetch_link_frontier_candidates(
             cur.execute(
                 f"""
                 WITH sampled AS MATERIALIZED (
-                    SELECT dst
-                    FROM links TABLESAMPLE SYSTEM ({sample_percent})
-                    WHERE dst IS NOT NULL
+                    SELECT url AS dst
+                    FROM urls TABLESAMPLE SYSTEM ({sample_percent})
+                    WHERE url IS NOT NULL
                     LIMIT %s
                 ), parsed AS MATERIALIZED (
                     SELECT
@@ -113,18 +111,17 @@ def fetch_link_frontier_candidates(
         con.close()
 
 
-def refill_crawl_frontier_from_links(
+def refill_crawl_frontier_from_urls(
     *,
     store: CrawlerRuntimeStore,
-    url_ledger: UrlLedgerRepository,
     limit: int,
     sample_percent: float = 0.01,
     sample_limit: int = 10_000,
     statement_timeout_ms: int = 30_000,
     dry_run: bool = False,
 ) -> CrawlFrontierRefillResult:
-    """Sample observed links and enqueue diverse unindexed URLs."""
-    urls = fetch_link_frontier_candidates(
+    """Sample known URLs and enqueue diverse unindexed URLs."""
+    urls = fetch_url_frontier_candidates(
         limit=limit,
         sample_percent=sample_percent,
         sample_limit=sample_limit,
@@ -133,16 +130,13 @@ def refill_crawl_frontier_from_links(
     if dry_run:
         return CrawlFrontierRefillResult(
             candidates=len(urls),
-            recorded=0,
             enqueued=0,
             urls=urls,
         )
 
-    recorded = url_ledger.record_discovered_urls(urls)
     enqueued = store.enqueue_urls_for_crawl(urls)
     return CrawlFrontierRefillResult(
         candidates=len(urls),
-        recorded=recorded,
         enqueued=enqueued,
         urls=urls,
     )
