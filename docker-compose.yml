@@ -157,7 +157,9 @@ services:
       start_period: 60s
 
   opensearch:
-    image: opensearchproject/opensearch:2.19.6
+    build:
+      context: ./deploy/opensearch
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       - discovery.type=single-node

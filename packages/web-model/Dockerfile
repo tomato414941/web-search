@@ -8,7 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+RUN sed -i -E '/^mozilla\/(Comodo_AAA_Services_root|emSign_(ECC_Root_CA|Root_TLS_CA|Root_CS_CA)_-_G3)\.crt$/s/^/!/' /etc/ca-certificates.conf \
+    && update-ca-certificates \
+    && python -m pip install --no-cache-dir --cert /etc/ssl/certs/ca-certificates.crt --upgrade pip==26.2.2 uv==0.13.4
 
 COPY pyproject.toml uv.lock ./
 COPY packages/web-model/pyproject.toml ./packages/web-model/pyproject.toml
@@ -27,6 +29,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
+
+RUN sed -i -E '/^mozilla\/(Comodo_AAA_Services_root|emSign_(ECC_Root_CA|Root_TLS_CA|Root_CS_CA)_-_G3)\.crt$/s/^/!/' /etc/ca-certificates.conf \
+    && update-ca-certificates \
+    && python -m pip install --no-cache-dir --cert /etc/ssl/certs/ca-certificates.crt --upgrade pip==26.2.2
 
 RUN groupadd -r appuser && useradd -r -g appuser -d /home/appuser -m appuser
 

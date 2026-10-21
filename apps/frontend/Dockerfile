@@ -10,7 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
-RUN pip install --no-cache-dir uv
+RUN sed -i -E '/^mozilla\/(Comodo_AAA_Services_root|emSign_(ECC_Root_CA|Root_TLS_CA|Root_CS_CA)_-_G3)\.crt$/s/^/!/' /etc/ca-certificates.conf \
+    && update-ca-certificates \
+    && python -m pip install --no-cache-dir --cert /etc/ssl/certs/ca-certificates.crt --upgrade pip==26.2.2 uv==0.13.4
 
 # Copy workspace metadata and source
 COPY pyproject.toml uv.lock ./
@@ -46,6 +48,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
+
+RUN sed -i -E '/^mozilla\/(Comodo_AAA_Services_root|emSign_(ECC_Root_CA|Root_TLS_CA|Root_CS_CA)_-_G3)\.crt$/s/^/!/' /etc/ca-certificates.conf \
+    && update-ca-certificates \
+    && python -m pip install --no-cache-dir --cert /etc/ssl/certs/ca-certificates.crt --upgrade pip==26.2.2
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser -d /home/appuser -m appuser
