@@ -7,11 +7,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 DEFAULT_TIMEOUT_SEC=240
 DEFAULT_POLL_INTERVAL_SEC=5
 DEFAULT_PRD_SERVER="${WEB_SEARCH_PRD_SERVER:-}"
-DEFAULT_PRD_ENV_FILE="${WEB_SEARCH_PRD_ENV_FILE:-}"
-DEFAULT_PRD_REPO_PATH="${WEB_SEARCH_PRD_REPO_PATH:-}"
-DEFAULT_PRD_PROJECT="${WEB_SEARCH_PRD_PROJECT:-web-search-prd}"
 DEFAULT_PRD_FRONTEND_URL="${WEB_SEARCH_PRD_FRONTEND_URL:-https://palebluesearch.com}"
-DEFAULT_PRD_OPENSEARCH_DATA_DIR="${WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR:-/var/lib/web-search/opensearch-data}"
+PRD_PROJECT="web-search-prd"
+PRD_STATE_FILE="/srv/web-search/deployed.env"
 
 usage() {
   cat <<'USAGE'
@@ -62,17 +60,12 @@ set_environment_config() {
   case "$ENVIRONMENT" in
     prd)
       require_value WEB_SEARCH_PRD_SERVER "$DEFAULT_PRD_SERVER"
-      require_value WEB_SEARCH_PRD_ENV_FILE "$DEFAULT_PRD_ENV_FILE"
-      require_value WEB_SEARCH_PRD_REPO_PATH "$DEFAULT_PRD_REPO_PATH"
       SERVER="$DEFAULT_PRD_SERVER"
-      ENV_FILE="$DEFAULT_PRD_ENV_FILE"
-      REPO_PATH="$DEFAULT_PRD_REPO_PATH"
-      PROJECT_NAME="$DEFAULT_PRD_PROJECT"
-      STATE_FILE="${REPO_PATH}/.deploy-state/prd.env"
-      EXTRA_COMPOSE_FILE="deploy/compose.prd-data.yml"
+      PROJECT_NAME="$PRD_PROJECT"
+      STATE_FILE="$PRD_STATE_FILE"
       FRONTEND_URL="$DEFAULT_PRD_FRONTEND_URL"
-      OPENSEARCH_DATA_DIR="$DEFAULT_PRD_OPENSEARCH_DATA_DIR"
       REQUIRED_SERVICES=(
+        caddy
         frontend
         indexer
         opensearch
@@ -268,7 +261,6 @@ echo "Target environment : ${ENVIRONMENT}"
 echo "Expected git ref   : ${EXPECTED_REF_INPUT}"
 echo "Expected commit    : ${EXPECTED_COMMIT}"
 echo "Server             : ${SERVER}"
-echo "Repo path          : ${REPO_PATH}"
 echo "State file         : ${STATE_FILE}"
 echo "Compose project    : ${PROJECT_NAME}"
 echo "Frontend URL       : ${FRONTEND_URL}"

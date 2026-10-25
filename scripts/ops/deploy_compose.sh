@@ -4,14 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-DEFAULT_PRD_SERVER="${WEB_SEARCH_PRD_SERVER:-}"
-DEFAULT_PRD_ENV_FILE="${WEB_SEARCH_PRD_ENV_FILE:-}"
-DEFAULT_PRD_REPO_PATH="${WEB_SEARCH_PRD_REPO_PATH:-}"
-DEFAULT_PRD_PROJECT="${WEB_SEARCH_PRD_PROJECT:-web-search-prd}"
-DEFAULT_PRD_OPENSEARCH_DATA_DIR="${WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR:-/var/lib/web-search/opensearch-data}"
-DEFAULT_PRD_POSTGRES_VOLUME="${WEB_SEARCH_PRD_POSTGRES_VOLUME:-}"
-DEFAULT_PRD_PROMETHEUS_VOLUME="${WEB_SEARCH_PRD_PROMETHEUS_VOLUME:-}"
-DEFAULT_PRD_GRAFANA_VOLUME="${WEB_SEARCH_PRD_GRAFANA_VOLUME:-}"
+PRD_ROOT="/srv/web-search"
+PRD_ENV_FILE="/etc/web-search/prd.env"
 
 usage() {
   cat <<'USAGE'
@@ -23,89 +17,17 @@ Examples:
   ./scripts/ops/deploy_compose.sh prd 0123abcd
 
 Notes:
-  - Deploys the resolved source tree with docker compose --build on the target host.
-  - The remote host must have docker, docker compose, and tar available.
-  - The env file must already exist on the remote host.
+  - Deploys deploy/prd from the resolved commit; each service runs the image pinned there.
+  - WEB_SEARCH_PRD_SERVER is the SSH destination of the production host.
+  - The host must be prepared with scripts/ops/setup_host.sh and have /etc/web-search/prd.env.
 USAGE
 }
 
 require_cmd() {
-  local command="$1"
-  if ! command -v "$command" >/dev/null 2>&1; then
-    echo "Missing required command: $command" >&2
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Missing required command: $1" >&2
     exit 1
   fi
-}
-
-require_value() {
-  local name="$1"
-  local value="$2"
-  if [ -z "$value" ]; then
-    echo "Missing required environment variable: $name" >&2
-    exit 1
-  fi
-}
-
-resolve_commit() {
-  local ref="$1"
-  git -C "$REPO_ROOT" rev-parse "${ref}^{commit}"
-}
-
-upload_remote_bundle() {
-  local bundle_dir="$1"
-
-  ssh "$SERVER" "rm -rf '$bundle_dir' && mkdir -p '$bundle_dir'"
-  git -C "$REPO_ROOT" archive --format=tar "$EXPECTED_COMMIT" \
-    | ssh "$SERVER" "tar -xf - -C '$bundle_dir'"
-}
-
-ensure_remote_git_excludes() {
-  ssh "$SERVER" bash -s -- "$REPO_PATH" <<'REMOTE'
-set -euo pipefail
-
-repo_path="$1"
-
-if [ ! -d "$repo_path/.git" ]; then
-  exit 0
-fi
-
-exclude_file="$repo_path/.git/info/exclude"
-mkdir -p "$(dirname "$exclude_file")"
-
-for pattern in ".compose-bundles/" ".deploy-state/" ".source-bundles/"; do
-  grep -qxF "$pattern" "$exclude_file" 2>/dev/null || printf "%s\n" "$pattern" >> "$exclude_file"
-done
-REMOTE
-}
-
-set_environment_config() {
-  case "$ENVIRONMENT" in
-    prd)
-      require_value WEB_SEARCH_PRD_SERVER "$DEFAULT_PRD_SERVER"
-      require_value WEB_SEARCH_PRD_ENV_FILE "$DEFAULT_PRD_ENV_FILE"
-      require_value WEB_SEARCH_PRD_REPO_PATH "$DEFAULT_PRD_REPO_PATH"
-      require_value WEB_SEARCH_PRD_POSTGRES_VOLUME "$DEFAULT_PRD_POSTGRES_VOLUME"
-      require_value WEB_SEARCH_PRD_PROMETHEUS_VOLUME "$DEFAULT_PRD_PROMETHEUS_VOLUME"
-      require_value WEB_SEARCH_PRD_GRAFANA_VOLUME "$DEFAULT_PRD_GRAFANA_VOLUME"
-      SERVER="$DEFAULT_PRD_SERVER"
-      ENV_FILE="$DEFAULT_PRD_ENV_FILE"
-      REPO_PATH="$DEFAULT_PRD_REPO_PATH"
-      PROJECT_NAME="$DEFAULT_PRD_PROJECT"
-      EXTRA_COMPOSE_FILE="deploy/compose.prd-data.yml"
-      STATE_FILE="${REPO_PATH}/.deploy-state/prd.env"
-      BUNDLE_ROOT="${REPO_PATH}/.compose-bundles/${PROJECT_NAME}"
-      OPENSEARCH_DATA_DIR="$DEFAULT_PRD_OPENSEARCH_DATA_DIR"
-      POSTGRES_VOLUME="$DEFAULT_PRD_POSTGRES_VOLUME"
-      PROMETHEUS_VOLUME="$DEFAULT_PRD_PROMETHEUS_VOLUME"
-      GRAFANA_VOLUME="$DEFAULT_PRD_GRAFANA_VOLUME"
-      ;;
-    *)
-      echo "Unsupported environment: $ENVIRONMENT" >&2
-      usage
-      exit 1
-      ;;
-  esac
-
 }
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
@@ -115,136 +37,50 @@ fi
 
 ENVIRONMENT="${1:-}"
 TARGET_REF="${2:-}"
-if [ -z "$ENVIRONMENT" ] || [ -z "$TARGET_REF" ]; then
+if [ "$ENVIRONMENT" != "prd" ] || [ -z "$TARGET_REF" ]; then
   usage
   exit 1
 fi
 
+SERVER="${WEB_SEARCH_PRD_SERVER:-}"
+if [ -z "$SERVER" ]; then
+  echo "Missing required environment variable: WEB_SEARCH_PRD_SERVER" >&2
+  exit 1
+fi
+
 require_cmd git
-
-set_environment_config
-EXPECTED_COMMIT="$(resolve_commit "$TARGET_REF")"
-
 require_cmd ssh
-require_cmd tar
+
+COMMIT="$(git -C "$REPO_ROOT" rev-parse "${TARGET_REF}^{commit}")"
+RELEASE_DIR="${PRD_ROOT}/releases/${COMMIT}"
 
 echo "Target environment : ${ENVIRONMENT}"
-echo "Expected commit    : ${EXPECTED_COMMIT}"
+echo "Commit             : ${COMMIT}"
 echo "Server             : ${SERVER}"
-echo "Repo path          : ${REPO_PATH}"
-echo "State file         : ${STATE_FILE}"
-echo "Compose project    : ${PROJECT_NAME}"
-echo "Env file           : ${ENV_FILE}"
-echo "Deploy mode        : source build"
-if [ -n "${OPENSEARCH_DATA_DIR:-}" ]; then
-  echo "OpenSearch data dir: ${OPENSEARCH_DATA_DIR}"
-fi
-echo "Postgres volume    : ${POSTGRES_VOLUME}"
-echo "Prometheus volume  : ${PROMETHEUS_VOLUME}"
-echo "Grafana volume     : ${GRAFANA_VOLUME}"
+echo "Release directory  : ${RELEASE_DIR}"
 
-REMOTE_EXTRA_COMPOSE_FILE="${EXTRA_COMPOSE_FILE:-__NONE__}"
-REMOTE_OPENSEARCH_DATA_DIR="${OPENSEARCH_DATA_DIR:-}"
-REMOTE_POSTGRES_VOLUME="${POSTGRES_VOLUME:-}"
-REMOTE_PROMETHEUS_VOLUME="${PROMETHEUS_VOLUME:-}"
-REMOTE_GRAFANA_VOLUME="${GRAFANA_VOLUME:-}"
-REMOTE_BUNDLE_DIR="${BUNDLE_ROOT}/${EXPECTED_COMMIT}"
-ensure_remote_git_excludes
-upload_remote_bundle "$REMOTE_BUNDLE_DIR"
-ssh -A "$SERVER" bash -s -- \
-  "$REMOTE_BUNDLE_DIR" \
-  "$STATE_FILE" \
-  "$EXPECTED_COMMIT" \
-  "$PROJECT_NAME" \
-  "$ENV_FILE" \
-  "$REMOTE_EXTRA_COMPOSE_FILE" \
-  "$REMOTE_OPENSEARCH_DATA_DIR" \
-  "$REMOTE_POSTGRES_VOLUME" \
-  "$REMOTE_PROMETHEUS_VOLUME" \
-  "$REMOTE_GRAFANA_VOLUME" <<'REMOTE'
+git -C "$REPO_ROOT" archive --format=tar "$COMMIT" deploy/prd \
+  | ssh "$SERVER" "sudo rm -rf '$RELEASE_DIR' && sudo mkdir -p '$RELEASE_DIR' && sudo tar -xf - -C '$RELEASE_DIR' --strip-components=2"
+
+ssh "$SERVER" bash -s -- "$PRD_ROOT" "$RELEASE_DIR" "$PRD_ENV_FILE" "$COMMIT" <<'REMOTE'
 set -euo pipefail
 
-bundle_dir="$1"
-state_file="$2"
-commit="$3"
-project_name="$4"
-env_file="$5"
-extra_compose_file="${6:-}"
-opensearch_data_dir="${7:-}"
-postgres_volume="${8:-}"
-prometheus_volume="${9:-}"
-grafana_volume="${10:-}"
+prd_root="$1"
+release_dir="$2"
+env_file="$3"
+commit="$4"
 
-if [ "$extra_compose_file" = "__NONE__" ]; then
-  extra_compose_file=""
-fi
-
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Missing required command on remote host: docker" >&2
-  exit 1
-fi
-
-if ! command -v tar >/dev/null 2>&1; then
-  echo "Missing required command on remote host: tar" >&2
-  exit 1
-fi
-
-if [ ! -f "$env_file" ]; then
+if ! sudo test -f "$env_file"; then
   echo "Missing env file on remote host: $env_file" >&2
   exit 1
 fi
 
-if [ ! -d "$bundle_dir" ]; then
-  echo "Missing compose bundle on remote host: $bundle_dir" >&2
-  exit 1
-fi
+compose=(sudo docker compose --project-directory "$release_dir" -f "$release_dir/compose.yml" --env-file "$env_file")
+"${compose[@]}" pull --quiet
+"${compose[@]}" up -d --remove-orphans
+"${compose[@]}" ps
 
-cd "$bundle_dir"
-
-compose_args=(
-  -p "$project_name"
-  -f docker-compose.yml
-  -f deploy/compose.host.yml
-)
-if [ -n "$extra_compose_file" ] && [ -f "$extra_compose_file" ]; then
-  compose_args+=(-f "$extra_compose_file")
-fi
-
-if [ -n "$opensearch_data_dir" ]; then
-  export WEB_SEARCH_PRD_OPENSEARCH_DATA_DIR="$opensearch_data_dir"
-fi
-export WEB_SEARCH_PRD_POSTGRES_VOLUME="$postgres_volume"
-export WEB_SEARCH_PRD_PROMETHEUS_VOLUME="$prometheus_volume"
-export WEB_SEARCH_PRD_GRAFANA_VOLUME="$grafana_volume"
-
-if [ -n "$opensearch_data_dir" ]; then
-  if [ -d "$opensearch_data_dir" ] && [ "$(stat -c '%u:%g' "$opensearch_data_dir")" = "1000:1000" ]; then
-    :
-  elif [ "$(id -u)" -eq 0 ]; then
-    install -d -o 1000 -g 1000 -m 0750 "$opensearch_data_dir"
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo install -d -o 1000 -g 1000 -m 0750 "$opensearch_data_dir"
-  else
-    echo "OpenSearch data dir must exist and be owned by 1000:1000: $opensearch_data_dir" >&2
-    exit 1
-  fi
-fi
-
-docker compose \
-  "${compose_args[@]}" \
-  --env-file "$env_file" \
-  up -d --build --remove-orphans
-
-docker compose \
-  "${compose_args[@]}" \
-  --env-file "$env_file" \
-  ps
-
-mkdir -p "$(dirname "$state_file")"
-cat > "$state_file" <<STATE
-DEPLOY_COMMIT=${commit}
-DEPLOY_MODE=source-build
-DEPLOY_PROJECT_NAME=${project_name}
-DEPLOY_BUNDLE_DIR=${bundle_dir}
-STATE
+sudo ln -sfn "$release_dir" "$prd_root/current"
+printf 'DEPLOY_COMMIT=%s\nDEPLOY_RELEASE_DIR=%s\n' "$commit" "$release_dir" \
+  | sudo tee "$prd_root/deployed.env" >/dev/null
 REMOTE
