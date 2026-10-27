@@ -34,8 +34,9 @@ Notes:
     <commit-ish> on <to>. DNS still points at <from>; verify <to>, then switch DNS.
     To roll back, start the stopped containers on <from> again.
   - <to> must be prepared with setup_host.sh. <from> connects to <to> over SSH
-    with the forwarded agent. Set WEB_SEARCH_MOVE_TO_ADDRESS when <from> must use
-    a different address for <to>.
+    with the forwarded agent, so run this with ssh-agent holding a key that <to>
+    accepts. Set WEB_SEARCH_MOVE_TO_ADDRESS when <from> must use a different
+    address for <to>.
 USAGE
 }
 
@@ -62,10 +63,15 @@ copy_env() {
 copy_data() {
   local to_user
   local to_address
+  if ! ssh-add -l >/dev/null 2>&1; then
+    echo "<from> copies to <to> with the forwarded SSH agent; start ssh-agent and add a key that <to> accepts." >&2
+    exit 1
+  fi
   to_user="$(ssh "$TO" id -un)"
   to_address="${WEB_SEARCH_MOVE_TO_ADDRESS:-${TO#*@}}"
 
-  ssh -A "$FROM" bash -s -- "${to_user}@${to_address}" "$PRD_PROJECT" "$PRD_DATA_DIR" "${DATA_MOUNTS[@]}" <<'REMOTE'
+  # ssh joins arguments into one remote command line, so quote them for the remote shell.
+  ssh -A "$FROM" "bash -s -- $(printf '%q ' "${to_user}@${to_address}" "$PRD_PROJECT" "$PRD_DATA_DIR" "${DATA_MOUNTS[@]}")" <<'REMOTE'
 set -euo pipefail
 
 target="$1"
