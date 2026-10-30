@@ -4,7 +4,7 @@ name: web-search-prd
 
 services:
   caddy:
-    image: caddy:2.11.7
+    image: ghcr.io/tomato414941/web-search/caddy:c7364c791a1a5b7fafa88715b02258e74c88c59c@sha256:c48c29fa29232d1412d914c31cee3a8a21d47e6466beb2d2d1005bca220d42b0
     restart: unless-stopped
     ports:
       - "80:80"
@@ -222,7 +222,7 @@ services:
       start_period: 60s
 
   grafana:
-    image: ghcr.io/tomato414941/web-search/grafana:cb075e96f6b94c695b61b7709d0605a171a146dd
+    image: ghcr.io/tomato414941/web-search/grafana:c7364c791a1a5b7fafa88715b02258e74c88c59c@sha256:07b138e8abaccaec06d506b4dfdcb0957c13a88a508a50b744e0dcd72c420538
     restart: unless-stopped
     ports:
       - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
