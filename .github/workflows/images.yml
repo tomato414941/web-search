@@ -20,6 +20,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - service: caddy
+            context: deploy/caddy
+            dockerfile: deploy/caddy/Dockerfile
           - service: frontend
             context: .
             dockerfile: apps/frontend/Dockerfile

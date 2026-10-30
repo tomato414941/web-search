@@ -260,6 +260,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Test scoped production deployment
+        run: python3 -m unittest discover -s scripts/ops/tests -v
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
