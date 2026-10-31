@@ -56,7 +56,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ghcr.io/tomato414941/web-search/frontend:cb075e96f6b94c695b61b7709d0605a171a146dd
+    image: ghcr.io/tomato414941/web-search/frontend-runtime:ce46bb1a698b051ef35ecfed3fca9515dda19476@sha256:9f30b3eab2fc860ff5f2efa3706e87d77498dcdd8a84bbdf35f58d3e995c1f90
     restart: unless-stopped
     expose:
       - "8000"
@@ -86,7 +86,7 @@ services:
       start_period: 40s
 
   indexer:
-    image: ghcr.io/tomato414941/web-search/indexer:cb075e96f6b94c695b61b7709d0605a171a146dd
+    image: ghcr.io/tomato414941/web-search/indexer-runtime:ce46bb1a698b051ef35ecfed3fca9515dda19476@sha256:92fa21b4dc39f7e7e2d6633a1f8142ff44b9100125f8374d8dd48a251b5d2d28
     restart: unless-stopped
     expose:
       - "8000"
@@ -113,7 +113,7 @@ services:
       start_period: 20s
 
   crawler:
-    image: ghcr.io/tomato414941/web-search/crawler:1cc0cb7fec3e6bf23eda400e577f922899e20527
+    image: ghcr.io/tomato414941/web-search/crawler-runtime:ce46bb1a698b051ef35ecfed3fca9515dda19476@sha256:fdc9c3a5e4a910b7987c4fcf63591815a13341599941f6f5c7914e92c9392ffa
     restart: unless-stopped
     expose:
       - "8000"
@@ -141,7 +141,7 @@ services:
       start_period: 30s
 
   link-archive:
-    image: ghcr.io/tomato414941/web-search/link-archive:1cc0cb7fec3e6bf23eda400e577f922899e20527
+    image: ghcr.io/tomato414941/web-search/link-archive-runtime:ce46bb1a698b051ef35ecfed3fca9515dda19476@sha256:85c7ec8cb392c54e776b5a6de838921fe17670165353956f3459f0c90ae8a7c2
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://websearch:${POSTGRES_PASSWORD}@postgres:5432/websearch
