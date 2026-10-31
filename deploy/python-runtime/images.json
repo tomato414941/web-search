@@ -1,0 +1,18 @@
+{
+  "frontend": {
+    "application_commit": "cb075e96f6b94c695b61b7709d0605a171a146dd",
+    "image": "ghcr.io/tomato414941/web-search/frontend@sha256:b6ef0bf163af3d5b11c14277364e434323112ed1c0fd1f0ef6f5aabdf56e9989"
+  },
+  "indexer": {
+    "application_commit": "cb075e96f6b94c695b61b7709d0605a171a146dd",
+    "image": "ghcr.io/tomato414941/web-search/indexer@sha256:c6660863782c6cbf4945d2077cab7e66ecc0a82c709eec9f207c89fabb9308b7"
+  },
+  "crawler": {
+    "application_commit": "1cc0cb7fec3e6bf23eda400e577f922899e20527",
+    "image": "ghcr.io/tomato414941/web-search/crawler@sha256:50aead2b95df1484fa8ceeed7724fa537b693a416c8d8555d465e62231f6e62b"
+  },
+  "link-archive": {
+    "application_commit": "1cc0cb7fec3e6bf23eda400e577f922899e20527",
+    "image": "ghcr.io/tomato414941/web-search/link-archive@sha256:ba32777a707348910a8c6c01ad79c876c795056ef50bf5c8f9465a9e5030e777"
+  }
+}

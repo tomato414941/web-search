@@ -1,0 +1,69 @@
+name: Python Runtime Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/python-runtime/**'
+      - '.github/workflows/python-runtime-images.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [frontend, indexer, crawler, link-archive]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Resolve the pinned application image
+        id: application
+        env:
+          RUNTIME_SERVICE: ${{ matrix.service }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          item = json.loads(Path('deploy/python-runtime/images.json').read_text())[os.environ['RUNTIME_SERVICE']]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f"image={item['image']}\ncommit={item['application_commit']}\n")
+          PY
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - name: Build the runtime candidate
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/python-runtime
+          load: true
+          tags: runtime-validation:${{ matrix.service }}
+          build-args: |
+            APPLICATION_IMAGE=${{ steps.application.outputs.image }}
+            APPLICATION_COMMIT=${{ steps.application.outputs.commit }}
+          cache-from: type=gha,scope=runtime-${{ matrix.service }}
+          cache-to: type=gha,scope=runtime-${{ matrix.service }},mode=max
+      - name: Verify application preservation and certificate validation
+        run: |
+          docker pull '${{ steps.application.outputs.image }}'
+          python3 deploy/python-runtime/validate_image.py --service '${{ matrix.service }}' --candidate 'runtime-validation:${{ matrix.service }}'
+      - name: Publish the verified runtime image
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/python-runtime
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/web-search/${{ matrix.service }}-runtime:${{ github.sha }}
+          build-args: |
+            APPLICATION_IMAGE=${{ steps.application.outputs.image }}
+            APPLICATION_COMMIT=${{ steps.application.outputs.commit }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=runtime-${{ matrix.service }}
